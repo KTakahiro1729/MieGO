@@ -1,8 +1,39 @@
 # MieGO
 
-初心者向けの「地合い予測補助付きオンライン囲碁」の試作実装です。9路盤・中国式面積計算（コミ7.5目）、招待URLによる友人同士のWebRTC P2P対局を想定しています。
+**ブラウザだけでデプロイ・対局・運用できる**、地合い予測補助付きオンライン囲碁の試作実装です。9路盤・中国式面積計算（コミ7.5目）、招待URLによる友人同士のWebRTC P2P対局を想定しています。
 
-## ローカル実行
+## デプロイ（推奨: ブラウザだけで完結）
+
+**[Cloudflareのブラウザ完結デプロイマニュアル](DEPLOY_CLOUDFLARE.md)** を参照してください。PCへのNode.js、Git、Wranglerのインストールは不要です。
+
+1. Cloudflareダッシュボードの **Workers & Pages → Create application → Import a repository** からGitHubの `KTakahiro1729/MieGO` を選択します。
+2. Worker名 `miego`、Branch `main`、Build command `npm test`、Deploy command `npx wrangler deploy` を設定します。
+3. **Save and Deploy** を押して、完了したら表示された `workers.dev` のURLを開きます。
+4. `/api/health` から配信状態を確認し、招待URLを発行して友人と対局します。
+
+以後のコード編集はGitHubのWeb編集画面から行えます。GitHub上の`main`へのコミットをCloudflareが自動検知して更新します。**手動でのGit PushやローカルCLI操作は不要**ですが、CloudflareとGitHubの連携許可は必要です。
+
+## 現在の機能
+
+- 9路盤の着手、石の捕獲、自殺手禁止、単純コウ、パス、投了
+- 中国式面積計算、死石の指定、双方による終局確認
+- 仮置き・着手確定・ヒートマップとカラーマップ
+- 招待URL、WebRTC DataChannelによるP2P着手同期
+- WorkersとDurable Objectsによるシグナリング、必要時のTURN設定口
+- `/api/health`によるブラウザからの稼働確認
+
+**重要:** 地合い表示は現段階でKataGoではなく**ブラウザ内の簡易影響モデル**です。正確な所有確率、勝率、生死の判定ではありません。
+
+## 制限と安全性
+
+- Cloudflare本番環境の実デプロイ・スマホ2台でのE2E接続検証は未実施です。
+- `/api/ice` に参加者認証とレート制限はありません。安全対策を行うまで一般公開環境でTURNを有効化しないでください。
+- 対局ルームは信頼できる友人との試用向けです。切断復旧などの安定化は未完成です。
+- 日本式ルールは後回しです。中国式でも複雑な反復局面には未対応です。
+
+## 開発者向け（任意、CLI使用）
+
+ローカルで開発したい場合のみ以下を使用します。
 
 ```bash
 npm install
@@ -10,42 +41,4 @@ npm test
 npm run dev
 ```
 
-詳しい手順とセキュリティ上の注意点は **[Cloudflare展開マニュアル](DEPLOY_CLOUDFLARE.md)** にまとめています。
-
-Cloudflareへ直接デプロイする場合:
-
-```bash
-npx wrangler login
-npm run deploy
-```
-
-CloudflareへのデプロイにGitHubへのPushは必要ありません。
-
-## 現在の実装
-
-- 9路盤、中国式面積計算、石の捕獲、自殺手禁止、単純コウ、パス、投了
-- 仮置きと確定、地合いヒートマップ、3種類のカラーマップと透明度設定
-- Cloudflare Workers、Durable ObjectsのWebRTCシグナリングとDataChannelによる対局同期
-- 2人ルーム、招待URL、STUN、任意のTURN設定
-- 死石の指定と双方による終局確認
-
-**AI推定に関する注意:** ヒートマップは現時点ではKataGoではなく、周辺の石の影響を利用した簡易な推定です。領域所有確率や生死の正確な判定ではありません。
-
-## 未検証・未完成
-
-- Cloudflare本番デプロイ、複数端末のWebRTC対戦E2E
-- KataGo / WebGPU / WASMによる高精度なブラウザAI推論
-- 切断復帰・対局同期の堅牢化、対局ルームの認証と濫用対策
-- 中国式ルールの特殊な反復局面への完全対応
-- 日本式ルール（将来対応）
-
-**TURNを一般公開環境で有効化する前に** `/api/ice` の参加者認証とレート制限を実装してください。
-
-## ファイル構成
-
-- `public/core.mjs` — ルールエンジン、面積計算、SGF変換関数
-- `public/analysis-worker.mjs` — 地合い傾向の簡易推定
-- `public/app.mjs` — UI・WebRTC
-- `src/worker.mjs` — Cloudflare Workers、Durable Objects
-- `tests/core.test.mjs` — Node.jsでのルール単体テスト
-- `wrangler.jsonc` — Cloudflare設定
+ブラウザ完結ルートを利用する人には不要です。

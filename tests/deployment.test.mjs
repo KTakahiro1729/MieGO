@@ -5,8 +5,9 @@ import { fileURLToPath } from "node:url";
 import { resolve, dirname } from "node:path";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-test("Cloudflare entrypoints and static assets exist", () => {
+test("Workers deployment configuration and static assets are present", () => {
   const config = JSON.parse(readFileSync(resolve(root, "wrangler.jsonc"), "utf8"));
+  assert.equal(config.name, "miego");
   assert.equal(config.assets.binding, "ASSETS");
   assert.deepEqual(config.assets.run_worker_first, ["/api/*"]);
   assert.equal(config.durable_objects.bindings[0].class_name, "GameRoom");
@@ -15,4 +16,9 @@ test("Cloudflare entrypoints and static assets exist", () => {
       "public/core.mjs", "public/analysis-worker.mjs", "public/style.css"]) {
     assert.ok(existsSync(resolve(root, p)), "Missing required file: " + p);
   }
+});
+test("browser-readable deployment health check exists", () => {
+  const src = readFileSync(resolve(root, "src/worker.mjs"), "utf8");
+  assert.match(src, /url\.pathname === "\/api\/health"/);
+  assert.match(src, /durableObjectBinding:/);
 });

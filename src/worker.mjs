@@ -9,6 +9,14 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/api/health" && request.method === "GET") {
+      return json({
+        status: "ok",
+        app: "MieGO",
+        durableObjectBinding: Boolean(env.ROOMS),
+        turnConfigured: Boolean(env.TURN_KEY_ID && env.TURN_API_TOKEN)
+      });
+    }
     if (url.pathname === "/api/rooms" && request.method === "POST") {
       const bytes = crypto.getRandomValues(new Uint8Array(16));
       const room = [...bytes].map(b => b.toString(16).padStart(2, "0")).join("");
