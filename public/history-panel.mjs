@@ -1,21 +1,10 @@
 import {SIZE,BLACK} from "./core.mjs";
 import {parseSGF,exportSGF,replaySteps} from "./sgf.mjs";
+import {recordName,recordIcon,recordSummary,readOnlyHint,navigationState} from "./history-navigation.mjs";
 
 // Saved-record presentation and import/export. Live match mutations stay in app.mjs.
 export function createHistoryPanel({$,gameLibrary,storageError}) {
   let selection=null,step=0;
-  function recordName(record) {
-    if(record.source==="sgf")return "SGFから読み込んだ棋譜";
-    return record.mode==="ai"?"AIと対戦":record.mode==="online"?"友人と対戦":"1台で打つ";
-  }
-  function recordStatus(record) {
-    if(record.source==="sgf")return "読み込み済み";
-    return record.snapshot.status==="finished"?"終局済み":record.snapshot.status==="scoring"?"採点中":"対局中";
-  }
-  function dateLabel(timestamp) {
-    const date=new Date(timestamp);
-    return Number.isNaN(date.getTime())?"日時不明":date.toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
-  }
   function drawHistoryBoard(record) {
     const canvas=$("historyBoard"), ctx=canvas.getContext("2d"),d=canvas.width;
     const gap=d/(SIZE+1),pad=gap;
@@ -51,12 +40,12 @@ export function createHistoryPanel({$,gameLibrary,storageError}) {
     for(const record of records){
       const item=document.createElement("button");item.type="button";item.className="history-list-item";
       const icon=document.createElement("span");icon.className="history-list-icon";
-      icon.textContent=record.source==="sgf"?"SGF":record.mode==="online"?"↗":record.mode==="ai"?"AI":"●";
+      icon.textContent=recordIcon(record);
       const copy=document.createElement("span");copy.className="history-item-copy";
       const title=document.createElement("span");title.className="history-item-name";
       title.textContent=recordName(record);
       const desc=document.createElement("span");desc.className="history-item-meta";
-      desc.textContent=recordStatus(record)+" · "+record.snapshot.moveNumber+"手 · "+dateLabel(record.updatedAt);
+      desc.textContent=recordSummary(record);
       copy.append(title,desc);item.append(icon,copy);
       item.onclick=()=>showHistoryRecord(record.id);
       list.append(item);
@@ -65,17 +54,17 @@ export function createHistoryPanel({$,gameLibrary,storageError}) {
   function updateHistoryPosition() {
     const record=selection;
     if(!record)return;
-    const count=record.snapshot.moves.length;
-    step=Math.min(count,Math.max(0,step));
+    const navigation=navigationState(record,step);
+    step=navigation.step;
+    const count=navigation.count;
     $("historyStepLabel").textContent=step+" / "+count;
     $("historyStepRange").max=String(count);
     $("historyStepRange").value=String(step);
-    $("historyFirst").disabled=step===0;
-    $("historyPrevious").disabled=step===0;
-    $("historyNext").disabled=step===count;
-    $("historyLast").disabled=step===count;
-    $("historyResume").hidden=record.mode==="online" || record.source==="sgf" ||
-      record.snapshot.status==="finished" || step!==count;
+    $("historyFirst").disabled=navigation.firstDisabled;
+    $("historyPrevious").disabled=navigation.firstDisabled;
+    $("historyNext").disabled=navigation.lastDisabled;
+    $("historyLast").disabled=navigation.lastDisabled;
+    $("historyResume").hidden=!navigation.resumable;
     try {
       const state=replaySteps(record.snapshot,step);
       drawHistoryBoard({snapshot:state});
@@ -101,13 +90,8 @@ export function createHistoryPanel({$,gameLibrary,storageError}) {
     $("historyPanel").scrollTop=0;
     $("historyActionNotice").textContent="";
     $("historySelectionName").textContent=recordName(record);
-    $("historyMeta").textContent=recordStatus(record)+" · "+record.snapshot.moveNumber+"手 · "+
-      dateLabel(record.updatedAt)+(record.sgfMeta?" · コミ "+record.sgfMeta.komi:"");
-    $("historyReadOnlyHint").textContent=record.source==="sgf"?
-      "SGFの主変化のみを読み込みました。置き石・9路盤以外には未対応。検討はMieGOの中国式・コミ7.5で新しい対局として始まります。":
-      record.mode==="online"?"友人対局は閲覧専用です。途中局面の検討は別の1台対局として開始します。":
-      record.snapshot.status==="finished"?"終局した棋譜です。途中局面から新しい1台対局を始められます。":
-      "最後の局面から元の対局を再開するか、別の1台対局として検討できます。";
+    $("historyMeta").textContent=recordSummary(record,true);
+    $("historyReadOnlyHint").textContent=readOnlyHint(record);
     updateHistoryPosition();
     $("historyBack").focus();
   }
