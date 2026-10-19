@@ -67,7 +67,23 @@ test("AI handoff includes only link, URI rules and public specification, no dupl
  assert.ok(text.includes(url));
  assert.ok(text.includes("https://miego.example/ai.md"));
  assert.ok(text.includes("move"));
+ assert.match(text,/●=黒、○=白、・=空点/);
+ assert.match(text,/選択している局面（1手目）の盤面/);
  assert.equal(text.includes("SGF本文"),false);
  assert.equal(text.includes("次の一手を教えて"),false);
  assert.equal((text.match(/\(;GM\[1\]/g)||[]).length,0);
+});
+
+test("AI handoff glyph board matches selected move, not the end of the SGF",()=>{
+  const game=play(play(newGame(),at(3,3)),at(4,4));
+  const first=makeAiHandoff(makeReviewUrl("https://miego.example",{snapshot:game},1));
+  const second=makeAiHandoff(makeReviewUrl("https://miego.example",{snapshot:game},2));
+  assert.match(first,/選択している局面（1手目）/);
+  assert.match(second,/選択している局面（2手目）/);
+  const board1=first.split("A B C D E F G H J")[1].split("sgf は")[0];
+  const board2=second.split("A B C D E F G H J")[1].split("sgf は")[0];
+  assert.equal((board1.match(/●/g)||[]).length,1);
+  assert.equal((board1.match(/○/g)||[]).length,0);
+  assert.equal((board2.match(/●/g)||[]).length,1);
+  assert.equal((board2.match(/○/g)||[]).length,1);
 });
