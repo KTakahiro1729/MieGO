@@ -1,4 +1,5 @@
-import { exportSGF, parseSGF } from "./sgf.mjs";
+import { exportSGF, parseSGF, replaySteps } from "./sgf.mjs";
+import { formatBoardForAi, AI_BOARD_LEGEND } from "./board-text.mjs";
 
 // A human- and AI-readable 9x9 SGF is carried in the URL query string.
 // Keep the uncompressed SGF, rather than inventing a proprietary binary code.
@@ -41,10 +42,17 @@ export function readReviewUrl(input) {
 export function makeAiHandoff(reviewUrl) {
   const url=new URL(reviewUrl);
   const guide=new URL("/ai.md",url.origin);
+  const review=readReviewUrl(url.href);
+  if(review.kind!=="review")throw Error("棋譜URLではありません");
+  const shown=replaySteps(review.snapshot,review.step);
   return [
     "MieGOの9路盤棋譜URLです。以下のURL仕様に従って解釈・生成できます。",
     "",
     "棋譜URL: "+url.href,
+    "",
+    "選択している局面（"+review.step+"手目）の盤面：",
+    AI_BOARD_LEGEND,
+    formatBoardForAi(shown.board),
     "",
     "sgf はURLエンコードされた標準SGFの全着手列です。move は表示する手数で、0は初期盤面、省略時は最終局面です。",
     "同じ棋譜の別の局面はsgfを変えずmoveの値を変更して提示できます。",
