@@ -4,6 +4,7 @@ import { EndgameAdvisor } from "./endgame.mjs";
 import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
 import { PALETTES, ownershipPixel, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
+import { illegalMoveReasons, drawIllegalMoveMarker } from "./illegal-moves.mjs";
 import { gameStorageKey, parseGameSnapshot, needsSwitchConfirmation, freshLocalGame } from "./mode-state.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board"), ctx = canvas.getContext("2d");
@@ -138,12 +139,25 @@ function transitionOwnership(next) {
   };
   transitionFrame=requestAnimationFrame(tick);
 }
+let illegalCacheGame=null,illegalCache=new Map();
 function draw() {
   const d = canvas.width, gap = d / (SIZE + 1), pad = gap, b = candidate?.board || game.board;
   ctx.clearRect(0,0,d,d); ctx.fillStyle="#e5c58c";ctx.fillRect(0,0,d,d);
   ctx.strokeStyle="#685537";ctx.lineWidth=2;
   for(let i=0;i<SIZE;i++){const p=pad+i*gap;ctx.beginPath();ctx.moveTo(pad,p);ctx.lineTo(d-pad,p);ctx.moveTo(p,pad);ctx.lineTo(p,d-pad);ctx.stroke();}
   paintOwnership(d,gap,pad);
+  if(game.status==="playing" && isHumanTurn()) {
+    // This state is immutable; cache legal checks during heatmap animation.
+    if(illegalCacheGame!==game) {
+      illegalCacheGame=game;
+      illegalCache=illegalMoveReasons(game);
+    }
+    for(const [position,reason] of illegalCache) {
+      const x=pad+(position%SIZE)*gap;
+      const y=pad+Math.floor(position/SIZE)*gap;
+      drawIllegalMoveMarker(ctx,x,y,gap,reason);
+    }
+  }
   for(const [x,y] of [[2,2],[6,2],[4,4],[2,6],[6,6]]){
     ctx.beginPath();ctx.arc(pad+x*gap,pad+y*gap,4,0,Math.PI*2);ctx.fillStyle="#725b39";ctx.fill();
   }
