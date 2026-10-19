@@ -60,7 +60,7 @@ test("the game menu shares the action row with pass and keeps reset local-only",
   assert.match(html,/id="cancel"[^>]*aria-label="仮置きを戻す"/);
   assert.match(app,/if \(room \|\| gameMode!=="local"\) return;/);
   assert.match(app,/resetLocalGame"\)\.hidden=!!room \|\| gameMode!=="local"/);
-  assert.match(app,/game=freshLocalGame\(game\);\s*save\(\);show\(\);requestAnalysis\(\);/);
+  assert.match(app,/game=freshLocalGame\(game\);currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
 });
 test("settings button shows a toothed gear and is labeled",()=>{
   const gear=html.slice(html.indexOf('id="settingsToggle"'),html.indexOf('</button>',html.indexOf('id="settingsToggle"')));
