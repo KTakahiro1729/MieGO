@@ -1535,10 +1535,12 @@ function renderShareImages(){
     status.hidden=!!entry.url;
     status.textContent=entry.failed?"作れませんでした":"作成中…"+(entry.progress?" "+entry.progress:"");
   }
-  const file=shareImages[shareImageKind]?.file,button=$("shareImage");
-  button.disabled=!file;
-  button.textContent=file ? (canShareFile(file)?"SNSで共有":"画像を保存") :
+  // Saving always works; sharing appears where the device can take the file.
+  const file=shareImages[shareImageKind]?.file;
+  $("saveImage").disabled=$("shareImage").disabled=!file;
+  $("saveImage").textContent=file ? "画像を保存" :
     shareImages[shareImageKind]?.failed ? "画像を作れませんでした" : "画像を作成中…";
+  $("shareImage").hidden=!file || !canShareFile(file);
 }
 function clearShareImages(){
   shareImageJob++;shareImages={};
@@ -1564,14 +1566,15 @@ async function prepareShareImages(){
     renderShareImages();
   }
 }
-async function shareImage(){
+function saveImage(){
   const file=shareImages[shareImageKind]?.file;
   if(!file)return;
-  if(!canShareFile(file)){
-    downloadBlob(file,file.name);
-    $("shareNotice").textContent="画像を保存しました。";
-    return;
-  }
+  downloadBlob(file,file.name);
+  $("shareNotice").textContent="画像を保存しました。";
+}
+async function shareImage(){
+  const file=shareImages[shareImageKind]?.file;
+  if(!file || !canShareFile(file))return;
   try{await navigator.share({files:[file]});$("shareNotice").textContent="";}
   catch(error){
     if(error?.name!=="AbortError")$("shareNotice").textContent="画像を共有できません："+error.message;
@@ -1606,6 +1609,7 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && $("reviewMenu").open)$("reviewMenu").open=false;
 });
 $("reviewBranch").onclick=forkBoardReview;
+$("saveImage").onclick=saveImage;
 $("shareImage").onclick=()=>void shareImage();
 document.querySelectorAll('input[name="shareImageKind"]').forEach(input=>{
   input.onchange=e=>{

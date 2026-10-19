@@ -162,7 +162,10 @@
           <label><input type="radio" name="shareImageKind" value="still" checked><span><img id="shareStillPreview" class="share-preview" alt="共有する静止画のプレビュー" hidden><small id="shareStillStatus" class="share-preview share-preview-status">作成中…</small>静止画</span></label>
           <label><input type="radio" name="shareImageKind" value="animation"><span><img id="shareAnimationPreview" class="share-preview" alt="共有する棋譜アニメのプレビュー" hidden><small id="shareAnimationStatus" class="share-preview share-preview-status">作成中…</small>棋譜アニメ（GIF）</span></label>
         </div>
-        <button id="shareImage" class="primary full share-image-action" type="button" disabled>画像を作成中…</button>
+        <div class="share-image-actions">
+          <button id="saveImage" class="secondary" type="button" disabled>画像を保存</button>
+          <button id="shareImage" class="primary" type="button" disabled hidden>SNSで共有</button>
+        </div>
       </section>
       <section class="settings-section">
         <h3>棋譜</h3>

@@ -297,7 +297,9 @@ body{overflow:hidden}
 #reviewStepRange{flex:1;min-width:0;accent-color:var(--gold)}
 #reviewNotice{margin:0;color:#efca90;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
 #reviewNotice:empty{display:none}
-.share-panel .share-image-action{margin-top:16px}
+.share-image-actions{display:flex;gap:10px;margin-top:16px}
+.share-image-actions button{flex:1 1 0;min-width:0}
+.share-image-actions button[hidden]{display:none}
 .share-kind-choices span{display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px}
 .share-preview{display:block;width:100%;aspect-ratio:4/5;object-fit:contain;border-radius:8px;background:#0e1119}
 .share-preview[hidden]{display:none}

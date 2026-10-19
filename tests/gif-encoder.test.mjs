@@ -118,6 +118,10 @@ test("the share sheet makes a still PNG or a game GIF and shares or saves it",()
   assert.match(app,/target\.toBlob\([^)]*\)[^;]*"image\/png"/);
   assert.match(app,/buildGameAnimation\(/);
   // Share where the device can take the file, otherwise save it.
-  assert.match(app,/canShareFile\(file\)\?"SNSで共有":"画像を保存"/);
+  // Saving is always offered; sharing only where the device can take the file.
+  assert.match(app,/\$\("saveImage"\)\.onclick=saveImage/);
+  assert.match(app,/\$\("shareImage"\)\.hidden=!file \|\| !canShareFile\(file\)/);
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  assert.match(html,/<div class="share-image-actions">\s*<button id="saveImage" class="secondary"[^>]*>画像を保存<\/button>\s*<button id="shareImage" class="primary"[^>]*>SNSで共有<\/button>/);
   assert.match(app,/navigator\.share\(\{files:\[file\]\}\)/);
 });

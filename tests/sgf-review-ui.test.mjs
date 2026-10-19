@@ -62,7 +62,7 @@ test("sharing lives in one sheet beside settings, not in the replay menu",()=>{
  assert.ok(header.indexOf('id="settingsToggle"')<header.indexOf('id="shareToggle"'),"share sits right of settings");
  assert.match(header,/id="shareToggle"[^>]*aria-label="共有を開く"[^>]*aria-controls="sharePanel"/);
  const sheet=html.slice(html.indexOf('<aside id="sharePanel"'),html.indexOf('<aside id="modePanel"'));
- for(const id of ["shareImage","shareLink","shareAiLink","shareSgf","shareNotice","shareCopyFallback"])
+ for(const id of ["saveImage","shareImage","shareLink","shareAiLink","shareSgf","shareNotice","shareCopyFallback"])
    assert.match(sheet,new RegExp('id="'+id+'"'));
  const review=html.slice(html.indexOf('id="reviewMenu"'),html.indexOf('id="reviewNotice"'));
  assert.doesNotMatch(review,/id="share|SGFを保存|URLをコピー|AI向け|GIF/);
