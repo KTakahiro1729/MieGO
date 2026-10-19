@@ -14,7 +14,7 @@ import { createHistoryPanel } from "./history-panel.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 const $ = id => document.getElementById(id);
-const canvas = $("board"), ctx = canvas.getContext("2d");
+const canvas = $("board");
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
 let fallbackMode = false;
 function switchToFallback(reason) {
