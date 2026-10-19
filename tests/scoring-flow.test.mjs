@@ -53,5 +53,5 @@ test("manual score correction sends desired state and blocks late AI proposals",
   assert.match(app,/if\(!canApplyAutomatedReview\(game,deadReviewTouched,action\)\)return;/);
   assert.match(app,/deadReviewTouched=true;\s*deadReview="modified"/);
   assert.match(app,/scoringReview:game\.status==="scoring"/);
-  assert.match(app,/type:"dead_unavailable"/);
+  assert.match(app,/scoringReviewAction\("dead_unavailable"/);
 });

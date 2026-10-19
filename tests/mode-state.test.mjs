@@ -53,7 +53,7 @@ test("a local reset creates an empty independent game while retaining display as
   assert.equal(reset.moves.length,0);
 });
 test("the game menu shares the action row with pass and keeps reset local-only",()=>{
-  const row=html.slice(html.indexOf('<div class="action-row">'),html.indexOf('</div>',html.indexOf('<div class="action-row">')));
+  const row=html.slice(html.indexOf('<div id="actionRow" class="action-row">'),html.indexOf('</details>',html.indexOf('id="gameMenu"'))+10);
   assert.ok(row.indexOf('id="pass"') < row.indexOf('id="gameMenu"'));
   assert.match(row,/id="resetLocalGame"/);
   assert.match(row,/id="resign"/);
