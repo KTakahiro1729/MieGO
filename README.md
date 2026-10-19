@@ -99,3 +99,23 @@ Cloudflare公式仕様: https://developers.cloudflare.com/workers/previews/resou
 
 ### 中立の表示は透明
 所有傾向が0の地点には色を塗りません。白寄り・黒寄りへの傾向が強いほど、その色が濃くなります。中立は灰色ではなく碁盤の色がそのまま見えます。凡例と設定見本も碁盤色を背景にした透明グラデーションで表示し、濃さスライダーは不透明度の上限を調整します。
+
+## 友人対局の招待と復旧（実装ブランチの仕様）
+
+- 作成者が「ランダム／黒番／白番」を選択します。ランダムの抽選は作成者の端末で一度だけ実行し、再コピーでは再抽選しません。
+- 「招待リンクを準備する」→ Turnstile検証 → 「招待リンクをコピー」の順です。初回参加者もTurnstileを通過する必要があります。ローカル・AI対局、認証済み再接続には要求しません。
+- 相手用の招待URLには参加者ごとの秘密キーをフラグメントに配置します。作成者のURLは別で、黒白の座席は接続順と無関係です。
+- 色を変えた場合は「新しい設定で招待リンクを作り直す」となり、対局開始前のみ旧招待を失効させて新規ルームを発行します。
+- 碁盤・手順・採点状態は両端末の localStorage に保存します。Durable Objectsには認可情報と短期WebSocketチケットだけを保存し、着手データは保存しません。両端末の保存が失われた場合は復旧できません。
+- 再接続では同じ参加権限を利用し、WebRTCの再交渉後に双方の履歴と改訂番号を照合します。不一致時は自動上書きを停止します。
+- 通信はCloudflare STUNとWebRTC DataChannelのみで行います。TURN利用・対局データのサーバー中継は行いません。
+
+### Cloudflare Dashboardの設定（ターミナル不要）
+
+1. Turnstile → Add widget → Managed。MieGOの本番ホスト名を登録します。開発用Previewホストは必要に応じて別途登録します。
+2. Workers & Pages → miego → Settings → Variables and Secretsで `TURNSTILE_SITE_KEY`（Text）と `TURNSTILE_SECRET`（Secret）を登録します。GitHubへSecretを書き込まないでください。
+3. TURN用の `TURN_KEY_ID` と `TURN_API_TOKEN` は不要です。既存設定があれば不要な課金経路を避けるため削除します。
+4. PRのCIを確認し、ブラウザ実機のP2P・リロード・旧リンク失効を確認後、GitHubのUIからmainにマージします。GitHub連携されたWorkers Buildsで自動デプロイします。
+5. `/api/health`で `turnstileConfigured:true`、`durableObjectBinding:true`を確認します。2端末で招待・着手・途中リロード・切断復帰をテストします。
+
+本番のCloudflare設定前にはルーム作成が本人確認エラーとなります。Previewおよび本番環境の実機検証は別途必要です。
