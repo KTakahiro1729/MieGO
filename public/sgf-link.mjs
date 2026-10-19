@@ -46,7 +46,7 @@ export function makeAiHandoff(reviewUrl) {
   if(review.kind!=="review")throw Error("棋譜URLではありません");
   const shown=replaySteps(review.snapshot,review.step);
   return [
-    "MieGOの9路盤棋譜URLです。以下のURL仕様に従って解釈・生成できます。",
+    "MieGOの棋譜URL（9・13・19路盤）です。以下のURL仕様に従って解釈・生成できます。",
     "",
     "棋譜URL: "+url.href,
     "",

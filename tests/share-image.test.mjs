@@ -51,7 +51,7 @@ test("the card reads brand and rules, result, board, legend, then links",()=>{
   paintShareFrame({width:800,getContext:()=>ctx},{width:720},
     {moves:"42手目",rules:"コミ7.5目",result:"白が3.5目差で勝利",winner:"W",theme:"wood",legend:{palette:"mono",opacity:.55}});
   assert.deepEqual(ctx.texts.map(t=>t.text),["MieGO","42手目 · コミ7.5目","白が3.5目差で勝利",
-    "地合いの予想","白の地","黒の地","miego.fun","自分でプレイする","github.com/KTakahiro1729/MieGO","開発に参加する"]);
+    "地合いの推定","白の地","黒の地","miego.fun","自分でプレイする","github.com/KTakahiro1729/MieGO","開発に参加する"]);
   const [[bx,by,bs]]=ctx.images;
   const at=text=>ctx.texts.find(t=>t.text===text);
   assert.equal(at("MieGO").x,bx+bs/10,"text aligns with the grid's edge");
@@ -60,7 +60,7 @@ test("the card reads brand and rules, result, board, legend, then links",()=>{
   assert.ok(result.y>at("MieGO").y && result.y<by && result.font.includes("Mincho"));
   assert.ok(Math.abs(((stone[0]-16)+(result.x+result.text.length*10))/2-400)<1,"stone and result are centred");
   // The legend is titled, centred and sits just under the board.
-  assert.ok(at("地合いの予想").y>by+bs && at("黒の地").y<at("miego.fun").y);
+  assert.ok(at("地合いの推定").y>by+bs && at("黒の地").y<at("miego.fun").y);
   assert.ok(Math.abs((at("白の地").x+at("黒の地").x)/2-400)<1);
   // Each link is centred in its half of the board's width, the address above its purpose.
   assert.equal(at("miego.fun").x,bx+bs/4);
@@ -73,9 +73,13 @@ test("the card reads brand and rules, result, board, legend, then links",()=>{
   const plain=recordingContext();
   paintShareFrame({width:800,getContext:()=>plain},{width:720},
     {moves:"1手目",result:"対局中",winner:null,theme:"dark",legend:null});
-  assert.ok(!plain.texts.some(t=>t.text==="地合いの予想"),"no legend without colours");
+  assert.ok(!plain.texts.some(t=>t.text==="地合いの推定"),"no legend without colours");
   assert.equal(plain.arcs.length,0,"no stone before an unfinished result");
   assert.equal(plain.texts.find(t=>t.text==="対局中").x,400-15,"an unfinished result is centred alone");
+  const large=recordingContext();
+  paintShareFrame({width:800,getContext:()=>large},{width:720},
+    {moves:"1手目",result:"対局中",theme:"wood",boardSize:13});
+  assert.equal(large.texts[0].x,50+700/14,"a 13x13 card aligns to its own grid edge");
 });
 
 test("the animation replays every move and ends on the board as drawn",async()=>{
@@ -113,6 +117,9 @@ test("ownership is kept per game and position as signed bytes",()=>{
   assert.equal(fresh.recall("other-game",play(newGame(),at(4,4)).board),null);
   assert.ok(storage.get("miego:ownership:v1:game-1234").includes(boardHash(board)));
   assert.throws(()=>encodeOwnership([1,2]),/地合い/);
+  const big=Array(361).fill(.5),bigBoard=Array(361).fill(0);
+  new OwnershipStore(local).remember("game-1234",bigBoard,big);
+  assert.equal(new OwnershipStore(local).recall("game-1234",bigBoard).length,361,"19x19 positions are kept too");
 });
 
 test("committed positions keep the ownership shown, and animation frames use it",()=>{

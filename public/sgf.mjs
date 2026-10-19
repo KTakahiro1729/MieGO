@@ -1,9 +1,9 @@
-import { BLACK, WHITE, SIZE, HANDICAP_POINTS, MAX_HANDICAP, newGame, initialGame, handicapOf, komiOf, play, resume, boardHash } from "./core.mjs";
+import { BLACK, WHITE, BOARD_SIZES, isBoardSize, sizeOf, handicapPoints, maxHandicap, newGame, initialGame, handicapOf, komiOf, play, resume, boardHash } from "./core.mjs";
 
 const MAX_TEXT=512*1024, MAX_NODES=5000, MAX_DEPTH=40, MAX_STEPS=2000;
 const esc=value=>String(value??"").replace(/\\/g,"\\\\").replace(/\]/g,"\\]");
-const coord=position=>position===null?"":String.fromCharCode(
-  97+position%SIZE,97+Math.floor(position/SIZE));
+const coord=(position,size)=>position===null?"":String.fromCharCode(
+  97+position%size,97+Math.floor(position/size));
 
 function parseTree(text) {
   if(typeof text!=="string" || !text.trim() || text.length>MAX_TEXT)
@@ -57,10 +57,13 @@ function parseTree(text) {
   return root;
 }
 function first(root,name) {return root[name]?.[0]??null;}
-function decodeMove(value){
-  if(value==="")return null;
-  if(!/^[a-i]{2}$/.test(value))throw Error("9路盤以外の座標を検出しました。");
-  return (value.charCodeAt(1)-97)*SIZE+(value.charCodeAt(0)-97);
+function decodeMove(value,size){
+  // FF[4] keeps "tt" as a pass for boards up to 19x19 (FF[3] compatibility).
+  if(value==="" || value==="tt")return null;
+  const x=value.charCodeAt(0)-97,y=value.charCodeAt(1)-97;
+  if(!/^[a-s]{2}$/.test(value) || x>=size || y>=size)
+    throw Error(size+"路盤の外の座標を検出しました。");
+  return y*size+x;
 }
 // SGF primary line only; unsupported setup nodes are rejected rather than misread.
 export function parseSGF(text) {
@@ -68,23 +71,25 @@ export function parseSGF(text) {
   while(tree){nodes.push(...tree.nodes);tree=tree.children[0]||null;}
   const root=nodes[0];
   if(first(root,"GM")!==null && first(root,"GM")!=="1")throw Error("囲碁以外のSGFは読み込めません。");
-  if(first(root,"SZ")!=="9")throw Error("9路盤のSGF（SZ[9]）だけに対応しています。");
+  const size=Number(first(root,"SZ"));
+  if(!/^\d+$/.test(first(root,"SZ")??"") || !isBoardSize(size))
+    throw Error(BOARD_SIZES.join("・")+"路盤のSGF（SZ）だけに対応しています。");
   if(first(root,"FF")!==null && first(root,"FF")!=="4")throw Error("SGF形式FF[4]にのみ対応しています。");
   // Handicap is accepted only as MieGO's fixed star-point placement in the root.
   for(const node of nodes.slice(1))
     if(["AB","AW","AE","PL","HA"].some(prop=>prop in node))
       throw Error("途中の盤面編集を含むSGFには対応していません。");
   if(["AW","AE"].some(prop=>prop in root))throw Error("白石の配置・盤面編集を含むSGFには対応していません。");
-  const placed=(root.AB||[]).map(decodeMove);
+  const placed=(root.AB||[]).map(value=>decodeMove(value,size));
   const handicap=placed.length;
-  if(handicap===1 || handicap>MAX_HANDICAP ||
+  if(handicap===1 || handicap>maxHandicap(size) ||
      (first(root,"HA")!==null && Number(first(root,"HA"))!==handicap) ||
-     placed.some(p=>!HANDICAP_POINTS.slice(0,handicap).includes(p)) ||
+     placed.some(p=>!handicapPoints(size,handicap).includes(p)) ||
      new Set(placed).size!==handicap)
-    throw Error("MieGOの置き石の配置（2〜"+MAX_HANDICAP+"子・星）以外のSGFには対応していません。");
+    throw Error("MieGOの置き石の配置（2〜"+maxHandicap(size)+"子・星）以外のSGFには対応していません。");
   if(first(root,"PL")!==null && first(root,"PL")!==(handicap?"W":"B"))
     throw Error("SGFの手番指定（PL）に対応していません。");
-  let state=newGame(true,{handicap}),seen=0;
+  let state=newGame(true,{handicap,size}),seen=0;
   for(const node of nodes){
     if(("B" in node)&&("W" in node))throw Error("同じ節点に白黒両方の着手があります。");
     const key="B" in node?"B":"W" in node?"W":null;
@@ -95,7 +100,7 @@ export function parseSGF(text) {
     if(state.next!==color)throw Error(seen+"手目：黒白の着手順が正しくありません。");
     if(state.status==="scoring")state=resume(state);
     if(state.status!=="playing")throw Error("終局後に着手があります。");
-    try{state=play(state,decodeMove(node[key][0]));}
+    try{state=play(state,decodeMove(node[key][0],size));}
     catch(error){throw Error(seen+"手目："+error.message);}
   }
   const result=first(root,"RE");
@@ -149,13 +154,14 @@ export function exportSGF(record) {
   replaySteps(snapshot);
   const meta=record?.sgfMeta||{};
   const label=(key,value)=>value?key+"["+esc(value)+"]":"";
+  const size=sizeOf(snapshot.board);
   const moves=snapshot.moves.filter(m=>m.position!=="resign").map(m=>
-    ";"+(m.color===BLACK?"B":"W")+"["+coord(m.position)+"]").join("");
+    ";"+(m.color===BLACK?"B":"W")+"["+coord(m.position,size)+"]").join("");
   const result=meta.result||snapshot.result;
   const handicap=handicapOf(snapshot);
-  const setup=handicap?"HA["+handicap+"]AB"+HANDICAP_POINTS.slice(0,handicap)
-    .map(p=>"["+coord(p)+"]").join(""):"";
-  return "(;GM[1]FF[4]CA[UTF-8]SZ[9]KM["+esc(meta.komi??komiOf(snapshot))+"]RU["+
+  const setup=handicap?"HA["+handicap+"]AB"+handicapPoints(size,handicap)
+    .map(p=>"["+coord(p,size)+"]").join(""):"";
+  return "(;GM[1]FF[4]CA[UTF-8]SZ["+size+"]KM["+esc(meta.komi??komiOf(snapshot))+"]RU["+
     esc(meta.rules??"Chinese")+"]"+setup+label("PB",meta.blackName)+
     label("PW",meta.whiteName)+label("RE",result)+moves+")";
 }

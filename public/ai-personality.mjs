@@ -1,4 +1,4 @@
-import {play,neighbors,group} from "./core.mjs";
+import {play,neighbors,group,sizeOf} from "./core.mjs";
 
 const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 
@@ -6,13 +6,13 @@ const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
  * A neural ownership map is a control tendency, not a guarantee of life.
  */
 export function personalityFeatures(state, point, ownership) {
-  if (!Number.isInteger(point) || point<0 || point>=81 || state.board[point])
+  if (!Number.isInteger(point) || point<0 || point>=state.board.length || state.board[point])
     throw new Error("Invalid personality candidate");
-  if (!ownership || ownership.length!==81) return {invasion:0, reinforcement:0};
+  if (!ownership || ownership.length!==state.board.length) return {invasion:0, reinforcement:0};
   const side=state.next;
   const control=clamp(side * (Number(ownership[point]) || 0),-1,1);
   const invasion=clamp((-control-0.15)/0.85,0,1);
-  const adjacent=neighbors(point);
+  const adjacent=neighbors(point,sizeOf(state.board));
   const own=adjacent.filter(n=>state.board[n]===side);
   const opponent=adjacent.filter(n=>state.board[n]===-side);
   if (!own.length) return {invasion,reinforcement:0};

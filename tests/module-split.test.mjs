@@ -61,7 +61,7 @@ test("history panel is only a list and importer; main board owns replay state",(
     gameLibrary:{},storageError:()=>{},onSelect:()=>{}
   });
   assert.equal(typeof history.renderHistoryList,"function");
-  assert.equal(typeof history.openHistoryPanel,"function");
+  assert.equal(typeof history.showHistory,"function");
   assert.equal(typeof history.importHistoryFile,"function");
   assert.equal("selection" in history,false);
   assert.equal("step" in history,false);

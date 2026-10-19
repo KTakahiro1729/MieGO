@@ -1,10 +1,8 @@
-import {SIZE, BLACK} from "./core.mjs";
+import {SIZE as DEFAULT_SIZE, BLACK, sizeOf, starPoints} from "./core.mjs";
 import {ownershipPixel,showsOwnership} from "./territory-view.mjs";
 import {boardTheme} from "./board-theme.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
 import {scoringRegions} from "./scoring-regions.mjs";
-
-const STAR_POINTS = [[2,2],[6,2],[4,4],[2,6],[6,6]];
 
 /**
  * Draws the current board without modifying the match. Each draw reads one
@@ -14,9 +12,11 @@ const STAR_POINTS = [[2,2],[6,2],[4,4],[2,6],[6,6]];
 export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>document.createElement("canvas")}) {
   const ctx = canvas.getContext("2d");
   const overlayCanvas = createOverlayCanvas();
-  overlayCanvas.width = SIZE;
-  overlayCanvas.height = SIZE;
+  overlayCanvas.width = DEFAULT_SIZE;
+  overlayCanvas.height = DEFAULT_SIZE;
   const overlayContext = overlayCanvas.getContext("2d");
+  // The side length of the position being drawn; set at the start of each draw.
+  let SIZE = DEFAULT_SIZE;
 
   function paintGrid(theme, d, gap, pad) {
     ctx.clearRect(0,0,d,d);
@@ -43,7 +43,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const {game,boardReview,displayedOwnership,palette,opacity,boardTheme:themeName} = view;
     const values = boardReview ? boardReview.ownership : displayedOwnership;
     if(!boardReview && game.status!=="playing")return;
-    if(!showsOwnership(palette) || !values)return;
+    // An estimate for another board size (e.g. just after switching) is skipped.
+    if(!showsOwnership(palette) || !values || values.length!==SIZE*SIZE)return;
 
     const image = overlayContext.createImageData(SIZE,SIZE);
     for(let i=0;i<SIZE*SIZE;i++) {
@@ -63,7 +64,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   function paintStarPoints(theme,gap,pad) {
-    for(const [x,y] of STAR_POINTS) {
+    for(const point of starPoints(SIZE)) {
+      const x=point%SIZE, y=Math.floor(point/SIZE);
       ctx.beginPath();
       ctx.arc(pad+x*gap,pad+y*gap,4,0,Math.PI*2);
       ctx.fillStyle=theme.star;
@@ -207,6 +209,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const view=getView();
     const {game,boardReview}=view;
     const display=boardReview?.display||game;
+    SIZE=sizeOf(display.board);
+    if(overlayCanvas.width!==SIZE)overlayCanvas.width=overlayCanvas.height=SIZE;
     const theme=boardTheme(view.boardTheme);
     const d=canvas.width, gap=d/(SIZE+1), pad=gap;
     paintGrid(theme,d,gap,pad);

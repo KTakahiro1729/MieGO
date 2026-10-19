@@ -22,7 +22,7 @@ const INK = {wood:["#2e2416","rgba(46,36,22,.66)"],light:["#1d2127","rgba(29,33,
 const MINCHO = "'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', serif";
 const GOTHIC = "'Zen Kaku Gothic New', 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif";
 const FONT_TEXT = "MieGO0123456789.+〜·全手目まで白黒の投了時間切れで差が勝利引き分け対局中子局コミ"+
-  "地合いの予想自分でプレイする開発に参加abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/:-";
+  "地合いの推定自分でプレイする開発に参加abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/:-";
 
 /** Loads the card's two typefaces (subset to its text); falls back to system fonts. */
 let fontsReady=null;
@@ -70,7 +70,7 @@ function paintStone(ctx,theme,color,x,y,r) {
 function paintLegend(ctx,u,center,y,{palette,opacity,theme},muted) {
   const look=boardTheme(theme),w=220*u,h=8*u,x=center-w/2,steps=48;
   ctx.font="500 "+Math.round(14*u)+"px "+GOTHIC;ctx.fillStyle=muted;
-  ctx.textAlign="center";ctx.fillText("地合いの予想",center,y-14*u);
+  ctx.textAlign="center";ctx.fillText("地合いの推定",center,y-14*u);
   ctx.save();
   ctx.beginPath();ctx.roundRect?.(x,y-h/2,w,h,h/2);ctx.clip();
   ctx.fillStyle="rgb("+look.surface.join(",")+")";ctx.fillRect(x,y-h/2,w,h);
@@ -93,7 +93,7 @@ function paintLegend(ctx,u,center,y,{palette,opacity,theme},muted) {
  * canvas in the look `theme`; `legend` ({palette,opacity}) is drawn when the
  * image carries ownership colours.
  */
-export function paintShareFrame(target,board,{moves,rules="",result,winner=null,theme,legend=null}) {
+export function paintShareFrame(target,board,{moves,rules="",result,winner=null,theme,legend=null,boardSize=9}) {
   const {width,height}=shareFrameSize(target.width),u=width/800;
   const look=boardTheme(theme),[ink,muted]=INK[theme]||INK.wood;
   const ctx=target.getContext("2d");
@@ -109,8 +109,8 @@ export function paintShareFrame(target,board,{moves,rules="",result,winner=null,
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
   ctx.drawImage(board,bx,by,bs,bs);
 
-  // The grid's outer lines sit a tenth of the board in from its edge.
-  const left=bx+bs/10,right=bx+bs*.9;
+  // The grid's outer lines sit one line spacing in from the board's edge.
+  const left=bx+bs/(boardSize+1),right=bx+bs-bs/(boardSize+1);
   ctx.textBaseline="alphabetic";ctx.textAlign="left";
   ctx.font="700 "+Math.round(22*u)+"px Georgia, 'Times New Roman', serif";
   ctx.fillStyle=muted;ctx.fillText("MieGO",left,44*u);

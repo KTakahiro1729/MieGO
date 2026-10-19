@@ -1,4 +1,4 @@
-import {SIZE,BLACK,WHITE,areaScore,neighbors} from "./core.mjs";
+import {BLACK,WHITE,areaScore,neighbors,isBoardSize,sizeOf} from "./core.mjs";
 
 /** Area-scoring overlay: connected same-color groups AFTER adding owned
  * empty points as provisional stones. Labels count live stones AND area.
@@ -6,8 +6,9 @@ import {SIZE,BLACK,WHITE,areaScore,neighbors} from "./core.mjs";
  * original board for manual review until both players confirm.
  */
 export function scoringRegions(state) {
-  if(!state || !Array.isArray(state.board) || state.board.length!==SIZE*SIZE)
-    throw new Error("9路盤の局面が必要です");
+  if(!state || !Array.isArray(state.board) || !isBoardSize(Math.sqrt(state.board.length)))
+    throw new Error("対応する大きさの盤の局面が必要です");
+  const SIZE=sizeOf(state.board);
   const dead=new Set(state.dead||[]);
   const effective=state.board.map((stone,i)=>dead.has(i)?0:stone);
   const owned=areaScore(state).owned;
@@ -17,7 +18,7 @@ export function scoringRegions(state) {
     if(!filled[start]||seen.has(start))continue;
     const color=filled[start],positions=[start];seen.add(start);
     for(let head=0;head<positions.length;head++){
-      for(const next of neighbors(positions[head])){
+      for(const next of neighbors(positions[head],SIZE)){
         if(filled[next]!==color||seen.has(next))continue;
         seen.add(next);positions.push(next);
       }

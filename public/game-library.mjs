@@ -41,7 +41,7 @@ export class GameLibrary {
     if(!record || record.mode!==mode)throw Error("保存棋譜を取得できません");
     this.storage.setItem(ACTIVE+mode,id);
   }
-  save({id=null,mode,snapshot,roomId=null,lastPosition=null,humanColor=1,aiLevel="standard",
+  save({id=null,mode,snapshot,roomId=null,lastPosition=null,humanColor=1,
         aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null},expectedRevision=null) {
     if(!MODES.has(mode))throw Error("無効な対局モード");
     if(!parseGameSnapshot(JSON.stringify(snapshot)))throw Error("棋譜データが不正です");
@@ -60,7 +60,6 @@ export class GameLibrary {
       snapshot:JSON.parse(JSON.stringify(snapshot)),
       lastPosition:Number.isInteger(lastPosition)?lastPosition:null,
       humanColor:humanColor===-1?-1:1,
-      aiLevel:aiLevel==="gentle"?"gentle":"standard",
       // Records written before strength levels existed played at full policy.
       aiStrength:normalizeStrength(aiStrength),
       invasion:Number.isFinite(invasion)?invasion:50,
@@ -88,7 +87,7 @@ export class GameLibrary {
         (mode==="local"?this.storage.getItem("miego-local"):null);
       const snapshot=parseGameSnapshot(raw);
       if(!snapshot)continue;
-      const record=this.save({mode,snapshot,humanColor:settings.humanColor,aiLevel:settings.aiLevel,
+      const record=this.save({mode,snapshot,humanColor:settings.humanColor,
         invasion:settings.invasion,reinforcement:settings.reinforcement});
       this.setActive(mode,record.id);
     }
