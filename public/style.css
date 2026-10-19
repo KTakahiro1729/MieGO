@@ -192,3 +192,16 @@ button:hover:not(:disabled){border-color:#748094}
 .history-back{background:transparent;border:0;color:#e9cb85;padding:8px 0;font-size:13px;min-height:36px}
 #historyBoard{display:block;width:min(100%,360px);height:auto;aspect-ratio:1;margin:10px auto;border:6px solid #bc925b;border-radius:9px;background:#e5c58c;box-shadow:0 6px 20px #0006}
 .history-detail .full{width:100%;margin-top:15px}
+
+/* Saved game replay and SGF exchange, without a new page. */
+.history-import-row{margin-top:16px}
+.history-import-label{display:block;width:100%;min-height:44px;padding:11px 14px;border-radius:12px;border:1px solid #797375;color:#f5dfad;font-size:13px;text-align:center;cursor:pointer}
+.history-import-label:focus-within{outline:2px solid #eed183;outline-offset:2px}
+#historyImportFile{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.history-import-row:has(#historyImportFile:focus-visible) .history-import-label{outline:3px solid #eed183;outline-offset:2px}
+.replay-controls{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:12px}
+.replay-controls button{display:grid;place-items:center;flex:0 0 44px;min-width:44px;min-height:44px;padding:4px;background:#222b37;color:#f1f1f2;border-radius:12px;font-size:22px;font-weight:400}
+.replay-controls #historyStepLabel{text-align:center;color:#e3e2de;font-size:12px;font-variant-numeric:tabular-nums;min-width:55px;flex:1}
+.history-step-range{display:block;width:100%;accent-color:#f0c773;margin:16px 0}
+.history-detail #historyBranch,.history-detail #historyExport{background:#272d3b;border-color:#525967;color:#f3f2ed}
+@media(max-width:390px){.replay-controls{gap:4px}.replay-controls button{flex-basis:42px;min-width:42px}.replay-controls #historyStepLabel{min-width:48px;font-size:11px}}
