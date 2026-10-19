@@ -77,3 +77,53 @@ test("invalid records cannot be loaded or indexed as games",()=>{
  assert.equal(lib.load("fake-0000"),null);
  assert.equal(lib.active("local"),null);
 });
+
+test("imported SGF records are read-only and keep source metadata",()=>{
+ const {lib}=setup();
+ const imported=lib.save({mode:"local",snapshot:play(newGame(),40),source:"sgf",
+   sgfMeta:{komi:"6.5",rules:"Japanese",result:"W+R",blackName:"B",whiteName:"W"}});
+ const fetched=lib.load(imported.id);
+ assert.equal(fetched.source,"sgf");
+ assert.equal(fetched.sgfMeta.komi,"6.5");
+ assert.equal(fetched.sgfMeta.result,"W+R");
+ assert.equal(lib.active("local"),null);
+ const normal=lib.save({mode:"local",snapshot:newGame()});
+ assert.equal(normal.source,"played");
+ assert.equal(normal.sgfMeta,null);
+});
+test("SGF import/replay is exposed in saved game sheet without changing live game",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+ const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+ for(const id of ["historyImportFile","historyExport","historyFirst","historyPrevious",
+  "historyNext","historyLast","historyStepRange","historyBranch"]){
+  assert.match(html,new RegExp('id="'+id+'"'));
+ }
+ assert.match(app,/source==="sgf"/);
+ assert.match(app,/gameLibrary\.save\(\{mode:"local",snapshot:parsed\.snapshot,source:"sgf"/);
+ assert.match(app,/forkReview\(selected\.snapshot,historyStep\)/);
+ assert.match(app,/replaySteps\(record\.snapshot,historyStep\)/);
+});
+
+test("AI resumption distinguishes model initialization, a pending AI move and model failure",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+ assert.match(app,/!katagoReady\?"AIを準備中/);
+ assert.match(app,/KataGoの準備ができるまで待機中/);
+ assert.match(app,/AI対局を停止しました/);
+ assert.match(app,/gameMode=record.mode;game=JSON\.parse\(JSON\.stringify\(record\.snapshot\)\)/);
+});
+
+test("phase-two sheet keeps scoring UX, contextual feedback, and keyboard focus",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const h=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+ const a=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+ const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+ for(const id of ["historyActionNotice","historySaveNotice","scoringActions","openCurrentMode","historyStepRange"])
+   assert.match(h,new RegExp('id="'+id+'"'));
+ assert.match(a,/\$\("openCurrentMode"\)\.onclick/);
+ assert.match(a,/\$\("historyBack"\)\.focus\(\)/);
+ assert.match(a,/\$\("gameMenu"\)\.querySelector\("summary"\)\.focus\(\)/);
+ assert.match(a,/\$\("historyActionNotice"\)\.textContent="SGFを書き出しました/);
+ assert.match(css,/\.history-back\{min-height:44px\}/);
+});

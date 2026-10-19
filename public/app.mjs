@@ -7,6 +7,7 @@ import { choosePolicyMove } from "./ai-opponent.mjs";
 import { illegalMoveReasons, drawIllegalMoveMarker } from "./illegal-moves.mjs";
 import { needsSwitchConfirmation, freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
+import { parseSGF, exportSGF, replaySteps, forkReview } from "./sgf.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board"), ctx = canvas.getContext("2d");
@@ -54,7 +55,7 @@ function reviewUnavailable() {
   apply(scoringReviewAction("dead_unavailable"));
 }
 const gameLibrary=new GameLibrary(localStorage);
-let currentGameId=null,currentRevision=null,historySelection=null;
+let currentGameId=null,currentRevision=null,historySelection=null,historyStep=0;
 try {gameLibrary.migrateLegacy();}
 catch(error){console.warn("Saved-game migration failed",error);}
 function storageError(error){
@@ -375,7 +376,8 @@ function show() {
   $("turn").textContent=game.status==="finished"?"対局終了":
     game.status==="scoring"?"死石を確認":
     room?(connected?(myTurn?"あなたの番":"相手の番"):"対局相手を待っています"):
-    gameMode==="ai"?(isAiTurn()?"AIの番です":"あなたの番です"):
+    gameMode==="ai"?(fallbackMode?"AI対局を停止しました":!katagoReady?"AIを準備中…":
+      isAiTurn()?"AIの番です":"あなたの番です"):
     (game.next===BLACK?"黒の番です":"白の番です");
   if(!room)$("netStatus").textContent=gameMode==="ai"?"AIと対戦":"1台で打つ";
   $("netStatus").classList.toggle("online",connected);
@@ -383,7 +385,9 @@ function show() {
   $("hint").textContent=candidate?
     (room?"仮置き中 · 確定すると相手に届きます":"仮置き中 · 確定すると着手します"):
     game.status==="scoring"?"死石をタップして指定":
-    isAiTurn()?(fallbackMode?"KataGo利用不可。対AI戦は停止中":"AIが着手を計算しています…"):
+    gameMode==="ai" && fallbackMode?"KataGoを利用できないためAI対局は停止中":
+    gameMode==="ai" && !katagoReady?"KataGoの準備ができるまで待機中":
+    isAiTurn()?"AIが着手を計算しています…":
     "交点をタップして仮置き";
   $("confirm").disabled=!candidate || !myTurn;
   $("cancel").disabled=!candidate;
@@ -820,9 +824,11 @@ function openPanel(kind) {
   panel.querySelector(".settings-head button").focus();
 }
 function recordName(record) {
+  if(record.source==="sgf")return "SGFから読み込んだ棋譜";
   return record.mode==="ai"?"AIと対戦":record.mode==="online"?"友人と対戦":"1台で打つ";
 }
 function recordStatus(record) {
+  if(record.source==="sgf")return "読み込み済み";
   return record.snapshot.status==="finished"?"終局済み":record.snapshot.status==="scoring"?"採点中":"対局中";
 }
 function dateLabel(timestamp) {
@@ -854,8 +860,9 @@ function drawHistoryBoard(record) {
   });
 }
 function renderHistoryList() {
-  historySelection=null;
+  historySelection=null;historyStep=0;
   $("historyDetail").hidden=true;$("historyList").hidden=false;
+  $("historyPanel").scrollTop=0;
   const list=$("historyList");list.replaceChildren();
   let records=[];
   try{records=gameLibrary.list();}catch(error){storageError(error);}
@@ -863,7 +870,7 @@ function renderHistoryList() {
   for(const record of records){
     const item=document.createElement("button");item.type="button";item.className="history-list-item";
     const icon=document.createElement("span");icon.className="history-list-icon";
-    icon.textContent=record.mode==="online"?"↗":record.mode==="ai"?"AI":"●";
+    icon.textContent=record.source==="sgf"?"SGF":record.mode==="online"?"↗":record.mode==="ai"?"AI":"●";
     const copy=document.createElement("span");copy.className="history-item-copy";
     const title=document.createElement("span");title.className="history-item-name";
     title.textContent=recordName(record);
@@ -874,35 +881,70 @@ function renderHistoryList() {
     list.append(item);
   }
 }
+function updateHistoryPosition() {
+  const record=historySelection;
+  if(!record)return;
+  const count=record.snapshot.moves.length;
+  historyStep=Math.min(count,Math.max(0,historyStep));
+  $("historyStepLabel").textContent=historyStep+" / "+count;
+  $("historyStepRange").max=String(count);
+  $("historyStepRange").value=String(historyStep);
+  $("historyFirst").disabled=historyStep===0;
+  $("historyPrevious").disabled=historyStep===0;
+  $("historyNext").disabled=historyStep===count;
+  $("historyLast").disabled=historyStep===count;
+  $("historyResume").hidden=record.mode==="online" || record.source==="sgf" ||
+    record.snapshot.status==="finished" || historyStep!==count;
+  try {
+    const state=replaySteps(record.snapshot,historyStep);
+    drawHistoryBoard({snapshot:state});
+    $("historyBranch").disabled=false;
+    $("historyActionNotice").textContent="";
+  } catch(error) {
+    $("historyBranch").disabled=true;
+    $("historyResume").hidden=true;
+    $("historyActionNotice").textContent="棋譜を再生できません："+error.message;
+  }
+}
+function setHistoryStep(value){
+  historyStep=Number(value);
+  updateHistoryPosition();
+}
 function showHistoryRecord(id) {
   let record=null;
   try{record=gameLibrary.load(id);}catch(error){storageError(error);return;}
   if(!record)return;
-  historySelection=record;
+  historySelection=record;historyStep=record.snapshot.moves.length;
   $("historyList").hidden=true;$("historyEmpty").hidden=true;
   $("historyDetail").hidden=false;
+  $("historyPanel").scrollTop=0;
+  $("historyActionNotice").textContent="";
   $("historySelectionName").textContent=recordName(record);
-  $("historyMeta").textContent=recordStatus(record)+" · "+record.snapshot.moveNumber+"手 · "+dateLabel(record.updatedAt);
-  const resumable=record.mode!=="online" && record.snapshot.status!=="finished";
-  $("historyResume").hidden=!resumable;
-  $("historyReadOnlyHint").textContent=resumable?
-    "続きから打てます。いまの対局は履歴に残ります。":
-    record.mode==="online"?"保存局面の閲覧専用です。友人との再接続・同期は保証されません。":
-    "終局済みの棋譜は、ここで最終局面を閲覧できます。";
-  drawHistoryBoard(record);
+  $("historyMeta").textContent=recordStatus(record)+" · "+record.snapshot.moveNumber+"手 · "+
+    dateLabel(record.updatedAt)+(record.sgfMeta?" · コミ "+record.sgfMeta.komi:"");
+  $("historyReadOnlyHint").textContent=record.source==="sgf"?
+    "SGFの主変化のみを読み込みました。置き石・9路盤以外には未対応。検討はMieGOの中国式・コミ7.5で新しい対局として始まります。":
+    record.mode==="online"?"友人対局は閲覧専用です。途中局面の検討は別の1台対局として開始します。":
+    record.snapshot.status==="finished"?"終局した棋譜です。途中局面から新しい1台対局を始められます。":
+    "最後の局面から元の対局を再開するか、別の1台対局として検討できます。";
+  updateHistoryPosition();
+  $("historyBack").focus();
 }
 function openHistoryPanel() {
   $("gameMenu").open=false;
   $("settingsBackdrop").hidden=false;
   $("settingsPanel").hidden=true;$("modePanel").hidden=true;
   $("historyPanel").hidden=false;
+  $("historyActionNotice").textContent="";
+  $("historyPanel").scrollTop=0;
   $("settingsToggle").setAttribute("aria-expanded","false");
   renderHistoryList();
   $("closeHistory").focus();
 }
 function resumeHistoryRecord() {
   const selected=historySelection;
-  if(!selected || selected.mode==="online" || selected.snapshot.status==="finished")return;
+  if(!selected || selected.mode==="online" || selected.source==="sgf" ||
+     selected.snapshot.status==="finished" || historyStep!==selected.snapshot.moves.length)return;
   if(room && connected && !confirm("友人との対局から離れ、保存した棋譜を開きますか？"))return;
   // Save the current board before replacing it with the selected position.
   const same=selected.id===currentGameId && selected.mode===gameMode;
@@ -910,7 +952,7 @@ function resumeHistoryRecord() {
   if(room)leaveOnlineRoom();
   const record=gameLibrary.load(selected.id);
   if(!record || (!same && record.revision!==selected.revision)){
-    $("historySaveNotice").textContent="この棋譜が別のタブで更新されました。一覧を開き直してください。";
+    $("historyActionNotice").textContent="この棋譜が別のタブで更新されました。一覧を開き直してください。";
     return;
   }
   stopAiTurn();
@@ -936,14 +978,74 @@ function resumeHistoryRecord() {
   rememberSettings();
   closePanels();show();requestAnalysis();
 }
+async function importHistoryFile(file) {
+  if(!file)return;
+  try{
+    if(file.size>512*1024)throw Error("SGFファイルは512KB以内にしてください。");
+    const parsed=parseSGF(await file.text());
+    const record=gameLibrary.save({mode:"local",snapshot:parsed.snapshot,source:"sgf",sgfMeta:parsed.metadata,
+      lastPosition:parsed.snapshot.moves.at(-1)?.position??null});
+    // Import does not change the active game or its board.
+    renderHistoryList();showHistoryRecord(record.id);
+    $("historySaveNotice").textContent=parsed.variationsIgnored?
+      "SGFの分岐は最初の変化だけ読み込みました。":"SGFを保存しました。";
+  }catch(error){
+    $("historyPanel").scrollTop=0;
+    $("historySaveNotice").textContent="SGFを読み込めません："+error.message;
+  }finally{$("historyImportFile").value="";}
+}
+function exportHistorySGF() {
+  if(!historySelection)return;
+  try{
+    const text=exportSGF(historySelection);
+    const blob=new Blob([text],{type:"application/x-go-sgf;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement("a");link.href=url;
+    link.download="miego-"+historySelection.id+".sgf";
+    document.body.append(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    $("historyActionNotice").textContent="SGFを書き出しました。";
+  }catch(error){$("historyActionNotice").textContent="SGFの書き出しに失敗："+error.message;}
+}
+function branchHistoryPosition(){
+  if(!historySelection)return;
+  const selected=historySelection;
+  let fork;
+  try{fork=forkReview(selected.snapshot,historyStep);}
+  catch(error){$("historyActionNotice").textContent="この局面は検討できません："+error.message;return;}
+  if(room && connected && !confirm("友人との対局から離れて、この局面を1台で検討しますか？"))return;
+  if(!save())return;
+  if(room)leaveOnlineRoom();
+  stopAiTurn();gameMode="local";
+  game=fork;currentGameId=null;currentRevision=null;
+  const previous=selected.snapshot.moves.slice(0,historyStep).at(-1)?.position;
+  lastPosition=Number.isInteger(previous)?previous:null;
+  candidate=null;analysis=null;displayedOwnership=null;
+  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
+  lastOfferKey=null;endHintSuppressedUntil=-1;
+  deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
+  if(!save())return;
+  closePanels();show();requestAnalysis();
+}
+$("historyFirst").onclick=()=>setHistoryStep(0);
+$("historyPrevious").onclick=()=>setHistoryStep(historyStep-1);
+$("historyNext").onclick=()=>setHistoryStep(historyStep+1);
+$("historyLast").onclick=()=>historySelection&&setHistoryStep(historySelection.snapshot.moves.length);
+$("historyStepRange").oninput=e=>setHistoryStep(Number(e.target.value));
+$("historyImportFile").onchange=e=>{void importHistoryFile(e.target.files?.[0]);};
+$("historyExport").onclick=exportHistorySGF;
+$("historyBranch").onclick=branchHistoryPosition;
 $("openHistory").onclick=openHistoryPanel;
 $("openCurrentMode").onclick=()=>{
   $("gameMenu").open=false;
   if(room)openPanel("online");
   else if(gameMode==="ai")openPanel("ai");
 };
-$("closeHistory").onclick=()=>{closePanels();$("openHistory").focus();};
-$("historyBack").onclick=renderHistoryList;
+$("closeHistory").onclick=()=>{closePanels();$("gameMenu").querySelector("summary").focus();};
+$("historyBack").onclick=()=>{
+  renderHistoryList();
+  ($("historyList").querySelector("button")||$("historyImportFile")).focus();
+};
 $("historyResume").onclick=resumeHistoryRecord;
 document.addEventListener("storage",e=>{
   if(e.key?.startsWith("miego:game:v1:") && !$("historyPanel").hidden &&
