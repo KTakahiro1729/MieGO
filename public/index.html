@@ -46,6 +46,7 @@
             <span id="endStatus" aria-live="polite">終局を相談</span><span aria-hidden="true">›</span>
           </button>
           <span id="analysisStatus" role="status" aria-live="polite">地合いを準備中…</span>
+          <span id="illegalMoveNotice" role="status" aria-live="polite" hidden></span>
           <div id="endActions" class="end-actions" hidden>
             <p id="endDetail" class="visually-hidden">終局の提案はパスではありません。</p>
             <div class="end-buttons">
@@ -66,6 +67,7 @@
             <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h9a7 7 0 0 1 0 14h-2"/></svg>
           </button>
           <button id="confirm" class="primary" type="button" disabled><span class="button-stone" aria-hidden="true"></span>この手を打つ</button>
+          <button id="copyIllegalPrompt" class="secondary-action illegal-prompt-action" type="button" hidden>理由を質問する文をコピー</button>
           <button id="pass" class="secondary-action" type="button">パス</button>
           <div id="scoringActions" class="score-actions inline-score-actions" hidden>
             <button id="agree" class="primary" type="button" disabled>この計算に同意</button>
@@ -79,6 +81,11 @@
               <button id="resign" class="danger-button" type="button">投了する</button>
             </div>
           </details>
+        </div>
+        <div id="illegalPromptFallbackPanel" class="illegal-prompt-fallback" hidden>
+          <label for="illegalPromptFallback">自動コピーできませんでした。下の文章を選択してコピーしてください。</label>
+          <textarea id="illegalPromptFallback" readonly rows="7" spellcheck="false"></textarea>
+          <button id="closeIllegalPromptFallback" type="button">閉じる</button>
         </div>
         <section id="reviewPanel" class="review-panel" aria-label="棋譜を再生" hidden>
           <strong id="reviewTitle" class="visually-hidden">棋譜を確認中</strong>
