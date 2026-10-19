@@ -1,4 +1,5 @@
-import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash } from "./core.mjs";
+import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash, proposeEnd, answerEndProposal } from "./core.mjs";
+import { EndgameAdvisor } from "./endgame.mjs";
 import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
 import { PALETTES, paletteAt, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
@@ -9,6 +10,7 @@ let fallbackMode = false;
 function switchToFallback(reason) {
   if (fallbackMode) return;
   fallbackMode = true;
+  endgameAdvisor.reset();endgameStage="playing";
   katagoReady = false;
   aiThinking = false;
   aiJob = null;
@@ -33,12 +35,52 @@ let connected = false, roomCount = 0;
 let gameMode = room ? "online" : "local";
 let humanColor = BLACK, aiLevel = "standard", invasion = 50, reinforcement = 50;
 let katagoReady = false, aiThinking = false, aiJob = null;
+const endgameAdvisor = new EndgameAdvisor();
+let endgameStage = "playing", endExpanded = false, analysisContext = null;
+let lastOfferKey = null, endHintSuppressedUntil = -1;
+function myColorForEnd() {
+  if(room)return seat==="host"?BLACK:seat==="guest"?WHITE:null;
+  return gameMode==="ai"?humanColor:BLACK;
+}
+function updateEndUi() {
+  const playing=game.status==="playing";
+  const offer=playing?game.endProposal:null;
+  const color=myColorForEnd();
+  const incoming=!!(offer && room && color!==null && offer.from!==color);
+  const key=offer?offer.from+":"+offer.atMove:null;
+  if(incoming && key!==lastOfferKey)endExpanded=true;
+  lastOfferKey=key;
+  const label=!playing?(game.status==="scoring"?"採点中":"対局終了"):
+    offer?(incoming?"相手から終局の提案":!room?"終局の確認":"相手の返答待ち"):
+    fallbackMode?"終局の目安 · 判定不可":
+    endgameStage==="ready" && game.moveNumber>endHintSuppressedUntil?"終局を検討できます":
+    endgameStage==="near"?"終局が近いかもしれません":"終局の目安 · 対局中";
+  $("endStatus").textContent=label;
+  $("endToggle").disabled=!playing;
+  const expanded=playing && endExpanded;
+  $("endActions").hidden=!expanded;
+  $("endToggle").setAttribute("aria-expanded",String(expanded));
+  $("endPropose").hidden=!!offer;
+  $("endAccept").hidden=!offer || (!!room && !incoming);
+  $("endDecline").hidden=!offer;
+  for(const id of ["endPropose","endAccept","endDecline"])
+    $(id).disabled=!!room && (!connected || color===null);
+  $("endAccept").textContent=room?"同意して採点へ":"確認して採点へ";
+  $("endDecline").textContent=incoming?"対局を続ける":"提案を取り下げる";
+  $("endDetail").textContent=offer
+    ? incoming?"同意すると死石の確認へ進みます。拒否して打ち続けられます。":
+      !room?"採点に進むか、そのまま打ち続けるか選べます。":
+      "相手の返答を待っています。提案中でも着手できます。"
+    : "終局の提案はパスではありません。相手の同意までは対局を続けられます。";
+}
+
 const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" && game.next === -humanColor;
 const isHumanTurn = () => room
   ? (connected && (seat === "host" ? game.next === BLACK : game.next === WHITE))
   : (gameMode !== "ai" || (katagoReady && !fallbackMode && game.next === humanColor));
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
+  analysisContext=null;
   pending = ++seq;
   clearTimeout(analysisTimer);
 }
@@ -256,6 +298,7 @@ function show() {
     $("agree").textContent=game.agreed[agreeing]?"確認済み":"この計算に同意";
     $("resume").disabled=room&&!connected;
   }
+  updateEndUi();
   draw();
 }
 function apply(action, remote=false) {
@@ -270,8 +313,22 @@ function apply(action, remote=false) {
     else if(action.type==="agree") game=agreeScore(game,action.color);
     else if(action.type==="resume") game=resume(game);
     else if(action.type==="mode") game=setAssisted(game,action.value);
+    else if(action.type==="end_offer") {
+      if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
+        throw new Error("終局の提案時点が一致しません");
+      game=proposeEnd(game,action.color);
+      if(remote)endExpanded=true;
+    } else if(action.type==="end_answer") {
+      if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
+        throw new Error("終局の返答時点が一致しません");
+      game=answerEndProposal(game,action.color,Boolean(action.accept));
+      if(!action.accept)endHintSuppressedUntil=game.moveNumber+4;
+      endExpanded=false;
+    }
     else return;
-    candidate=null;save();show();requestAnalysis();
+    if(action.type==="move")endExpanded=false;
+    candidate=null;save();show();
+    if(!["end_offer","end_answer"].includes(action.type))requestAnalysis();
     if(!remote&&room) send({type:"action",action});
   }catch(error){alert(error.message); if(remote){$("netStatus").textContent="同期エラー";channel?.close();}}
 }
@@ -305,6 +362,34 @@ $("agree").onclick=()=>{
   if(gameMode==="ai" && game.status==="scoring")apply({type:"agree",color:-humanColor});
 };
 $("resume").onclick=()=>apply({type:"resume"});
+$("endToggle").onclick=()=>{
+  if(game.status!=="playing")return;
+  endExpanded=!endExpanded;updateEndUi();
+};
+$("endPropose").onclick=()=>{
+  if(game.status!=="playing" || game.endProposal)return;
+  const color=myColorForEnd();
+  if(!color || (room&&!connected))return;
+  apply({type:"end_offer",color,number:game.moveNumber,before:boardHash(game.board)});
+  endExpanded=true;updateEndUi();
+};
+$("endAccept").onclick=()=>{
+  if(game.status!=="playing" || !game.endProposal)return;
+  const color=myColorForEnd();
+  if(room && (color===null || !connected || game.endProposal.from===color))return;
+  // Solo/AI players perform the confirmation themselves; no AI dead-stone
+  // adjudication or fictitious consecutive passes are inserted in the record.
+  const responder=room?color:-game.endProposal.from;
+  apply({type:"end_answer",color:responder,accept:true,
+    number:game.moveNumber,before:boardHash(game.board)});
+};
+$("endDecline").onclick=()=>{
+  if(game.status!=="playing" || !game.endProposal)return;
+  const color=myColorForEnd();
+  if(!color || (room&&!connected))return;
+  apply({type:"end_answer",color,accept:false,
+    number:game.moveNumber,before:boardHash(game.board)});
+};
 $("assisted").onchange=e=>apply({type:"mode",value:e.target.checked});
 $("palette").onchange=e=>{palette=Object.hasOwn(PALETTES,e.target.value)?e.target.value:"mono";localStorage.setItem("miego-palette",palette);draw();updateGradient();};
 $("opacity").oninput=e=>{opacity=Number(e.target.value)/100;localStorage.setItem("miego-opacity",String(opacity));$("opacityValue").textContent=e.target.value+"%";draw();};
@@ -343,7 +428,10 @@ function setupChannel(c){
     let msg;try{msg=JSON.parse(e.data);}catch{return;}
     if(msg.type==="snapshot"&&seat==="guest"){
       if(!msg.game||!Array.isArray(msg.game.board)||msg.game.board.length!==81)return;
-      game=msg.game;lastPosition=msg.lastPosition;candidate=null;show();requestAnalysis();
+      game=msg.game;lastPosition=msg.lastPosition;candidate=null;
+      endgameAdvisor.reset();endgameStage="playing";
+      endExpanded=!!game.endProposal && game.endProposal.from!==myColorForEnd();
+      show();requestAnalysis();
     }
     if(msg.type==="action")apply(msg.action,true);
   };
@@ -488,7 +576,9 @@ $("nativeShare").onclick = async () => {
 if (room) { showInviteLink(); void joinRoom(); }
 else try{
   const saved=JSON.parse(localStorage.getItem("miego-local")||"null");
-  if(saved?.board?.length===81&&Array.isArray(saved.moves))game=saved;
+  if(saved?.board?.length===81&&Array.isArray(saved.moves)){
+    game=saved;endExpanded=!!game.endProposal;
+  }
   const settings=JSON.parse(localStorage.getItem("miego-local-settings")||"null");
   if(settings) {
     gameMode=settings.mode==="ai"?"ai":"local";
