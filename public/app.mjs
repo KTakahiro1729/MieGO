@@ -11,6 +11,7 @@ import { stoneForPreview } from "./board-preview.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { parseSGF, exportSGF, replaySteps, forkReview } from "./sgf.mjs";
+import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board"), ctx = canvas.getContext("2d");
@@ -78,6 +79,8 @@ function reviewUnavailable() {
 }
 const gameLibrary=new GameLibrary(localStorage);
 let currentGameId=null,currentRevision=null,historySelection=null,historyStep=0;
+// The actual match always remains in 'game'; only the visible board is replayed.
+let boardReview=null,reviewWorker=null,reviewSequence=0;
 try {gameLibrary.migrateLegacy();}
 catch(error){console.warn("Saved-game migration failed",error);}
 function storageError(error){
@@ -154,10 +157,12 @@ overlayCanvas.width = SIZE; overlayCanvas.height = SIZE;
 const overlayContext = overlayCanvas.getContext("2d");
 
 function paintOwnership(d, gap, pad) {
-  if (!game.assisted || !displayedOwnership) return;
+  const shown=boardReview?.display||game;
+  const values=boardReview?boardReview.ownership:displayedOwnership;
+  if (!shown.assisted || !values) return;
   const data = overlayContext.createImageData(SIZE,SIZE);
   for (let i=0;i<SIZE*SIZE;i++) {
-    const [r,g,b,a]=ownershipPixel(displayedOwnership[i],palette,opacity);
+    const [r,g,b,a]=ownershipPixel(values[i],palette,opacity);
     const p=i*4;
     data.data[p]=r; data.data[p+1]=g; data.data[p+2]=b; data.data[p+3]=a;
   }
@@ -188,12 +193,14 @@ function transitionOwnership(next) {
 }
 let illegalCacheGame=null,illegalCache=new Map();
 function draw() {
-  const d = canvas.width, gap = d / (SIZE + 1), pad = gap;
+  const display=boardReview?.display||game;
+  const d = canvas.width, gap = d / (SIZE + 1), pad = gap, b = display.board;
+  const proposedBoard = boardReview ? null : candidate?.board;
   ctx.clearRect(0,0,d,d); ctx.fillStyle="#e5c58c";ctx.fillRect(0,0,d,d);
   ctx.strokeStyle="#685537";ctx.lineWidth=2;
   for(let i=0;i<SIZE;i++){const p=pad+i*gap;ctx.beginPath();ctx.moveTo(pad,p);ctx.lineTo(d-pad,p);ctx.moveTo(p,pad);ctx.lineTo(p,d-pad);ctx.stroke();}
   paintOwnership(d,gap,pad);
-  if(game.status==="playing" && isHumanTurn()) {
+  if(!boardReview && game.status==="playing" && isHumanTurn()) {
     // This state is immutable; cache legal checks during heatmap animation.
     if(illegalCacheGame!==game) {
       illegalCacheGame=game;
@@ -208,9 +215,9 @@ function draw() {
   for(const [x,y] of [[2,2],[6,2],[4,4],[2,6],[6,6]]){
     ctx.beginPath();ctx.arc(pad+x*gap,pad+y*gap,4,0,Math.PI*2);ctx.fillStyle="#725b39";ctx.fill();
   }
-  const preview = candidate?.moves.at(-1)?.position;
-  for(let i=0;i<game.board.length;i++){
-    const { color, captured } = stoneForPreview(game.board, candidate?.board, i);
+  const preview = boardReview?null:candidate?.moves.at(-1)?.position;
+  for(let i=0;i<b.length;i++){
+    const {color,captured} = stoneForPreview(b, proposedBoard, i);
     if(!color)continue;
     const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
     const r=gap*.44;ctx.save();
@@ -226,10 +233,11 @@ function draw() {
       ctx.save();ctx.strokeStyle="#f5d58b";ctx.lineWidth=3;ctx.setLineDash([7,5]);
       ctx.beginPath();ctx.arc(x,y,r+4,0,Math.PI*2);ctx.stroke();ctx.restore();
     }
-    if(game.status==="scoring"&&game.dead.includes(i)){ctx.strokeStyle="#d95a4e";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x-r*.45,y-r*.45);ctx.lineTo(x+r*.45,y+r*.45);ctx.moveTo(x+r*.45,y-r*.45);ctx.lineTo(x-r*.45,y+r*.45);ctx.stroke();}
+    if(!boardReview && game.status==="scoring"&&game.dead.includes(i)){ctx.strokeStyle="#d95a4e";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x-r*.45,y-r*.45);ctx.lineTo(x+r*.45,y+r*.45);ctx.moveTo(x+r*.45,y-r*.45);ctx.lineTo(x-r*.45,y+r*.45);ctx.stroke();}
   }
-  if(lastPosition!==null && !candidate && game.status==="playing"){
-    const x=pad+(lastPosition%SIZE)*gap,y=pad+Math.floor(lastPosition/SIZE)*gap;
+  const marker=boardReview?display.moves.at(-1)?.position:lastPosition;
+  if(Number.isInteger(marker) && (boardReview||(!candidate && game.status==="playing"))){
+    const x=pad+(marker%SIZE)*gap,y=pad+Math.floor(marker/SIZE)*gap;
     ctx.fillStyle="#d0b25c";ctx.fillRect(x-4,y-4,8,8);
   }
 }
@@ -387,6 +395,12 @@ function handleAnalysis(event) {
 }
 worker.onmessage=handleAnalysis;
 function show() {
+  if(boardReview){renderBoardReview();return;}
+  $("actionRow").hidden=false;
+  $("reviewPanel").hidden=true;
+  $("endgameBar").hidden=false;
+  $("scoreBox").hidden=false;
+  $("modePicker").disabled=false;
   const myTurn=isHumanTurn();
   $("modePicker").value=room ? "online" : gameMode;
   $("startAi").disabled=!katagoReady || fallbackMode;
@@ -405,7 +419,7 @@ function show() {
     (game.next===BLACK?"黒の番です":"白の番です");
   if(!room)$("netStatus").textContent=gameMode==="ai"?"AIと対戦":"1台で打つ";
   $("netStatus").classList.toggle("online",connected);
-  $("moveLabel").textContent=game.moveNumber+"手目";
+  $("moveLabel").textContent=game.moveNumber+"手目 ‹ ›";
   $("hint").textContent=candidate?"仮置き中。確定か取り消しを選べます":
     game.status==="scoring"?"盤上の石をタップすると死石を指定できます":
     gameMode==="ai" && fallbackMode?"KataGoを利用できないためAI対局は停止中":
@@ -547,6 +561,7 @@ function apply(action, remote=false) {
   }catch(error){alert(error.message); if(remote){$("netStatus").textContent="同期エラー";p2pTransport.refresh();}}
 }
 function submitMove(position,fromAi=false){
+  if(boardReview && !fromAi)return;
   if(!fromAi && !isHumanTurn())return;
   if(fromAi && !isAiTurn())return;
   const before=boardHash(game.board);
@@ -555,6 +570,7 @@ function submitMove(position,fromAi=false){
   apply({type:"move",position,number:game.moveNumber+1,before,after:boardHash(next.board)});
 }
 canvas.addEventListener("click",e=>{
+  if(boardReview)return;
   const rect=canvas.getBoundingClientRect(),x=Math.round(((e.clientX-rect.left)/rect.width*canvas.width-canvas.width/(SIZE+1))/(canvas.width/(SIZE+1))),
     y=Math.round(((e.clientY-rect.top)/rect.height*canvas.height-canvas.height/(SIZE+1))/(canvas.height/(SIZE+1)));
   if(x<0||x>=SIZE||y<0||y>=SIZE)return;
@@ -868,6 +884,193 @@ function openPanel(kind) {
   const panel=kind==="settings"?$("settingsPanel"):$("modePanel");
   panel.querySelector(".settings-head button").focus();
 }
+function renderBoardReview() {
+  if(!boardReview)return;
+  // The live match may advance over WebRTC or AI while the chosen step stays fixed.
+  if(boardReview.source==="live")boardReview.snapshot=game;
+  const {snapshot,step,source}=boardReview, count=snapshot.moves.length;
+  $("reviewTitle").textContent=source==="url"?"共有棋譜を確認中":"棋譜を確認中";
+  $("reviewStepText").textContent=step+" / "+count+"手";
+  $("reviewStepRange").max=String(count);
+  $("reviewStepRange").value=String(step);
+  $("reviewFirst").disabled=step===0;
+  $("reviewPrevious").disabled=step===0;
+  $("reviewNext").disabled=step>=count;
+  $("reviewLast").disabled=step>=count;
+  $("reviewBack").textContent=source==="url"?"閉じる":"戻る";
+  const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
+  $("reviewNewMoves").hidden=updates===0;
+  $("reviewNewMoves").textContent=updates>0?"新着 +"+updates:"";
+  $("moveLabel").textContent=step+" / "+count+"手";
+  $("moveLabel").setAttribute("aria-label","棋譜再生を終了する");
+  $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
+  $("turn").textContent="棋譜を確認中";
+  $("modePicker").disabled=true;
+  $("actionRow").hidden=true;
+  $("endgameBar").hidden=true;
+  $("scoreBox").hidden=true;
+  $("reviewPanel").hidden=false;
+  draw();
+}
+function requestReviewOwnership() {
+  if(!boardReview)return;
+  boardReview.ownership=null;
+  boardReview.analysisId=++reviewSequence;
+  if(!boardReview.display.assisted){draw();return;}
+  if(!reviewWorker){
+    reviewWorker=new Worker("/analysis-worker.mjs",{type:"module"});
+    reviewWorker.onmessage=e=>{
+      if(!boardReview || e.data.id!==boardReview.analysisId ||
+         !Array.isArray(e.data.ownership) || e.data.ownership.length!==SIZE*SIZE)return;
+      boardReview.ownership=e.data.ownership;
+      draw();
+    };
+    reviewWorker.onerror=e=>{
+      console.warn("Review ownership unavailable",e);
+      $("reviewNotice").textContent="過去局面の地合い推定を表示できません。";
+      reviewWorker?.terminate();reviewWorker=null;
+    };
+  }
+  reviewWorker.postMessage({id:boardReview.analysisId,board:boardReview.display.board});
+}
+function enterBoardReview(snapshot,step,source="live",metadata=null) {
+  const display=replaySteps(snapshot,step);
+  boardReview={snapshot,display,step,source,metadata,ownership:null,
+    openedAt:game.moveNumber,analysisId:0};
+  $("reviewNotice").textContent="";
+  $("reviewCopyFallback").hidden=true;
+  $("reviewMenu").open=false;
+  show();requestReviewOwnership();
+}
+function setBoardReviewStep(step) {
+  if(!boardReview)return;
+  const snapshot=boardReview.source==="live"?game:boardReview.snapshot;
+  if(!Number.isInteger(step)||step<0||step>snapshot.moves.length)return;
+  try{
+    const display=replaySteps(snapshot,step);
+    boardReview.snapshot=snapshot;
+    boardReview.display=display;boardReview.step=step;
+    $("reviewNotice").textContent="";
+    $("reviewCopyFallback").hidden=true;
+    show();requestReviewOwnership();
+  }catch(error){$("reviewNotice").textContent="棋譜を再生できません："+error.message;}
+}
+function leaveBoardReview() {
+  if(!boardReview)return;
+  const wasUrl=boardReview.source==="url";
+  boardReview=null;reviewSequence++;
+  if(wasUrl)clearImportedReviewUrl();
+  $("reviewCopyFallback").hidden=true;
+  $("reviewMenu").open=false;
+  $("moveLabel").setAttribute("aria-label","棋譜を再生する");
+  show();requestAnalysis();
+  $("moveLabel").focus();
+}
+function clearImportedReviewUrl() {
+  const url=new URL(location.href);
+  if(!url.searchParams.has("sgf"))return;
+  url.searchParams.delete("sgf");url.searchParams.delete("move");
+  history.replaceState(null,"",url.pathname+url.search+url.hash);
+}
+function forkBoardReview() {
+  if(!boardReview)return;
+  let fork;
+  try{fork=forkReview(boardReview.snapshot,boardReview.step);}
+  catch(error){$("reviewNotice").textContent="この局面から検討できません："+error.message;return;}
+  if(room && connected && !confirm("友人との対局から離れて、この局面を1台で検討しますか？"))return;
+  if(!save())return;
+  if(room)leaveOnlineRoom();
+  stopAiTurn();gameMode="local";game=fork;
+  currentGameId=null;currentRevision=null;
+  const last=game.moves.at(-1)?.position;
+  lastPosition=Number.isInteger(last)?last:null;
+  candidate=null;analysis=null;displayedOwnership=null;
+  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
+  lastOfferKey=null;endHintSuppressedUntil=-1;
+  deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
+  clearImportedReviewUrl();
+  boardReview=null;reviewSequence++;
+  $("reviewMenu").open=false;
+  save();show();requestAnalysis();
+}
+async function copyReviewText(text,statusId,fallbackId) {
+  const status=$(statusId),field=$(fallbackId);
+  try{
+    if(typeof navigator.clipboard?.writeText!=="function")throw Error("clipboard unavailable");
+    await navigator.clipboard.writeText(text);
+    field.hidden=true;status.textContent="コピーしました。";
+  }catch{
+    field.value=text;field.hidden=false;field.focus();field.select();
+    try{field.setSelectionRange(0,text.length);}catch{}
+    status.textContent="自動コピーできませんでした。選択された文章を手動でコピーしてください。";
+  }
+}
+function selectedBoardReviewUrl() {
+  const {snapshot,metadata,step}=boardReview;
+  const moves=snapshot.moves.filter(m=>m.position!=="resign").length;
+  return makeReviewUrl(location.origin,{snapshot,sgfMeta:metadata},Math.min(step,moves));
+}
+async function shareBoardReview(ai) {
+  if(!boardReview)return;
+  try{
+    const url=selectedBoardReviewUrl();
+    await copyReviewText(ai?makeAiHandoff(url):url,"reviewNotice","reviewCopyFallback");
+  }catch(error){$("reviewNotice").textContent="共有URLを作れません："+error.message;}
+}
+async function shareHistoryReview(ai) {
+  if(!historySelection)return;
+  try{
+    const moves=historySelection.snapshot.moves.filter(m=>m.position!=="resign").length;
+    const link=makeReviewUrl(location.origin,historySelection,Math.min(historyStep,moves));
+    await copyReviewText(ai?makeAiHandoff(link):link,"historyActionNotice","historyCopyFallback");
+  }catch(error){$("historyActionNotice").textContent="共有URLを作れません："+error.message;}
+}
+$("moveLabel").onclick=()=>{
+  if(boardReview){leaveBoardReview();return;}
+  try{enterBoardReview(game,game.moves.length,"live");}
+  catch(error){$("saveStatus").hidden=false;$("saveStatus").textContent="棋譜を再生できません："+error.message;}
+};
+$("reviewStepToggle").onclick=()=>{
+  const menu=$("reviewMenu");
+  menu.open=!menu.open;
+  if(menu.open)$("reviewStepRange").focus();
+};
+$("reviewMenu").addEventListener("toggle",()=>{
+  if(!$("reviewMenu").open)$("reviewCopyFallback").hidden=true;
+});
+document.addEventListener("pointerdown",e=>{
+  const menu=$("reviewMenu");
+  if(menu.open && !menu.contains(e.target) && e.target!==$("reviewStepToggle"))menu.open=false;
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape" && $("reviewMenu").open){
+    $("reviewMenu").open=false;
+    $("reviewStepToggle").focus();
+  }
+});
+$("reviewFirst").onclick=()=>setBoardReviewStep(0);
+$("reviewPrevious").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step-1);
+$("reviewNext").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
+$("reviewLast").onclick=()=>boardReview&&setBoardReviewStep(boardReview.snapshot.moves.length);
+$("reviewStepRange").oninput=e=>setBoardReviewStep(Number(e.target.value));
+$("reviewBack").onclick=leaveBoardReview;
+$("reviewBranch").onclick=forkBoardReview;
+$("reviewLink").onclick=()=>void shareBoardReview(false);
+$("reviewAiLink").onclick=()=>void shareBoardReview(true);
+$("historyBoard").addEventListener("click",()=>{
+  if(!historySelection)return;
+  try{
+    const record=historySelection;
+    const step=historyStep;
+    closePanels();
+    enterBoardReview(record.snapshot,step,"archive",record.sgfMeta);
+  }catch(error){$("historyActionNotice").textContent="盤面を開けません："+error.message;}
+});
+$("historyBoard").addEventListener("keydown",e=>{
+  if(e.key==="Enter"||e.key===" "){e.preventDefault();$("historyBoard").click();}
+});
+$("historyLink").onclick=()=>void shareHistoryReview(false);
+$("historyAiLink").onclick=()=>void shareHistoryReview(true);
 function recordName(record) {
   if(record.source==="sgf")return "SGFから読み込んだ棋譜";
   return record.mode==="ai"?"AIと対戦":record.mode==="online"?"友人と対戦":"1台で打つ";
@@ -1205,4 +1408,16 @@ const selectedPalette=document.querySelector('input[name="palette"][value="'+pal
 if(selectedPalette)selectedPalette.checked=true;
 $("opacity").value=String(Math.round(opacity*100));
 $("opacityValue").textContent=Math.round(opacity*100)+"%";
-updateGradient();if(!room && currentGameId===null)save();show();requestAnalysis();
+updateGradient();
+if(!room && currentGameId===null)save();
+if(!room && params.has("sgf")){
+  try{
+    const imported=readReviewUrl(location.href);
+    if(imported.kind==="review")
+      enterBoardReview(imported.snapshot,imported.step,"url",imported.metadata);
+  }catch(error){
+    $("saveStatus").hidden=false;
+    $("saveStatus").textContent="共有棋譜を読み込めません："+error.message;
+  }
+}
+show();requestAnalysis();

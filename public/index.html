@@ -29,7 +29,7 @@
         <div class="game-meta">
           <div class="turn-and-move">
             <div id="turn" class="turn" role="status" aria-live="polite">黒の番です</div>
-            <span id="moveLabel" class="move-label">0手目</span>
+            <button id="moveLabel" class="move-label move-history-toggle" type="button" aria-label="棋譜を再生する" title="棋譜を再生する">0手目 ‹ ›</button>
           </div>
           <div id="netStatus" class="connection-status" role="status" aria-live="polite">ローカル練習</div>
         </div>
@@ -80,6 +80,33 @@
             </div>
           </details>
         </div>
+        <section id="reviewPanel" class="review-panel" aria-label="棋譜を再生" hidden>
+          <strong id="reviewTitle" class="visually-hidden">棋譜を確認中</strong>
+          <div class="review-navigation">
+            <button id="reviewPrevious" type="button" aria-label="1手戻る" title="1手戻る">‹</button>
+            <button id="reviewStepToggle" class="review-step-toggle" type="button" aria-controls="reviewMenu" aria-label="手数の指定と棋譜共有">
+              <span id="reviewStepText" aria-live="polite">0 / 0手</span>
+              <span id="reviewNewMoves" class="review-new-moves" role="status" aria-live="polite" hidden></span>
+            </button>
+            <button id="reviewNext" type="button" aria-label="1手進む" title="1手進む">›</button>
+            <button id="reviewBack" class="review-back" type="button">戻る</button>
+            <details id="reviewMenu" class="review-menu">
+              <summary aria-label="棋譜の操作と共有" title="棋譜の操作と共有">•••</summary>
+              <div class="review-menu-popover" role="group" aria-label="棋譜の操作と共有">
+                <div class="review-scrubber">
+                  <button id="reviewFirst" type="button" aria-label="最初の局面">≪</button>
+                  <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="表示する手数">
+                  <button id="reviewLast" type="button" aria-label="最後の局面">≫</button>
+                </div>
+                <button id="reviewLink" type="button">この手数のURLをコピー</button>
+                <button id="reviewAiLink" type="button">AI向けにコピー</button>
+                <button id="reviewBranch" type="button">この局面から1台で検討</button>
+                <p id="reviewNotice" role="status" aria-live="polite"></p>
+                <textarea id="reviewCopyFallback" readonly hidden aria-label="手動コピー用の文字列"></textarea>
+              </div>
+            </details>
+          </div>
+        </section>
         <p id="saveStatus" class="save-status" role="alert" hidden></p>
       </section>
     </main>
@@ -157,7 +184,7 @@
       <section id="historyDetail" class="history-detail" hidden>
         <button id="historyBack" class="history-back" type="button">← 棋譜一覧に戻る</button>
         <h3 id="historySelectionName">保存した局面</h3>
-        <canvas id="historyBoard" width="360" height="360" aria-label="棋譜の選択手順の盤面"></canvas>
+        <canvas id="historyBoard" width="360" height="360" role="button" tabindex="0" aria-label="この局面を大きな碁盤で再生"></canvas>
         <div class="replay-controls" aria-label="棋譜の手順再生">
           <button id="historyFirst" type="button" aria-label="最初の局面へ" title="最初の局面へ">≪</button>
           <button id="historyPrevious" type="button" aria-label="1手戻る" title="1手戻る">‹</button>
@@ -169,8 +196,16 @@
         <p id="historyMeta" class="explanation"></p>
         <button id="historyResume" class="primary full" type="button" hidden>この対局の続きを打つ</button>
         <button id="historyBranch" class="outline full" type="button">この局面から1台で検討</button>
-        <button id="historyExport" class="outline full" type="button">SGFを書き出す</button>
+        <details id="historyShareMenu" class="history-share-menu">
+          <summary>共有・書き出し</summary>
+          <div class="history-share-popover" role="group" aria-label="棋譜共有">
+            <button id="historyExport" type="button">SGFを書き出す</button>
+            <button id="historyLink" type="button">この手数のURLをコピー</button>
+            <button id="historyAiLink" type="button">AI向けにコピー</button>
+          </div>
+        </details>
         <p id="historyActionNotice" class="invite-status history-notice" role="status" aria-live="polite"></p>
+        <textarea id="historyCopyFallback" readonly hidden aria-label="コピーできなかった内容を手動でコピー"></textarea>
         <p id="historyReadOnlyHint" class="explanation"></p>
       </section>
     </aside>

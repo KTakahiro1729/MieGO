@@ -280,3 +280,40 @@ body{overflow:hidden}
 .invite-side label{display:inline-flex;align-items:center;gap:6px;font-size:13px;min-height:28px}
 #p2pVerify{margin:12px 0}
 #p2pVerify p{font-size:12px;opacity:.85;margin:0 0 8px}
+
+/* Playback replaces the existing action row, never increases page height. */
+.move-history-toggle{position:relative;border:1px solid #525666;border-radius:9px;background:#212733;min-height:26px;height:26px;padding:2px 7px;color:#ead194;font-size:11px;line-height:20px}
+.move-history-toggle::before{content:"";position:absolute;inset:-9px 0}
+.move-history-toggle:hover{border-color:var(--gold)}
+.review-panel{margin:4px -2px 0;padding:10px 2px max(12px,env(safe-area-inset-bottom));position:sticky;bottom:0;z-index:4;background:linear-gradient(180deg,#0d101800,#0d1018 12%)}
+.review-navigation{display:flex;align-items:stretch;gap:7px;position:relative}
+.review-navigation>button,.review-menu>summary{height:55px;min-height:55px;border-radius:13px;background:#1c202b;border:1px solid #343a47;display:flex;align-items:center;justify-content:center;padding:7px;font-size:23px}
+.review-navigation>button:not(.review-step-toggle):not(.review-back){flex:0 0 44px}
+.review-navigation>.review-step-toggle{flex:1;min-width:0;flex-direction:column;gap:2px;color:#eac981;font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.review-navigation>.review-back{flex:0 0 62px;font-size:12px;color:#f2d9a5;border-color:#8a704c}
+.review-menu{position:relative;flex:0 0 44px;min-width:0}
+.review-menu>summary{cursor:pointer;list-style:none;font-size:17px;color:#e2e5ea}
+.review-menu>summary::-webkit-details-marker{display:none}
+.review-menu-popover{position:absolute;right:0;bottom:calc(100% + 7px);width:min(300px,calc(100vw - 32px));background:#202735;border:1px solid #596274;border-radius:14px;padding:10px;box-shadow:0 14px 35px #000b;display:flex;flex-direction:column;gap:7px}
+.review-menu-popover>button{width:100%;min-height:44px;font-size:12px;border-radius:10px;padding:7px}
+.review-menu-popover #reviewAiLink{background:#e7c47c;color:#161a20}
+.review-scrubber{display:flex;gap:8px;align-items:center}
+.review-scrubber>button{flex:0 0 44px;height:44px;padding:4px;font-size:22px;border-radius:10px}
+#reviewStepRange{flex:1;min-width:0;accent-color:var(--gold)}
+.review-new-moves{font-size:10px;color:#efc47b}
+#reviewNotice{margin:0;color:#efca90;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+#reviewNotice:empty{display:none}
+#reviewCopyFallback{width:100%;max-height:110px;min-height:50px;background:#17202e;border:1px solid #6b7588;color:#f4f4ee;padding:6px;border-radius:8px;font-size:12px}
+.history-share-menu{position:relative;margin-top:15px}
+.history-share-menu>summary{min-height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid #525967;border-radius:12px;background:#272d3b;color:#f3f2ed;font-size:12px;font-weight:650;list-style:none}
+.history-share-menu>summary::-webkit-details-marker{display:none}
+.history-share-menu>summary:focus-visible,.review-menu>summary:focus-visible{outline:3px solid #f2c875;outline-offset:2px}
+.history-share-popover{position:absolute;bottom:calc(100% + 7px);right:0;z-index:5;background:#242c3a;width:min(300px,100%);border:1px solid #606879;border-radius:12px;padding:9px;box-shadow:0 12px 24px #0009;display:flex;flex-direction:column;gap:7px}
+.history-share-popover>button{width:100%;min-height:44px;font-size:12px;padding:8px;border-radius:10px}
+#historyAiLink{color:#161a20;background:#e4bf72;border-color:#f4d992}
+@media(max-width:360px){.review-navigation{gap:4px}.review-navigation>.review-back{flex-basis:52px;font-size:11px}.review-navigation>button:not(.review-step-toggle):not(.review-back),.review-menu{flex-basis:44px}}
+#historyCopyFallback{display:block;width:100%;min-height:58px;margin:8px 0;background:#202836;color:#f0f0ed;border:1px solid #6b7588;border-radius:9px;padding:8px;font-size:12px}
+#historyCopyFallback[hidden]{display:none}
+
+#historyBoard[role="button"]{cursor:pointer}
+#historyBoard:focus-visible{outline:3px solid #f0c773;outline-offset:2px}
