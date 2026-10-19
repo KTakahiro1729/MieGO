@@ -1368,4 +1368,16 @@ const selectedPalette=document.querySelector('input[name="palette"][value="'+pal
 if(selectedPalette)selectedPalette.checked=true;
 $("opacity").value=String(Math.round(opacity*100));
 $("opacityValue").textContent=Math.round(opacity*100)+"%";
-updateGradient();if(!room && currentGameId===null)save();show();requestAnalysis();
+updateGradient();
+if(!room && currentGameId===null)save();
+if(!room && params.has("sgf")){
+  try{
+    const imported=readReviewUrl(location.href);
+    if(imported.kind==="review")
+      enterBoardReview(imported.snapshot,imported.step,"url",imported.metadata);
+  }catch(error){
+    $("saveStatus").hidden=false;
+    $("saveStatus").textContent="共有棋譜を読み込めません："+error.message;
+  }
+}
+show();requestAnalysis();
