@@ -2,74 +2,87 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { at, boardHash, newGame, play, BLACK, WHITE } from "../public/core.mjs";
 import {
-  illegalMoveReasons, drawIllegalMoveMarker, ILLEGAL_KO, ILLEGAL_SUICIDE
+  illegalMoveReasons, inspectProvisionalMove, makeIllegalMovePrompt,pointLabel,ILLEGAL_KO,ILLEGAL_SUICIDE
 } from "../public/illegal-moves.mjs";
-import { readFileSync } from "node:fs";
+import {readFileSync} from "node:fs";
 
-test("suicide is marked only on empty intersections",()=>{
+function suicidePosition() {
   const state=newGame();
-  for(const p of [at(1,0),at(0,1),at(2,1),at(1,2)])
-    state.board[p]=WHITE;
+  for(const p of [at(1,0),at(0,1),at(2,1),at(1,2)])state.board[p]=WHITE;
   state.history=[boardHash(state.board)];
-  const markers=illegalMoveReasons(state);
-  assert.equal(markers.get(at(1,1)),ILLEGAL_SUICIDE);
-  assert.equal(markers.has(at(1,0)),false);
-  assert.equal(markers.has(at(7,7)),false);
-});
-test("legal capture into an otherwise surrounded point is NOT marked suicide",()=>{
-  const state=newGame();
-  state.board[at(1,1)]=WHITE;
-  for(const p of [at(1,0),at(0,1),at(2,1)])state.board[p]=BLACK;
-  state.history=[boardHash(state.board)];
-  assert.doesNotThrow(()=>play(state,at(1,2)));
-  assert.equal(illegalMoveReasons(state).has(at(1,2)),false);
-});
-test("a true single-stone immediate ko recapture has its own mark",()=>{
+  return state;
+}
+function koPosition() {
   const state=newGame();
   for(const p of [at(3,4),at(5,4),at(4,5)])state.board[p]=BLACK;
   for(const p of [at(4,4),at(3,3),at(5,3),at(4,2)])state.board[p]=WHITE;
   state.history=[boardHash(state.board)];
-  assert.equal(illegalMoveReasons(state).has(at(4,3)),false);
-  const afterCapture=play(state,at(4,3));
-  assert.equal(afterCapture.board[at(4,4)],0);
-  assert.throws(()=>play(afterCapture,at(4,4)),/コウ/);
-  assert.equal(illegalMoveReasons(afterCapture).get(at(4,4)),ILLEGAL_KO);
-});
-test("markers are not generated while scoring or after finishing",()=>{
-  const state=newGame();
-  assert.equal(illegalMoveReasons({...state,status:"scoring"}).size,0);
-  assert.equal(illegalMoveReasons({...state,status:"finished"}).size,0);
-});
-function mockCanvas(){
-  const calls=[];
-  const ctx={
-    save(){calls.push(["save"])},restore(){calls.push(["restore"])},
-    beginPath(){calls.push(["begin"])},
-    arc(...args){calls.push(["arc",...args])},
-    moveTo(...args){calls.push(["move",...args])},
-    lineTo(...args){calls.push(["line",...args])},
-    fill(){calls.push(["fill",this.fillStyle,this.globalAlpha])},
-    stroke(){calls.push(["stroke",this.strokeStyle,this.lineWidth,this.globalAlpha])}
-  };
-  return {ctx,calls};
+  return play(state,at(4,3));
 }
-test("ko and suicide use identical stroke, size, opacity and fill",()=>{
-  const ko=mockCanvas(),suicide=mockCanvas();
-  drawIllegalMoveMarker(ko.ctx,50,50,40,ILLEGAL_KO);
-  drawIllegalMoveMarker(suicide.ctx,50,50,40,ILLEGAL_SUICIDE);
-  assert.deepEqual(ko.calls.filter(x=>x[0]==="arc"),suicide.calls.filter(x=>x[0]==="arc"));
-  assert.deepEqual(ko.calls.filter(x=>x[0]==="fill"),suicide.calls.filter(x=>x[0]==="fill"));
-  assert.deepEqual(ko.calls.filter(x=>x[0]==="stroke"),suicide.calls.filter(x=>x[0]==="stroke"));
-  assert.equal(ko.calls.filter(x=>x[0]==="line").length,1);
-  assert.equal(suicide.calls.filter(x=>x[0]==="line").length,2);
+test("forbidden suicide is selectable as a preview without changing the game",()=>{
+  const game=suicidePosition(),before=JSON.stringify(game);
+  const selected=inspectProvisionalMove(game,at(1,1));
+  assert.equal(selected.candidate,null);
+  assert.equal(selected.forbidden.reason,ILLEGAL_SUICIDE);
+  assert.equal(selected.forbidden.position,at(1,1));
+  assert.equal(selected.forbidden.source,game);
+  assert.equal(JSON.stringify(game),before);
+  assert.equal(illegalMoveReasons(game).get(at(1,1)),ILLEGAL_SUICIDE);
 });
-test("markers are confined to the board canvas and current human turn",()=>{
+test("legal capture is still playable and not marked forbidden",()=>{
+  const game=newGame();
+  game.board[at(1,1)]=WHITE;
+  for(const p of [at(1,0),at(0,1),at(2,1)])game.board[p]=BLACK;
+  game.history=[boardHash(game.board)];
+  const result=inspectProvisionalMove(game,at(1,2));
+  assert.ok(result.candidate);
+  assert.equal(result.forbidden,null);
+  assert.equal(illegalMoveReasons(game).has(at(1,2)),false);
+});
+test("ko recapture can be previewed but is not a legal move",()=>{
+  const game=koPosition();
+  assert.throws(()=>play(game,at(4,4)),/コウ/);
+  const attempt=inspectProvisionalMove(game,at(4,4));
+  assert.equal(attempt.candidate,null);
+  assert.equal(attempt.forbidden.reason,ILLEGAL_KO);
+  assert.equal(illegalMoveReasons(game).get(at(4,4)),ILLEGAL_KO);
+});
+test("occupied points and non-playing states never get forbidden previews",()=>{
+  const game=suicidePosition();
+  assert.deepEqual(inspectProvisionalMove(game,at(1,0)),{candidate:null,forbidden:null});
+  assert.deepEqual(inspectProvisionalMove({...game,status:"scoring"},at(1,1)),{candidate:null,forbidden:null});
+  assert.equal(illegalMoveReasons({...game,status:"finished"}).size,0);
+});
+test("copied rule question names coordinate, current board, and ko history but not private URLs",()=>{
+  const game=koPosition(),attempt=inspectProvisionalMove(game,at(4,4)).forbidden;
+  const question=makeIllegalMovePrompt(game,attempt);
+  assert.match(question,/9路盤/);
+  assert.match(question,/交点 E5/);
+  assert.match(question,/コウで直前の局面に戻せません/);
+  assert.match(question,/直前の着手前の盤面/);
+  assert.match(question,/X=黒石、O=白石/);
+  assert.doesNotMatch(question,/workers\.dev|guestKey|TURNSTILE_SECRET|招待URL/);
+  assert.equal(pointLabel(at(0,8)),"A1");
+  assert.equal(pointLabel(at(8,0)),"J9");
+  assert.throws(()=>makeIllegalMovePrompt(game,null));
+});
+test("suicide question includes location and rule but no redundant previous snapshot",()=>{
+  const game=suicidePosition(),attempt=inspectProvisionalMove(game,at(1,1)).forbidden;
+  const question=makeIllegalMovePrompt(game,attempt);
+  assert.match(question,/交点 B8/);
+  assert.match(question,/自殺手は禁止です/);
+  assert.doesNotMatch(question,/直前の着手前の盤面/);
+});
+test("board has no advance forbidden markers; only selected move has preview and copy CTA",()=>{
   const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
   const renderer=readFileSync(new URL("../public/board-renderer.mjs",import.meta.url),"utf8");
-  assert.match(app,/humanTurn:isHumanTurn\(\)/);
-  assert.match(renderer,/game\.status==="playing" && humanTurn/);
-  assert.match(renderer,/illegalCacheGame!==game/);
-  assert.match(renderer,/drawIllegalMoveMarker\(ctx,x,y,gap,reason\)/);
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  assert.doesNotMatch(renderer,/drawIllegalMoveMarker|paintIllegalMarkers|illegalMoveReasons/);
+  assert.match(renderer,/illegalCandidate\?\.position/);
+  assert.match(app,/inspectProvisionalMove\(game,position\)/);
+  assert.match(app,/\$\("confirm"\)\.disabled=!candidate \|\| !myTurn \|\| blocked/);
+  assert.match(app,/makeIllegalMovePrompt\(game,selected\)/);
+  assert.match(html,/id="copyIllegalPrompt"/);
+  assert.match(html,/id="illegalMoveNotice"/);
   assert.doesNotMatch(html,/illegalMoveLegend|illegalMoveToggle/);
 });
