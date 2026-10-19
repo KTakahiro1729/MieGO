@@ -74,3 +74,12 @@ test("no forced pass on move 145; actual KataGo policy remains decisive",()=>{
   assert.equal(choosePolicyMove(s,p,-1000,{random:()=>.5}),at(4,4));
   assert.equal(choosePolicyMove(s,p,1000,{random:()=>.5}),null);
 });
+test("weakened strengths use the same endgame-aware pass eligibility",()=>{
+  const s=newGame(),position=at(4,4),p=logits(position);
+  s.moveNumber=44;
+  assert.equal(choosePolicyMove(s,p,105,{strength:"easy",endgameStage:"ready",random:()=>.5}),position);
+  s.moveNumber=45;
+  assert.equal(choosePolicyMove(s,p,105,{strength:"easy",endgameStage:"ready",random:()=>.5}),null);
+  s.moveNumber=145;
+  assert.equal(choosePolicyMove(s,p,-1000,{strength:"easy",random:()=>.5}),position);
+});

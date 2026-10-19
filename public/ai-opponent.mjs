@@ -2,6 +2,7 @@
 import {play,SIZE} from "./core.mjs";
 import {personalityFeatures} from "./ai-personality.mjs";
 import {samplePolicyCandidate} from "./ai-policy-sampling.mjs";
+import {AI_STRENGTHS,pickWeakenedMove} from "./ai-strength.mjs";
 export {personalityFeatures} from "./ai-personality.mjs";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -24,9 +25,11 @@ export function scorePolicyCandidates(state, logits, ownership, options={}) {
   const legal=legalAiMoves(state).filter(p=>Number.isFinite(logits[p]));
   if(!legal.length)return [];
   const best=Math.max(...legal.map(p=>logits[p]));
+  // Weakened levels sample from every legal move, so keep the long tail.
+  const window=options.allMoves ? Infinity : 8;
   const invasionWeight=(bounded(options.invasion ?? 50)-50)/50 * 3;
   const reinforceWeight=(bounded(options.reinforcement ?? 50)-50)/50 * 3;
-  return legal.filter(p=>logits[p]>=best-8).map(position=>{
+  return legal.filter(p=>logits[p]>=best-window).map(position=>{
     const f=personalityFeatures(state,position,ownership);
     return {position,raw:logits[position],
       score:logits[position]+invasionWeight*f.invasion+reinforceWeight*f.reinforcement,
@@ -44,9 +47,12 @@ export function canConsiderAiPass(state,stage="playing") {
 }
 export function choosePolicyMove(state, logits, passLogit, options={}) {
   if (state.status!=="playing") throw new Error("対局中ではありません");
-  const candidates=scorePolicyCandidates(state,logits,options.ownership,options);
+  const weakened=Number.isFinite(AI_STRENGTHS[options.strength]?.kyu);
+  const candidates=scorePolicyCandidates(state,logits,options.ownership,
+    {...options,allMoves:weakened});
   if(!candidates.length)return null;
   const passAllowed=canConsiderAiPass(state,options.endgameStage);
+  if(weakened)return pickWeakenedMove(candidates,passLogit,{...options,state,passAllowed});
   if(passAllowed && Number.isFinite(passLogit)){
     candidates.push({position:null,score:passLogit-0.3});
   }
