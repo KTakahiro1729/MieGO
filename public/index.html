@@ -41,20 +41,15 @@
           <div class="gradient" id="gradient" aria-hidden="true"></div>
           <div class="legend-labels"><span>白寄り</span><span>中立（透明）</span><span>黒寄り</span></div>
         </div>
-        <div id="endgameBar" class="endgame-bar" aria-label="終局と対局の状態">
-          <button id="endToggle" class="end-toggle" type="button" aria-controls="endActions" aria-expanded="false">
-            <span id="endStatus" aria-live="polite">終局を相談</span><span aria-hidden="true">›</span>
-          </button>
-          <span id="analysisStatus" role="status" aria-live="polite">地合いを準備中…</span>
-          <span id="illegalMoveNotice" role="status" aria-live="polite" hidden></span>
-          <div id="endActions" class="end-actions" hidden>
-            <p id="endDetail" class="visually-hidden">終局の提案はパスではありません。</p>
-            <div class="end-buttons">
-              <button id="endPropose" class="end-action" type="button">採点へ進む</button>
-              <button id="endAccept" class="end-action primary" type="button" hidden>採点へ</button>
-              <button id="endDecline" class="end-action" type="button" hidden>対局を続ける</button>
-            </div>
+        <div id="endgameBar" class="endgame-bar" aria-label="終局の相談">
+          <span id="endStatus" class="end-status" role="status" aria-live="polite">終局はまだのようです</span>
+          <div id="endActions" class="end-buttons">
+            <button id="endPropose" class="end-action" type="button">終局を提案</button>
+            <button id="endAccept" class="end-action primary" type="button" hidden>受け入れる</button>
+            <button id="endDecline" class="end-action" type="button" hidden>打ち続ける</button>
           </div>
+          <span id="analysisStatus" class="visually-hidden" role="status" aria-live="polite"></span>
+          <span id="endDetail" class="visually-hidden"></span>
           <span id="hint" class="visually-hidden" aria-live="polite"></span>
         </div>
         <div id="scoreBox" class="score-box hidden">
@@ -73,14 +68,9 @@
             <button id="agree" class="primary" type="button" disabled>この計算に同意</button>
             <button id="resume" type="button">対局を再開</button>
           </div>
-          <details id="gameMenu" class="game-actions">
-            <summary aria-label="対局メニュー" title="対局メニュー"><svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
-            <div class="game-action-popover" role="group" aria-label="対局操作">
-              <button id="openCurrentMode" type="button" hidden>現在の対局設定</button>
-              <button id="resetLocalGame" type="button" hidden>新しい対局（盤面をリセット）</button>
-              <button id="resign" class="danger-button" type="button">投了する</button>
-            </div>
-          </details>
+          <button id="resign" class="resign-control" type="button">投了</button>
+          <button id="newMatch" class="primary" type="button" hidden>もう一局</button>
+          <button id="openHistory" class="secondary-action" type="button" hidden>棋譜を見る</button>
         </div>
         <div id="illegalPromptFallbackPanel" class="illegal-prompt-fallback" hidden>
           <label for="illegalPromptFallback">自動コピーできませんでした。下の文章を選択してコピーしてください。</label>
@@ -91,29 +81,28 @@
           <strong id="reviewTitle" class="visually-hidden">棋譜を確認中</strong>
           <div class="review-navigation">
             <button id="reviewPrevious" type="button" aria-label="1手戻る" title="1手戻る">‹</button>
-            <button id="reviewStepToggle" class="review-step-toggle" type="button" aria-controls="reviewMenu" aria-label="手数の指定と棋譜共有">
+            <button id="reviewStepToggle" class="review-step-toggle" type="button" aria-label="再生する手数を選ぶ">
               <span id="reviewStepText" aria-live="polite">0 / 0手</span>
               <span id="reviewNewMoves" class="review-new-moves" role="status" aria-live="polite" hidden></span>
             </button>
             <button id="reviewNext" type="button" aria-label="1手進む" title="1手進む">›</button>
             <button id="reviewBack" class="review-back" type="button">戻る</button>
-            <details id="reviewMenu" class="review-menu">
-              <summary aria-label="棋譜の操作と共有" title="棋譜の操作と共有">•••</summary>
-              <div class="review-menu-popover" role="group" aria-label="棋譜の操作と共有">
-                <div class="review-scrubber">
-                  <button id="reviewFirst" type="button" aria-label="最初の局面">≪</button>
-                  <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="表示する手数">
-                  <button id="reviewLast" type="button" aria-label="最後の局面">≫</button>
-                </div>
-                <button id="reviewLink" type="button">この手数のURLをコピー</button>
-                <button id="reviewAiLink" type="button">AI向けにコピー</button>
-                <button id="reviewResume" type="button" hidden>この対局の続きを打つ</button>
-                <button id="reviewBranch" type="button">この局面から1台で検討</button>
-                <button id="reviewExport" type="button">SGFを書き出す</button>
-                <p id="reviewNotice" role="status" aria-live="polite"></p>
-                <textarea id="reviewCopyFallback" readonly hidden aria-label="手動コピー用の文字列"></textarea>
-              </div>
-            </details>
+          </div>
+          <div id="reviewMenu" class="review-tools">
+            <div class="review-scrubber">
+              <button id="reviewFirst" type="button" aria-label="最初の局面">≪</button>
+              <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="表示する手数">
+              <button id="reviewLast" type="button" aria-label="最後の局面">≫</button>
+            </div>
+            <div class="review-direct-actions">
+              <button id="reviewLink" type="button">URLをコピー</button>
+              <button id="reviewAiLink" type="button">AI向けにコピー</button>
+              <button id="reviewResume" type="button" hidden>対局の続き</button>
+              <button id="reviewBranch" type="button">ここから検討</button>
+              <button id="reviewExport" type="button">SGF保存</button>
+            </div>
+            <p id="reviewNotice" role="status" aria-live="polite"></p>
+            <textarea id="reviewCopyFallback" readonly hidden aria-label="手動コピー用の文字列"></textarea>
           </div>
         </section>
         <p id="saveStatus" class="save-status" role="alert" hidden></p>
@@ -140,6 +129,12 @@
         <div class="mode"><div><strong>地合いの表示</strong><p>対局開始後は変更できません。</p></div><input id="assisted" type="checkbox" checked aria-label="地合いの表示を有効にする"></div>
         <details class="info-disclosure"><summary>地合いの表示について</summary><p class="explanation">色は黒寄り・白寄りの傾向を示し、中立では碁盤がそのまま見えます。確定した地や勝率ではありません。</p></details>
         <button id="resetAppearance" class="outline full" type="button">表示を初期状態に戻す</button>
+      </section>
+      <section class="settings-section" aria-label="対局と棋譜の操作">
+        <h3>対局と棋譜</h3>
+        <button id="openHistorySettings" class="outline full" type="button">保存した棋譜</button>
+        <button id="openCurrentMode" class="outline full" type="button" hidden>AIの設定・再戦</button>
+        <button id="resetLocalGame" class="outline full" type="button" hidden>新しい対局を始める</button>
       </section>
       <section class="settings-section">
         <h3>その他</h3><p class="explanation">9路盤 · 中国式ルール · コミ7.5</p>
