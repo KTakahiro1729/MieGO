@@ -727,6 +727,23 @@ $("cancel").onclick=()=>{
   $("illegalPromptFallbackPanel").hidden=true;
   show();requestAnalysis();
 };
+// Every copy of text meant for an AI chat (or a plain link) uses the async
+// Clipboard API; when the browser refuses, the text is left selected instead.
+const MANUAL_COPY="自動でコピーできませんでした。下の文章を選択してコピーしてください。";
+async function writeClipboard(text) {
+  if(typeof navigator.clipboard?.writeText!=="function")throw Error("Clipboard API unavailable");
+  await navigator.clipboard.writeText(text);
+}
+async function copyWithFallback(text,status,field,copied="コピーしました。") {
+  try{
+    await writeClipboard(text);
+    field.hidden=true;status.textContent=copied;
+  }catch{
+    field.value=text;field.hidden=false;field.focus();field.select();
+    try{field.setSelectionRange(0,text.length);}catch{}
+    status.textContent=MANUAL_COPY;
+  }
+}
 $("copyIllegalPrompt").onclick=async()=>{
   const selected=illegalCandidate;
   if(!selected || selected.source!==game)return;
@@ -741,8 +758,7 @@ $("copyIllegalPrompt").onclick=async()=>{
     return;
   }
   try{
-    if(typeof navigator.clipboard?.writeText!=="function")throw Error("Clipboard API unavailable");
-    await navigator.clipboard.writeText(question);
+    await writeClipboard(question);
     if(illegalCandidate===selected){
       illegalPromptCopied=true;
       $("copyIllegalPrompt").textContent="コピーしました";
@@ -1321,7 +1337,6 @@ function enterBoardReview(snapshot,step,source="live",metadata=null,record=null)
     openedAt:game.moveNumber,analysisId:0};
   $("reviewNotice").textContent="";
   $("reviewCopyFallback").hidden=true;
-  $("reviewCopyFallback").hidden=true;
   show();requestReviewOwnership();
 }
 function setBoardReviewStep(step) {
@@ -1346,7 +1361,6 @@ function clearBoardReview() {
   const wasUrl=boardReview.source==="url";
   boardReview=null;reviewSequence++;
   if(wasUrl)clearImportedReviewUrl();
-  $("reviewCopyFallback").hidden=true;
   $("reviewCopyFallback").hidden=true;
   $("moveLabel").setAttribute("aria-label","棋譜を再生する");
 }
@@ -1384,18 +1398,7 @@ function forkBoardReview() {
   $("reviewCopyFallback").hidden=true;
   save();show();requestAnalysis();
 }
-async function copyReviewText(text,statusId,fallbackId) {
-  const status=$(statusId),field=$(fallbackId);
-  try{
-    if(typeof navigator.clipboard?.writeText!=="function")throw Error("clipboard unavailable");
-    await navigator.clipboard.writeText(text);
-    field.hidden=true;status.textContent="コピーしました。";
-  }catch{
-    field.value=text;field.hidden=false;field.focus();field.select();
-    try{field.setSelectionRange(0,text.length);}catch{}
-    status.textContent="自動コピーできませんでした。選択された文章を手動でコピーしてください。";
-  }
-}
+
 function selectedBoardReviewUrl() {
   const {snapshot,metadata,step}=variationForSharing(boardReview,game);
   return makeReviewUrl(location.origin,{snapshot,sgfMeta:metadata},step);
@@ -1404,7 +1407,7 @@ async function shareBoardReview(ai) {
   if(!boardReview)return;
   try{
     const url=selectedBoardReviewUrl();
-    await copyReviewText(ai?makeAiHandoff(url):url,"reviewNotice","reviewCopyFallback");
+    await copyWithFallback(ai?makeAiHandoff(url):url,$("reviewNotice"),$("reviewCopyFallback"));
   }catch(error){$("reviewNotice").textContent="共有URLを作れません："+error.message;}
 }
 function canResumeSelectedReview(){
@@ -1571,16 +1574,7 @@ async function copyBeginnerPrompt(make) {
   try{link=makeReviewUrl(location.origin,{snapshot:game},game.moves.length);}catch{}
   try{question=make(game,link);}
   catch(error){status.textContent="質問文を作れません："+error.message;return;}
-  try{
-    if(typeof navigator.clipboard?.writeText!=="function")throw Error("Clipboard API unavailable");
-    await navigator.clipboard.writeText(question);
-    area.hidden=true;
-    status.textContent="コピーしました。AIのチャットに貼り付けてください。";
-  }catch{
-    area.value=question;area.hidden=false;
-    status.textContent="自動でコピーできませんでした。下の文章を選択してコピーしてください。";
-    area.focus();area.select();
-  }
+  await copyWithFallback(question,status,area,"コピーしました。AIのチャットに貼り付けてください。");
 }
 $("copyRulesPrompt").onclick=()=>void copyBeginnerPrompt(makeRulesPrompt);
 $("copyPositionPrompt").onclick=()=>void copyBeginnerPrompt(makePositionPrompt);

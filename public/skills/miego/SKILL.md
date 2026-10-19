@@ -20,5 +20,8 @@ The glyph board is supplemental: reconstruct the move history from SGF and
 report any disagreement, rather than treating glyphs as a substitute for moves,
 passes, or ko history. A forbidden-move question includes the same public SGF
 replay URL for committed moves and marks the attempted empty point with **◇**.
-That attempted illegal move is NOT part of the SGF. Never ask for or copy
+That attempted illegal move is NOT part of the SGF.
+A beginner's position question from the help sheet carries the same replay URL
+(omitted when the game is too long for one) and glyph board; answer locations
+as "row N from the top, column M from the left". Never ask for or copy
 private P2P invitation URLs.

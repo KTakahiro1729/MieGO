@@ -80,8 +80,8 @@ test("AI handoff glyph board matches selected move, not the end of the SGF",()=>
   const second=makeAiHandoff(makeReviewUrl("https://miego.example",{snapshot:game},2));
   assert.match(first,/選択している局面（1手目）/);
   assert.match(second,/選択している局面（2手目）/);
-  const board1=first.split("上の行から下の行へ1行ずつ表示します。\n")[1].split("\n\nsgf は")[0];
-  const board2=second.split("上の行から下の行へ1行ずつ表示します。\n")[1].split("\n\nsgf は")[0];
+  const board1=first.split("手目）の盤面：\n")[1].split("\n\nsgf は")[0];
+  const board2=second.split("手目）の盤面：\n")[1].split("\n\nsgf は")[0];
   assert.equal(board1.split("\n").length,9);
   assert.equal(board2.split("\n").length,9);
   assert.doesNotMatch(board1,/[A-Z0-9]/);
