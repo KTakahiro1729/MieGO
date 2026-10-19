@@ -375,7 +375,7 @@ body{overflow:hidden}
 .action-row .undo-button{flex:0 0 48px;min-width:48px;width:48px;padding:0;display:grid;place-items:center}
 .action-row #pass{flex:0 0 60px;min-width:60px;width:60px;padding:9px 5px}
 .action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;font-size:12px;padding:6px 2px}
-.action-row .illegal-prompt-action{flex:1 1 auto;min-width:0;padding:9px 5px;font-size:14px;font-weight:700;white-space:normal;line-height:1.25}
+.endgame-bar .illegal-prompt-action{flex:0 0 auto;padding:5px 12px;font-size:13px;font-weight:700;white-space:nowrap;line-height:1.25}
 .action-row.finished-actions{justify-content:flex-end}
 .game-panel.is-finished .action-row .secondary{flex:1}
 .game-panel.is-finished .action-row #newMatch{flex:2}
@@ -424,7 +424,6 @@ body{overflow:hidden}
   .action-row #pass{flex-basis:51px;width:51px;min-width:51px;font-size:12px}
 }
 @media(max-width:700px){.action-row,.review-panel{padding-top:3px}}
-@media(max-width:430px){.action-row .illegal-prompt-action{font-size:13px}}
 @media(max-width:360px){
   .review-navigation{gap:4px}
   .review-navigation>.review-menu{flex-basis:42px;min-width:42px}
