@@ -103,9 +103,30 @@ MieGOはTURNなしでもSTUNで接続を試みます。NATの種類によって�
 | 招待URLは開くがP2Pにならない | 別端末で再試行。ネットワーク環境によってTURNが必要 |
 | 再デプロイ後も古い画面 | Deploymentsの日時、実際のURL、ブラウザのキャッシュを確認 |
 
+## KataGo導入後のCloudflareビルド（2026-10-19）
+
+ブラウザだけで管理できます。**GitHub連携済みの場合、`main`への今回の更新でCloudflare Buildsが起動します。** 設定は以前と同じです。
+
+| 項目 | 値 |
+| --- | --- |
+| Build command | `npm test` |
+| Deploy command | `npx wrangler deploy` |
+| Root directory | リポジトリ直下 |
+| Branch | `main` |
+
+`npm test`前に実行される`pretest`が、TypeScriptのKataGoモジュールをesbuildで単一Workerにまとめます。約3.8MBのKataGo小型テストモデルを固定されたWeb KaTrain GitHubコミットから取得し、Git Blob SHA-1を検証します。TensorFlow.jsのWASM配布物もCloudflareの静的アセットとして配置されます。**KataGo実行にユーザー端末でのビルドやターミナル操作は不要です。**
+
+CloudflareのBuild logsに`Browser KataGo worker built`、`KataGo model downloaded and verified`（またはcached）が出たことを確認してください。初回ビルドではモデル取得先の通信が必要です。ダウンロードまたはnpm installが失敗した場合はCloudflareがデプロイを中止するため、ログを確認してください。
+
+公開後、AI補助をオンにして盤面を操作すると、初回はモデルをダウンロードします。解析中の表示が`KataGo NN単独評価 · webgpu` / `wasm` / `cpu` に変われば推論が完了しています。**`近傍影響モデルによる簡易推定` と表示された場合はKataGoが動いていません。** ブラウザの開発者ツールでエラーを確認してください。
+
+WebGPUでの利用を優先しますが、非対応端末ではWASMまたはCPUで動きます。3.8MBのテストモデルは本格的な強さを目的としておらず、MCTS探索・棋力別補正はまだありません。Ownershipの色は推定値であって確定した地ではありません。
+
+KataGo推論はブラウザWorkerで実行され、Cloudflare Workersのサーバー側でニューラルネットを実行するわけではありません。Cloudflare Workersは配信・招待URL・WebRTCシグナリングに使用します。TURN設定は引き続き一般公開前の認証・レート制限が必要です。
+
 ## 8. 重要な制限
 
-- MieGOの「地合い予測」は現状**ブラウザ内の簡易近傍影響モデル**です。KataGo、正確な所有確率や死活判定ではありません。
+- MieGOの「地合い予測」は現状**ブラウザ内の簡易近傍影響モデル**です。KataGoの小型モデルを使用しますが、MCTS探索や正確な死活判定ではありません。
 - 9路盤・中国式の試験実装です。例外的な反復局面や切断時の復帰は未完成です。
 - 対局ルームは信頼できる友人と試す用途であり、招待URLのみによる参加は堅牢なアクセス管理ではありません。
 - ここでの手順はCloudflare公式仕様に基づきますが、実Cloudflareアカウントへの初回デプロイとモバイル実機E2Eは未検証です。

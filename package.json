@@ -1,14 +1,24 @@
 {
   "name": "miego",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
+    "pretest": "node scripts/build-katago.mjs",
+    "test": "node --test",
+    "predev": "node scripts/build-katago.mjs",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "test": "node --test"
+    "predeploy": "node scripts/build-katago.mjs",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-wasm": "^4.22.0",
+    "@tensorflow/tfjs-backend-webgpu": "^4.22.0",
+    "pako": "^2.1.0"
   },
   "devDependencies": {
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.0.0",
+    "esbuild": "^0.25.0"
   }
 }

@@ -1,7 +1,19 @@
 import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash } from "./core.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board"), ctx = canvas.getContext("2d");
-const worker = new Worker("/analysis-worker.mjs", { type: "module" });
+let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
+let fallbackMode = false;
+function switchToFallback(reason) {
+  if (fallbackMode) return;
+  fallbackMode = true;
+  console.warn("KataGo unavailable; switching to transparent approximation:", reason);
+  worker.terminate();
+  worker = new Worker("/analysis-worker.mjs", { type: "module" });
+  worker.onmessage = handleAnalysis;
+  worker.onerror = e => { $("analysisStatus").textContent = "解析を利用できません"; console.error(e); };
+  requestAnalysis();
+}
+worker.onerror = e => switchToFallback(e.message || "worker startup error");
 const params = new URLSearchParams(location.search);
 let room = params.get("room"), seat = room ? null : "host", ws, rtc, channel;
 let game = newGame(), candidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
@@ -44,18 +56,41 @@ function draw() {
     ctx.fillStyle="#d0b25c";ctx.fillRect(x-4,y-4,8,8);
   }
 }
+let analysisTimer = null;
 function requestAnalysis() {
-  if(!game.assisted){analysis=null;draw();return;}
-  const id=++seq; pending=id; $("analysisStatus").textContent="地合いを計算中…";
-  worker.postMessage({id,board:candidate?.board || game.board});
+  clearTimeout(analysisTimer);
+  pending = ++seq;
+  if (!game.assisted) {
+    analysis = null;
+    for (const key of ["blackEstimate","whiteEstimate","leadEstimate","winEstimate"]) $(key).textContent="—";
+    $("analysisStatus").textContent="AI補助オフ";
+    draw(); return;
+  }
+  const state = candidate || game;
+  $("analysisStatus").textContent=fallbackMode?"簡易推定を計算中…":"KataGoの推論中…（初回はモデルを読み込みます）";
+  // Avoid queuing expensive neural network evals on every fast tap.
+  analysisTimer = setTimeout(() => {
+    worker.postMessage({id:pending,state,board:state.board});
+  },180);
 }
-worker.onmessage=e=>{
-  if(e.data.id!==pending)return;
-  analysis=e.data; $("blackEstimate").textContent=e.data.black.toFixed(1)+"目";
-  $("whiteEstimate").textContent=e.data.white.toFixed(1)+"目";
-  $("leadEstimate").textContent=(e.data.lead>0?"黒 +":"白 +")+Math.abs(e.data.lead).toFixed(1)+"目";
-  $("analysisStatus").textContent="近傍影響モデルによる試験的推定（確率ではありません）";draw();
-};
+function handleAnalysis(e) {
+  const result = e.data;
+  if(result.id!==pending)return;
+  if(result.error) { switchToFallback(result.error); return; }
+  if(!Array.isArray(result.ownership)||result.ownership.length!==81) {
+    switchToFallback("Invalid ownership output"); return;
+  }
+  analysis=result;
+  $("blackEstimate").textContent=result.black.toFixed(1)+"目";
+  $("whiteEstimate").textContent=result.white.toFixed(1)+"目";
+  $("leadEstimate").textContent=(result.lead>=0?"黒 +":"白 +")+Math.abs(result.lead).toFixed(1)+"目";
+  $("winEstimate").textContent=Number.isFinite(result.winRate)?(result.winRate*100).toFixed(1)+"%":"—";
+  $("analysisStatus").textContent=result.engine==="katago"
+    ?"KataGo NN単独評価 · "+result.backend+" · 小型テストモデル（探索なし）"
+    :"近傍影響モデルによる簡易推定（KataGoは利用不可）";
+  draw();
+}
+worker.onmessage=handleAnalysis;
 function show() {
   $("turn").textContent=game.status==="finished"?"終局 "+game.result:game.status==="scoring"?"死石確認中":(game.next===BLACK?"● 黒番":"○ 白番");
   $("moveLabel").textContent=game.moveNumber+"手目";

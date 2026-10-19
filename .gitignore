@@ -2,3 +2,6 @@ node_modules/
 .wrangler/
 .dev.vars
 .DS_Store
+public/models/
+public/tfjs/
+public/katago-worker.bundle.mjs

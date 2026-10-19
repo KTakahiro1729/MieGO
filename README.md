@@ -1,39 +1,38 @@
 # MieGO
 
-**ブラウザだけでデプロイ・対局・運用できる**、地合い予測補助付きオンライン囲碁の試作実装です。9路盤・中国式面積計算（コミ7.5目）、招待URLによる友人同士のWebRTC P2P対局を想定しています。
+9路盤・中国式面積計算（コミ7.5目）、友人同士の招待URLとWebRTC P2P対局、**KataGoニューラルネットによるOwnership・目数差・勝率のブラウザ内推定**を備えた試作アプリです。
 
-## デプロイ（推奨: ブラウザだけで完結）
+## Cloudflareへの展開（ブラウザのみ）
 
-**[Cloudflareのブラウザ完結デプロイマニュアル](DEPLOY_CLOUDFLARE.md)** を参照してください。PCへのNode.js、Git、Wranglerのインストールは不要です。
+すでにGitHubの`main`とCloudflare Workers Buildsを接続済みなら、リポジトリの更新により再ビルド・デプロイされます。
 
-1. Cloudflareダッシュボードの **Workers & Pages → Create application → Import a repository** からGitHubの `KTakahiro1729/MieGO` を選択します。
-2. Worker名 `miego`、Branch `main`、Build command `npm test`、Deploy command `npx wrangler deploy` を設定します。
-3. **Save and Deploy** を押して、完了したら表示された `workers.dev` のURLを開きます。
-4. `/api/health` から配信状態を確認し、招待URLを発行して友人と対局します。
+**Cloudflare Build commandは引き続き `npm test`、Deploy commandは `npx wrangler deploy`** を使用してください。npmの`pretest`工程が、ブラウザ用KataGo Workerのバンドル・モデルのダウンロード・整合性確認・TensorFlow.js WASMファイルのコピーを実行します。モデルの初回ダウンロードには時間がかかることがあります。
 
-以後のコード編集はGitHubのWeb編集画面から行えます。GitHub上の`main`へのコミットをCloudflareが自動検知して更新します。**手動でのGit PushやローカルCLI操作は不要**ですが、CloudflareとGitHubの連携許可は必要です。
+[Cloudflareデプロイ詳細](DEPLOY_CLOUDFLARE.md)
 
-## 現在の機能
+## 導入したKataGo
 
-- 9路盤の着手、石の捕獲、自殺手禁止、単純コウ、パス、投了
-- 中国式面積計算、死石の指定、双方による終局確認
-- 仮置き・着手確定・ヒートマップとカラーマップ
-- 招待URL、WebRTC DataChannelによるP2P着手同期
-- WorkersとDurable Objectsによるシグナリング、必要時のTURN設定口
-- `/api/health`によるブラウザからの稼働確認
+- [Web KaTrain](https://github.com/Sir-Teo/web-katrain) のMITライセンスのKataGoニューラル推論モジュールを`vendor/web-katrain/`へ固定バージョンで取り込み、TypeScript + esbuildで専用Workerにまとめます。
+- モデル: Web KaTrainの`katago-small.bin.gz`（約3.8MB）。Cloudflareのビルド時に固定コミットから取得し、Git Blob SHA-1で検証して配置します。**テスト用の弱い小型モデルであり、本格的な棋力評価用ではありません。**
+- 実行: WebGPUを優先し、利用できなければTensorFlow.js WASM、さらにCPUへフォールバックします。
+- 推論結果: 黒視点のOwnership予測（-1〜+1）、KataGoのニューラル目数差、黒の予測勝率。**MCTS探索は行っていません。** Ownershipを勝敗確率と同一視しないでください。
+- 中国式（簡易コウ）・9路盤・コミ7.5に対応。例外的な反復局面、全手順の完全なルール互換は未検証です。
+- MieGOのヒートマップは引き続きブラウザ内で計算。正式な着手のみP2P同期し、分析結果をサーバーへ送信しません。
 
-**重要:** 地合い表示は現段階でKataGoではなく**ブラウザ内の簡易影響モデル**です。正確な所有確率、勝率、生死の判定ではありません。
+## 既存の操作
 
-## 制限と安全性
+対局URL共有 → 別端末から参加 → 仮置きとOwnership表示 → 手の確定 → パス・終局確認。カラーマップと透明度を変更できます。
 
-- Cloudflare本番環境の実デプロイ・スマホ2台でのE2E接続検証は未実施です。
-- `/api/ice` に参加者認証とレート制限はありません。安全対策を行うまで一般公開環境でTURNを有効化しないでください。
-- 対局ルームは信頼できる友人との試用向けです。切断復旧などの安定化は未完成です。
-- 日本式ルールは後回しです。中国式でも複雑な反復局面には未対応です。
+### 制限と注意
 
-## 開発者向け（任意、CLI使用）
+- Cloudflare本番のKataGo推論・スマホ2台E2Eは未検証です。起動失敗時には画面に**簡易近傍影響モデルへの切り替え**を明示します。
+- KataGoの小型モデルは強さや予測精度を検証するためのものではなく、初期統合の実行確認用です。
+- 一般公開前に`/api/ice`への参加者認証・レート制限が必要です。安全対策が終わるまでTURNのSecretsは設定しないでください。
+- 切断復帰、全中国式例外、死活の精度保証、日本ルールは未完成です。
 
-ローカルで開発したい場合のみ以下を使用します。
+## 開発者向け
+
+Node.js 20以降が必要です。以下はCloudflare内で自動実行され、ユーザーがブラウザ以外の操作を行う必要はありません。
 
 ```bash
 npm install
@@ -41,4 +40,4 @@ npm test
 npm run dev
 ```
 
-ブラウザ完結ルートを利用する人には不要です。
+追加のライセンス・由来情報: `vendor/web-katrain/NOTICE.md` と `vendor/web-katrain/LICENSE`。
