@@ -79,6 +79,7 @@
         </div>
         <section id="reviewPanel" class="review-panel" aria-label="棋譜を再生" hidden>
           <strong id="reviewTitle" class="visually-hidden">棋譜を確認中</strong>
+          <p id="reviewFeedback" class="review-feedback" role="status" aria-live="polite" hidden></p>
           <div class="review-navigation">
             <button id="reviewPrevious" type="button" aria-label="1手戻る" title="1手戻る">‹</button>
             <button id="reviewStepToggle" class="review-step-toggle" type="button" aria-label="再生する手数を選ぶ">
@@ -86,23 +87,32 @@
               <span id="reviewNewMoves" class="review-new-moves" role="status" aria-live="polite" hidden></span>
             </button>
             <button id="reviewNext" type="button" aria-label="1手進む" title="1手進む">›</button>
+            <div id="reviewPlayActions" class="review-play-actions" hidden>
+              <button id="reviewCancel" class="review-cancel" type="button">取り消す</button>
+              <button id="reviewConfirm" class="review-confirm primary" type="button">この手を打つ</button>
+            </div>
             <button id="reviewBack" class="review-back" type="button">戻る</button>
-          </div>
-          <div id="reviewMenu" class="review-tools">
-            <div class="review-scrubber">
-              <button id="reviewFirst" type="button" aria-label="最初の局面">≪</button>
-              <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="表示する手数">
-              <button id="reviewLast" type="button" aria-label="最後の局面">≫</button>
-            </div>
-            <div class="review-direct-actions">
-              <button id="reviewLink" type="button">URLをコピー</button>
-              <button id="reviewAiLink" type="button">AI向けにコピー</button>
-              <button id="reviewResume" type="button" hidden>対局の続き</button>
-              <button id="reviewBranch" type="button">ここから検討</button>
-              <button id="reviewExport" type="button">SGF保存</button>
-            </div>
-            <p id="reviewNotice" role="status" aria-live="polite"></p>
-            <textarea id="reviewCopyFallback" readonly hidden aria-label="手動コピー用の文字列"></textarea>
+            <details id="reviewMenu" class="review-menu">
+              <summary aria-label="棋譜の操作と共有">•••</summary>
+              <div class="review-menu-popover" role="group" aria-label="棋譜の操作と共有">
+                <div class="review-scrubber">
+                  <button id="reviewFirst" type="button" aria-label="最初の局面">≪</button>
+                  <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="表示する手数">
+                  <button id="reviewLast" type="button" aria-label="最後の局面">≫</button>
+                </div>
+                <button id="reviewOriginal" type="button" hidden>元の棋譜を見る</button>
+                <button id="reviewVariation" type="button" hidden>変化図を見る</button>
+                <button id="reviewPass" type="button">この局面からパスを試す</button>
+                <button id="reviewSaveVariation" type="button" hidden>変化図を棋譜に保存</button>
+                <button id="reviewLink" type="button">この手数のURLをコピー</button>
+                <button id="reviewAiLink" type="button">AI向けにコピー</button>
+                <button id="reviewResume" type="button" hidden>対局の続き</button>
+                <button id="reviewBranch" type="button">ここから1台で打つ</button>
+                <button id="reviewExport" type="button">SGF保存</button>
+                <p id="reviewNotice" role="status" aria-live="polite"></p>
+                <textarea id="reviewCopyFallback" readonly hidden aria-label="手動コピー用の文字列"></textarea>
+              </div>
+            </details>
           </div>
         </section>
         <p id="saveStatus" class="save-status" role="alert" hidden></p>
