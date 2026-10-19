@@ -5,15 +5,24 @@ import { OWNERSHIP_BANDS } from "./territory-view.mjs";
  * Evaluations must be from committed positions (never sandbox/preview moves).
  * Stable ownership is only a necessary hint, not a life-and-death proof.
  */
+export const ENDGAME_HINTS = Object.freeze({
+  playing:"終局まではまだまだです",
+  near:"そろそろ終局です",
+  ready:"終局をご検討ください"
+});
 /** No KataGo evaluation is not the same thing as 'far from endgame'. */
 export function endgameHint(state,advisor,{unavailable=false,suppressedUntil=-1}={}) {
   if(unavailable)return "終局の目安を判定できません";
   if(!advisor.previous)return "終局の目安を確認中";
   if(state.moveNumber-advisor.previous.move>3)return "終局の目安を更新中";
-  return (advisor.stage==="near"||advisor.stage==="ready") &&
-    state.moveNumber>suppressedUntil?"終局はいかがですか？":"終局はまだのようです";
+  // Three steps. After the player chose to keep playing, the strongest one
+  // waits for the next move and the milder one stands in for it.
+  if(advisor.stage==="ready" && state.moveNumber>suppressedUntil)return ENDGAME_HINTS.ready;
+  if(advisor.stage==="ready" || advisor.stage==="near")return ENDGAME_HINTS.near;
+  return ENDGAME_HINTS.playing;
 }
-/** Board area relative to 9x9: the unit for move-count thresholds. */
+const DECIDED = .9;
+/** Board area relative to 9x9: the unit for stone-count thresholds. */
 export const boardScale = points => Number.isFinite(points) && points>0 ? points/81 : 1;
 export class EndgameAdvisor {
   constructor() { this.reset(); }
@@ -35,35 +44,38 @@ export class EndgameAdvisor {
     for (let i=0;i<state.board.length;i++) {
       if (state.board[i]) occupied++; else free.push(i);
     }
-    // A group in atari is an open fight. For the stable ("ready") check only,
-    // a group the estimate shows wholly in the opponent's settled colour is a
-    // dead group waiting to be removed at scoring, not a reason to keep
-    // playing; the repeated, unchanged estimates guard against a live fight.
-    let atari=false,fight=false;
+    // A group in atari is an open fight, unless the estimate shows every stone
+    // of it in the opponent's settled colour: then it is a dead group waiting
+    // to be removed at scoring, not a reason to keep playing.
+    let fight=false;
     const visited=new Set();
     for(let i=0;i<state.board.length;i++){
       if(!state.board[i] || visited.has(i))continue;
       const g=group(state.board,i);
       for(const j of g.stones)visited.add(j);
       if(g.liberties.size>1)continue;
-      atari=true;
       if(![...g.stones].every(j=>state.board[j]*ownership[j]<=-OWNERSHIP_BANDS.SETTLED))fight=true;
     }
-    const settled = free.length
-      ? free.filter(i=>Math.abs(ownership[i])>=OWNERSHIP_BANDS.SETTLED).length/free.length : 1;
+    const share = line => free.length ? free.filter(i=>Math.abs(ownership[i])>=line).length/free.length : 1;
+    const settled = share(OWNERSHIP_BANDS.SETTLED), decided = share(DECIDED);
     let change = Infinity;
     if(this.previous) {
       change = free.length
         ? free.reduce((s,i)=>s+Math.abs(ownership[i]-this.previous.ownership[i]),0)/free.length
         : 0;
     }
-    // Move and stone counts were tuned on 9x9; larger boards scale them by area.
+    // How far the game has gone is read from the stones on the board, not the
+    // move number: a short, decisive game settles early. "ready" asks for most
+    // empty points to be all but decided (|v| >= DECIDED) on two evaluations
+    // in a row; tuned on self-play so that scoring at that point gives the
+    // estimate's result within a few points. Counts were tuned on 9x9;
+    // larger boards scale them by area.
     const scale = boardScale(state.board.length);
-    const stable = state.moveNumber>=45*scale && occupied>=24*scale &&
-      free.length>0 && settled>=.8 && change<=.09 && !fight;
+    const stable = occupied>=24*scale &&
+      free.length>0 && decided>=.85 && change<=.09 && !fight;
     this.streak = stable ? this.streak+1 : 0;
     this.stage = this.streak>=2 ? "ready"
-      : state.moveNumber>=30*scale && settled>=.65 && !atari ? "near" : "playing";
+      : occupied>=20*scale && settled>=.65 && !fight ? "near" : "playing";
     this.previous={move:state.moveNumber,ownership:[...ownership]};
     return this.stage;
   }
