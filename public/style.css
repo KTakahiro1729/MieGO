@@ -269,3 +269,7 @@ body{overflow:hidden}
   .endgame-bar .end-toggle{font-size:11px;padding:6px 7px}
   .endgame-bar .end-action{font-size:11px}
 }
+
+/* Keep the final score and its actions together at the bottom on tall phones. */
+.game-panel.is-scoring .score-box,.game-panel.is-finished .score-box{margin-top:auto}
+.game-panel.is-scoring .action-row,.game-panel.is-finished .action-row{margin-top:0}
