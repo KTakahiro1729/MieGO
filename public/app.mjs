@@ -5,7 +5,8 @@ import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
 import { PALETTES, ownershipPixel, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { illegalMoveReasons, drawIllegalMoveMarker } from "./illegal-moves.mjs";
-import { gameStorageKey, parseGameSnapshot, needsSwitchConfirmation, freshLocalGame } from "./mode-state.mjs";
+import { needsSwitchConfirmation, freshLocalGame } from "./mode-state.mjs";
+import { GameLibrary } from "./game-library.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board"), ctx = canvas.getContext("2d");
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
@@ -42,6 +43,19 @@ const endgameAdvisor = new EndgameAdvisor();
 let endgameStage = "playing", endExpanded = false, analysisContext = null;
 let lastOfferKey = null, endHintSuppressedUntil = -1;
 let deadEvaluation=null, deadReview="idle", deadReviewTouched=false;
+const gameLibrary=new GameLibrary(localStorage);
+let currentGameId=null,currentRevision=null,historySelection=null;
+try {gameLibrary.migrateLegacy();}
+catch(error){console.warn("Saved-game migration failed",error);}
+function storageError(error){
+  $("saveStatus").hidden=false;
+  $("saveStatus").textContent="棋譜を保存できませんでした。容量や別のタブを確認してください。";
+  $("historySaveNotice").textContent=error?.message||"保存に失敗しました";
+  console.error("MieGO autosave",error);
+}
+function clearStorageError() {
+  $("saveStatus").hidden=true;$("historySaveNotice").textContent="";
+}
 function myColorForEnd() {
   if(room)return seat==="host"?BLACK:seat==="guest"?WHITE:null;
   return gameMode==="ai"?humanColor:BLACK;
@@ -491,7 +505,8 @@ $("resign").onclick=()=>{
 function resetLocalBoard() {
   if (room || gameMode!=="local") return;
   if((game.moveNumber>0 || candidate!==null || game.status!=="playing") &&
-     !confirm("1台で打つ盤面を最初からやり直しますか？ 今の棋譜は上書きされます。"))return;
+     !confirm("新しい対局を始めますか？ 現在の棋譜は履歴に保存されます。"))return;
+  if(!save())return;
   $("gameMenu").open=false;
   clearTimeout(analysisTimer);
   analysisTimer=null;
@@ -504,7 +519,7 @@ function resetLocalBoard() {
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
   lastOfferKey=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  game=freshLocalGame(game);
+  game=freshLocalGame(game);currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
 }
 $("resetLocalGame").onclick=resetLocalBoard;
@@ -586,21 +601,31 @@ $("resetAppearance").onclick=()=>{
 };
 function updateGradient(){$("gradient").style.backgroundImage=paletteGradient(palette,opacity);}
 function save(){
-  if (room) return;
   try {
-    localStorage.setItem(gameStorageKey(gameMode),JSON.stringify(game));
-    if (gameMode==="local") localStorage.setItem("miego-local",JSON.stringify(game));
-    rememberSettings();
-  } catch {}
+    const record=gameLibrary.save({id:currentGameId,mode:room?"online":gameMode,
+      roomId:room||null,snapshot:game,lastPosition,humanColor,aiLevel,invasion,reinforcement,seat},currentRevision);
+    currentGameId=record.id;currentRevision=record.revision;
+    if(!room)gameLibrary.setActive(gameMode,record.id);
+    rememberSettings();clearStorageError();
+    return true;
+  }catch(error){storageError(error);return false;}
 }
 function savedGame(mode) {
-  const raw=localStorage.getItem(gameStorageKey(mode)) ||
-    (mode==="local" ? localStorage.getItem("miego-local") : null);
-  return parseGameSnapshot(raw) || newGame(game.assisted);
+  let record=null;
+  try{record=gameLibrary.active(mode);}catch(error){storageError(error);}
+  currentGameId=record?.id||null;currentRevision=record?.revision||null;
+  lastPosition=record?.lastPosition??null;
+  if(mode==="ai" && record){
+    humanColor=record.humanColor===WHITE?WHITE:BLACK;
+    aiLevel=record.aiLevel==="gentle"?"gentle":"standard";
+    invasion=record.invasion;reinforcement=record.reinforcement;
+  }
+  return record?.snapshot||newGame(game.assisted);
 }
 function leaveOnlineRoom() {
   $("gameMenu").open=false;
   if(!room)return;
+  save();
   const oldUrl=new URL(location.href);
   oldUrl.searchParams.delete("room");
   room=null;roomCount=0;seat="host";connected=false;
@@ -618,9 +643,10 @@ function switchToLocal() {
   if(gameMode==="local" && !room){closePanels();return;}
   if(needsSwitchConfirmation(game,gameMode,"local",connected) &&
     !confirm("現在の対局を離れて、1台で打つモードに切り替えますか？"))return;
-  if(!room)save();else leaveOnlineRoom();
+  if(!save())return;
+  if(room)leaveOnlineRoom();
   stopAiTurn();gameMode="local";
-  game=savedGame("local");lastPosition=null;candidate=null;
+  game=savedGame("local");candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=!!game.endProposal;
   save();closePanels();show();requestAnalysis();
 }
@@ -658,6 +684,7 @@ function setupChannel(c){
     if(msg.type==="snapshot"&&seat==="guest"){
       if(!msg.game||!Array.isArray(msg.game.board)||msg.game.board.length!==81)return;
       game=msg.game;lastPosition=msg.lastPosition;candidate=null;
+      save();
       endgameAdvisor.reset();endgameStage="playing";
       endExpanded=!!game.endProposal && game.endProposal.from!==myColorForEnd();
       show();requestAnalysis();
@@ -702,7 +729,7 @@ function showInviteLink() {
 function ensureRoom() {
   if (room) return showInviteLink();
   if (needsSwitchConfirmation(game,gameMode,"online",connected) && !confirm("現在の対局を離れて、友人対局を開始しますか？")) return null;
-  if(!room)save();
+  if(!save())return null;
   // This room ID is purely random: the Durable Object room is created lazily by
   // the first WebSocket connection. No async fetch is required here, preserving
   // the browser's transient user activation for navigator.clipboard.writeText.
@@ -711,10 +738,10 @@ function ensureRoom() {
   stopAiTurn();
   const link = makeInviteUrl(location.origin, room);
   history.replaceState(null, "", new URL(link));
-  game = newGame(game.assisted);
+  game = newGame(game.assisted);currentGameId=null;currentRevision=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   candidate = null;
-  showInviteLink();
+  save();showInviteLink();
   void joinRoom();
   show();
   requestAnalysis();
@@ -750,12 +777,136 @@ function openPanel(kind) {
   const panel=kind==="settings"?$("settingsPanel"):$("modePanel");
   panel.querySelector(".settings-head button").focus();
 }
+function recordName(record) {
+  return record.mode==="ai"?"AIと対戦":record.mode==="online"?"友人と対戦":"1台で打つ";
+}
+function recordStatus(record) {
+  return record.snapshot.status==="finished"?"終局済み":record.snapshot.status==="scoring"?"採点中":"対局中";
+}
+function dateLabel(timestamp) {
+  const date=new Date(timestamp);
+  return Number.isNaN(date.getTime())?"日時不明":date.toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
+}
+function drawHistoryBoard(record) {
+  const canvas=$("historyBoard"), ctx=canvas.getContext("2d"),d=canvas.width;
+  const gap=d/(SIZE+1),pad=gap;
+  ctx.fillStyle="#e5c58c";ctx.fillRect(0,0,d,d);
+  ctx.lineWidth=1.5;ctx.strokeStyle="#6c5638";
+  for(let i=0;i<SIZE;i++){
+    const p=pad+i*gap;
+    ctx.beginPath();ctx.moveTo(pad,p);ctx.lineTo(d-pad,p);
+    ctx.moveTo(pad,p);ctx.lineTo(d-pad,p);
+    ctx.moveTo(p,pad);ctx.lineTo(p,d-pad);ctx.stroke();
+  }
+  for(const [x,y] of [[2,2],[6,2],[4,4],[2,6],[6,6]]){
+    ctx.beginPath();ctx.arc(pad+x*gap,pad+y*gap,2.5,0,Math.PI*2);
+    ctx.fillStyle="#755d3a";ctx.fill();
+  }
+  record.snapshot.board.forEach((stone,i)=>{
+    if(!stone)return;
+    const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
+    ctx.beginPath();ctx.arc(x,y,gap*.44,0,Math.PI*2);
+    ctx.fillStyle=stone===BLACK?"#161b20":"#faf8f3";
+    ctx.strokeStyle=stone===BLACK?"#080a0a":"#88857c";
+    ctx.lineWidth=1.3;ctx.fill();ctx.stroke();
+  });
+}
+function renderHistoryList() {
+  historySelection=null;
+  $("historyDetail").hidden=true;$("historyList").hidden=false;
+  const list=$("historyList");list.replaceChildren();
+  let records=[];
+  try{records=gameLibrary.list();}catch(error){storageError(error);}
+  $("historyEmpty").hidden=records.length!==0;
+  for(const record of records){
+    const item=document.createElement("button");item.type="button";item.className="history-list-item";
+    const icon=document.createElement("span");icon.className="history-list-icon";
+    icon.textContent=record.mode==="online"?"↗":record.mode==="ai"?"AI":"●";
+    const copy=document.createElement("span");copy.className="history-item-copy";
+    const title=document.createElement("span");title.className="history-item-name";
+    title.textContent=recordName(record);
+    const desc=document.createElement("span");desc.className="history-item-meta";
+    desc.textContent=recordStatus(record)+" · "+record.snapshot.moveNumber+"手 · "+dateLabel(record.updatedAt);
+    copy.append(title,desc);item.append(icon,copy);
+    item.onclick=()=>showHistoryRecord(record.id);
+    list.append(item);
+  }
+}
+function showHistoryRecord(id) {
+  let record=null;
+  try{record=gameLibrary.load(id);}catch(error){storageError(error);return;}
+  if(!record)return;
+  historySelection=record;
+  $("historyList").hidden=true;$("historyEmpty").hidden=true;
+  $("historyDetail").hidden=false;
+  $("historySelectionName").textContent=recordName(record);
+  $("historyMeta").textContent=recordStatus(record)+" · "+record.snapshot.moveNumber+"手 · "+dateLabel(record.updatedAt);
+  const resumable=record.mode!=="online" && record.snapshot.status!=="finished";
+  $("historyResume").hidden=!resumable;
+  $("historyReadOnlyHint").textContent=resumable?
+    "続きから打てます。いまの対局は履歴に残ります。":
+    record.mode==="online"?"保存局面の閲覧専用です。友人との再接続・同期は保証されません。":
+    "終局済みの棋譜は、ここで最終局面を閲覧できます。";
+  drawHistoryBoard(record);
+}
+function openHistoryPanel() {
+  $("gameMenu").open=false;
+  $("settingsBackdrop").hidden=false;
+  $("settingsPanel").hidden=true;$("modePanel").hidden=true;
+  $("historyPanel").hidden=false;
+  $("settingsToggle").setAttribute("aria-expanded","false");
+  renderHistoryList();
+  $("closeHistory").focus();
+}
+function resumeHistoryRecord() {
+  const selected=historySelection;
+  if(!selected || selected.mode==="online" || selected.snapshot.status==="finished")return;
+  if(room && connected && !confirm("友人との対局から離れ、保存した棋譜を開きますか？"))return;
+  // Save the current board before replacing it with the selected position.
+  const same=selected.id===currentGameId && selected.mode===gameMode;
+  if(!save())return;
+  if(room)leaveOnlineRoom();
+  const record=gameLibrary.load(selected.id);
+  if(!record || (!same && record.revision!==selected.revision)){
+    $("historySaveNotice").textContent="この棋譜が別のタブで更新されました。一覧を開き直してください。";
+    return;
+  }
+  stopAiTurn();
+  gameMode=record.mode;game=JSON.parse(JSON.stringify(record.snapshot));
+  currentGameId=record.id;currentRevision=record.revision;
+  lastPosition=record.lastPosition;candidate=null;
+  if(gameMode==="ai"){
+    humanColor=record.humanColor===WHITE?WHITE:BLACK;
+    aiLevel=record.aiLevel;invasion=record.invasion;reinforcement=record.reinforcement;
+    $("aiColor").value=String(humanColor);
+    const side=document.querySelector('input[name="aiSide"][value="'+humanColor+'"]');
+    if(side)side.checked=true;
+    $("aiLevel").value=aiLevel;
+    $("aiInvasion").value=String(invasion);
+    $("aiReinforcement").value=String(reinforcement);updatePersonaUi();
+  }
+  endgameAdvisor.reset();endgameStage="playing";endExpanded=!!game.endProposal;
+  lastOfferKey=null;deadReview="idle";deadEvaluation=null;deadReviewTouched=false;
+  analysis=null;displayedOwnership=null;
+  try{gameLibrary.setActive(gameMode,currentGameId);}catch(error){storageError(error);return;}
+  rememberSettings();
+  closePanels();show();requestAnalysis();
+}
+$("openHistory").onclick=openHistoryPanel;
+$("closeHistory").onclick=()=>{closePanels();$("openHistory").focus();};
+$("historyBack").onclick=renderHistoryList;
+$("historyResume").onclick=resumeHistoryRecord;
+document.addEventListener("storage",e=>{
+  if(e.key?.startsWith("miego:game:v1:") && !$("historyPanel").hidden &&
+     $("historyDetail").hidden)renderHistoryList();
+});
 function openSettings(){openPanel("settings");}
 function closePanels() {
   $("gameMenu").open=false;
   $("settingsBackdrop").hidden=true;
   $("settingsPanel").hidden=true;
   $("modePanel").hidden=true;
+  $("historyPanel").hidden=true;
   $("onlineSetup").hidden=true;
   $("aiSetup").hidden=true;
   $("settingsToggle").setAttribute("aria-expanded","false");
@@ -781,12 +932,13 @@ $("startAi").onclick=()=>{
   }
   if((game.moveNumber>0 || connected) &&
      !confirm("現在の対局を離れて、AIと新しい対局を始めますか？"))return;
-  if(!room)save();else leaveOnlineRoom();
+  if(!save())return;
+  if(room)leaveOnlineRoom();
   stopAiTurn();
   gameMode="ai";
   humanColor=Number($("aiColor").value)===WHITE?WHITE:BLACK;
   aiLevel=$("aiLevel").value==="gentle"?"gentle":"standard";
-  game=newGame(game.assisted);lastPosition=null;candidate=null;
+  game=newGame(game.assisted);currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   $("aiMatchStatus").textContent="対局を開始しました。";
   save();closePanels();show();requestAnalysis();
@@ -811,7 +963,7 @@ $("nativeShare").onclick=async()=>{
   try{await navigator.share({title:"MieGO 友人対局",url:link});}
   catch(error){if(error.name!=="AbortError")$("inviteStatus").textContent="共有できませんでした。URLを選択してコピーしてください。";}
 };
-if (room) { showInviteLink(); void joinRoom(); }
+if (room) { gameMode="online";save();showInviteLink(); void joinRoom(); }
 else try {
   const settings=JSON.parse(localStorage.getItem("miego-local-settings")||"null");
   if(settings){
@@ -834,4 +986,4 @@ const selectedPalette=document.querySelector('input[name="palette"][value="'+pal
 if(selectedPalette)selectedPalette.checked=true;
 $("opacity").value=String(Math.round(opacity*100));
 $("opacityValue").textContent=Math.round(opacity*100)+"%";
-updateGradient();show();requestAnalysis();
+updateGradient();if(!room && currentGameId===null)save();show();requestAnalysis();

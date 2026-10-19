@@ -175,3 +175,20 @@ button:hover:not(:disabled){border-color:#748094}
   .action-row .primary{font-size:12px}
   .button-stone{width:16px;height:16px;margin-right:5px}
 }
+
+/* Saved games: a bottom sheet rather than a separate page. */
+.save-status{margin:7px 0;color:#ffcfac;font-size:12px;line-height:1.5}
+.history-panel{max-height:min(90dvh,760px)}
+.history-list{display:flex;flex-direction:column;gap:8px;margin-top:17px}
+.history-list-item{min-height:66px;width:100%;text-align:left;display:flex;align-items:center;gap:12px;background:#232a36;border:1px solid #41495b;border-radius:13px;padding:12px}
+.history-list-icon{width:38px;height:38px;display:grid;place-items:center;border-radius:9px;background:#bd9d70;color:#1a1b1e;font-size:18px;flex:none}
+.history-item-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+.history-item-name{font-size:14px;font-weight:650;color:#f3f2ed}
+.history-item-meta{font-size:11px;color:#adb5c3;overflow-wrap:anywhere;line-height:1.45}
+.history-empty{color:#b7beca;font-size:13px;padding:28px 0;text-align:center}
+.history-detail{margin-top:16px;border-top:1px solid #3e4652;padding-top:14px}
+.history-detail[hidden]{display:none}
+.history-detail h3{font-size:15px;margin:13px 0}
+.history-back{background:transparent;border:0;color:#e9cb85;padding:8px 0;font-size:13px;min-height:36px}
+#historyBoard{display:block;width:min(100%,360px);height:auto;aspect-ratio:1;margin:10px auto;border:6px solid #bc925b;border-radius:9px;background:#e5c58c;box-shadow:0 6px 20px #0006}
+.history-detail .full{width:100%;margin-top:15px}

@@ -64,11 +64,13 @@
           <details id="gameMenu" class="game-actions">
             <summary aria-label="対局メニュー" title="対局メニュー"><svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
             <div class="game-action-popover" role="group" aria-label="対局操作">
-              <button id="resetLocalGame" type="button" hidden>盤面をリセット</button>
+              <button id="openHistory" type="button">保存した棋譜</button>
+              <button id="resetLocalGame" type="button" hidden>新しい対局（盤面をリセット）</button>
               <button id="resign" class="danger-button" type="button">投了する</button>
             </div>
           </details>
         </div>
+        <p id="saveStatus" class="save-status" role="alert" hidden></p>
         <div id="scoreBox" class="score-box hidden">
           <strong>終局の確認</strong>
           <p id="scoreInstruction">死石をタップして指定し、双方で結果を確認してください。</p>
@@ -138,6 +140,21 @@
         <button id="startAi" class="primary full" type="button" disabled>準備中…</button>
         <p id="aiMatchStatus" class="explanation" role="status" aria-live="polite">対局を準備しています…</p>
       </section>
+    </aside>
+    <aside id="historyPanel" class="settings-panel history-panel" role="dialog" aria-modal="true" aria-label="保存した棋譜" hidden>
+      <div class="settings-head"><h2>保存した棋譜</h2><button id="closeHistory" class="icon-button" type="button" aria-label="棋譜を閉じる">×</button></div>
+      <p class="explanation">確定した手をこの端末に自動保存します。端末のデータを削除すると棋譜も失われます。</p>
+      <div id="historyList" class="history-list"></div>
+      <p id="historyEmpty" class="history-empty" hidden>保存された棋譜はまだありません。</p>
+      <section id="historyDetail" class="history-detail" hidden>
+        <button id="historyBack" class="history-back" type="button">← 棋譜一覧に戻る</button>
+        <h3 id="historySelectionName">保存した局面</h3>
+        <canvas id="historyBoard" width="360" height="360" aria-label="保存された棋譜の盤面"></canvas>
+        <p id="historyMeta" class="explanation"></p>
+        <button id="historyResume" class="primary full" type="button" hidden>この対局の続きを打つ</button>
+        <p id="historyReadOnlyHint" class="explanation"></p>
+      </section>
+      <p id="historySaveNotice" class="invite-status" role="status"></p>
     </aside>
   </div>
   <script type="module" src="/app.mjs"></script>

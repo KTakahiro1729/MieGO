@@ -1,0 +1,79 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {GameLibrary} from "../public/game-library.mjs";
+import {newGame,play,BLACK} from "../public/core.mjs";
+class MemoryStorage {
+  constructor(){this.items=new Map();}
+  get length(){return this.items.size;}
+  key(i){return [...this.items.keys()][i]??null;}
+  getItem(k){return this.items.has(k)?this.items.get(k):null;}
+  setItem(k,v){this.items.set(k,String(v));}
+}
+const setup=()=>{
+ const storage=new MemoryStorage();
+ let counter=0,clock=0;
+ const lib=new GameLibrary(storage,()=>`game-test-${++counter}`,()=>new Date(Date.UTC(2026,0,1,0,0,++clock)).toISOString());
+ return {lib,storage};
+};
+test("each new game creates an independent record and latest first ordering",()=>{
+ const {lib}=setup();
+ const first=lib.save({mode:"local",snapshot:play(newGame(),40)});
+ const second=lib.save({mode:"local",snapshot:newGame()});
+ assert.notEqual(first.id,second.id);
+ assert.equal(lib.load(first.id).snapshot.moveNumber,1);
+ assert.deepEqual(lib.list().map(x=>x.id),[second.id,first.id]);
+ lib.setActive("local",second.id);
+ assert.equal(lib.active("local").id,second.id);
+});
+test("AI saves retain own parameters separately from local",()=>{
+ const {lib}=setup();
+ const local=lib.save({mode:"local",snapshot:newGame()});
+ const ai=lib.save({mode:"ai",snapshot:play(newGame(),40),humanColor:-1,
+   aiLevel:"gentle",invasion:75,reinforcement:35});
+ lib.setActive("local",local.id);
+ lib.setActive("ai",ai.id);
+ assert.equal(lib.active("local").mode,"local");
+ assert.equal(lib.active("ai").humanColor,-1);
+ assert.equal(lib.active("ai").snapshot.moveNumber,1);
+});
+test("confirmed updates replace one record without mutating an older snapshot",()=>{
+ const {lib}=setup();
+ const old=newGame(false);
+ const a=lib.save({mode:"local",snapshot:old});
+ const next=lib.save({id:a.id,mode:"local",snapshot:play(old,40)},a.revision);
+ assert.equal(next.revision,2);
+ assert.equal(lib.load(a.id).snapshot.moveNumber,1);
+ assert.equal(old.board[40],0);
+ assert.throws(()=>lib.save({id:a.id,mode:"local",snapshot:old},a.revision),/別のタブ/);
+});
+test("online matches are archived locally, not marked as resumable active games",()=>{
+ const {lib}=setup();
+ const r=lib.save({mode:"online",roomId:"a".repeat(32),snapshot:play(newGame(),40),seat:"guest"});
+ assert.equal(lib.load(r.id).seat,"guest");
+ assert.equal(lib.active("online"),null);
+ assert.equal(lib.load(r.id).snapshot.board[40],BLACK);
+ assert.throws(()=>lib.save({mode:"online",snapshot:newGame()}),/ルームID/);
+});
+test("migrate legacy snapshots once without deleting original keys",()=>{
+ const {lib,storage}=setup();
+ storage.setItem("miego-local",JSON.stringify(play(newGame(false),12)));
+ storage.setItem("miego-game-ai",JSON.stringify(play(newGame(),40)));
+ storage.setItem("miego-local-settings",JSON.stringify({humanColor:-1,aiLevel:"gentle"}));
+ lib.migrateLegacy();
+ assert.equal(lib.list().length,2);
+ assert.equal(lib.active("local").snapshot.assisted,false);
+ assert.equal(lib.active("ai").humanColor,-1);
+ assert.equal(lib.active("ai").snapshot.moveNumber,1);
+ const firstIds=lib.list().map(x=>x.id);
+ lib.migrateLegacy();
+ assert.deepEqual(lib.list().map(x=>x.id),firstIds);
+ assert.ok(storage.getItem("miego-local"));
+});
+test("invalid records cannot be loaded or indexed as games",()=>{
+ const {lib,storage}=setup();
+ storage.setItem("miego:game:v1:fake-0000","bad json");
+ storage.setItem("miego:game:v1:fake-1111",JSON.stringify({version:1,id:"fake-1111",mode:"local",snapshot:{}}));
+ assert.deepEqual(lib.list(),[]);
+ assert.equal(lib.load("fake-0000"),null);
+ assert.equal(lib.active("local"),null);
+});
