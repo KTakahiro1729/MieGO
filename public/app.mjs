@@ -11,6 +11,7 @@ import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
+import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 const $ = id => document.getElementById(id);
@@ -970,9 +971,7 @@ async function shareBoardReview(ai) {
 function canResumeSelectedReview(){
   const review=boardReview,record=review?.record;
   return !!(review?.source==="archive" && record &&
-    record.mode!=="online" && record.source!=="sgf" &&
-    record.snapshot.status!=="finished" &&
-    review.step===record.snapshot.moves.length);
+    navigationState(record,review.step).resumable);
 }
 function openSavedBoard(record) {
   // Selecting a record only changes the displayed board. The live P2P/AI

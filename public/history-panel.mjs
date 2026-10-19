@@ -1,18 +1,9 @@
 import {parseSGF} from "./sgf.mjs";
+import {recordName,recordIcon,recordSummary} from "./history-navigation.mjs";
 
 // The library sheet is a file picker and saved-game list. All board/replay
 // controls live on the main board; it never creates a second playing surface.
 export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{}}) {
-  const recordName=record=>record.source==="sgf"?"SGFから読み込んだ棋譜":
-    record.mode==="ai"?"AIと対戦":record.mode==="online"?"友人と対戦":"1台で打つ";
-  const recordStatus=record=>record.source==="sgf"?"読み込み済み":
-    record.snapshot.status==="finished"?"終局済み":
-    record.snapshot.status==="scoring"?"採点中":"対局中";
-  const dateLabel=timestamp=>{
-    const date=new Date(timestamp);
-    return Number.isNaN(date.getTime())?"日時不明":
-      date.toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"});
-  };
   function renderHistoryList() {
     const list=$("historyList");list.replaceChildren();
     let records=[];
@@ -22,13 +13,12 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{}})
       const item=document.createElement("button");
       item.type="button";item.className="history-list-item";
       const icon=document.createElement("span");icon.className="history-list-icon";
-      icon.textContent=record.source==="sgf"?"SGF":record.mode==="online"?"↗":
-        record.mode==="ai"?"AI":"●";
+      icon.textContent=recordIcon(record);
       const copy=document.createElement("span");copy.className="history-item-copy";
       const title=document.createElement("span");title.className="history-item-name";
       title.textContent=recordName(record);
       const detail=document.createElement("span");detail.className="history-item-meta";
-      detail.textContent=recordStatus(record)+" · "+record.snapshot.moveNumber+"手 · "+dateLabel(record.updatedAt);
+      detail.textContent=recordSummary(record);
       copy.append(title,detail);item.append(icon,copy);
       item.onclick=()=>{
         // Re-read to avoid opening a stale snapshot after another tab updated it.

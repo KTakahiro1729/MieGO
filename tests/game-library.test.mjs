@@ -96,6 +96,7 @@ test("SGF import and saved games open on the common board without touching the c
  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
  const historyPanel=readFileSync(new URL("../public/history-panel.mjs",import.meta.url),"utf8");
+ const historyNavigation=readFileSync(new URL("../public/history-navigation.mjs",import.meta.url),"utf8");
  for(const id of ["historyImportFile","historyList","reviewResume","reviewExport","reviewBranch"])
    assert.match(html,new RegExp('id="'+id+'"'));
  assert.match(historyPanel,/gameLibrary\.save\(\{mode:"local",snapshot:parsed\.snapshot,source:"sgf"/);
