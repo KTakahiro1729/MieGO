@@ -169,6 +169,13 @@ function draw() {
 let analysisTimer = null;
 function requestAnalysis() {
   clearTimeout(analysisTimer);
+  analysisContext=null;
+  if(game.status!=="playing") {
+    pending=++seq;
+    endgameAdvisor.reset();endgameStage="playing";
+    updateEndUi();
+    return;
+  }
   if (isAiTurn()) {
     if (aiThinking) return;
     if (fallbackMode) {
@@ -198,10 +205,14 @@ function requestAnalysis() {
     if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
     transitionFrame=null; displayedOwnership=null;
     $("analysisStatus").textContent="地合い補助オフ";
-    draw();return;
+    draw();
+    // Endgame evaluation runs independently of the ownership overlay.
+    // Avoid evaluating every preview tap when the overlay is disabled.
+    if(candidate || fallbackMode)return;
   }
-  const state=candidate || game, id=pending;
-  $("analysisStatus").textContent=fallbackMode?"簡易表示を更新中…":"地合いを更新中…";
+  const state=game.assisted?(candidate || game):game, id=pending;
+  analysisContext={id,number:state.moveNumber,hash:boardHash(state.board),committed:!candidate};
+  if(game.assisted)$("analysisStatus").textContent=fallbackMode?"簡易表示を更新中…":"地合いを更新中…";
   analysisTimer=setTimeout(()=>worker.postMessage({id,state,board:state.board}),180);
 }
 function finishAiMove(result) {
@@ -249,6 +260,16 @@ function handleAnalysis(event) {
   if(!Array.isArray(result.ownership) || result.ownership.length!==81) {
     switchToFallback("Invalid ownership output");return;
   }
+  if(game.status!=="playing")return;
+  const context=analysisContext;
+  // Sandbox positions and stale asynchronous results must never generate advice.
+  if(context?.id===result.id && context.committed && !candidate &&
+    context.number===game.moveNumber && context.hash===boardHash(game.board) &&
+    result.engine==="katago") {
+    endgameStage=endgameAdvisor.observe(game,result.ownership);
+    updateEndUi();
+  }
+  if(!game.assisted)return;
   analysis=result;
   $("analysisStatus").textContent=result.engine==="katago"
     ?"地合いを表示中 · KataGoによる試験的推定"
@@ -482,6 +503,7 @@ function ensureRoom() {
   const link = makeInviteUrl(location.origin, room);
   history.replaceState(null, "", new URL(link));
   game = newGame(game.assisted);
+  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   candidate = null;
   showInviteLink();
   void joinRoom();
@@ -539,6 +561,7 @@ $("startAi").onclick=()=>{
   humanColor=Number($("aiColor").value)===WHITE?WHITE:BLACK;
   aiLevel=$("aiLevel").value==="gentle"?"gentle":"standard";
   game=newGame(game.assisted);
+  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   lastPosition=null;candidate=null;
   $("aiMatchStatus").textContent="対AI戦を開始しました。";
   save();closeSettings();show();requestAnalysis();
@@ -547,6 +570,7 @@ $("returnLocal").onclick=()=>{
   if(room || !confirm("対AI戦を終了してローカル練習に戻りますか？"))return;
   stopAiTurn();
   gameMode="local";game=newGame(game.assisted);
+  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   lastPosition=null;candidate=null;
   save();closeSettings();show();requestAnalysis();
 };
