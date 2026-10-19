@@ -2,7 +2,6 @@ import { DurableObject } from "cloudflare:workers";
 
 // No TURN credentials are generated. Game positions and moves never enter this Worker.
 const ROOM_RE = /^[a-f0-9]{32}$/;
-const STUN = [{ urls: ["stun:stun.cloudflare.com:3478"] }];
 const MAX_ROOM_AGE = 7 * 24 * 60 * 60 * 1000;
 const random = () => [...crypto.getRandomValues(new Uint8Array(24))].map(b => b.toString(16).padStart(2, "0")).join("");
 const hash = async value => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))).map(b => b.toString(16).padStart(2, "0")).join("");
@@ -130,7 +129,7 @@ export class GameRoom extends DurableObject {
       if (!meta) return json({error:"Room expired or removed"},410);
       if (url.pathname==="/claim") {
         if (!this.allowed("claim",12)) return json({error:"Too many attempts"},429);
-        if (!["owner","guest"].includes(data.role) || typeof data.key!=="string") return inputError();
+        if (!["owner","guest"].includes(data.role) || typeof data.key!=="string" || data.key.length!==48) return inputError();
         if (await hash(data.key)!==meta[data.role+"KeyHash"]) return json({error:"Invalid invitation"},403);
         const session=random();
         meta[data.role+"SessionHash"]=await hash(session);
@@ -140,7 +139,7 @@ export class GameRoom extends DurableObject {
         return json({session,role:data.role,ownerColor:meta.ownerColor});
       }
       if (!this.allowed("ticket",30)) return json({error:"Reconnect rate exceeded"},429);
-      if (!["owner","guest"].includes(data.role) || typeof data.session!=="string") return inputError();
+      if (!["owner","guest"].includes(data.role) || typeof data.session!=="string" || data.session.length!==48) return inputError();
       if (await hash(data.session)!==meta[data.role+"SessionHash"]) return json({error:"Session expired"},403);
       if (url.pathname==="/revoke") {
         if (data.role!=="owner") return json({error:"Only creator may revoke"},403);
