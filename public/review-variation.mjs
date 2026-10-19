@@ -24,7 +24,7 @@ export function commitReviewStone(review,liveGame,position) {
   const proposed=proposeReviewStone(review,liveGame,position);
   const following=line.moves[review.step];
   // Playing the same next move follows the existing line, not a new branch.
-  if(following?.position===position && following.color===line.next*-1) {
+  if(following?.position===position && following.color===proposed.moves.at(-1).color) {
     return {variation:review.variation,activeLine:review.activeLine,
       step:review.step+1,display:replaySteps(line,review.step+1),created:false};
   }
