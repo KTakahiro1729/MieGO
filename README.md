@@ -80,14 +80,14 @@
 
 ### 6. TurnstileをCloudflareダッシュボードだけで設定（P2Pには必須）
 
-**`TURNSTILE_SITE_KEY`や`TURNSTILE_SECRET`の値はGitHubに書かれていません。** CloudflareでMieGO用Turnstileウィジェットを新しく作ると、そのウィジェット固有の**Site Key**と**Secret Key**が発行されます。変数名はMieGOコードが参照する固定名で、実際の値は自分のCloudflareアカウントで取得するものです。**ターミナルは使いません。**
+**Site Keyは公開用の値であり、`wrangler.jsonc`の本番`vars`と`previews.vars`に登録済みです。** GitHub連携からデプロイすれば反映されます。`TURNSTILE_SECRET`は機密情報なのでコードに記載せず、CloudflareダッシュボードのSecretとして別途設定してください。ターミナル操作は不要です。
 
 #### 6-1. Turnstileウィジェットを作り、キーを取得する
 
 1. [Cloudflareダッシュボード](https://dash.cloudflare.com/) にログインし、アカウントの**Turnstile**画面を開きます。
 2. **Add widget**（ウィジェットを追加）を押します。
 3. **Widget name**は`MieGO P2P`など、用途が分かる名前にします。
-4. **Hostname management**には、実際にMieGOを公開しているホスト名を設定します（例：`miego.<自分のworkers.devサブドメイン>.workers.dev`。**文字列をそのまま入力せず、デプロイ画面に表示された実際のホスト名を使ってください**）。独自ドメイン利用時はそのホスト名を指定します。Preview URLで試験する場合、Previewの実際のホスト名も許可する必要があります。ホスト名が違うと検証できません。
+4. **Hostname management**の本番ホスト名は`miego.poet-takahiro1234.workers.dev`です（`https://`と末尾`/`を除く）。Preview URLでテストするなら、該当Previewの**実際のホスト名**もウィジェットの許可対象に登録してください。ホスト名が違うと検証できません。
 5. **Widget mode**を**Managed**に設定します。Pre-clearanceは不要なので無効のままにします。
 6. **Create**を押し、表示された**Site Key（sitekey）**と**Secret Key（secret）**を取得します。Secret Keyは機密情報なのでGitHub・チャット・ブラウザコードに貼らず、次のWorkerのSecret設定に直接登録します。
 
@@ -95,18 +95,12 @@
 
 #### 6-2. Workerの「Variables and Secrets」へ登録する
 
-1. 同じCloudflareダッシュボードで **Workers & Pages → `miego` → Settings → Variables and Secrets** に進みます。ダッシュボードの表示が多少異なる場合は対象Workerの**Settings**から変数・Secretの編集画面を探してください。
-2. **Add variable**（またはAdd）から次の2つを、**名前は完全一致**させて登録します。
+1. 公開用`TURNSTILE_SITE_KEY`は、`wrangler.jsonc`の`vars`（Production）と`previews.vars`（Preview）に**同じSite Key**を定義してあります。Cloudflareの画面に入力し直す必要はありません。**Wrangler設定を公開変数の正とする**ため、ダッシュボードで別のSite Keyに書き換えないでください。
+2. **Workers & Pages → `miego` → Settings → Variables and Secrets** で機密変数`TURNSTILE_SECRET`を**Secret**として登録してください。これは6-1で発行した**Secret Key**です。Textにはしないでください。
+3. **Previews Base**（または該当Preview）の設定にも`TURNSTILE_SECRET`があるか確認してください。**Previewは本番Secretを継承しません**。Preview用に同じウィジェットを使用するなら、そのSecret KeyをPreview側にも個別に登録します。
+4. Save / Deployを画面で完了してください。Secretの値をGitHubへコミットする必要はありません。Wranglerの通常のデプロイは既存のSecretを消去しません。
 
-| Cloudflare Workerの変数名 | 種類 | 入力する値 | 公開可否 |
-| --- | --- | --- | --- |
-| `TURNSTILE_SITE_KEY` | Text | 6-1で発行された**Site Key** | ブラウザに渡される公開用の値 |
-| `TURNSTILE_SECRET` | Secret（暗号化された機密変数） | 6-1で発行された**Secret Key** | **公開不可**、サーバーだけで使用 |
-
-3. **Save** / **Deploy**等の画面上の確定操作を完了し、**変更が本番Workerへ反映されたこと**を確認します。Secretの登録をGitHubにコミットする必要はありません。
-4. Previewを使う場合は、Preview環境に変数とSecretが引き継がれるかを確認し、必要ならPreviewにも登録します。異なるホスト名・別ウィジェットを使う場合は、それぞれに対応した組を登録してください。
-
-MieGOでは`src/worker.mjs`の`env.TURNSTILE_SITE_KEY`と`env.TURNSTILE_SECRET`を参照します。Site Keyは`/api/p2p/config`経由でブラウザへ渡しますが、Secret KeyはSiteverifyによるサーバー側の確認にのみ使用します。
+MieGOでは`src/worker.mjs`の`env.TURNSTILE_SITE_KEY`と`env.TURNSTILE_SECRET`を参照します。Site Keyは`/api/p2p/config`経由でブラウザへ渡し、Secret KeyはSiteverifyによるサーバー側の確認にのみ使用します。`wrangler.jsonc`にはSecret値を書き込みません。
 
 参照：[Cloudflare Workers公式：Secrets](https://developers.cloudflare.com/workers/configuration/secrets/)・[Turnstile公式：検証](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/)。
 
@@ -208,7 +202,7 @@ npm run dev
 
 ### CloudflareのPR Preview
 
-Cloudflare Workers BuildsのPRデプロイコマンドが `npx wrangler preview` の場合、`wrangler.jsonc` の `previews.durable_objects.bindings` が必要です。MieGOは `env.ROOMS` を使うため、`GameRoom` をPreviewにも宣言しています。CloudflareはPreviewごとに独立したDurable Object名前空間とストレージを作成します。Build commandは `npm test`、Preview deploy commandは `npx wrangler preview` のままで構いません。Productionへのデプロイには `npx wrangler deploy` を使用してください。
+Cloudflare Workers BuildsのPRデプロイコマンドが `npx wrangler preview` の場合、`wrangler.jsonc` の `previews.durable_objects.bindings` と `previews.vars.TURNSTILE_SITE_KEY` が必要です。MieGOは `env.ROOMS` を使うため、`GameRoom` をPreviewにも宣言しています。CloudflareはPreviewごとに独立したDurable Object名前空間とストレージを作成します。Build commandは `npm test`、Preview deploy commandは `npx wrangler preview` のままで構いません。Productionへのデプロイには `npx wrangler deploy` を使用してください。
 
 Cloudflare公式仕様: https://developers.cloudflare.com/workers/previews/resources/#durable-objects
 
@@ -265,7 +259,7 @@ Cloudflare公式仕様: https://developers.cloudflare.com/workers/previews/resou
 **キーの取得・Workerへの登録・動作確認の詳細手順は、このREADME冒頭の「Cloudflareへのデプロイと運用（ブラウザのみ）」の第6章を参照してください。**
 
 1. Turnstile → Add widget → Managed。MieGOの本番ホスト名を登録します。開発用Previewホストは必要に応じて別途登録します。
-2. Workers & Pages → miego → Settings → Variables and Secretsで `TURNSTILE_SITE_KEY`（Text）と `TURNSTILE_SECRET`（Secret）を登録します。GitHubへSecretを書き込まないでください。
+2. 公開Site Keyは`wrangler.jsonc`のProduction/Preview両方へ設定済みです。Workers & Pages → `miego` → Settings → Variables and Secretsでは`TURNSTILE_SECRET`（Secret）の存在を確認してください。Preview側にも個別設定が必要です。
 3. TURN用の `TURN_KEY_ID` と `TURN_API_TOKEN` は不要です。既存設定があれば不要な課金経路を避けるため削除します。
 4. PRのCIを確認し、ブラウザ実機のP2P・リロード・旧リンク失効を確認後、GitHubのUIからmainにマージします。GitHub連携されたWorkers Buildsで自動デプロイします。
 5. `/api/health`で `turnstileConfigured:true`、`durableObjectBinding:true`を確認します。2端末で招待・着手・途中リロード・切断復帰をテストします。
