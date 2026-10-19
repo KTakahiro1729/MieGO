@@ -1,4 +1,5 @@
 import { SIZE, BLACK, play } from "./core.mjs";
+import { formatBoardForAi, AI_BOARD_LEGEND } from "./board-text.mjs";
 
 export const ILLEGAL_SUICIDE = "suicide";
 export const ILLEGAL_KO = "ko";
@@ -43,16 +44,6 @@ export function pointLabel(position) {
   if(!Number.isInteger(position)||position<0||position>=SIZE*SIZE)throw Error("Invalid board point");
   return columns[position%SIZE]+(SIZE-Math.floor(position/SIZE));
 }
-function boardText(board) {
-  if(!Array.isArray(board)||board.length!==SIZE*SIZE)throw Error("Invalid board");
-  const rows=["    "+columns.split("").join(" ")];
-  for(let y=0;y<SIZE;y++) {
-    const line=board.slice(y*SIZE,(y+1)*SIZE).map(n=>n===BLACK?"X":n===-BLACK?"O":".").join(" ");
-    rows.push(String(SIZE-y).padStart(2," ")+"  "+line);
-  }
-  return rows.join("\n");
-}
-
 /** A self-contained Japanese question for a user to paste into an AI chat.
  * It includes the position, reason and (for ko) the preceding board, but
  * intentionally excludes the private invitation URL and account details. */
@@ -67,19 +58,17 @@ export function makeIllegalMovePrompt(game,forbidden) {
     const hash=game.history.at(-2);
     if(typeof hash==="string" && hash.length===SIZE*SIZE && /^[012]+$/.test(hash)) {
       const previous=[...hash].map(n=>Number(n)-1);
-      before="\n\n直前の着手前の盤面：\n"+boardText(previous);
+      before="\n\n直前の着手前の盤面：\n"+formatBoardForAi(previous);
     }
   }
   return [
-    "9路盤の囲碁（中国式・コミ7.5）の着手ルールについて質問です。",
-    "現在は"+color+"番で、交点 "+point+" に打とうとしたところ、",
-    "アプリでは「"+reasons[forbidden.reason]+"」と判定されました。",
-    "なぜこの交点に打てないのか、周囲の石・呼吸点・取れる石やコウの関係を具体的に説明してください。",
-    "盤面の記号は X=黒石、O=白石、.=空点で、列はA〜H・J、行番号は下から1〜9です。",
+    "MieGO・9路盤の着手確認",
+    "手番："+color+"、選択した交点："+point,
+    "禁止理由："+reasons[forbidden.reason],
+    "なぜこの手が打てないのか、盤面と囲碁のルールに沿って説明してください。",
+    AI_BOARD_LEGEND,
     "",
     "現在の盤面：",
-    boardText(game.board)+before,
-    "",
-    "判定の根拠が局面情報だけで不足する場合やルール上疑問がある場合は、その点も明示してください。"
+    formatBoardForAi(game.board)+before
   ].join("\n");
 }
