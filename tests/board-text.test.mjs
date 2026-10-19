@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { at, newGame, BLACK, WHITE } from "../public/core.mjs";
-import { formatBoardForAi, AI_BOARD_LEGEND, AI_SELECTED_POINT } from "../public/board-text.mjs";
+import { readFileSync } from "node:fs";
+import { formatBoardForAi, formatBoardSection, AI_BOARD_LEGEND, AI_SELECTED_POINT } from "../public/board-text.mjs";
 
 test("AI glyph diagrams use ●, ○, ・ without coordinate labels",()=>{
   const game=newGame();
@@ -32,4 +33,19 @@ test("unknown board shapes and colors are rejected",()=>{
   assert.throws(()=>formatBoardForAi(null));
   assert.throws(()=>formatBoardForAi(Array(9).fill(0)));
   assert.throws(()=>formatBoardForAi(Array(81).fill(5)));
+});
+
+test("every AI handoff lays out its board the same way and shares one URL check",()=>{
+  const board=Array(81).fill(0);board[40]=1;
+  assert.equal(formatBoardSection("現在の盤面",board).split("\n").slice(0,3).join("\n"),
+    AI_BOARD_LEGEND+"\n\n現在の盤面：");
+  assert.match(formatBoardSection("現在の盤面",Array(81).fill(0),{selectedPosition:0}),
+    new RegExp(AI_SELECTED_POINT+"\n\n現在の盤面：\n◇ "));
+  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+  assert.equal((app.match(/navigator\.clipboard\.writeText/g)||[]).length,1);
+  for(const file of ["illegal-moves.mjs","beginner-prompts.mjs","sgf-link.mjs"]){
+    const source=readFileSync(new URL("../public/"+file,import.meta.url),"utf8");
+    assert.match(source,/formatBoardSection\(/);
+    assert.match(source,/shareableReviewUrl\(/);
+  }
 });
