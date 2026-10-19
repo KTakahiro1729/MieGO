@@ -175,3 +175,10 @@ button:hover:not(:disabled){border-color:#748094}
   .action-row .primary{font-size:12px}
   .button-stone{width:16px;height:16px;margin-right:5px}
 }
+
+/* Two-person P2P invitation: compact color selector and conditional human check. */
+.invite-side{display:flex;flex-wrap:wrap;gap:10px 16px;border:1px solid var(--border, #59636d);border-radius:8px;padding:10px 12px;margin:12px 0}
+.invite-side legend{padding:0 5px;font-size:13px}
+.invite-side label{display:inline-flex;align-items:center;gap:6px;font-size:13px;min-height:28px}
+#p2pVerify{margin:12px 0}
+#p2pVerify p{font-size:12px;opacity:.85;margin:0 0 8px}
