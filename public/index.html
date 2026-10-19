@@ -62,6 +62,7 @@
             <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h9a7 7 0 0 1 0 14h-2"/></svg>
           </button>
           <button id="confirm" class="primary" type="button" disabled><span class="button-stone" aria-hidden="true"></span>この手を打つ</button>
+          <button id="copyIllegalPrompt" class="secondary-action illegal-prompt-action" type="button" aria-label="禁止手についてAIに質問する文章をコピー" title="コピーした文章を好きなAIに貼り付けて質問できます" hidden>AIへの質問をコピー</button>
           <button id="pass" class="secondary-action" type="button">パス</button>
           <div id="scoringActions" class="score-actions inline-score-actions" hidden>
             <button id="agree" class="primary" type="button" disabled>この計算に同意</button>
@@ -70,6 +71,11 @@
           <button id="resign" class="resign-control" type="button">投了</button>
           <button id="newMatch" class="primary" type="button" hidden>もう一局</button>
           <button id="openHistory" class="secondary-action" type="button" hidden>棋譜を見る</button>
+        </div>
+        <div id="illegalPromptFallbackPanel" class="illegal-prompt-fallback" hidden>
+          <label for="illegalPromptFallback">自動コピーできませんでした。下の文章を選択してコピーしてください。</label>
+          <textarea id="illegalPromptFallback" readonly rows="7" spellcheck="false"></textarea>
+          <button id="closeIllegalPromptFallback" type="button">閉じる</button>
         </div>
         <section id="reviewPanel" class="review-panel" aria-label="棋譜を再生" hidden>
           <strong id="reviewTitle" class="visually-hidden">棋譜を確認中</strong>

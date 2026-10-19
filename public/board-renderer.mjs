@@ -1,6 +1,5 @@
 import {SIZE, BLACK} from "./core.mjs";
 import {ownershipPixel} from "./territory-view.mjs";
-import {illegalMoveReasons, drawIllegalMoveMarker} from "./illegal-moves.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
 import {scoringRegions} from "./scoring-regions.mjs";
 
@@ -17,17 +16,6 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   overlayCanvas.width = SIZE;
   overlayCanvas.height = SIZE;
   const overlayContext = overlayCanvas.getContext("2d");
-
-  // The cache is private to this renderer and the immutable committed game.
-  let illegalCacheGame = null;
-  let illegalCache = new Map();
-  let scoredGame=null,scoredView=null;
-  function getScoringView(game){
-    if(scoredGame!==game){
-      scoredGame=game;scoredView=scoringRegions(game);
-    }
-    return scoredView;
-  }
 
   function paintGrid(d, gap, pad) {
     ctx.clearRect(0,0,d,d);
@@ -50,8 +38,6 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const {game,boardReview,displayedOwnership,palette,opacity} = view;
     const shown = boardReview?.display||game;
     const values = boardReview ? boardReview.ownership : displayedOwnership;
-    // Hide uncertain ownership colors whenever definitive area counts are shown.
-    // Historical/variation replay continues using its own ownership.
     if(!boardReview && game.status!=="playing")return;
     if(!shown.assisted || !values)return;
 
@@ -70,20 +56,6 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     ctx.imageSmoothingQuality="high";
     ctx.drawImage(overlayCanvas,pad-gap/2,pad-gap/2,gap*SIZE,gap*SIZE);
     ctx.restore();
-  }
-
-  function paintIllegalMarkers({game,boardReview,humanTurn}, gap, pad) {
-    if(!boardReview && game.status==="playing" && humanTurn) {
-      if(illegalCacheGame!==game) {
-        illegalCacheGame=game;
-        illegalCache=illegalMoveReasons(game);
-      }
-      for(const [position,reason] of illegalCache) {
-        const x=pad+(position%SIZE)*gap;
-        const y=pad+Math.floor(position/SIZE)*gap;
-        drawIllegalMoveMarker(ctx,x,y,gap,reason);
-      }
-    }
   }
 
   function paintStarPoints(gap,pad) {
@@ -151,14 +123,16 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     }
   }
   function paintStones(view, display, gap, pad) {
-    const {game,boardReview,candidate} = view;
+    const {game,boardReview,candidate,illegalCandidate} = view;
     const proposedBoard = boardReview?.preview?.board || (boardReview ? null : candidate?.board);
-    const preview = boardReview ? boardReview.previewPosition : candidate?.moves.at(-1)?.position;
+    const preview = boardReview ? boardReview.previewPosition :
+      (candidate?.moves.at(-1)?.position ?? illegalCandidate?.position);
     for(let i=0;i<display.board.length;i++) {
-      const {color,captured} = stoneForPreview(display.board, proposedBoard, i);
+      const {color:committedColor,captured} = stoneForPreview(display.board, proposedBoard, i);
+      // A forbidden point is selectable, but the stone is never committed.
+      const color=!boardReview && illegalCandidate?.position===i && display.board[i]===0
+        ? game.next : committedColor;
       if(!color)continue;
-      // Once scoring is final, replace agreed dead stones with virtual
-      // territory stones. During scoring keep them and their correction marks.
       if(!boardReview && game.status==="finished" &&
          !game.result?.endsWith("+R") && game.dead?.includes(i))continue;
       const x=pad+(i%SIZE)*gap;
@@ -190,9 +164,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   function paintLastMove(view,display,gap,pad) {
-    const {game,boardReview,candidate,lastPosition} = view;
+    const {game,boardReview,candidate,illegalCandidate,lastPosition} = view;
     const marker=boardReview?display.moves.at(-1)?.position:lastPosition;
-    if(Number.isInteger(marker) && (boardReview||(!candidate && game.status==="playing"))) {
+    if(Number.isInteger(marker) && (boardReview||(!candidate && !illegalCandidate && game.status==="playing"))) {
       const x=pad+(marker%SIZE)*gap;
       const y=pad+Math.floor(marker/SIZE)*gap;
       ctx.fillStyle="#d0b25c";
@@ -207,14 +181,13 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const d=canvas.width, gap=d/(SIZE+1), pad=gap;
     paintGrid(d,gap,pad);
     paintOwnership(view,gap,pad);
-    paintIllegalMarkers(view,gap,pad);
     const scoredFinished=game.status==="finished" && !game.result?.endsWith("+R");
-    const showScoring=!boardReview && (game.status==="scoring" || scoredFinished);
-    const scoreView=showScoring?getScoringView(game):null;
-    if(scoreView)paintCountingStones(game,scoreView,gap,pad,scoredFinished);
+    const scoring=!boardReview && (game.status==="scoring" || scoredFinished)?
+      scoringRegions(game):null;
+    if(scoring)paintCountingStones(game,scoring,gap,pad,scoredFinished);
     paintStarPoints(gap,pad);
     paintStones(view,display,gap,pad);
-    if(scoreView)paintRegionLabels(scoreView.regions,gap,pad);
+    if(scoring)paintRegionLabels(scoring.regions,gap,pad);
     paintLastMove(view,display,gap,pad);
   }
   return {draw};
