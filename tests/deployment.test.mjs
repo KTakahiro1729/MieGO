@@ -23,8 +23,10 @@ test("Workers deployment configuration and static assets are present", () => {
 });
 test("browser-readable deployment health check exists", () => {
   const src = readFileSync(resolve(root, "src/worker.mjs"), "utf8");
-  assert.match(src, /url\.pathname === "\/api\/health"/);
+  assert.match(src, /path === "\/api\/health"/);
   assert.match(src, /durableObjectBinding:/);
   assert.match(src, /katagoWorkerReady/);
   assert.match(src, /katagoModelReady/);
+  assert.match(src, /turnstileConfigured:/);
+  assert.match(src, /Human verification failed/);
 });
