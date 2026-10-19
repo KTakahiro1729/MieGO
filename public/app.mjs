@@ -383,6 +383,15 @@ function finishAiMove(result) {
 }
 function handleAnalysis(event) {
   const result=event.data;
+  if(boardReview && result.id!==undefined && result.id===boardReview.katagoId) {
+    const state=boardReview.preview||boardReview.display;
+    if(!result.error && result.engine==="katago" && Array.isArray(result.ownership) &&
+       result.ownership.length===state.board.length) {
+      boardReview.ownership=result.ownership;
+      draw();
+    }
+    return;
+  }
   if(result.kind==="availability") {
     if(fallbackMode)return;
     if(result.available) {
@@ -1392,11 +1401,24 @@ function renderBoardReview() {
   $("reviewPanel").hidden=false;
   draw();
 }
+// A replayed position shows the same KataGo estimate as during play: the one
+// kept for it then, or a fresh KataGo evaluation. The simple influence model
+// is only the fallback when KataGo is unavailable.
 function requestReviewOwnership() {
   if(!boardReview)return;
   boardReview.ownership=null;
   boardReview.analysisId=++reviewSequence;
+  boardReview.katagoId=null;
   if(!overlayOn()){draw();return;}
+  const state=boardReview.preview||boardReview.display;
+  const gameId=boardReview.source==="live" ? currentGameId : boardReview.record?.id ?? null;
+  const kept=ownershipStore.recall(gameId,state.board);
+  if(kept){boardReview.ownership=kept;draw();return;}
+  if(katagoReady && !fallbackMode){
+    boardReview.katagoId=++seq;
+    worker.postMessage({id:boardReview.katagoId,state,board:state.board});
+    draw();return;
+  }
   if(!reviewWorker){
     reviewWorker=new Worker("/analysis-worker.mjs",{type:"module"});
     reviewWorker.onmessage=e=>{
