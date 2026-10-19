@@ -1,7 +1,7 @@
 import { newGame } from "./core.mjs";
 
-export function freshLocalGame(previous) {
-  return newGame(previous?.assisted !== false);
+export function freshLocalGame(previous, handicap = 0) {
+  return newGame(previous?.assisted !== false, { handicap });
 }
 
 export function gameStorageKey(mode) {

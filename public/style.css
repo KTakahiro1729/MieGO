@@ -109,6 +109,10 @@ button:hover:not(:disabled){border-color:#748094}
 .swatch{width:100%;height:45px;border-radius:8px;box-shadow:0 1px 4px #0005;border:1px solid #9a9a9a55}
 .swatch.mono{background:linear-gradient(90deg,rgba(249,247,238,.55),rgba(249,247,238,0) 50%,rgba(27,32,38,0) 50%,rgba(27,32,38,.55) 100%),#e5c58c}
 .swatch.purple{background:linear-gradient(90deg,rgba(133,75,177,.55),rgba(133,75,177,0) 50%,rgba(37,132,91,0) 50%,rgba(37,132,91,.55) 100%),#e5c58c}
+.swatch.brown{background:linear-gradient(90deg,rgba(140,81,10,.55),rgba(140,81,10,0) 50%,rgba(1,102,94,0) 50%,rgba(1,102,94,.55) 100%),#e5c58c}
+.swatch.orange{background:linear-gradient(90deg,rgba(179,88,6,.55),rgba(179,88,6,0) 50%,rgba(84,39,136,0) 50%,rgba(84,39,136,.55) 100%),#e5c58c}
+.swatch.none{background:#e5c58c}
+.ownership-legend.overlay-off{visibility:hidden}
 .swatch.blue{background:linear-gradient(90deg,rgba(65,111,179,.55),rgba(65,111,179,0) 50%,rgba(184,69,82,0) 50%,rgba(184,69,82,.55) 100%),#e5c58c}
 .range-labels{display:flex;justify-content:space-between;color:#b0b6c2;font-size:11px}
 .info-disclosure{margin-top:12px;border-top:1px solid #3b4050;padding-top:13px}
@@ -123,7 +127,12 @@ button:hover:not(:disabled){border-color:#748094}
 .ai-color-choices span{display:block;padding:14px 8px;border:1px solid #505766;border-radius:12px;text-align:center;background:#252c38;font-size:13px}
 .ai-color-choices input:checked+span{border-color:#efcb81;background:#38342d;color:#f8ddac}
 .ai-color-choices input:focus-visible+span{outline:3px solid #f2c875;outline-offset:2px}
-.ai-subhead{margin-top:22px}
+.settings-section h3.ai-subhead{margin-top:22px}
+.ai-color-choices input:disabled+span{opacity:.4;cursor:not-allowed}
+.handicap-choices{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.handicap-choices span{padding:12px 2px}
+.handicap-select{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:12px 0}
+.handicap-select[hidden]{display:none}
 .ai-strength-choices span{padding:11px 6px}
 .ai-strength-choices small{display:block;margin-top:3px;font-size:11px;color:var(--muted)}
 .action-row .undo-button.takeback-armed{font-size:12px;font-weight:700;border-color:#efcb81;color:#f8ddac}

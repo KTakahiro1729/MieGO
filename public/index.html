@@ -37,7 +37,7 @@
         <div class="board-frame">
           <canvas id="board" width="720" height="720" aria-label="9路盤。交点を選ぶと石を仮置きできます。"></canvas>
         </div>
-        <div class="ownership-legend" aria-label="地合いの色の凡例">
+        <div id="ownershipLegend" class="ownership-legend" aria-label="地合いの色の凡例">
           <div class="gradient" id="gradient" aria-hidden="true"></div>
           <div class="legend-labels"><span>白寄り</span><span>中立（透明）</span><span>黒寄り</span></div>
         </div>
@@ -128,26 +128,26 @@
           <label class="palette-choice"><input type="radio" name="palette" value="mono" checked><span class="swatch mono"></span><span>白〜黒</span></label>
           <label class="palette-choice"><input type="radio" name="palette" value="purpleGreen"><span class="swatch purple"></span><span>紫〜緑</span></label>
           <label class="palette-choice"><input type="radio" name="palette" value="blueRed"><span class="swatch blue"></span><span>青〜赤</span></label>
+          <label class="palette-choice"><input type="radio" name="palette" value="brownTeal"><span class="swatch brown"></span><span>茶〜青緑</span></label>
+          <label class="palette-choice"><input type="radio" name="palette" value="orangePurple"><span class="swatch orange"></span><span>橙〜紫</span></label>
+          <label class="palette-choice"><input type="radio" name="palette" value="none"><span class="swatch none"></span><span>表示しない</span></label>
         </fieldset>
         <label for="opacity">色の濃さ</label>
         <input id="opacity" type="range" min="0" max="100" value="55">
         <div class="range-labels"><span>薄い</span><span>濃い</span></div>
         <span id="opacityValue" class="visually-hidden" aria-live="polite">55%</span>
-      </section>
-      <section class="settings-section">
-        <h3>表示</h3>
-        <div class="mode"><div><strong>地合いの表示</strong><p>対局開始後は変更できません。</p></div><input id="assisted" type="checkbox" checked aria-label="地合いの表示を有効にする"></div>
-        <details class="info-disclosure"><summary>地合いの表示について</summary><p class="explanation">色は黒寄り・白寄りの傾向を示し、中立では碁盤がそのまま見えます。確定した地や勝率ではありません。</p></details>
+        <details class="info-disclosure"><summary>地合いの表示について</summary><p class="explanation">色は黒寄り・白寄りの傾向を示し、中立では碁盤がそのまま見えます。確定した地や勝率ではありません。「表示しない」を選ぶと色を消し、対局中でもいつでも切り替えられます。</p></details>
         <button id="resetAppearance" class="outline full" type="button">表示を初期状態に戻す</button>
       </section>
       <section class="settings-section" aria-label="対局と棋譜の操作">
         <h3>対局と棋譜</h3>
         <button id="openHistorySettings" class="outline full" type="button">保存した棋譜</button>
         <button id="openCurrentMode" class="outline full" type="button" hidden>AIの設定・再戦</button>
+        <label id="localHandicapRow" class="handicap-select" for="localHandicap" hidden>新しい対局の置き石<select id="localHandicap"><option value="0">なし（互先）</option><option value="2">2子</option><option value="3">3子</option><option value="4">4子</option><option value="5">5子</option></select></label>
         <button id="resetLocalGame" class="outline full" type="button" hidden>新しい対局を始める</button>
       </section>
       <section class="settings-section">
-        <h3>その他</h3><p class="explanation">9路盤 · 中国式ルール · コミ7.5</p>
+        <h3>その他</h3><p id="ruleSummary" class="explanation">9路盤 · 中国式ルール · コミ7.5</p>
         <details class="info-disclosure"><summary>クレジット</summary><p class="explanation"><a href="https://github.com/lightvector/KataGo" target="_blank" rel="noopener noreferrer">KataGo</a> · <a href="https://github.com/Sir-Teo/web-katrain" target="_blank" rel="noopener noreferrer">Web KaTrain</a></p></details>
       </section>
     </aside>
@@ -181,6 +181,15 @@
           <label><input type="radio" name="aiStrength" value="strong"><span>つよい<small>手加減なし</small></span></label>
         </div>
         <p class="explanation">弱い段階ほど、KataGoが好む手から外れた手をときどき打ちます。段級位の目安ではありません。</p>
+        <h3 class="ai-subhead">置き石</h3>
+        <div class="ai-color-choices handicap-choices">
+          <label><input type="radio" name="aiHandicap" value="0" checked><span>なし</span></label>
+          <label><input type="radio" name="aiHandicap" value="2"><span>2子</span></label>
+          <label><input type="radio" name="aiHandicap" value="3"><span>3子</span></label>
+          <label><input type="radio" name="aiHandicap" value="4"><span>4子</span></label>
+          <label><input type="radio" name="aiHandicap" value="5"><span>5子</span></label>
+        </div>
+        <p class="explanation">置き石は、あなた（黒）が最初から星に置く石です。置き石があるとAIが白で先に打ちます。コミは0.5目で、中国式のとおり白に置き石の数だけ目数を加えます。</p>
         <div class="mode"><div><strong>ヒントを表示</strong><p>あなたの番に、KataGoの候補手を盤上に1〜3で示します。読みを入れた最善手とは限りません。</p></div><input id="aiHints" type="checkbox" aria-label="ヒントを表示する"></div>
         <p class="explanation">打ち間違えたら、盤の下の↶を2回押すと<strong>待った</strong>（自分の直前の手まで戻す）ができます。</p>
         <details class="info-disclosure ai-advanced"><summary>AIの打ち方を調整</summary>

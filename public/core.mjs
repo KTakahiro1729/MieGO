@@ -25,12 +25,29 @@ export function group(board, index) {
   return { stones, liberties };
 }
 export const boardHash = board => board.map(n => n + 1).join("");
-export function newGame(assisted = true) {
+// Fixed handicap on the five 9x9 star points, following the usual 19x19
+// order: top-right and bottom-left first, then bottom-right, top-left, tengen.
+export const HANDICAP_POINTS = Object.freeze([at(6, 2), at(2, 6), at(6, 6), at(2, 2), at(4, 4)]);
+export const MAX_HANDICAP = HANDICAP_POINTS.length;
+// Handicap games use 0.5 komi; Chinese rules (and KataGo's "chinese" ruleset,
+// whiteHandicapBonus=N) also give White one point per handicap stone.
+export const HANDICAP_KOMI = 0.5;
+export const handicapOf = state =>
+  Number.isInteger(state?.handicap) && state.handicap >= 2 && state.handicap <= MAX_HANDICAP ? state.handicap : 0;
+export const komiOf = state => Number.isFinite(state?.komi) ? state.komi : KOMI;
+/** Points added to White's area: komi plus the Chinese handicap compensation. */
+export const whiteCompensation = state => komiOf(state) + handicapOf(state);
+export function newGame(assisted = true, { handicap = 0 } = {}) {
+  const stones = handicapOf({ handicap });
   const board = Array(SIZE * SIZE).fill(0);
-  return { board, next: BLACK, passes: 0, moves: [], moveNumber: 0,
+  for (const p of HANDICAP_POINTS.slice(0, stones)) board[p] = BLACK;
+  return { board, next: stones ? WHITE : BLACK, passes: 0, moves: [], moveNumber: 0,
     captures: { black: 0, white: 0 }, history: [boardHash(board)], status: "playing",
-    assisted, dead: [], agreed: { black: false, white: false }, endProposal: null, result: null };
+    assisted, handicap: stones, komi: stones ? HANDICAP_KOMI : KOMI,
+    dead: [], agreed: { black: false, white: false }, endProposal: null, result: null };
 }
+/** The empty-or-handicap starting position a record's moves are replayed from. */
+export const initialGame = state => newGame(state?.assisted !== false, { handicap: handicapOf(state) });
 export function play(state, position) {
   if (state.status !== "playing") throw new Error("対局中ではありません");
   const color = state.next;
@@ -132,7 +149,7 @@ export function areaScore(state) {
   const board = [...state.board];
   for (const n of state.dead) board[n] = 0;
   const owned = Array(SIZE * SIZE).fill(0);
-  let black = 0, white = KOMI;
+  let black = 0, white = whiteCompensation(state);
   for (let i = 0; i < board.length; i++) {
     if (board[i] === BLACK) { black++; owned[i] = BLACK; }
     if (board[i] === WHITE) { white++; owned[i] = WHITE; }
@@ -174,6 +191,8 @@ export function toSGF(state) {
   };
   const moves = state.moves.filter(m => m.position !== "resign")
     .map(m => ";" + enc(m.color) + "[" + coord(m.position) + "]").join("");
-  return "(;GM[1]FF[4]CA[UTF-8]SZ[9]KM[7.5]RU[Chinese]" +
+  const handicap = handicapOf(state);
+  return "(;GM[1]FF[4]CA[UTF-8]SZ[9]KM[" + komiOf(state) + "]RU[Chinese]" +
+    (handicap ? "HA[" + handicap + "]AB" + HANDICAP_POINTS.slice(0, handicap).map(p => "[" + coord(p) + "]").join("") : "") +
     (state.result ? "RE[" + state.result + "]" : "") + moves + ")";
 }

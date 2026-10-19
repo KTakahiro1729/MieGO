@@ -37,3 +37,15 @@ test("field transitions are numeric and preserve inputs",()=>{
   assert.deepEqual(interpolateOwnership(from,to,2),to);
   assert.throws(()=>interpolateOwnership(from,[],.5),/Invalid/);
 });
+test("six colour-map choices include hiding the overlay",async()=>{
+  const {isPaletteChoice,showsOwnership,PALETTE_NONE}=await import("../public/territory-view.mjs");
+  assert.equal(Object.keys(PALETTES).length+1,6);
+  assert.equal(isPaletteChoice(PALETTE_NONE),true);
+  assert.equal(isPaletteChoice("bogus"),false);
+  assert.equal(showsOwnership("none"),false);
+  assert.equal(showsOwnership("brownTeal"),true);
+  const {readFileSync}=await import("node:fs");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  assert.equal((html.match(/name="palette"/g)||[]).length,6);
+  assert.doesNotMatch(html,/id="assisted"/);
+});

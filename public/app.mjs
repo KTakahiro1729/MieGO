@@ -1,10 +1,10 @@
-import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
+import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, boardHash, handicapOf, komiOf, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
 import { EndgameAdvisor } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
 import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
-import { PALETTES, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
+import { isPaletteChoice, showsOwnership, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
 import { takeBackForHuman, policyHints } from "./ai-assist.mjs";
@@ -64,13 +64,16 @@ function persistOnline(){
 let game = newGame(), candidate = null, illegalCandidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
 let illegalPromptCopied = false;
 const storedPalette = localStorage.getItem("miego-palette");
-let palette = Object.hasOwn(PALETTES, storedPalette) ? storedPalette : "mono";
+let palette = isPaletteChoice(storedPalette) ? storedPalette : "mono";
+const overlayOn = () => showsOwnership(palette);
 const storedOpacity = Number(localStorage.getItem("miego-opacity"));
 let opacity = Number.isFinite(storedOpacity) && storedOpacity>=0 && storedOpacity<=1 && localStorage.getItem("miego-opacity")!==null ? storedOpacity : .55;
 let connected = false;
 let gameMode = room ? "online" : "local";
 let humanColor = BLACK, aiLevel = "standard", invasion = 50, reinforcement = 50;
 let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackArmed = false;
+let aiHandicap = 0, localHandicap = 0;
+const toHandicap = value => handicapOf({handicap:Number(value)});
 let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
 let endgameStage = "playing", endExpanded = false, analysisContext = null;
@@ -164,7 +167,7 @@ function stopAiTurn() {
 function rememberSettings() {
   try {
     localStorage.setItem("miego-local-settings", JSON.stringify({
-      mode:gameMode,humanColor,aiLevel,invasion,reinforcement,aiStrength,aiHints
+      mode:gameMode,humanColor,aiLevel,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap
     }));
   } catch {}
 }
@@ -267,19 +270,19 @@ function requestAnalysis() {
     show();return;
   }
   pending=++seq;
-  if(!game.assisted) {
+  if(!overlayOn()) {
     analysis=null;
     if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
     transitionFrame=null; displayedOwnership=null;
-    $("analysisStatus").textContent="地合い補助オフ";
+    $("analysisStatus").textContent="地合いの表示オフ";
     draw();
     // Endgame evaluation runs independently of the ownership overlay.
     // Avoid evaluating every preview tap when the overlay is disabled.
     if(candidate || fallbackMode)return;
   }
-  const state=game.assisted?(candidate || game):game, id=pending;
+  const state=overlayOn()?(candidate || game):game, id=pending;
   analysisContext={id,number:state.moveNumber,hash:boardHash(state.board),committed:!candidate};
-  if(game.assisted)$("analysisStatus").textContent=fallbackMode?"簡易表示を更新中…":"地合いを更新中…";
+  if(overlayOn())$("analysisStatus").textContent=fallbackMode?"簡易表示を更新中…":"地合いを更新中…";
   analysisTimer=setTimeout(()=>worker.postMessage({id,state,board:state.board}),180);
 }
 function finishAiMove(result) {
@@ -361,7 +364,7 @@ function handleAnalysis(event) {
       draw();
     }
   }
-  if(!game.assisted)return;
+  if(!overlayOn())return;
   analysis=result;
   $("analysisStatus").textContent=result.engine==="katago"
     ?"地合いを表示中 · KataGoによる試験的推定"
@@ -426,7 +429,11 @@ function show() {
   $("resetLocalGame").hidden=!!room || gameMode!=="local";
   $("openCurrentMode").hidden=!room && gameMode!=="ai";
   $("openCurrentMode").textContent=room?"招待URLを表示":"AIの設定・再戦";
-  $("assisted").checked=game.assisted;$("assisted").disabled=game.moveNumber>0 || (room&&p2pRole!=="owner");
+  $("localHandicapRow").hidden=!!room || gameMode!=="local";
+  $("ownershipLegend").classList.toggle("overlay-off",!overlayOn());
+  const handicap=handicapOf(game);
+  $("ruleSummary").textContent="9路盤 · 中国式ルール · "+(handicap?
+    "置き石"+handicap+"子 · コミ"+komiOf(game)+"＋置き石補正"+handicap+"目":"コミ"+komiOf(game));
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
   $("gamePanel").classList.toggle("is-scoring",isScoring);
   $("gamePanel").classList.toggle("is-finished",isFinished);
@@ -459,7 +466,7 @@ function show() {
   // The scoring controls live in the existing sticky action row.
   if(isScoring){
     const score=areaScore(game);
-    $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（コミ込み）";
+    $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（"+compensationLabel()+"）";
     const ready=canApproveScoring(game,deadReview,room,connected);
     $("agree").disabled=!ready;
     const agreeing=room?(myOnlineColor()===WHITE?"white":"black"):
@@ -480,7 +487,7 @@ function show() {
         (result?.startsWith("B+")?"黒":result?.startsWith("W+")?"白":"引き分け")+
         (result?.startsWith("B+")||result?.startsWith("W+")?
           "の"+Math.abs(score.difference).toFixed(1)+"目勝ち":"");
-      $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（コミ込み）";
+      $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（"+compensationLabel()+"）";
     }
   }
   updateEndUi();
@@ -528,7 +535,7 @@ function apply(action, remote=false) {
       game=agreeScore(game,action.color);
     }
     else if(action.type==="resume") game=resume(game);
-    else if(action.type==="mode") game=setAssisted(game,action.value);
+    // "mode" (the removed per-game overlay switch) from older peers is ignored below.
     else if(action.type==="end_offer") {
       if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
         throw new Error("終局の提案時点が一致しません");
@@ -730,7 +737,7 @@ function resetLocalBoard() {
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
   lastOfferKey=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  game=freshLocalGame(game);currentGameId=null;currentRevision=null;
+  game=freshLocalGame(game,localHandicap);currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
 }
 $("resetLocalGame").onclick=()=>{resetLocalBoard();closePanels();};
@@ -782,15 +789,23 @@ $("endDecline").onclick=()=>{
   apply({type:"end_answer",color,accept:false,proposalFrom:game.endProposal.from,
     number:game.moveNumber,before:boardHash(game.board)});
 };
-$("assisted").onchange=e=>apply({type:"mode",value:e.target.checked});
+function compensationLabel() {
+  return handicapOf(game)?"コミ・置き石補正込み":"コミ込み";
+}
+// Choosing "表示しない" hides the overlay; the next colour map brings it back.
 document.querySelectorAll('input[name="palette"]').forEach(input => {
   input.onchange = e => {
     if (!e.target.checked) return;
-    palette=Object.hasOwn(PALETTES,e.target.value)?e.target.value:"mono";
-    localStorage.setItem("miego-palette",palette);
-    draw();updateGradient();
+    const wasOn=overlayOn();
+    palette=isPaletteChoice(e.target.value)?e.target.value:"mono";
+    try{localStorage.setItem("miego-palette",palette);}catch{}
+    updateGradient();show();
+    if(wasOn!==overlayOn()){
+      if(boardReview)requestReviewOwnership();else requestAnalysis();
+    }
   };
 });
+$("localHandicap").onchange=e=>{localHandicap=toHandicap(e.target.value);rememberSettings();};
 $("opacity").oninput=e=>{
   opacity=Number(e.target.value)/100;
   localStorage.setItem("miego-opacity",String(opacity));
@@ -798,13 +813,15 @@ $("opacity").oninput=e=>{
   updateGradient();draw();
 };
 $("resetAppearance").onclick=()=>{
+  const wasOn=overlayOn();
   palette="mono";opacity=.55;
   localStorage.setItem("miego-palette",palette);
   localStorage.setItem("miego-opacity","0.55");
   const selected=document.querySelector('input[name="palette"][value="mono"]');
   if(selected)selected.checked=true;
   $("opacity").value="55";$("opacityValue").textContent="55%";
-  updateGradient();draw();
+  updateGradient();show();
+  if(!wasOn){if(boardReview)requestReviewOwnership();else requestAnalysis();}
 };
 function updateGradient(){$("gradient").style.backgroundImage=paletteGradient(palette,opacity);}
 function save(){
@@ -829,7 +846,7 @@ function savedGame(mode) {
     aiStrength=normalizeStrength(record.aiStrength);
     invasion=record.invasion;reinforcement=record.reinforcement;
   }
-  return record?.snapshot||newGame(game.assisted);
+  return record?.snapshot||newGame();
 }
 function leaveOnlineRoom() {
   resetArmedButtons();
@@ -954,7 +971,7 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  game=newGame(game.assisted);candidate=null;lastPosition=null;
+  game=newGame();candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
@@ -1099,7 +1116,7 @@ function requestReviewOwnership() {
   if(!boardReview)return;
   boardReview.ownership=null;
   boardReview.analysisId=++reviewSequence;
-  if(!boardReview.display.assisted){draw();return;}
+  if(!overlayOn()){draw();return;}
   if(!reviewWorker){
     reviewWorker=new Worker("/analysis-worker.mjs",{type:"module"});
     reviewWorker.onmessage=e=>{
@@ -1372,18 +1389,41 @@ $("startAi").onclick=()=>{
   clearBoardReview();
   stopAiTurn();
   gameMode="ai";
-  humanColor=Number($("aiColor").value)===WHITE?WHITE:BLACK;
+  aiHandicap=toHandicap(document.querySelector('input[name="aiHandicap"]:checked')?.value);
+  // Handicap stones always belong to the human, who therefore plays Black.
+  humanColor=aiHandicap || Number($("aiColor").value)!==WHITE?BLACK:WHITE;
   aiLevel=$("aiLevel").value==="gentle"?"gentle":"standard";
   aiStrength=normalizeStrength(document.querySelector('input[name="aiStrength"]:checked')?.value,
     DEFAULT_AI_STRENGTH);
   hints=null;resetTakebackButton();
-  game=newGame(game.assisted);currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
+  game=newGame(true,{handicap:aiHandicap});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   $("aiMatchStatus").textContent="対局を開始しました。";
   save();closePanels();show();requestAnalysis();
 };
 for (const input of document.querySelectorAll('input[name="aiSide"]')) {
   input.onchange=e=>{if(e.target.checked)$("aiColor").value=e.target.value;};
+}
+function syncHandicapUi() {
+  const choice=document.querySelector('input[name="aiHandicap"][value="'+aiHandicap+'"]');
+  if(choice)choice.checked=true;
+  $("localHandicap").value=String(localHandicap);
+  const white=document.querySelector('input[name="aiSide"][value="-1"]');
+  if(white)white.disabled=!!aiHandicap;
+  if(aiHandicap){
+    const black=document.querySelector('input[name="aiSide"][value="1"]');
+    if(black)black.checked=true;
+    $("aiColor").value="1";
+  }
+}
+for(const input of document.querySelectorAll('input[name="aiHandicap"]')) {
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    aiHandicap=toHandicap(e.target.value);
+    syncHandicapUi();rememberSettings();
+    $("aiMatchStatus").textContent=aiHandicap?
+      "置き石"+aiHandicap+"子で次の対局を始めます（あなたは黒）。":"互先で次の対局を始めます。";
+  };
 }
 for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]]) {
   $(id).oninput=e=>{
@@ -1452,6 +1492,7 @@ else try {
     humanColor=settings.humanColor===WHITE?WHITE:BLACK;
     aiLevel=settings.aiLevel==="gentle"?"gentle":"standard";
     aiStrength=normalizeStrength(settings.aiStrength,DEFAULT_AI_STRENGTH);
+    aiHandicap=toHandicap(settings.aiHandicap);localHandicap=toHandicap(settings.localHandicap);
     aiHints=settings.aiHints===true;
     invasion=Math.max(0,Math.min(100,Number(settings.invasion??50)));
     reinforcement=Math.max(0,Math.min(100,Number(settings.reinforcement??50)));
@@ -1464,7 +1505,7 @@ if(aiSide)aiSide.checked=true;
 $("aiLevel").value=aiLevel;
 $("aiInvasion").value=String(invasion);
 $("aiReinforcement").value=String(reinforcement);
-updatePersonaUi();syncStrengthUi();
+updatePersonaUi();syncStrengthUi();syncHandicapUi();
 const selectedPalette=document.querySelector('input[name="palette"][value="'+palette+'"]');
 if(selectedPalette)selectedPalette.checked=true;
 $("opacity").value=String(Math.round(opacity*100));
