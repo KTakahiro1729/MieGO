@@ -1023,6 +1023,9 @@ function updateGradient(){
   $("legendNeutral").hidden=!counting;
   $("ownershipLegend").classList.toggle("overlay-off",!counting && !overlayOn() ||
     game.status==="finished" && !counting);
+  // Colour and strength mean nothing while the overlay is hidden.
+  $("ownershipSettings").classList.toggle("is-off",!showsOwnership(palette));
+  for(const input of document.querySelectorAll(".ownership-tuning input"))input.disabled=!showsOwnership(palette);
   // The editor's ramp lies on a strip of the chosen board, grid lines and
   // all, so neutral is clear and every colour is seen as it is on the board.
   const look=boardLook(boardTheme);
