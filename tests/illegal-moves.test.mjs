@@ -65,9 +65,11 @@ test("ko and suicide use identical stroke, size, opacity and fill",()=>{
 });
 test("markers are confined to the board canvas and current human turn",()=>{
   const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
-  assert.match(app,/game\.status==="playing" && isHumanTurn\(\)/);
-  assert.match(app,/illegalCacheGame!==game/);
-  assert.match(app,/drawIllegalMoveMarker\(ctx,x,y,gap,reason\)/);
+  const renderer=readFileSync(new URL("../public/board-renderer.mjs",import.meta.url),"utf8");
+  assert.match(app,/humanTurn:isHumanTurn\(\)/);
+  assert.match(renderer,/game\.status==="playing" && humanTurn/);
+  assert.match(renderer,/illegalCacheGame!==game/);
+  assert.match(renderer,/drawIllegalMoveMarker\(ctx,x,y,gap,reason\)/);
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
   assert.doesNotMatch(html,/illegalMoveLegend|illegalMoveToggle/);
 });
