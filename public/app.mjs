@@ -9,7 +9,7 @@ import { choosePolicyMove } from "./ai-opponent.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
-import { replaySteps, forkReview } from "./sgf.mjs";
+import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
@@ -79,9 +79,8 @@ function reviewUnavailable() {
 }
 const gameLibrary=new GameLibrary(localStorage);
 let currentGameId=null,currentRevision=null;
-const historyPanel=createHistoryPanel({$,gameLibrary,storageError});
-const {renderHistoryList,updateHistoryPosition,setHistoryStep,showHistoryRecord,
-  openHistoryPanel,importHistoryFile,exportHistorySGF}=historyPanel;
+const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard});
+const {renderHistoryList,openHistoryPanel,importHistoryFile}=historyPanel;
 // The actual match always remains in 'game'; only the visible board is replayed.
 let boardReview=null,reviewWorker=null,reviewSequence=0;
 try {gameLibrary.migrateLegacy();}
@@ -834,7 +833,6 @@ function renderBoardReview() {
   $("reviewPrevious").disabled=step===0;
   $("reviewNext").disabled=step>=count;
   $("reviewLast").disabled=step>=count;
-  $("reviewBack").textContent=source==="url"?"閉じる":"戻る";
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?"新着 +"+updates:"";
@@ -842,7 +840,10 @@ function renderBoardReview() {
   $("moveLabel").setAttribute("aria-label","棋譜再生を終了する");
   $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
   $("turn").textContent="棋譜を確認中";
-  $("modePicker").disabled=true;
+  $("modePicker").disabled=false;
+  $("modePicker").value=source==="live"?(room?"online":gameMode):"history";
+  $("reviewResume").hidden=!canResumeSelectedReview();
+  $("reviewBack").textContent=source==="live"?"最新に戻る":"対局に戻る";
   $("actionRow").hidden=true;
   $("endgameBar").hidden=true;
   $("scoreBox").hidden=true;
@@ -870,9 +871,9 @@ function requestReviewOwnership() {
   }
   reviewWorker.postMessage({id:boardReview.analysisId,board:boardReview.display.board});
 }
-function enterBoardReview(snapshot,step,source="live",metadata=null) {
+function enterBoardReview(snapshot,step,source="live",metadata=null,record=null) {
   const display=replaySteps(snapshot,step);
-  boardReview={snapshot,display,step,source,metadata,ownership:null,
+  boardReview={snapshot,display,step,source,metadata,record,ownership:null,
     openedAt:game.moveNumber,analysisId:0};
   $("reviewNotice").textContent="";
   $("reviewCopyFallback").hidden=true;
@@ -883,6 +884,9 @@ function setBoardReviewStep(step) {
   if(!boardReview)return;
   const snapshot=boardReview.source==="live"?game:boardReview.snapshot;
   if(!Number.isInteger(step)||step<0||step>snapshot.moves.length)return;
+  if(boardReview.source==="live" && step===snapshot.moves.length){
+    leaveBoardReview();return;
+  }
   try{
     const display=replaySteps(snapshot,step);
     boardReview.snapshot=snapshot;
@@ -892,14 +896,18 @@ function setBoardReviewStep(step) {
     show();requestReviewOwnership();
   }catch(error){$("reviewNotice").textContent="棋譜を再生できません："+error.message;}
 }
-function leaveBoardReview() {
+function clearBoardReview() {
   if(!boardReview)return;
   const wasUrl=boardReview.source==="url";
   boardReview=null;reviewSequence++;
   if(wasUrl)clearImportedReviewUrl();
-  $("reviewCopyFallback").hidden=true;
   $("reviewMenu").open=false;
+  $("reviewCopyFallback").hidden=true;
   $("moveLabel").setAttribute("aria-label","棋譜を再生する");
+}
+function leaveBoardReview() {
+  if(!boardReview)return;
+  clearBoardReview();
   show();requestAnalysis();
   $("moveLabel").focus();
 }
@@ -954,13 +962,39 @@ async function shareBoardReview(ai) {
     await copyReviewText(ai?makeAiHandoff(url):url,"reviewNotice","reviewCopyFallback");
   }catch(error){$("reviewNotice").textContent="共有URLを作れません："+error.message;}
 }
-async function shareHistoryReview(ai) {
-  if(!historyPanel.selection)return;
+function canResumeSelectedReview(){
+  const review=boardReview,record=review?.record;
+  return !!(review?.source==="archive" && record &&
+    record.mode!=="online" && record.source!=="sgf" &&
+    record.snapshot.status!=="finished" &&
+    review.step===record.snapshot.moves.length);
+}
+function openSavedBoard(record) {
+  // Selecting a record only changes the displayed board. The live P2P/AI
+  // game remains untouched until the user explicitly resumes or forks.
   try{
-    const moves=historyPanel.selection.snapshot.moves.filter(m=>m.position!=="resign").length;
-    const link=makeReviewUrl(location.origin,historyPanel.selection,Math.min(historyPanel.step,moves));
-    await copyReviewText(ai?makeAiHandoff(link):link,"historyActionNotice","historyCopyFallback");
-  }catch(error){$("historyActionNotice").textContent="共有URLを作れません："+error.message;}
+    const count=record.snapshot.moves.length;
+    const display=replaySteps(record.snapshot,count);
+    closePanels();
+    enterBoardReview(record.snapshot,count,"archive",record.sgfMeta,record);
+    $("moveLabel").focus();
+  }catch(error){
+    $("historySaveNotice").textContent="棋譜を表示できません："+error.message;
+    if($("historyPanel").hidden)openHistoryPanel();
+  }
+}
+function exportReviewSGF(){
+  if(!boardReview)return;
+  try{
+    const contents=exportSGF(boardReview.record||{snapshot:boardReview.snapshot,sgfMeta:boardReview.metadata});
+    const blob=new Blob([contents],{type:"application/x-go-sgf;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement("a");
+    link.href=url;link.download="miego-"+(boardReview.record?.id||"shared")+".sgf";
+    document.body.append(link);link.click();link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    $("reviewNotice").textContent="SGFを書き出しました。";
+  }catch(error){$("reviewNotice").textContent="SGFを書き出せません："+error.message;}
 }
 $("moveLabel").onclick=()=>{
   if(boardReview){leaveBoardReview();return;}
@@ -994,34 +1028,25 @@ $("reviewBack").onclick=leaveBoardReview;
 $("reviewBranch").onclick=forkBoardReview;
 $("reviewLink").onclick=()=>void shareBoardReview(false);
 $("reviewAiLink").onclick=()=>void shareBoardReview(true);
-$("historyBoard").addEventListener("click",()=>{
-  if(!historyPanel.selection)return;
-  try{
-    const record=historyPanel.selection;
-    const step=historyPanel.step;
-    closePanels();
-    enterBoardReview(record.snapshot,step,"archive",record.sgfMeta);
-  }catch(error){$("historyActionNotice").textContent="盤面を開けません："+error.message;}
-});
-$("historyBoard").addEventListener("keydown",e=>{
-  if(e.key==="Enter"||e.key===" "){e.preventDefault();$("historyBoard").click();}
-});
-$("historyLink").onclick=()=>void shareHistoryReview(false);
-$("historyAiLink").onclick=()=>void shareHistoryReview(true);
-function resumeHistoryRecord() {
-  const selected=historyPanel.selection;
-  if(!selected || selected.mode==="online" || selected.source==="sgf" ||
-     selected.snapshot.status==="finished" || historyPanel.step!==selected.snapshot.moves.length)return;
-  if(room && connected && !confirm("友人との対局から離れ、保存した棋譜を開きますか？"))return;
-  // Save the current board before replacing it with the selected position.
-  const same=selected.id===currentGameId && selected.mode===gameMode;
-  if(!save())return;
-  if(room)leaveOnlineRoom();
-  const record=gameLibrary.load(selected.id);
-  if(!record || (!same && record.revision!==selected.revision)){
-    $("historyActionNotice").textContent="この棋譜が別のタブで更新されました。一覧を開き直してください。";
+function resumeSelectedReview(){
+  if(!canResumeSelectedReview())return;
+  const selected=boardReview.record;
+  if(room && connected &&
+    !confirm("友人との対局から離れ、保存した棋譜を再開しますか？"))return;
+  // Reload the record before mutating anything; another tab may have advanced it.
+  let record=gameLibrary.load(selected.id);
+  if(!record || (record.revision!==selected.revision &&
+    !(selected.id===currentGameId && selected.mode===gameMode))){
+    $("reviewNotice").textContent="棋譜が別のタブで更新されました。棋譜一覧から選び直してください。";
     return;
   }
+  if(!save())return;
+  record=gameLibrary.load(selected.id);
+  if(!record){
+    $("reviewNotice").textContent="棋譜を読み込めません。";
+    return;
+  }
+  if(room)leaveOnlineRoom();
   stopAiTurn();
   gameMode=record.mode;game=JSON.parse(JSON.stringify(record.snapshot));
   currentGameId=record.id;currentRevision=record.revision;
@@ -1041,53 +1066,17 @@ function resumeHistoryRecord() {
     (game.dead.length || game.agreed.black || game.agreed.white)?"modified":"idle";
   deadEvaluation=null;deadReviewTouched=deadReview==="modified";
   analysis=null;displayedOwnership=null;
-  try{gameLibrary.setActive(gameMode,currentGameId);}catch(error){storageError(error);return;}
-  rememberSettings();
+  try{gameLibrary.setActive(gameMode,currentGameId);}
+  catch(error){storageError(error);return;}
+  clearBoardReview();rememberSettings();
   closePanels();show();requestAnalysis();
 }
-function branchHistoryPosition(){
-  if(!historyPanel.selection)return;
-  const selected=historyPanel.selection;
-  let fork;
-  try{fork=forkReview(selected.snapshot,historyPanel.step);}
-  catch(error){$("historyActionNotice").textContent="この局面は検討できません："+error.message;return;}
-  if(room && connected && !confirm("友人との対局から離れて、この局面を1台で検討しますか？"))return;
-  if(!save())return;
-  if(room)leaveOnlineRoom();
-  stopAiTurn();gameMode="local";
-  game=fork;currentGameId=null;currentRevision=null;
-  const previous=selected.snapshot.moves.slice(0,historyPanel.step).at(-1)?.position;
-  lastPosition=Number.isInteger(previous)?previous:null;
-  candidate=null;analysis=null;displayedOwnership=null;
-  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
-  lastOfferKey=null;endHintSuppressedUntil=-1;
-  deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  if(!save())return;
-  closePanels();show();requestAnalysis();
-}
-$("historyFirst").onclick=()=>setHistoryStep(0);
-$("historyPrevious").onclick=()=>setHistoryStep(historyPanel.step-1);
-$("historyNext").onclick=()=>setHistoryStep(historyPanel.step+1);
-$("historyLast").onclick=()=>historyPanel.selection&&setHistoryStep(historyPanel.selection.snapshot.moves.length);
-$("historyStepRange").oninput=e=>setHistoryStep(Number(e.target.value));
+$("reviewResume").onclick=resumeSelectedReview;
+$("reviewExport").onclick=exportReviewSGF;
 $("historyImportFile").onchange=e=>{void importHistoryFile(e.target.files?.[0]);};
-$("historyExport").onclick=exportHistorySGF;
-$("historyBranch").onclick=branchHistoryPosition;
-$("openHistory").onclick=openHistoryPanel;
-$("openCurrentMode").onclick=()=>{
-  $("gameMenu").open=false;
-  if(room)openPanel("online");
-  else if(gameMode==="ai")openPanel("ai");
-};
-$("closeHistory").onclick=()=>{closePanels();$("gameMenu").querySelector("summary").focus();};
-$("historyBack").onclick=()=>{
-  renderHistoryList();
-  ($("historyList").querySelector("button")||$("historyImportFile")).focus();
-};
-$("historyResume").onclick=resumeHistoryRecord;
+$("closeHistory").onclick=()=>{closePanels();$("modePicker").focus();};
 document.addEventListener("storage",e=>{
-  if(e.key?.startsWith("miego:game:v1:") && !$("historyPanel").hidden &&
-     $("historyDetail").hidden)renderHistoryList();
+  if(e.key?.startsWith("miego:game:v1:") && !$("historyPanel").hidden)renderHistoryList();
 });
 function openSettings(){openPanel("settings");}
 function closePanels() {
@@ -1099,7 +1088,7 @@ function closePanels() {
   $("onlineSetup").hidden=true;
   $("aiSetup").hidden=true;
   $("settingsToggle").setAttribute("aria-expanded","false");
-  $("modePicker").value=room?"online":gameMode;
+  $("modePicker").value=boardReview && boardReview.source!=="live"?"history":room?"online":gameMode;
 }
 function closeSettings(){closePanels();$("settingsToggle").focus();}
 $("settingsToggle").onclick=()=>$("settingsPanel").hidden?openSettings():closeSettings();
@@ -1109,8 +1098,9 @@ $("settingsBackdrop").onclick=closePanels;
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("settingsBackdrop").hidden)closePanels();});
 $("modePicker").onchange=e=>{
   const selected=e.target.value;
-  e.target.value=room?"online":gameMode;
-  if(selected==="local")switchToLocal();
+  e.target.value=boardReview && boardReview.source!=="live"?"history":room?"online":gameMode;
+  if(selected==="history")openHistoryPanel();
+  else if(selected==="local")switchToLocal();
   else if(selected==="online")openPanel("online");
   else if(selected==="ai")openPanel("ai");
 };
