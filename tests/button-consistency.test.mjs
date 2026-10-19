@@ -7,7 +7,7 @@ const html=get("index.html"),app=get("app.mjs"),css=get("style.css");
 test("buttons draw colours from the four shared kinds, not per-button overrides",()=>{
   for(const kind of [".secondary{",".accent-outline{",".danger-armed{"])assert.ok(css.includes(kind),kind);
   assert.doesNotMatch(css,/(^|[^\w-])\.outline\{/m);
-  assert.doesNotMatch(css,/#(reviewAiLink|endAccept|reviewConfirm)[^{]*\{[^}]*background/);
+  assert.doesNotMatch(css,/#(shareAiLink|endAccept|reviewConfirm)[^{]*\{[^}]*background/);
   assert.doesNotMatch(css,/\.review-confirm\{[^}]*background/);
   assert.doesNotMatch(css,/\.resign-control[^{]*\{[^}]*(background|color)/);
   assert.doesNotMatch(html,/class="([^"]*\s)?outline[\s"]/);
@@ -36,7 +36,7 @@ test("the same action has the same name and glyph wherever it appears",()=>{
   // Both entries to the saved-game sheet carry the sheet's own title.
   assert.match(html,/id="openHistory"[^>]*>保存した棋譜<\/button>/);
   assert.match(html,/id="openHistorySettings"[^>]*>保存した棋譜<\/button>/);
-  assert.match(html,/id="reviewExport" type="button">SGFを保存<\/button>/);
+  assert.match(html,/id="shareSgf" class="secondary full described" type="button"><span>SGFを保存<\/span>/);
   // Sheet close buttons draw the same SVG × rather than a text glyph.
   assert.doesNotMatch(html,/>×<\/button>/);
   assert.doesNotMatch(html,/>[‹›≪≫]<\/button>|>•••<\/summary>/);
