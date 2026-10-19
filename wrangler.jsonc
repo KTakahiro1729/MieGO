@@ -6,17 +6,40 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": [
+      "/api/*"
+    ]
   },
   "durable_objects": {
-    "bindings": [{ "name": "ROOMS", "class_name": "GameRoom" }]
+    "bindings": [
+      {
+        "name": "ROOMS",
+        "class_name": "GameRoom"
+      }
+    ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["GameRoom"] }
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "GameRoom"
+      ]
+    }
   ],
   "previews": {
     "durable_objects": {
-      "bindings": [{ "name": "ROOMS", "class_name": "GameRoom" }]
+      "bindings": [
+        {
+          "name": "ROOMS",
+          "class_name": "GameRoom"
+        }
+      ]
+    },
+    "vars": {
+      "TURNSTILE_SITE_KEY": "0x4AAAAAAFa_cYtTAe8aM3OA"
     }
+  },
+  "vars": {
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAFa_cYtTAe8aM3OA"
   }
 }
