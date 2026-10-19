@@ -57,13 +57,16 @@
 1. `https://<実際のWorker URL>/api/health` をブラウザで開き、`"status":"ok"` と `"durableObjectBinding":true` を確認します（ブラウザからGET）。
 2. Workerのトップページを開き、9路盤をタップして仮置き→確定します。
 3. 地合いグラデーション、カラーマップ、不透明度を操作します。
-4. **対局URLを作る**を押し、**招待リンクをコピー**します。
-5. 別のスマホ・別ブラウザプロファイルでURLを開き、黒番と白番が接続できるか確認します。
-6. 双方で着手を交換し、2回パス→死石確認→双方同意まで確認します。
+4. **友人を招待**を開き、自分の色として**ランダム（初期値）・黒番・白番**を選びます。
+5. **招待リンクを準備する**を押してTurnstileの人間確認を完了し、その後**招待リンクをコピー**します。画面のコピー操作を分けるのはスマートフォンのクリップボード権限を保つためです。
+6. 友人が別のスマホ・別ブラウザプロファイルでリンクを開き、初回参加時だけTurnstileを完了します。黒白が作成者端末の選択どおりになることを確認します。
+7. 双方で着手を交換し、2回パス→死石確認→双方同意まで確認します。
+8. **対局途中で双方のページを順番にリロード**し、元の色と局面へ復帰することを確認します。相手との手順が矛盾する場合は自動上書きせずエラーを表示します。
+9. 対局開始前に色設定を変更し、**新しい設定で招待リンクを作り直す**操作によって以前の招待リンクが失効することを確認します。
 
-`/api/health` の `"turnConfigured":false` は、TURNの秘密情報をまだ登録していないことを意味します。これはエラーではありません。STUNだけでP2P接続できるネットワークもあります。
+`/api/health` の `"turnstileConfigured":true` と `"durableObjectBinding":true` を確認してください。`"turnConfigured":false` は**STUNのみ・TURNなし**の想定動作です。Turnstile未設定では新規P2P対局を作成できません。
 
-**同じブラウザの同じプロファイルで招待リンクを開くと、セッショントークンを共有して正しく2人扱いされない場合があります。** 2端末または別プロファイルで検証してください。
+**同じブラウザの同じプロファイルで2人分のURLを開かず、2台のスマホまたは別プロファイルで検証してください。** 棋譜は両端末の`localStorage`だけに保存され、両者の保存が消失すると対局は復元できません。
 
 ## 5. すべてブラウザでできる更新・監視
 
@@ -75,20 +78,48 @@
 
 なお、プロジェクトのランタイム構成の基準は`wrangler.jsonc`です。Cloudflareダッシュボードでランタイム設定を変更した場合、次回のGitHub連携デプロイで一部の設定が上書きされる可能性があります。
 
-## 6. TURN（任意）をブラウザから設定する場合
+## 6. TurnstileをCloudflareダッシュボードだけで設定（P2Pには必須）
 
-MieGOはTURNなしでもSTUNで接続を試みます。NATの種類によってはTURNが必要ですが、**現行コードの `/api/ice` は参加者認証・レート制限が未実装**であり、一般公開状態でのTURN有効化は推奨しません。
+**`TURNSTILE_SITE_KEY`や`TURNSTILE_SECRET`の値はGitHubに書かれていません。** CloudflareでMieGO用Turnstileウィジェットを新しく作ると、そのウィジェット固有の**Site Key**と**Secret Key**が発行されます。変数名はMieGOコードが参照する固定名で、実際の値は自分のCloudflareアカウントで取得するものです。**ターミナルは使いません。**
 
-対策を実装した後にTURNを使用する場合は、CloudflareダッシュボードでRealtime TURNキーを作成し、Workerの **Settings → Variables & Secrets**（Secretsの追加画面）から以下の**Secret**を登録します。
+### 6-1. Turnstileウィジェットを作り、キーを取得する
 
-| Secret名 | 値 |
-| --- | --- |
-| `TURN_KEY_ID` | Realtime TURNのキーID |
-| `TURN_API_TOKEN` | TURN用APIトークン |
+1. [Cloudflareダッシュボード](https://dash.cloudflare.com/) にログインし、アカウントの**Turnstile**画面を開きます。
+2. **Add widget**（ウィジェットを追加）を押します。
+3. **Widget name**は`MieGO P2P`など、用途が分かる名前にします。
+4. **Hostname management**には、実際にMieGOを公開しているホスト名を設定します（例：`miego.<自分のworkers.devサブドメイン>.workers.dev`。**文字列をそのまま入力せず、デプロイ画面に表示された実際のホスト名を使ってください**）。独自ドメイン利用時はそのホスト名を指定します。Preview URLで試験する場合、Previewの実際のホスト名も許可する必要があります。ホスト名が違うと検証できません。
+5. **Widget mode**を**Managed**に設定します。Pre-clearanceは不要なので無効のままにします。
+6. **Create**を押し、表示された**Site Key（sitekey）**と**Secret Key（secret）**を取得します。Secret Keyは機密情報なのでGitHub・チャット・ブラウザコードに貼らず、次のWorkerのSecret設定に直接登録します。
 
-**Secretの値はGitHubのコード、Wrangler設定ファイル、ブラウザのコンソールに書き込まないでください。** Cloudflareダッシュボード側の暗号化されたSecrets設定を使用します。これは任意の設定であり、最初の画面表示・局所的な動作確認には必要ありません。
+参照：[Turnstile公式：ダッシュボードでのウィジェット作成](https://developers.cloudflare.com/turnstile/get-started/widget-management/dashboard/)・[ホスト名管理](https://developers.cloudflare.com/turnstile/additional-configuration/hostname-management/)。
 
-参考: [Cloudflare Secrets](https://developers.cloudflare.com/workers/configuration/secrets/)・[TURN認証情報の生成](https://developers.cloudflare.com/realtime/turn/generate-credentials/)
+### 6-2. Workerの「Variables and Secrets」へ登録する
+
+1. 同じCloudflareダッシュボードで **Workers & Pages → `miego` → Settings → Variables and Secrets** に進みます。ダッシュボードの表示が多少異なる場合は対象Workerの**Settings**から変数・Secretの編集画面を探してください。
+2. **Add variable**（またはAdd）から次の2つを、**名前は完全一致**させて登録します。
+
+| Cloudflare Workerの変数名 | 種類 | 入力する値 | 公開可否 |
+| --- | --- | --- | --- |
+| `TURNSTILE_SITE_KEY` | Text | 6-1で発行された**Site Key** | ブラウザに渡される公開用の値 |
+| `TURNSTILE_SECRET` | Secret（暗号化された機密変数） | 6-1で発行された**Secret Key** | **公開不可**、サーバーだけで使用 |
+
+3. **Save** / **Deploy**等の画面上の確定操作を完了し、**変更が本番Workerへ反映されたこと**を確認します。Secretの登録をGitHubにコミットする必要はありません。
+4. Previewを使う場合は、Preview環境に変数とSecretが引き継がれるかを確認し、必要ならPreviewにも登録します。異なるホスト名・別ウィジェットを使う場合は、それぞれに対応した組を登録してください。
+
+MieGOでは`src/worker.mjs`の`env.TURNSTILE_SITE_KEY`と`env.TURNSTILE_SECRET`を参照します。Site Keyは`/api/p2p/config`経由でブラウザへ渡しますが、Secret KeyはSiteverifyによるサーバー側の確認にのみ使用します。
+
+参照：[Cloudflare Workers公式：Secrets](https://developers.cloudflare.com/workers/configuration/secrets/)・[Turnstile公式：検証](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/)。
+
+### 6-3. Cloudflareの画面で確認する
+
+1. デプロイ後、**ブラウザ**で`https://<実際の公開ホスト>/api/health`を開き、`"turnstileConfigured":true`、`"durableObjectBinding":true`を確認します。これは必要な設定値が認識されたという確認であり、Turnstile認証成功を保証するものではありません。
+2. MieGOで**URLで対戦**を選び、招待リンク作成時だけTurnstileが表示・実行されることを確認します。
+3. 友人が初回に招待リンクを開くとTurnstileが要求され、その後の通常のページリロード・再接続では再要求されないことを確認します。
+4. 失敗した場合はTurnstileウィジェットの**Hostname management**、Workerに登録した**変数名・種類・値**、**Builds / Deployments**および必要に応じてWorkerのログを確認します。ブラウザ・サイトキー・Secretが異なる環境に混在していないかも確かめます。
+
+### 6-4. TURNを使わない方針
+
+MieGOの本変更では**WebRTC DataChannel + STUNのみ**を使用します。TURN中継は使わず、認証情報を生成する`/api/ice`も使用しません。Cloudflareダッシュボードの`TURN_KEY_ID`と`TURN_API_TOKEN`は不要で、既存の設定があれば削除してください。直接P2P接続できないネットワークでは、通信環境を変えるなどの対処が必要です。
 
 ## 7. よくあるエラー
 
@@ -100,7 +131,8 @@ MieGOはTURNなしでもSTUNで接続を試みます。NATの種類によって�
 | Durable Objects移行エラー | `wrangler.jsonc`の`durable_objects` / `migrations` の設定と利用権限を確認 |
 | HTMLだけ表示され、APIが404 | Workersとして配置されているか、`run_worker_first` と `/api/health` を確認 |
 | /api/healthが開かない | Worker URL、Buildsでのデプロイ成功状態を確認 |
-| 招待URLは開くがP2Pにならない | 別端末で再試行。ネットワーク環境によってTURNが必要 |
+| P2Pの本人確認が失敗する | Turnstileウィジェットの許可ホスト名、Site Key／Secret Key、Workerの変数名とデプロイ反映を確認 |
+| 招待URLは開くがP2Pにならない | 2台の端末で確認し、異なるWi-Fi・モバイル回線を試す。STUNだけでは接続不能なネットワークもある |
 | 再デプロイ後も古い画面 | Deploymentsの日時、実際のURL、ブラウザのキャッシュを確認 |
 
 ## KataGo導入後のCloudflareビルド（2026-10-19）
@@ -122,13 +154,13 @@ CloudflareのBuild logsに`Browser KataGo worker built`、`KataGo model download
 
 WebGPUでの利用を優先しますが、非対応端末ではWASMまたはCPUで動きます。3.8MBのテストモデルは本格的な強さを目的としておらず、MCTS探索・棋力別補正はまだありません。Ownershipの色は推定値であって確定した地ではありません。
 
-KataGo推論はブラウザWorkerで実行され、Cloudflare Workersのサーバー側でニューラルネットを実行するわけではありません。Cloudflare Workersは配信・招待URL・WebRTCシグナリングに使用します。TURN設定は引き続き一般公開前の認証・レート制限が必要です。
+KataGo推論はブラウザWorkerで実行され、Cloudflare Workersのサーバー側でニューラルネットを実行するわけではありません。Cloudflare Workersは配信・招待URL・WebRTCシグナリングに使用します。TURNは今回の構成では使用しません。新規P2P対局の認証にはTurnstileを使用します。
 
 ## 8. 重要な制限
 
 - MieGOの「地合い予測」は現状**ブラウザ内の簡易近傍影響モデル**です。KataGoの小型モデルを使用しますが、MCTS探索や正確な死活判定ではありません。
-- 9路盤・中国式の試験実装です。例外的な反復局面や切断時の復帰は未完成です。
-- 対局ルームは信頼できる友人と試す用途であり、招待URLのみによる参加は堅牢なアクセス管理ではありません。
+- 9路盤・中国式の試験実装です。例外的な反復局面や接続状況によっては復帰できない場合があります。
+- 対局ルームは信頼できる友人と試す用途です。招待URLには参加権限となる秘密情報が含まれるため、第三者への再共有に注意してください。
 - ここでの手順はCloudflare公式仕様に基づきますが、実Cloudflareアカウントへの初回デプロイとモバイル実機E2Eは未検証です。
 
 ## 参考資料（公式）
