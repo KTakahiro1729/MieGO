@@ -181,6 +181,12 @@
             <div class="ai-color-choices side-choices"><label><input type="radio" name="onlineSide" value="random" checked><span>ランダム</span></label><label><input type="radio" name="onlineSide" value="black"><span>● 黒</span></label><label><input type="radio" name="onlineSide" value="white"><span>○ 白</span></label></div>
           </div>
         </div>
+        <div id="aiStrengthRow" class="step-slider" hidden>
+          <label for="aiStrength">AIの強さ <span id="aiStrengthValue" class="setting-value"></span></label>
+          <input id="aiStrength" type="range" min="0" max="3" step="1" value="1">
+          <div class="step-ticks" aria-hidden="true"><span data-note="囲碁を覚えたての人向け。形の悪い手をよく打ちます。"><small>はじめて</small></span><span data-note="ルールに慣れた人向け。ときどき大きく緩めます。"><small>やさしい</small></span><span data-note="少し手ごたえがあります。緩める手は控えめです。"><small>ふつう</small></span><span data-note="手加減なし。KataGoの候補手どおりに打ちます。"><small>つよい</small></span></div>
+          <p id="aiStrengthNote" class="explanation step-note"></p>
+        </div>
         <details class="info-disclosure new-game-advanced"><summary>詳細設定</summary>
           <div id="handicapSetup" class="advanced-row"><label for="handicap">置き石</label>
             <select id="handicap" class="handicap-select">
@@ -191,18 +197,19 @@
           </div>
           <p id="handicapNote" class="explanation" hidden></p>
           <div id="aiOptions" class="ai-advanced" hidden>
-            <span class="advanced-label">AIの強さ</span>
-            <div class="ai-color-choices ai-strength-choices">
-              <label><input type="radio" name="aiStrength" value="beginner"><span>はじめて</span></label>
-              <label><input type="radio" name="aiStrength" value="easy" checked><span>やさしい</span></label>
-              <label><input type="radio" name="aiStrength" value="normal"><span>ふつう</span></label>
-              <label><input type="radio" name="aiStrength" value="strong"><span>つよい</span></label>
-            </div>
             <div class="mode"><div><strong>ヒントを表示</strong><p>あなたの番に、KataGoの候補手を1〜3で示します。</p></div><input id="aiHints" type="checkbox" aria-label="ヒントを表示する"></div>
-            <label for="aiInvasion">侵入度 <span id="aiInvasionValue" class="setting-value">50%</span></label>
-            <input id="aiInvasion" type="range" min="0" max="100" step="5" value="50">
-            <label for="aiReinforcement">補強度 <span id="aiReinforcementValue" class="setting-value">50%</span></label>
-            <input id="aiReinforcement" type="range" min="0" max="100" step="5" value="50">
+            <div id="aiInvasionRow" class="step-slider">
+              <label for="aiInvasion">侵入度 <span id="aiInvasionValue" class="setting-value"></span></label>
+              <input id="aiInvasion" type="range" min="0" max="100" step="50" value="50">
+              <div class="step-ticks" aria-hidden="true"><span data-note="相手が囲いそうな場所へ入る手を控えます。"><small>控える</small></span><span data-note="侵入を特に好みも避けもしません。"><small>ふつう</small></span><span data-note="相手が囲いそうな場所へ積極的に入ります。"><small>重視</small></span></div>
+              <p id="aiInvasionNote" class="explanation step-note"></p>
+            </div>
+            <div id="aiReinforcementRow" class="step-slider">
+              <label for="aiReinforcement">補強度 <span id="aiReinforcementValue" class="setting-value"></span></label>
+              <input id="aiReinforcement" type="range" min="0" max="100" step="50" value="50">
+              <div class="step-ticks" aria-hidden="true"><span data-note="自分の石を補強する手を控えます。"><small>控える</small></span><span data-note="補強を特に好みも避けもしません。"><small>ふつう</small></span><span data-note="自分の石の補強や守りを優先します。"><small>重視</small></span></div>
+              <p id="aiReinforcementNote" class="explanation step-note"></p>
+            </div>
             <p class="explanation">強さは段級位の目安ではありません。打ち間違えたら盤の下の「待った」で戻せます。</p>
           </div>
           <p id="onlineOptions" class="explanation" hidden>作成者の端末で色を決めます。相手が参加すると対局できます。再接続では原則として本人確認は不要です。</p>

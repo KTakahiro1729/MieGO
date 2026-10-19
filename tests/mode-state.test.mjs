@@ -16,10 +16,16 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,3);
   assert.match(sheet,/id="openHistoryFromNew" class="new-game-tile"[^>]*><svg class="mode-icon"/);
   assert.equal((sheet.match(/name="boardSize"[^>]*><span><svg class="size-icon"/g)||[]).length,3);
-  // Handicap and the AI's options live under 詳細設定; the sampling-variance setting is gone.
+  // Handicap and the AI's style live under 詳細設定; the sampling-variance setting is gone.
   const advanced=sheet.slice(sheet.indexOf('<details class="info-disclosure new-game-advanced">'),sheet.indexOf('</details>'));
   for(const id of ["handicap","aiInvasion","aiReinforcement","aiHints"])assert.match(advanced,new RegExp('id="'+id+'"'));
-  assert.match(advanced,/name="aiStrength"/);
+  // Strength stays outside 詳細設定 as a four-stop bar; the style sliders have three stops.
+  assert.doesNotMatch(advanced,/id="aiStrength"/);
+  assert.match(sheet,/id="aiStrength" type="range" min="0" max="3" step="1"/);
+  for(const id of ["aiInvasion","aiReinforcement"])
+    assert.match(advanced,new RegExp('id="'+id+'" type="range" min="0" max="100" step="50"'));
+  for(const id of ["aiStrength","aiInvasion","aiReinforcement"])
+    assert.equal((sheet.slice(sheet.indexOf('id="'+id+'Row"')).split('</div>')[0].match(/data-note=/g)||[]).length,id==="aiStrength"?4:3);
   assert.doesNotMatch(html+app,/aiLevel/);
   for(const id of ["startLocal","startAi","copy","openHistoryFromNew"])assert.match(sheet,new RegExp('id="'+id+'"'));
   assert.match(app,/\$\("newGameButton"\)\.onclick=\(\)=>openPanel\(room\?"online":gameMode\)/);

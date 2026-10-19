@@ -205,9 +205,21 @@ function rememberSettings() {
     }));
   } catch {}
 }
+// Step sliders name each stop under the bar and show the chosen stop's note below it.
+function syncStepSlider(id) {
+  const input=$(id),stops=[...$(id+"Row").querySelectorAll(".step-ticks span")];
+  const index=Math.round((Number(input.value)-Number(input.min))/Number(input.step));
+  stops.forEach((stop,i)=>stop.classList.toggle("is-current",i===index));
+  $(id+"Value").textContent=stops[index]?.textContent||"";
+  $(id+"Note").textContent=stops[index]?.dataset.note||"";
+}
+// Invasion and reinforcement have three stops; older saves with any 0-100 value snap to the nearest.
+const personaStep=value=>Math.round(Math.max(0,Math.min(100,Number(value??50)||0))/50)*50;
+const personaLabel=value=>value<50?"控える":value>50?"重視":"ふつう";
 function updatePersonaUi() {
-  $("aiInvasionValue").textContent = invasion + "%";
-  $("aiReinforcementValue").textContent = reinforcement + "%";
+  $("aiInvasion").value=String(invasion);
+  $("aiReinforcement").value=String(reinforcement);
+  syncStepSlider("aiInvasion");syncStepSlider("aiReinforcement");
 }
 
 let displayedOwnership = null, transitionFrame = null;
@@ -349,8 +361,8 @@ function finishAiMove(result) {
       invasion,reinforcement,strength:aiStrength,
       temperature:0.38
     });
-    $("aiMatchStatus").textContent = "強さ「"+AI_STRENGTHS[aiStrength].label+"」・侵入度 "+invasion+
-      "% / 補強度 "+reinforcement+"% で対局中（探索なし）";
+    $("aiMatchStatus").textContent = "強さ「"+AI_STRENGTHS[aiStrength].label+"」・侵入度「"+personaLabel(invasion)+
+      "」・補強度「"+personaLabel(reinforcement)+"」で対局中（探索なし）";
     submitMove(next,true);
   } catch(error) {
     switchToFallback(error instanceof Error?error.message:String(error));
@@ -953,7 +965,7 @@ function savedGame(mode) {
   if(mode==="ai" && record){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     aiStrength=normalizeStrength(record.aiStrength);
-    invasion=record.invasion;reinforcement=record.reinforcement;
+    invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
   }
   return record?.snapshot||newGame(true,{size:boardSize});
 }
@@ -1147,7 +1159,7 @@ function showNewGameMode(kind) {
   $("aiSetup").hidden=kind!=="ai";
   // Friend matches are always even games.
   $("handicapSetup").hidden=kind==="online";
-  $("aiSideRow").hidden=$("aiOptions").hidden=kind!=="ai";
+  $("aiSideRow").hidden=$("aiStrengthRow").hidden=$("aiOptions").hidden=kind!=="ai";
   $("onlineSideRow").hidden=$("onlineOptions").hidden=kind!=="online";
   syncReturnButton(kind);
   syncHandicapUi();
@@ -1470,13 +1482,12 @@ function resumeSelectedReview(){
   lastPosition=record.lastPosition;candidate=null;
   if(gameMode==="ai"){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
-    invasion=record.invasion;reinforcement=record.reinforcement;
+    invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
     aiStrength=normalizeStrength(record.aiStrength);syncStrengthUi();
     // A random preference stays random; a fixed one follows the resumed game.
     if(aiSideChoice!=="random")aiSideChoice=humanColor===WHITE?"white":"black";
     syncSideUi();
-    $("aiInvasion").value=String(invasion);
-    $("aiReinforcement").value=String(reinforcement);updatePersonaUi();
+    updatePersonaUi();
   }
   endgameAdvisor.reset();endgameStage="playing";endExpanded=!!game.endProposal;
   lastOfferKey=null;deadReview=game.status==="scoring" &&
@@ -1538,8 +1549,7 @@ $("startAi").onclick=()=>{
   // Otherwise: the same choices and the same random draw as a friend invitation.
   try{humanColor=aiHandicap?BLACK:selectColor(aiSideChoice);}
   catch(error){$("aiMatchStatus").textContent=error.message;return;}
-  aiStrength=normalizeStrength(document.querySelector('input[name="aiStrength"]:checked')?.value,
-    DEFAULT_AI_STRENGTH);
+  aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
   game=newGame(true,{handicap:aiHandicap,size:boardSize});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
@@ -1590,26 +1600,26 @@ function syncHandicapUi() {
 }
 for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]]) {
   $(id).oninput=e=>{
-    const value=Math.max(0,Math.min(100,Number(e.target.value)||0));
+    const value=personaStep(e.target.value);
     if(key==="invasion")invasion=value;else reinforcement=value;
     updatePersonaUi();rememberSettings();
     $("aiMatchStatus").textContent="次のAI着手から反映します。";
   };
 }
+// The strength bar's stops follow AI_STRENGTHS from weakest to strongest.
+const STRENGTH_ORDER=Object.keys(AI_STRENGTHS);
+const strengthAt=index=>normalizeStrength(STRENGTH_ORDER[Number(index)],DEFAULT_AI_STRENGTH);
 function syncStrengthUi() {
-  const input=document.querySelector('input[name="aiStrength"][value="'+aiStrength+'"]');
-  if(input)input.checked=true;
+  $("aiStrength").value=String(STRENGTH_ORDER.indexOf(aiStrength));
+  syncStepSlider("aiStrength");
   $("aiHints").checked=aiHints;
 }
 // Strength applies from the next AI move, like the personality sliders.
-for(const input of document.querySelectorAll('input[name="aiStrength"]')) {
-  input.onchange=e=>{
-    if(!e.target.checked)return;
-    aiStrength=normalizeStrength(e.target.value,DEFAULT_AI_STRENGTH);
-    if(gameMode==="ai")save();else rememberSettings();
-    $("aiMatchStatus").textContent="次のAI着手から「"+AI_STRENGTHS[aiStrength].label+"」で打ちます。";
-  };
-}
+$("aiStrength").oninput=e=>{
+  aiStrength=strengthAt(e.target.value);syncStepSlider("aiStrength");
+  if(gameMode==="ai")save();else rememberSettings();
+  $("aiMatchStatus").textContent="次のAI着手から「"+AI_STRENGTHS[aiStrength].label+"」で打ちます。";
+};
 $("aiHints").onchange=e=>{
   aiHints=e.target.checked;rememberSettings();
   if(aiHints && !visibleHints())requestAnalysis();
@@ -1661,14 +1671,12 @@ else try {
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
     aiHints=settings.aiHints===true;
-    invasion=Math.max(0,Math.min(100,Number(settings.invasion??50)));
-    reinforcement=Math.max(0,Math.min(100,Number(settings.reinforcement??50)));
+    invasion=personaStep(settings.invasion);
+    reinforcement=personaStep(settings.reinforcement);
   }
   game=savedGame(gameMode);endExpanded=!!game.endProposal;
 }catch{}
 syncSideUi();
-$("aiInvasion").value=String(invasion);
-$("aiReinforcement").value=String(reinforcement);
 updatePersonaUi();syncStrengthUi();syncHandicapUi();
 const selectedPalette=document.querySelector('input[name="palette"][value="'+palette+'"]');
 if(selectedPalette)selectedPalette.checked=true;

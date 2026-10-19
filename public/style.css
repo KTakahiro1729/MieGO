@@ -184,10 +184,19 @@ body.board-zoomed .board-bleed{opacity:1}
 .new-game-advanced .advanced-row{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
 .new-game-advanced .advanced-row[hidden],.new-game-advanced [hidden]{display:none}
 .new-game-advanced .advanced-row label{margin:0;white-space:nowrap;font-size:13px}
-.advanced-label{display:block;font-size:13px;margin:12px 0 8px}
-.ai-strength-choices{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+/* Step sliders: a named tick under each stop; the thumb's 20px width sets the tick inset. */
+.step-slider{margin-top:14px}
+.step-slider[hidden]{display:none}
+.step-slider label[for]{display:flex;justify-content:space-between;gap:12px;margin:0 0 6px;font-size:13px}
+.step-slider input[type=range]{display:block;width:100%;margin:0}
+.step-ticks{display:flex;justify-content:space-between;padding:0 10px;height:30px}
+.step-ticks span{position:relative;width:1px;height:6px;background:#6a7180}
+.step-ticks small{position:absolute;top:9px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;color:var(--muted)}
+.step-ticks span:first-child small{left:-10px;transform:none}
+.step-ticks span:last-child small{left:auto;right:-10px;transform:none}
+.step-ticks span.is-current small{color:#f8ddac}
+.step-note{margin-top:2px;min-height:1.7em}
 .mode-panel #localSetup,.mode-panel #onlineSetup,.mode-panel #aiSetup{padding-top:14px}
-.ai-strength-choices span{padding:10px 2px}
 .side-choices{grid-template-columns:repeat(3,1fr)}
 /* One button, two meanings: × discards a provisional stone, the labelled arrow is 待った. */
 .undo-button .takeback-icon{display:none;flex-direction:column;align-items:center;gap:1px;line-height:1}
