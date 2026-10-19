@@ -4,15 +4,41 @@ import { createGifAnimation } from "./gif-encoder.mjs";
 import { ownershipPixel, showsOwnership } from "./territory-view.mjs";
 import { boardTheme } from "./board-theme.mjs";
 
-// A shared image is a 4:5 card: the brand and move count above the board,
-// the result and the ownership-colour legend below it, then where to play
-// and where the project is developed. Sizes are in 1/720ths of the width.
-const CARD_RATIO = 1.25, MARGIN = 36, BOARD_TOP = 78, BOARD = 648;
+// A shared image is a 4:5 card made of the board itself: the board fills the
+// top, its surface continues below, the brand and move count sit in the
+// board's top margin, and the result (with the winner's stone), the
+// ownership legend sit underneath, aligned to the grid's edge; below a rule,
+// each link is a column with the address on top and what it is for beneath.
+// Sizes are in 1/800ths of the card width; the grid edge is at 80.
+const CARD_RATIO = 1.25, EDGE = 80;
 const MOVE_DELAY = 45, FIRST_DELAY = 90, LAST_DELAY = 350;
 export const SHARE_LINKS = Object.freeze([
-  ["自分でプレイする：","miego.fun"],
-  ["開発に参加する：","github.com/KTakahiro1729/MieGO"]
+  ["自分でプレイする","miego.fun"],
+  ["開発に参加する","github.com/KTakahiro1729/MieGO"]
 ]);
+// Ink and its muted tone, per board look.
+const INK = {wood:["#2e2416","rgba(46,36,22,.62)"],light:["#1d2127","rgba(29,33,39,.6)"],
+  dark:["#eef3f8","rgba(238,243,248,.62)"]};
+const MINCHO = "'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', serif";
+const GOTHIC = "'Zen Kaku Gothic New', 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif";
+const FONT_TEXT = "MieGO0123456789.+〜·全手目白黒の勝ち投了時間引き分け終局前自分でプレイする開発に参加寄り"+
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/:-";
+
+/** Loads the card's two typefaces (subset to its text); falls back to system fonts. */
+let fontsReady=null;
+export function loadShareFonts(doc=globalThis.document,timeout=3000) {
+  if(!doc?.fonts || !doc.head)return Promise.resolve();
+  // fonts.load() settles at once while the stylesheet has not yet declared
+  // the faces, so wait for the stylesheet before asking for the fonts.
+  fontsReady??=new Promise((resolve,reject)=>{
+    const link=Object.assign(doc.createElement("link"),{rel:"stylesheet",onload:resolve,onerror:reject,
+      href:"https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@800&family=Zen+Kaku+Gothic+New:wght@500;700"+
+        "&display=swap&text="+encodeURIComponent(FONT_TEXT)});
+    doc.head.append(link);
+  }).then(()=>Promise.all(["800 44px 'Shippori Mincho'","500 16px 'Zen Kaku Gothic New'",
+    "700 16px 'Zen Kaku Gothic New'"].map(font=>doc.fonts.load(font,"白黒全手"))));
+  return Promise.race([fontsReady,new Promise(resolve=>setTimeout(resolve,timeout))]).catch(()=>{});
+}
 
 const COLOR = {B:"黒",W:"白"};
 /** Japanese wording for an SGF-style result such as "B+3.5" or "W+R". */
@@ -30,80 +56,83 @@ export function resultLabel(result) {
 
 export function shareLabels({step,total,result,animated}) {
   const moves=animated ? (step===total ? "全"+total+"手" : "0〜"+step+"手目") : step+"手目";
-  return {moves,result:resultLabel(result)||"終局前"};
+  const label=resultLabel(result);
+  const winner=label && label!=="引き分け" ? result[0] : null;
+  return {moves,result:label||"終局前",winner};
 }
 
 export const shareFrameSize = width => ({width,height:Math.round(width*CARD_RATIO)});
-/** The card width that shows a board canvas of `boardSize` pixels at full size. */
-export const shareCardWidth = boardSize => Math.round(boardSize*720/BOARD);
 
-function roundedRect(ctx,x,y,w,h,r) {
-  ctx.beginPath();
-  ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
-  ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+function paintStone(ctx,theme,color,x,y,r) {
+  const look=color==="B" ? theme.stones.black : theme.stones.white;
+  ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+  if(theme.flatStones || !ctx.createRadialGradient)ctx.fillStyle=look.outer;
+  else {
+    const grad=ctx.createRadialGradient(x-r*.3,y-r*.3,1,x,y,r*1.2);
+    grad.addColorStop(0,look.inner);grad.addColorStop(1,look.outer);
+    ctx.fillStyle=grad;
+  }
+  ctx.fill();
+  ctx.strokeStyle=look.rim;ctx.lineWidth=1.2;ctx.stroke();
 }
 
 // White-leaning on the left, Black-leaning on the right, over the board colour.
-function paintLegend(ctx,u,right,y,{palette,opacity,theme}) {
-  const w=168*u,h=10*u,x=right-w;
-  const [r,g,b]=boardTheme(theme).surface;
+function paintLegend(ctx,u,right,y,{palette,opacity,theme},muted) {
+  const w=140*u,h=7*u,x=right-w,steps=48;
   ctx.save();
-  roundedRect(ctx,x,y-h/2,w,h,h/2);ctx.clip();
-  ctx.fillStyle="rgb("+r+","+g+","+b+")";ctx.fillRect(x,y-h/2,w,h);
-  const steps=48;
+  ctx.beginPath();ctx.roundRect?.(x,y,w,h,h/2);ctx.clip();
+  ctx.fillStyle="rgb("+boardTheme(theme).surface.join(",")+")";ctx.fillRect(x,y,w,h);
   for(let i=0;i<steps;i++) {
-    const [cr,cg,cb,ca]=ownershipPixel(i/(steps-1)*2-1,palette,opacity,theme);
-    ctx.fillStyle="rgba("+cr+","+cg+","+cb+","+(ca/255).toFixed(3)+")";
-    ctx.fillRect(x+w*i/steps,y-h/2,w/steps+1,h);
+    const [r,g,b,a]=ownershipPixel(i/(steps-1)*2-1,palette,opacity,theme);
+    ctx.fillStyle="rgba("+r+","+g+","+b+","+(a/255).toFixed(3)+")";
+    ctx.fillRect(x+w*i/steps,y,w/steps+1,h);
   }
   ctx.restore();
-  ctx.font="500 "+Math.round(13*u)+"px system-ui, sans-serif";ctx.fillStyle="#aeb3be";
-  ctx.textBaseline="top";
-  ctx.textAlign="left";ctx.fillText("白寄り",x,y+h/2+6*u);
-  ctx.textAlign="right";ctx.fillText("黒寄り",right,y+h/2+6*u);
+  ctx.font="500 "+Math.round(13*u)+"px "+GOTHIC;ctx.fillStyle=muted;ctx.textBaseline="top";
+  ctx.textAlign="left";ctx.fillText("白寄り",x,y+h+6*u);
+  ctx.textAlign="right";ctx.fillText("黒寄り",right,y+h+6*u);
+  ctx.textAlign="left";ctx.textBaseline="alphabetic";
 }
 
 /**
- * Draws the card onto `target` (sized by shareFrameSize): `board` is scaled
- * into the frame; `legend` ({palette,opacity,theme}) is drawn when the
- * ownership colours are shown.
+ * Draws the card onto `target` (sized by shareFrameSize). `board` is a board
+ * canvas in the look `theme`; `legend` ({palette,opacity}) is drawn when the
+ * image carries ownership colours.
  */
-export function paintShareFrame(target,board,{moves,result,legend=null}) {
-  const {width,height}=shareFrameSize(target.width),u=width/720;
+export function paintShareFrame(target,board,{moves,result,winner=null,theme,legend=null}) {
+  const {width,height}=shareFrameSize(target.width),u=width/800;
+  const look=boardTheme(theme),[ink,muted]=INK[theme]||INK.wood;
   const ctx=target.getContext("2d");
-  const background=ctx.createLinearGradient?.(0,0,0,height);
-  if(background){background.addColorStop(0,"#1b2132");background.addColorStop(1,"#0d1018");}
-  ctx.fillStyle=background||"#11151f";
+  // The board's own fill, continued below it so the card reads as one surface.
+  if(look.fill.length>1 && ctx.createLinearGradient) {
+    const grad=ctx.createLinearGradient(0,0,width,width);
+    look.fill.forEach((color,i)=>grad.addColorStop(i/(look.fill.length-1),color));
+    ctx.fillStyle=grad;
+  } else ctx.fillStyle=look.fill[0];
   ctx.fillRect(0,0,width,height);
-  const left=MARGIN*u,right=width-MARGIN*u;
-
-  ctx.textBaseline="middle";ctx.textAlign="left";
-  ctx.font="700 "+Math.round(34*u)+"px Georgia, 'Times New Roman', serif";
-  ctx.fillStyle="#f1f0ed";ctx.fillText("Mie",left,40*u);
-  ctx.fillStyle="#e5c47a";ctx.fillText("GO",left+ctx.measureText("Mie").width,40*u);
-  ctx.font="600 "+Math.round(20*u)+"px system-ui, sans-serif";
-  ctx.fillStyle="#aeb3be";ctx.textAlign="right";ctx.fillText(moves,right,42*u);
-
-  const top=BOARD_TOP*u,size=BOARD*u;
-  ctx.save();
-  roundedRect(ctx,left,top,size,size,14*u);ctx.clip();
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
-  ctx.drawImage(board,left,top,size,size);
-  ctx.restore();
+  ctx.drawImage(board,0,0,width,width);
 
-  const resultY=top+size+42*u;
-  ctx.textAlign="left";ctx.fillStyle="#f1f0ed";
-  ctx.font="800 "+Math.round(32*u)+"px system-ui, sans-serif";
-  ctx.fillText(result,left,resultY,legend && showsOwnership(legend.palette) ? size-196*u : size);
-  if(legend && showsOwnership(legend.palette))paintLegend(ctx,u,right,resultY-6*u,legend);
+  const left=EDGE*u,right=width-EDGE*u;
+  ctx.textBaseline="alphabetic";ctx.textAlign="left";
+  ctx.font="700 "+Math.round(26*u)+"px Georgia, 'Times New Roman', serif";
+  ctx.fillStyle=muted;ctx.fillText("MieGO",left,52*u);
+  ctx.font="500 "+Math.round(18*u)+"px "+GOTHIC;
+  ctx.textAlign="right";ctx.fillText(moves,right,50*u);ctx.textAlign="left";
 
-  ctx.fillStyle="#2c3344";ctx.fillRect(left,resultY+30*u,size,Math.max(1,u));
-  ctx.font="500 "+Math.round(17*u)+"px system-ui, sans-serif";
+  const baseline=866*u,showLegend=!!legend && showsOwnership(legend.palette);
+  let x=left;
+  if(winner==="B" || winner==="W"){paintStone(ctx,look,winner,left+16*u,baseline-16*u,16*u);x=left+46*u;}
+  ctx.font="800 "+Math.round(44*u)+"px "+MINCHO;ctx.fillStyle=ink;
+  ctx.fillText(result,x,baseline,right-x-(showLegend ? 170*u : 0));
+  if(showLegend)paintLegend(ctx,u,right,baseline-20*u,{...legend,theme},muted);
+
+  ctx.fillStyle=muted;ctx.fillRect(left,898*u,right-left,Math.max(1,u));
+  const columns=[left,left+250*u];
   SHARE_LINKS.forEach(([label,link],i)=>{
-    const y=resultY+58*u+i*28*u,labelWidth=ctx.measureText(label).width;
-    ctx.textAlign="left";
-    ctx.fillStyle="#8d93a1";ctx.fillText(label,left,y);
-    ctx.fillStyle="#e5c47a";ctx.fillText(link,left+labelWidth,y,size-labelWidth);
+    const x=columns[i],room=(i+1<columns.length ? columns[i+1]-24*u : right)-x;
+    ctx.font="700 "+Math.round(19*u)+"px "+GOTHIC;ctx.fillStyle=ink;ctx.fillText(link,x,940*u,room);
+    ctx.font="500 "+Math.round(14*u)+"px "+GOTHIC;ctx.fillStyle=muted;ctx.fillText(label,x,966*u,room);
   });
 }
 

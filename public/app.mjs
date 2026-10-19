@@ -15,7 +15,7 @@ import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
-import { shareLabels, shareFrameSize, shareCardWidth, paintShareFrame, buildGameAnimation } from "./share-image.mjs";
+import { shareLabels, shareFrameSize, paintShareFrame, buildGameAnimation, loadShareFonts } from "./share-image.mjs";
 import { OwnershipStore } from "./ownership-store.mjs";
 import { influence } from "./influence.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
@@ -1367,7 +1367,7 @@ const SHARE_KINDS=["still","animation"];
 let shareImageKind="still",shareImageJob=0;
 let shareImages={},sharePreviewUrls=[];
 let frameRenderer=null,frameState=null,frameOwnership=null;
-const ANIMATION_SIZE=480;
+const ANIMATION_SIZE=600;
 // The ownership shown for each committed position, kept per saved game so
 // every frame of a shared animation carries the colours seen while playing.
 const ownershipStore=new OwnershipStore(localStorage);
@@ -1384,14 +1384,13 @@ function shareImageDetails(animated){
   const coloured=overlayOn() && (animated ||
     (boardReview ? !!boardReview.ownership : game.status==="playing" && !!displayedOwnership));
   return {snapshot,step,gameId,labels:{...shareLabels({step,total,result,animated}),
-    legend:coloured ? {palette,opacity,theme:boardTheme} : null}};
+    theme:boardTheme,legend:coloured ? {palette,opacity} : null}};
 }
 // An animation frame: the replayed position with the ownership recorded for
 // it, or the replay view's quick estimate where none was recorded.
 function renderFrameBoard(state,gameId){
   if(!frameRenderer){
-    const size=Math.round(ANIMATION_SIZE*.9);
-    const board=frameCanvas(size,size);
+    const board=frameCanvas(ANIMATION_SIZE,ANIMATION_SIZE);
     frameRenderer={board,...createBoardRenderer({canvas:board,getView:()=>({game:frameState,
       boardReview:{display:frameState,ownership:frameOwnership},candidate:null,illegalCandidate:null,
       lastPosition:null,displayedOwnership:null,palette,opacity,boardTheme,hints:null})})};
@@ -1402,6 +1401,7 @@ function renderFrameBoard(state,gameId){
   return frameRenderer.board;
 }
 async function makeShareImage(kind,job){
+  await loadShareFonts();
   draw();
   const animated=kind==="animation";
   const {snapshot,step,gameId,labels}=shareImageDetails(animated);
@@ -1415,7 +1415,7 @@ async function makeShareImage(kind,job){
       }});
     return new File([bytes],"miego-moves"+step+".gif",{type:"image/gif"});
   }
-  const {width,height}=shareFrameSize(shareCardWidth(canvas.width));
+  const {width,height}=shareFrameSize(canvas.width);
   const target=frameCanvas(width,height);
   paintShareFrame(target,canvas,labels);
   const blob=await new Promise((resolve,reject)=>
