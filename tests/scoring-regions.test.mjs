@@ -88,7 +88,7 @@ test("scoring overlay is never drawn in active game replay",()=>{
 test("score breakdown shows white area and komi separately so it matches the board labels",()=>{
   const game={...newGame(),status:"scoring",board:Array(81).fill(0)};
   for(let y=0;y<9;y++)for(let x=0;x<9;x++)game.board[at(x,y)]=x<5?BLACK:WHITE;
-  assert.equal(scoreBreakdown(game),"黒 45 対 白 36＋コミ7.5＝43.5");
+  assert.equal(scoreBreakdown(game),"黒：45\n白：36＋コミ7.5＝43.5");
   const handicap={...newGame(true,{handicap:3}),status:"scoring"};
-  assert.equal(scoreBreakdown(handicap),"黒 81 対 白 0＋コミ0.5＋置き石補正3＝3.5");
+  assert.equal(scoreBreakdown(handicap),"黒：81\n白：0＋コミ0.5＋置き石補正3＝3.5");
 });

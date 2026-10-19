@@ -79,6 +79,7 @@ body.board-zoomed .board-bleed{opacity:1}
 .score-box{background:#1b2430;border:1px solid #65615c;padding:18px;border-radius:13px;margin:12px 0 18px}
 .score-box strong{font-size:15px}
 .score-box p,.score-box #scoreText{font-size:13px;line-height:1.6;color:#c7c9ca}
+.score-box #scoreText{white-space:pre-line}
 .settings-backdrop{position:fixed;inset:0;background:#0008;z-index:9}
 .settings-panel{position:fixed;z-index:10;right:max(14px,calc((100vw - 1100px)/2));top:78px;width:min(390px,calc(100vw - 28px));max-height:calc(100dvh - 95px);overflow-y:auto;overscroll-behavior:contain;padding:22px;background:#181e2a;border:1px solid #414757;border-radius:19px;box-shadow:0 20px 70px #000a}
 .settings-head{display:flex;align-items:center;justify-content:space-between;margin:-6px 0 10px}

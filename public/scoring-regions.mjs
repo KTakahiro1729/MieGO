@@ -47,6 +47,6 @@ export function scoringRegions(state) {
 export function scoreBreakdown(state) {
   const score=areaScore(state),komi=komiOf(state),handicap=handicapOf(state);
   const whiteArea=score.white-komi-handicap;
-  return "黒 "+score.black+" 対 白 "+whiteArea+"＋コミ"+komi+
+  return "黒："+score.black+"\n白："+whiteArea+"＋コミ"+komi+
     (handicap?"＋置き石補正"+handicap:"")+"＝"+score.white;
 }
