@@ -123,7 +123,7 @@ test("unified history sheet preserves scoring and keyboard-friendly selection",a
  for(const id of ["historySaveNotice","scoringActions","openCurrentMode","reviewStepRange","reviewExport"])
    assert.match(h,new RegExp('id="'+id+'"'));
  assert.match(a,/\$\("openCurrentMode"\)\.onclick/);
- assert.match(historyPanel,/\$\("closeHistory"\)\.focus\(\)/);
+ assert.match(historyPanel,/function showHistory\(\)/);
  assert.match(a,/\$\("newGameButton"\)\.focus\(\)/);
  assert.match(a,/\$\("reviewNotice"\)\.textContent="SGFを書き出しました/);
 });

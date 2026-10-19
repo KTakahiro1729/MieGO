@@ -37,15 +37,10 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},g
       list.append(item);
     }
   }
-  function openHistoryPanel() {
-    $("settingsBackdrop").hidden=false;
-    $("settingsPanel").hidden=true;$("modePanel").hidden=true;
-    $("historyPanel").hidden=false;
+  // The list is the 履歴 tab of the 新規対戦 sheet; the sheet itself handles opening and focus.
+  function showHistory() {
     $("historySaveNotice").textContent="";
-    $("historyPanel").scrollTop=0;
-    $("settingsToggle").setAttribute("aria-expanded","false");
     renderHistoryList();
-    $("closeHistory").focus();
   }
   async function importHistoryFile(file) {
     if(!file)return;
@@ -57,9 +52,9 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},g
       onSelect(record);
       // A non-blocking notification is available in the replay controls.
     } catch(error) {
-      $("historyPanel").scrollTop=0;
+      $("modePanel").scrollTop=0;
       $("historySaveNotice").textContent="SGFを読み込めません："+error.message;
     } finally{$("historyImportFile").value="";}
   }
-  return {renderHistoryList,openHistoryPanel,importHistoryFile};
+  return {renderHistoryList,showHistory,importHistoryFile};
 }

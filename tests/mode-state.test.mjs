@@ -7,17 +7,20 @@ const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
 test("a 新規対戦 button opens one sheet with the three modes, board size, handicap and saved games",()=>{
   assert.match(html,/<button id="newGameButton"[^>]*>新規対戦<\/button>/);
   assert.doesNotMatch(html,/<select id="modePicker"|<option value="history">/);
-  const sheet=html.slice(html.indexOf('<aside id="modePanel"'),html.indexOf('<aside id="historyPanel"'));
+  const sheet=html.slice(html.indexOf('<aside id="modePanel"'),html.indexOf('</aside>',html.indexOf('<aside id="modePanel"')));
   for(const value of ["local","ai","online"])assert.match(sheet,new RegExp('name="newGameMode" value="'+value+'"'));
   for(const size of [9,13,19])assert.match(sheet,new RegExp('name="boardSize" value="'+size+'"'));
   const handicap=sheet.slice(sheet.indexOf('<select id="handicap"'),sheet.indexOf('</select>',sheet.indexOf('<select id="handicap"')));
   for(const stones of [0,2,3,4,5,6,7,8,9])assert.match(handicap,new RegExp('<option value="'+stones+'"'));
-  // The modes and 履歴 form a 2x2 grid of icon tiles.
-  assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,3);
-  assert.match(sheet,/id="openHistoryFromNew" class="new-game-tile"[^>]*><svg class="mode-icon"/);
+  // The three modes and 履歴 form a 2x2 grid of icon tabs in one sheet.
+  assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,4);
+  assert.match(sheet,/id="openHistoryFromNew" type="radio" name="newGameMode" value="history"/);
+  for(const id of ["historySetup","historyList","historyImportFile"])assert.match(sheet,new RegExp('id="'+id+'"'));
+  assert.doesNotMatch(html,/id="historyPanel"|id="closeHistory"/);
+  assert.match(app,/function openHistoryPanel\(\)\{openPanel\("history"\);\}/);
   assert.equal((sheet.match(/name="boardSize"[^>]*><span><svg class="size-icon"/g)||[]).length,3);
   // Handicap and the AI's style live under 詳細設定; the sampling-variance setting is gone.
-  const advanced=sheet.slice(sheet.indexOf('<details class="info-disclosure new-game-advanced">'),sheet.indexOf('</details>'));
+  const advanced=sheet.slice(sheet.indexOf('<details id="newGameAdvanced"'),sheet.indexOf('</details>'));
   for(const id of ["handicap","aiInvasion","aiReinforcement","aiHints"])assert.match(advanced,new RegExp('id="'+id+'"'));
   // Strength stays outside 詳細設定 as a four-stop bar; the style sliders have three stops.
   assert.doesNotMatch(advanced,/id="aiStrength"/);
@@ -107,7 +110,7 @@ test("reset discards endgame and dead-stone hints",()=>{
   assert.match(block,/analysisContext=null/);
 });
 test("the 新規対戦 sheet offers a way back to the current or an unfinished saved game",()=>{
-  const sheet=html.slice(html.indexOf('<aside id="modePanel"'),html.indexOf('<aside id="historyPanel"'));
+  const sheet=html.slice(html.indexOf('<aside id="modePanel"'),html.indexOf('</aside>',html.indexOf('<aside id="modePanel"')));
   assert.match(sheet,/id="returnToGame"[^>]*hidden>現在の対局に戻る<\/button>/);
   assert.match(app,/return \{mode:null,label:"現在の対局に戻る"\};/);
   assert.doesNotMatch(app,/label:[^\n]*手目/);

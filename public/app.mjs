@@ -105,7 +105,7 @@ const {renderHistoryList,importHistoryFile}=historyPanel;
 function setBackgroundInert(on){
   for(const el of document.querySelectorAll(".topbar,.game-layout"))el.inert=on;
 }
-function openHistoryPanel(){setBackgroundInert(true);historyPanel.openHistoryPanel();}
+function openHistoryPanel(){openPanel("history");}
 // The actual match always remains in 'game'; only the visible board is replayed.
 let boardReview=null,reviewWorker=null,reviewSequence=0;
 try {gameLibrary.migrateLegacy();}
@@ -1000,7 +1000,7 @@ function resumeModeGame(mode) {
  * (leaving any replay), or the unfinished saved game of another offline mode.
  */
 function returnTarget(kind) {
-  if(kind===(room?"online":gameMode))
+  if(kind==="history" || kind===(room?"online":gameMode))
     return {mode:null,label:"現在の対局に戻る"};
   if(kind==="online")return null; // friend rooms reopen from the saved games
   let record=null;
@@ -1138,7 +1138,7 @@ async function copyLink(){
   }catch(error){$("inviteStatus").textContent=error.message;}
   finally{renderInviteButton();}
 }
-/** kind: "settings", or a 新規対戦 mode ("local", "ai", "online"). */
+/** kind: "settings", or a 新規対戦 tab ("local", "ai", "online", "history"). */
 function openPanel(kind) {
   setBackgroundInert(true);
   $("settingsBackdrop").hidden=false;
@@ -1157,10 +1157,16 @@ function showNewGameMode(kind) {
   $("localSetup").hidden=kind!=="local";
   $("onlineSetup").hidden=kind!=="online";
   $("aiSetup").hidden=kind!=="ai";
-  // Friend matches are always even games.
+  // 履歴 swaps the game options for the saved-game list in the same sheet.
+  $("historySetup").hidden=kind!=="history";
+  $("newGameSetup").hidden=kind==="history";
+  $("modePanel").scrollTop=0;
+  if(kind==="history")historyPanel.showHistory();
+  // Friend matches are always even games, so they have nothing under 詳細設定.
+  $("newGameAdvanced").hidden=kind==="online";
   $("handicapSetup").hidden=kind==="online";
   $("aiSideRow").hidden=$("aiStrengthRow").hidden=$("aiOptions").hidden=kind!=="ai";
-  $("onlineSideRow").hidden=$("onlineOptions").hidden=kind!=="online";
+  $("onlineSideRow").hidden=kind!=="online";
   syncReturnButton(kind);
   syncHandicapUi();
   if(kind==="online" && room)showInviteLink();
@@ -1414,7 +1420,7 @@ function openSavedBoard(record) {
     $("moveLabel").focus();
   }catch(error){
     $("historySaveNotice").textContent="棋譜を表示できません："+error.message;
-    if($("historyPanel").hidden)openHistoryPanel();
+    if($("historySetup").hidden)openHistoryPanel();
   }
 }
 function exportReviewSGF(){
@@ -1507,10 +1513,8 @@ $("openCurrentMode").onclick=()=>{
 $("openHistory").onclick=openHistoryPanel;
 $("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
 $("openHistorySettings").onclick=openHistoryPanel;
-$("closeHistory").onclick=()=>{closePanels();$("newGameButton").focus();};
-$("openHistoryFromNew").onclick=openHistoryPanel;
 document.addEventListener("storage",e=>{
-  if(e.key?.startsWith("miego:game:v1:") && !$("historyPanel").hidden)renderHistoryList();
+  if(e.key?.startsWith("miego:game:v1:") && !$("historySetup").hidden)renderHistoryList();
 });
 function openSettings(){openPanel("settings");}
 function closePanels() {
@@ -1519,7 +1523,7 @@ function closePanels() {
   $("settingsBackdrop").hidden=true;
   $("settingsPanel").hidden=true;
   $("modePanel").hidden=true;
-  $("historyPanel").hidden=true;
+  $("historySetup").hidden=true;
   $("onlineSetup").hidden=true;
   $("aiSetup").hidden=true;
   $("localSetup").hidden=true;
