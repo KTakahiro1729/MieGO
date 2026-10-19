@@ -1379,8 +1379,6 @@ async function shareBoardImage(){
 }
 function openSharePanel(){
   openPanel("share");
-  const step=boardReview?boardReview.step:game.moves.length;
-  $("shareTarget").textContent=(boardReview?"再生中の":"現在の")+"局面（"+step+"手目）を共有します。";
   $("shareImage").hidden=!canShareImage();
   $("shareInviteSection").hidden=!room;
   $("shareNotice").textContent="";

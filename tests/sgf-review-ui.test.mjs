@@ -70,8 +70,8 @@ test("sharing lives in one sheet beside settings, not in the replay menu",()=>{
  const settings=html.slice(html.indexOf('<aside id="settingsPanel"'),html.indexOf('<aside id="sharePanel"'));
  assert.doesNotMatch(settings,/GIF/);
  // Only the AI copy needs words: what to do with the copied text.
- assert.equal(sheet.match(/class="explanation"/g)?.length,2,"target line and the AI note");
- assert.match(sheet,/id="shareAiLink"[^>]*>AI向けにコピー<\/button>\s*<p class="explanation">好きなAIのチャットに貼り付けると/);
+ assert.equal(sheet.match(/class="explanation"/g)?.length,1,"only the AI note");
+ assert.match(sheet,/id="shareAiLink"[^>]*>AI向けにコピー<\/button>\s*<p class="explanation">この盤面をAIに相談したい時に使ってください。/);
  // Outside replay the sheet shares the live game as it stands.
  assert.match(app,/if\(boardReview\)return variationForSharing\(boardReview,game\);/);
  assert.match(app,/\$\("shareInviteSection"\)\.hidden=!room/);
