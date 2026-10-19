@@ -967,13 +967,12 @@ function resumeModeGame(mode) {
  */
 function returnTarget(kind) {
   if(kind===(room?"online":gameMode))
-    return {mode:null,label:"現在の対局に戻る（"+game.moveNumber+"手目）"};
+    return {mode:null,label:"現在の対局に戻る"};
   if(kind==="online")return null; // friend rooms reopen from the saved games
   let record=null;
   try{record=gameLibrary.active(kind);}catch{}
   if(!record || record.snapshot.status==="finished")return null;
-  return {mode:kind,label:(kind==="ai"?"途中のAI対局に戻る":"途中の1台の対局に戻る")+
-    "（"+sizeOf(record.snapshot.board)+"路・"+record.snapshot.moveNumber+"手目）"};
+  return {mode:kind,label:kind==="ai"?"途中のAI対局に戻る":"途中の1台の対局に戻る"};
 }
 function syncReturnButton(kind) {
   const target=returnTarget(kind);
@@ -1542,10 +1541,8 @@ function syncHandicapUi() {
   if(sizeChoice)sizeChoice.checked=true;
   // One set of handicap buttons shows the stored choice of the selected mode.
   const ai=newGameModeKind()==="ai",shown=ai?aiHandicap:localHandicap;
-  for(const input of document.querySelectorAll('input[name="handicap"]')) {
-    input.checked=Number(input.value)===shown;
-    input.disabled=Number(input.value)>maxHandicap(boardSize);
-  }
+  for(const option of $("handicap").options)option.disabled=Number(option.value)>maxHandicap(boardSize);
+  $("handicap").value=String(shown);
   $("handicapNote").textContent=(ai?"置き石があるとあなたが黒で、AIが白で先に打ちます。":
     "置き石は黒が最初から星に置く石で、置き石があると白が先に打ちます。")+
     "コミは0.5目で、中国式のとおり白に置き石の数だけ目数を加えます。"+
@@ -1558,9 +1555,8 @@ function syncHandicapUi() {
     if(black)black.checked=true;
   }else syncSideUi();
 }
-for(const input of document.querySelectorAll('input[name="handicap"]')) {
-  input.onchange=e=>{
-    if(!e.target.checked)return;
+{
+  $("handicap").onchange=e=>{
     const value=toHandicap(e.target.value);
     if(newGameModeKind()==="ai"){
       aiHandicap=value;

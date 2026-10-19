@@ -10,7 +10,10 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   const sheet=html.slice(html.indexOf('<aside id="modePanel"'),html.indexOf('<aside id="historyPanel"'));
   for(const value of ["local","ai","online"])assert.match(sheet,new RegExp('name="newGameMode" value="'+value+'"'));
   for(const size of [9,13,19])assert.match(sheet,new RegExp('name="boardSize" value="'+size+'"'));
-  for(const stones of [0,2,3,4,5,6,7,8,9])assert.match(sheet,new RegExp('name="handicap" value="'+stones+'"'));
+  const handicap=sheet.slice(sheet.indexOf('<select id="handicap"'),sheet.indexOf('</select>',sheet.indexOf('<select id="handicap"')));
+  for(const stones of [0,2,3,4,5,6,7,8,9])assert.match(handicap,new RegExp('<option value="'+stones+'"'));
+  // The mode is a full-width row with an icon.
+  assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,3);
   for(const id of ["startLocal","startAi","copy","openHistoryFromNew"])assert.match(sheet,new RegExp('id="'+id+'"'));
   assert.match(app,/\$\("newGameButton"\)\.onclick=\(\)=>openPanel\(room\?"online":gameMode\)/);
 });
@@ -93,7 +96,8 @@ test("reset discards endgame and dead-stone hints",()=>{
 test("the 新規対戦 sheet offers a way back to the current or an unfinished saved game",()=>{
   const sheet=html.slice(html.indexOf('<aside id="modePanel"'),html.indexOf('<aside id="historyPanel"'));
   assert.match(sheet,/id="returnToGame"[^>]*hidden>現在の対局に戻る<\/button>/);
-  assert.match(app,/return \{mode:null,label:"現在の対局に戻る（"/);
+  assert.match(app,/return \{mode:null,label:"現在の対局に戻る"\};/);
+  assert.doesNotMatch(app,/label:[^\n]*手目/);
   // Finished games and friend rooms are not resumed from here.
   assert.match(app,/if\(kind==="online"\)return null;/);
   assert.match(app,/record\.snapshot\.status==="finished"\)return null;/);
