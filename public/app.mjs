@@ -128,8 +128,8 @@ function updateEndUi() {
     "終局はいつでも提案できます。提案はパスと異なります。";
   // The stable left-hand status slot doubles as a rule explanation for illegal previews.
   if(playing && illegalCandidate){
-    $("endStatus").textContent=pointLabel(illegalCandidate.position)+"："+
-      (illegalCandidate.reason===ILLEGAL_KO?"コウのため打てません":"自殺手のため打てません");
+    $("endStatus").textContent=pointLabel(illegalCandidate.position)+"は"+
+      (illegalCandidate.reason===ILLEGAL_KO?"コウのため打てません":"自殺手なので打てません");
   }
 }
 
@@ -373,7 +373,7 @@ function show() {
   $("confirm").disabled=!candidate || !myTurn || blocked;
   $("confirm").hidden=blocked;
   $("copyIllegalPrompt").hidden=!blocked;
-  $("copyIllegalPrompt").textContent=illegalPromptCopied?"コピーしました":"理由を質問する文をコピー";
+  $("copyIllegalPrompt").textContent=illegalPromptCopied?"コピーしました":"AIへの質問をコピー";
   $("cancel").disabled=!candidate && !blocked;
   $("endgameBar").classList.toggle("has-illegal",blocked);
   $("pass").disabled=!myTurn || game.status!=="playing";
