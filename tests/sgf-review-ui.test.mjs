@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 
 const source=name=>readFileSync(new URL("../public/"+name,import.meta.url),"utf8");
-const html=source("index.html"),app=source("app.mjs"),style=source("style.css");
+const html=source("index.html"),app=source("app.mjs"),renderer=source("board-renderer.mjs"),style=source("style.css");
 test("main board reuses one control row for move replay without scroll-inducing additions",()=>{
   const review=html.slice(html.indexOf('<section id="reviewPanel"'),html.indexOf('<p id="saveStatus"'));
   assert.match(review,/class="review-navigation"/);
@@ -21,7 +21,7 @@ test("main board reuses one control row for move replay without scroll-inducing 
   assert.doesNotMatch(review,/class="review-explanation"|class="review-share"/);
 });
 test("replay does not write moves to an active live or P2P session",()=>{
-  assert.match(app,/const display=boardReview\?\.display\|\|game/);
+  assert.match(renderer,/const display=boardReview\?\.display\|\|game/);
   assert.match(app,/if\(boardReview\)return;\s*const rect=canvas\.getBoundingClientRect/);
   assert.match(app,/if\(boardReview && !fromAi\)return/);
   assert.match(app,/if\(boardReview\)\{renderBoardReview\(\);return;\}/);
