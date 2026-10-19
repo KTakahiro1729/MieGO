@@ -90,3 +90,12 @@ test("reset discards endgame and dead-stone hints",()=>{
   assert.match(block,/deadEvaluation=null/);
   assert.match(block,/analysisContext=null/);
 });
+test("the 新規対戦 sheet offers a way back to the current or an unfinished saved game",()=>{
+  const sheet=html.slice(html.indexOf('<aside id="modePanel"'),html.indexOf('<aside id="historyPanel"'));
+  assert.match(sheet,/id="returnToGame"[^>]*hidden>現在の対局に戻る<\/button>/);
+  assert.match(app,/return \{mode:null,label:"現在の対局に戻る（"/);
+  // Finished games and friend rooms are not resumed from here.
+  assert.match(app,/if\(kind==="online"\)return null;/);
+  assert.match(app,/record\.snapshot\.status==="finished"\)return null;/);
+  assert.match(app,/if\(target\.mode\)\{resumeModeGame\(target\.mode\);return;\}/);
+});

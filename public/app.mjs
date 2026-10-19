@@ -948,22 +948,45 @@ function leaveOnlineRoom() {
   $("inviteStatus").textContent="";
   $("roomInfo").textContent="URLを共有すると、別の端末から対局に参加できます。";
 }
-function switchToLocal() {
+/** Resume the unfinished saved game of another offline mode (1台 or AI). */
+function resumeModeGame(mode) {
   resetArmedButtons();
-  if(gameMode==="local" && !room){
-    if(boardReview)leaveBoardReview();
-    closePanels();return;
-  }
   if(room && connected &&
-    !confirm("友人との対局から離れて、1台で打つモードに切り替えますか？"))return;
+    !confirm("友人との対局から離れて、"+(mode==="ai"?"AIとの対局":"1台の対局")+"に戻りますか？"))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
   clearBoardReview();
-  stopAiTurn();gameMode="local";
-  game=savedGame("local");candidate=null;
+  stopAiTurn();gameMode=mode;
+  game=savedGame(mode);candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=!!game.endProposal;
   save();closePanels();show();requestAnalysis();
 }
+/**
+ * The 新規対戦 sheet's way back: the game on the board for the current mode
+ * (leaving any replay), or the unfinished saved game of another offline mode.
+ */
+function returnTarget(kind) {
+  if(kind===(room?"online":gameMode))
+    return {mode:null,label:"現在の対局に戻る（"+game.moveNumber+"手目）"};
+  if(kind==="online")return null; // friend rooms reopen from the saved games
+  let record=null;
+  try{record=gameLibrary.active(kind);}catch{}
+  if(!record || record.snapshot.status==="finished")return null;
+  return {mode:kind,label:(kind==="ai"?"途中のAI対局に戻る":"途中の1台の対局に戻る")+
+    "（"+sizeOf(record.snapshot.board)+"路・"+record.snapshot.moveNumber+"手目）"};
+}
+function syncReturnButton(kind) {
+  const target=returnTarget(kind);
+  $("returnToGame").hidden=!target;
+  if(target)$("returnToGame").textContent=target.label;
+}
+$("returnToGame").onclick=()=>{
+  const target=returnTarget(newGameModeKind());
+  if(!target)return;
+  if(target.mode){resumeModeGame(target.mode);return;}
+  if(boardReview){clearBoardReview();show();requestAnalysis();}
+  closePanels();$("newGameButton").focus();
+};
 async function verifyP2P(){
   $("p2pVerify").hidden=false;
   if($("onlineSetup").hidden)openPanel("online");
@@ -1103,6 +1126,7 @@ function showNewGameMode(kind) {
   $("aiSetup").hidden=kind!=="ai";
   // Friend matches are always even games.
   $("handicapSetup").hidden=kind==="online";
+  syncReturnButton(kind);
   syncHandicapUi();
   if(kind==="online" && room)showInviteLink();
   if(kind==="online")renderInviteButton();
