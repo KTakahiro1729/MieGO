@@ -1,5 +1,6 @@
 import {parseSGF} from "./sgf.mjs";
 import {recordName,recordIcon,recordSummary} from "./history-navigation.mjs";
+import {recordThumbnailSvg} from "./board-thumbnail.mjs";
 
 // The library sheet is a file picker and saved-game list. All board/replay
 // controls live on the main board; it never creates a second playing surface.
@@ -12,14 +13,17 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{}})
     for(const record of records){
       const item=document.createElement("button");
       item.type="button";item.className="history-list-item";
+      const thumb=document.createElement("span");thumb.className="history-thumb";
+      try{thumb.innerHTML=recordThumbnailSvg(record);}catch{}
       const icon=document.createElement("span");icon.className="history-list-icon";
       icon.textContent=recordIcon(record);
+      thumb.append(icon);
       const copy=document.createElement("span");copy.className="history-item-copy";
       const title=document.createElement("span");title.className="history-item-name";
       title.textContent=recordName(record);
       const detail=document.createElement("span");detail.className="history-item-meta";
       detail.textContent=recordSummary(record);
-      copy.append(title,detail);item.append(icon,copy);
+      copy.append(title,detail);item.append(thumb,copy);
       item.onclick=()=>{
         // Re-read to avoid opening a stale snapshot after another tab updated it.
         const selected=gameLibrary.load(record.id);
