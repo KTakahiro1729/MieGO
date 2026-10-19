@@ -1013,6 +1013,13 @@ function isCounting(){
   return !boardReview && (game.status==="scoring" ||
     game.status==="finished" && !game.result?.endsWith("+R"));
 }
+// Layers for a strip of the chosen board under an optional colour layer.
+function onBoardStrip(colour){
+  const look=boardLook(boardTheme);
+  const grid=dir=>"repeating-linear-gradient("+dir+",transparent 0 9px,"+look.line+" 9px 10.5px,transparent 10.5px 20px)";
+  const fill="linear-gradient(135deg,"+(look.fill.length>1?look.fill.join(","):look.fill[0]+","+look.fill[0])+")";
+  return [colour,grid("90deg"),grid("0deg"),fill].filter(Boolean).join(",");
+}
 function updateGradient(){
   const surface=surfaceCss(boardTheme);
   $("gradient").style.backgroundColor=surface;
@@ -1030,17 +1037,15 @@ function updateGradient(){
   const top=17-14*opacity;
   document.querySelector('input[name="opacityShape"][value="V"]+span path')?.setAttribute("d","M3 "+top+" 20 17 37 "+top);
   document.querySelector('input[name="opacityShape"][value="U"]+span path')?.setAttribute("d","M3 "+top+"C10 "+top+" 13 17 20 17S30 "+top+" 37 "+top);
-  // The editor's ramp lies on a strip of the chosen board, grid lines and
-  // all, at the chosen strength, so every colour is seen as it is on the board.
-  const look=boardLook(boardTheme);
-  const grid=dir=>"repeating-linear-gradient("+dir+",transparent 0 9px,"+look.line+" 9px 10.5px,transparent 10.5px 20px)";
+  // The editor's ramp and the colour-map swatches lie on a strip of the
+  // chosen board, grid lines and all, at the chosen strength, so every
+  // colour is seen as it is on the board.
   $("rampPreview").style.backgroundColor=surface;
-  $("rampPreview").style.backgroundImage=[paletteGradient(showsOwnership(palette)?palette:PALETTE_CUSTOM,opacity),
-    grid("90deg"),grid("0deg"),"linear-gradient(135deg,"+(look.fill.length>1?look.fill.join(","):look.fill[0]+","+look.fill[0])+")"].join(",");
+  $("rampPreview").style.backgroundImage=onBoardStrip(paletteGradient(showsOwnership(palette)?palette:PALETTE_CUSTOM,opacity));
   document.querySelectorAll(".swatch[data-palette]").forEach(swatch=>{
     const name=swatch.dataset.palette;
     swatch.style.backgroundColor=surface;
-    swatch.style.backgroundImage=showsOwnership(name)?paletteGradient(name,opacity,boardTheme):"none";
+    swatch.style.backgroundImage=onBoardStrip(showsOwnership(name)?paletteGradient(name,opacity):null);
   });
   canvas.closest(".board-frame")?.setAttribute("data-board-theme",boardTheme);
 }
