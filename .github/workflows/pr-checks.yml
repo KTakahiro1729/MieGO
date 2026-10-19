@@ -19,6 +19,8 @@ jobs:
         run: npm test
       - name: Check client JavaScript syntax
         run: |
+          node --check src/worker.mjs
+          node --check public/p2p-session.mjs
           node --check public/app.mjs
           node --check public/ai-opponent.mjs
           node --check public/invite.mjs
