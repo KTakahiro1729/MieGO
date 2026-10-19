@@ -12,10 +12,15 @@
     <header class="topbar">
       <div class="brand" aria-label="MieGO">Mie<span>GO</span></div>
       <div class="header-actions">
-        <button id="aiMenu" class="invite-button ai-menu-button" type="button">AIと対局</button>
-        <button id="share" class="invite-button" type="button">友人を招待</button>
+        <label class="mode-picker" for="modePicker"><span class="visually-hidden">対局モード</span>
+          <select id="modePicker" aria-label="対局モードを選ぶ">
+            <option value="local">1台で打つ</option>
+            <option value="online">URLで対戦</option>
+            <option value="ai">AIと対戦</option>
+          </select>
+        </label>
         <button id="settingsToggle" class="icon-button" type="button" aria-label="設定を開く" aria-controls="settingsPanel" aria-expanded="false">
-          <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.86 1.86-.06-.06A1.7 1.7 0 0 0 16 18.4l-.15.05V21h-3.7v-2.55L12 18.4a1.7 1.7 0 0 0-1.88.34l-.06.06-1.86-1.86.06-.06A1.7 1.7 0 0 0 8.6 15l-.05-.15H6V11.2h2.55L8.6 11a1.7 1.7 0 0 0-.34-1.88L8.2 9.06 10.06 7.2l.06.06A1.7 1.7 0 0 0 12 7.6l.15-.05V5h3.7v2.55L16 7.6a1.7 1.7 0 0 0 1.88-.34l.06-.06L19.8 9.06l-.06.06A1.7 1.7 0 0 0 19.4 11l.05.2H22v3.65h-2.55z" transform="translate(-2 -1)"/></svg>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
         </button>
       </div>
     </header>
@@ -55,6 +60,7 @@
           <button id="confirm" class="primary" type="button" disabled><span class="button-stone" aria-hidden="true"></span>この手を打つ</button>
           <button id="pass" class="secondary-action" type="button">パス</button>
         </div>
+        <details class="game-actions"><summary>対局メニュー</summary><button id="resign" class="danger-button" type="button">投了する</button></details>
         <div id="scoreBox" class="score-box hidden">
           <strong>終局の確認</strong>
           <p id="scoreInstruction">死石をタップして指定し、双方で結果を確認してください。</p>
@@ -67,55 +73,62 @@
       </section>
     </main>
     <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
-    <aside id="settingsPanel" class="settings-panel" aria-label="表示と対局の設定" hidden>
+    <aside id="settingsPanel" class="settings-panel" role="dialog" aria-modal="true" aria-label="表示設定" hidden>
       <div class="settings-head"><h2>設定</h2><button id="closeSettings" class="icon-button" type="button" aria-label="設定を閉じる">×</button></div>
       <section class="settings-section">
-        <h3>地合いの表示</h3>
-        <label for="palette">カラーマップ</label>
-        <select id="palette">
-          <option value="mono" selected>白〜黒（標準）</option>
-          <option value="purpleGreen">紫〜緑</option>
-          <option value="blueRed">青〜赤</option>
-        </select>
-        <label for="opacity">色の濃さ <span id="opacityValue">55%</span></label>
+        <h3>地合いの見え方</h3>
+        <fieldset class="palette-choices">
+          <legend>カラーマップ</legend>
+          <label class="palette-choice"><input type="radio" name="palette" value="mono" checked><span class="swatch mono"></span><span>白〜黒</span></label>
+          <label class="palette-choice"><input type="radio" name="palette" value="purpleGreen"><span class="swatch purple"></span><span>紫〜緑</span></label>
+          <label class="palette-choice"><input type="radio" name="palette" value="blueRed"><span class="swatch blue"></span><span>青〜赤</span></label>
+        </fieldset>
+        <label for="opacity">色の濃さ</label>
         <input id="opacity" type="range" min="0" max="100" value="55">
-        <div class="mode"><div><strong>地合い補助</strong><p>対局が始まると変更できません。</p></div><input id="assisted" type="checkbox" checked aria-label="地合い補助を使用する"></div>
-        <p class="explanation">色は石の配置から推定した所有傾向です。勝率や確定した地を示すものではありません。</p>
+        <div class="range-labels"><span>薄い</span><span>濃い</span></div>
+        <span id="opacityValue" class="visually-hidden" aria-live="polite">55%</span>
       </section>
-      <section id="aiSettings" class="settings-section ai-settings">
-        <h3>AIと対局</h3>
-        <p class="explanation">KataGoの着手方針を使います。侵入と補強の好みはそれぞれ独立です。</p>
-        <label for="aiColor">自分の色</label>
-        <select id="aiColor"><option value="1">黒（先手）</option><option value="-1">白（後手）</option></select>
-        <label for="aiLevel">着手のばらつき（棋力とは別）</label>
-        <select id="aiLevel"><option value="standard">標準</option><option value="gentle">大きめ</option></select>
-        <label for="aiInvasion">侵入度 <span id="aiInvasionValue" class="setting-value">50%</span></label>
-        <input id="aiInvasion" type="range" min="0" max="100" step="5" value="50">
-        <p class="explanation">相手の地になりそうな場所への打ち込みをどの程度好むか。</p>
-        <label for="aiReinforcement">補強度 <span id="aiReinforcementValue" class="setting-value">50%</span></label>
-        <input id="aiReinforcement" type="range" min="0" max="100" step="5" value="50">
-        <p class="explanation">弱い自石を守る、未確定の自分の地を固める手をどの程度好むか。</p>
-        <button id="startAi" class="primary full" type="button" disabled>KataGoを準備中…</button>
-        <button id="returnLocal" class="outline full hidden" type="button">AI対局を終了する</button>
-        <p id="aiMatchStatus" class="explanation" role="status" aria-live="polite">KataGoモデルの準備を確認しています…</p>
-        <p class="explanation">100%は好みが強い設定です。棋力や生存確率を意味しません。KataGoが使えない場合は対AI戦を開始できません。</p>
+      <section class="settings-section">
+        <h3>表示</h3>
+        <div class="mode"><div><strong>地合いの表示</strong><p>対局開始後は変更できません。</p></div><input id="assisted" type="checkbox" checked aria-label="地合いの表示を有効にする"></div>
+        <details class="info-disclosure"><summary>地合いの表示について</summary><p class="explanation">色は黒寄り・白寄りの傾向を示します。確定した地や勝率ではありません。</p></details>
+        <button id="resetAppearance" class="outline full" type="button">表示を初期状態に戻す</button>
       </section>
-      <section class="settings-section room-card">
-        <h3>友人と対局</h3>
-        <p id="roomInfo">招待URLでP2P対局できます。ルーム作成者が黒番です。</p>
-        <button id="copy" class="outline full" type="button">招待リンクをコピー</button>
+      <section class="settings-section">
+        <h3>その他</h3><p class="explanation">9路盤 · 中国式ルール · コミ7.5</p>
+        <details class="info-disclosure"><summary>クレジット</summary><p class="explanation"><a href="https://github.com/lightvector/KataGo" target="_blank" rel="noopener noreferrer">KataGo</a> · <a href="https://github.com/Sir-Teo/web-katrain" target="_blank" rel="noopener noreferrer">Web KaTrain</a></p></details>
+      </section>
+    </aside>
+    <aside id="modePanel" class="settings-panel mode-panel" role="dialog" aria-modal="true" aria-label="対局の準備" hidden>
+      <div class="settings-head"><h2 id="modeTitle">対局の準備</h2><button id="closeMode" class="icon-button" type="button" aria-label="閉じる">×</button></div>
+      <section id="onlineSetup" class="settings-section" hidden>
+        <h3>友人を招待</h3>
+        <p id="roomInfo" class="explanation">URLを共有すると、別の端末から対局に参加できます。</p>
+        <button id="copy" class="primary full" type="button">招待リンクを作成・コピー</button>
         <div id="inviteDetails" class="invite-details hidden">
-          <label for="inviteUrl">招待URL</label>
-          <input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="招待URL">
+          <label for="inviteUrl">招待URL</label><input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="招待URL">
           <button id="nativeShare" class="outline full hidden" type="button">端末の共有メニューを開く</button>
         </div>
         <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
+        <p class="explanation">ルーム作成者が黒番です。相手が接続すると対局できます。</p>
       </section>
-      <section class="settings-section">
-        <h3>その他</h3>
-        <p class="explanation">9路盤 · 中国式ルール · コミ7.5</p>
-        <button id="resign" class="danger-button" type="button">投了する</button>
-        <p class="explanation">地合いの表示はKataGo利用不可時に簡易影響モデルへ切り替わりますが、対AI戦は停止します。</p>
+      <section id="aiSetup" class="settings-section" hidden>
+        <h3>自分の色</h3>
+        <div class="ai-color-choices">
+          <label><input type="radio" name="aiSide" value="1" checked><span>● 黒で打つ</span></label>
+          <label><input type="radio" name="aiSide" value="-1"><span>○ 白で打つ</span></label>
+        </div>
+        <select id="aiColor" hidden><option value="1">黒</option><option value="-1">白</option></select>
+        <details class="info-disclosure ai-advanced"><summary>AIの打ち方を調整</summary>
+          <label for="aiLevel">着手のばらつき（棋力とは別）</label>
+          <select id="aiLevel"><option value="standard">標準</option><option value="gentle">大きめ</option></select>
+          <label for="aiInvasion">侵入度 <span id="aiInvasionValue" class="setting-value">50%</span></label>
+          <input id="aiInvasion" type="range" min="0" max="100" step="5" value="50">
+          <label for="aiReinforcement">補強度 <span id="aiReinforcementValue" class="setting-value">50%</span></label>
+          <input id="aiReinforcement" type="range" min="0" max="100" step="5" value="50">
+        </details>
+        <button id="startAi" class="primary full" type="button" disabled>準備中…</button>
+        <p id="aiMatchStatus" class="explanation" role="status" aria-live="polite">対局を準備しています…</p>
       </section>
     </aside>
   </div>
