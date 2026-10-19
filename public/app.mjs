@@ -395,6 +395,8 @@ function setupChannel(c){
   };
   c.onclose=()=>{if(!room)return;connected=false;$("netStatus").textContent="接続待機中";show();};
   c.onmessage=e=>{
+    // Ignore late packets from a room that was left before the event arrived.
+    if(!room || c!==channel)return;
     let msg;try{msg=JSON.parse(e.data);}catch{return;}
     if(msg.type==="snapshot"&&seat==="guest"){
       if(!msg.game||!Array.isArray(msg.game.board)||msg.game.board.length!==81)return;

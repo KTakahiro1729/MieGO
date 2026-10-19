@@ -33,3 +33,8 @@ test("switch confirms only when a game or connection is active",()=>{
   assert.equal(needsSwitchConfirmation({moveNumber:4},"ai","ai"),false);
   assert.match(app,/leaveOnlineRoom/);
 });
+
+test("late P2P events cannot modify a local game after leaving a room",()=>{
+  assert.match(app,/if\(!room \|\| c!==channel\)return;/);
+  assert.match(app,/function leaveOnlineRoom\(\)/);
+});
