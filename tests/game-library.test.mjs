@@ -113,3 +113,17 @@ test("AI resumption distinguishes model initialization, a pending AI move and mo
  assert.match(app,/AI対局を停止しました/);
  assert.match(app,/gameMode=record.mode;game=JSON\.parse\(JSON\.stringify\(record\.snapshot\)\)/);
 });
+
+test("phase-two sheet keeps scoring UX, contextual feedback, and keyboard focus",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const h=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+ const a=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+ const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+ for(const id of ["historyActionNotice","historySaveNotice","scoringActions","openCurrentMode","historyStepRange"])
+   assert.match(h,new RegExp('id="'+id+'"'));
+ assert.match(a,/\$\("openCurrentMode"\)\.onclick/);
+ assert.match(a,/\$\("historyBack"\)\.focus\(\)/);
+ assert.match(a,/\$\("gameMenu"\)\.querySelector\("summary"\)\.focus\(\)/);
+ assert.match(a,/\$\("historyActionNotice"\)\.textContent="SGFを書き出しました/);
+ assert.match(css,/\.history-back\{min-height:44px\}/);
+});

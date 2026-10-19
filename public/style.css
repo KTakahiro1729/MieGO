@@ -219,3 +219,6 @@ button:hover:not(:disabled){border-color:#748094}
 
 .history-notice:not(:empty){margin:10px 0;padding:9px 11px;border:1px solid #6c5b44;border-radius:9px;background:#2e2930;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
 .replay-controls button:disabled{opacity:.4;cursor:default}
+
+.history-back{min-height:44px}
+.history-detail #historyResume,.history-detail #historyBranch,.history-detail #historyExport{min-height:44px}

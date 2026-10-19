@@ -899,11 +899,11 @@ function updateHistoryPosition() {
     const state=replaySteps(record.snapshot,historyStep);
     drawHistoryBoard({snapshot:state});
     $("historyBranch").disabled=false;
-    $("historySaveNotice").textContent="";
+    $("historyActionNotice").textContent="";
   } catch(error) {
     $("historyBranch").disabled=true;
     $("historyResume").hidden=true;
-    $("historySaveNotice").textContent="棋譜を再生できません："+error.message;
+    $("historyActionNotice").textContent="棋譜を再生できません："+error.message;
   }
 }
 function setHistoryStep(value){
@@ -918,6 +918,7 @@ function showHistoryRecord(id) {
   $("historyList").hidden=true;$("historyEmpty").hidden=true;
   $("historyDetail").hidden=false;
   $("historyPanel").scrollTop=0;
+  $("historyActionNotice").textContent="";
   $("historySelectionName").textContent=recordName(record);
   $("historyMeta").textContent=recordStatus(record)+" · "+record.snapshot.moveNumber+"手 · "+
     dateLabel(record.updatedAt)+(record.sgfMeta?" · コミ "+record.sgfMeta.komi:"");
@@ -927,12 +928,14 @@ function showHistoryRecord(id) {
     record.snapshot.status==="finished"?"終局した棋譜です。途中局面から新しい1台対局を始められます。":
     "最後の局面から元の対局を再開するか、別の1台対局として検討できます。";
   updateHistoryPosition();
+  $("historyBack").focus();
 }
 function openHistoryPanel() {
   $("gameMenu").open=false;
   $("settingsBackdrop").hidden=false;
   $("settingsPanel").hidden=true;$("modePanel").hidden=true;
   $("historyPanel").hidden=false;
+  $("historyActionNotice").textContent="";
   $("historyPanel").scrollTop=0;
   $("settingsToggle").setAttribute("aria-expanded","false");
   renderHistoryList();
@@ -949,7 +952,7 @@ function resumeHistoryRecord() {
   if(room)leaveOnlineRoom();
   const record=gameLibrary.load(selected.id);
   if(!record || (!same && record.revision!==selected.revision)){
-    $("historySaveNotice").textContent="この棋譜が別のタブで更新されました。一覧を開き直してください。";
+    $("historyActionNotice").textContent="この棋譜が別のタブで更新されました。一覧を開き直してください。";
     return;
   }
   stopAiTurn();
@@ -987,6 +990,7 @@ async function importHistoryFile(file) {
     $("historySaveNotice").textContent=parsed.variationsIgnored?
       "SGFの分岐は最初の変化だけ読み込みました。":"SGFを保存しました。";
   }catch(error){
+    $("historyPanel").scrollTop=0;
     $("historySaveNotice").textContent="SGFを読み込めません："+error.message;
   }finally{$("historyImportFile").value="";}
 }
@@ -1000,15 +1004,15 @@ function exportHistorySGF() {
     link.download="miego-"+historySelection.id+".sgf";
     document.body.append(link);link.click();link.remove();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
-    $("historySaveNotice").textContent="SGFを書き出しました。";
-  }catch(error){$("historySaveNotice").textContent="SGFの書き出しに失敗："+error.message;}
+    $("historyActionNotice").textContent="SGFを書き出しました。";
+  }catch(error){$("historyActionNotice").textContent="SGFの書き出しに失敗："+error.message;}
 }
 function branchHistoryPosition(){
   if(!historySelection)return;
   const selected=historySelection;
   let fork;
   try{fork=forkReview(selected.snapshot,historyStep);}
-  catch(error){$("historySaveNotice").textContent="この局面は検討できません："+error.message;return;}
+  catch(error){$("historyActionNotice").textContent="この局面は検討できません："+error.message;return;}
   if(room && connected && !confirm("友人との対局から離れて、この局面を1台で検討しますか？"))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
@@ -1037,8 +1041,11 @@ $("openCurrentMode").onclick=()=>{
   if(room)openPanel("online");
   else if(gameMode==="ai")openPanel("ai");
 };
-$("closeHistory").onclick=()=>{closePanels();$("openHistory").focus();};
-$("historyBack").onclick=renderHistoryList;
+$("closeHistory").onclick=()=>{closePanels();$("gameMenu").querySelector("summary").focus();};
+$("historyBack").onclick=()=>{
+  renderHistoryList();
+  ($("historyList").querySelector("button")||$("historyImportFile")).focus();
+};
 $("historyResume").onclick=resumeHistoryRecord;
 document.addEventListener("storage",e=>{
   if(e.key?.startsWith("miego:game:v1:") && !$("historyPanel").hidden &&
