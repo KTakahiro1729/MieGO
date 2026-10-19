@@ -96,11 +96,12 @@ test("SGF import/replay is exposed in saved game sheet without changing live gam
  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
  const historyPanel=readFileSync(new URL("../public/history-panel.mjs",import.meta.url),"utf8");
+ const historyNavigation=readFileSync(new URL("../public/history-navigation.mjs",import.meta.url),"utf8");
  for(const id of ["historyImportFile","historyExport","historyFirst","historyPrevious",
   "historyNext","historyLast","historyStepRange","historyBranch"]){
   assert.match(html,new RegExp('id="'+id+'"'));
  }
- assert.match(historyPanel,/source==="sgf"/);
+ assert.match(historyNavigation,/source==="sgf"/);
  assert.match(historyPanel,/gameLibrary\.save\(\{mode:"local",snapshot:parsed\.snapshot,source:"sgf"/);
  assert.match(app,/forkReview\(selected\.snapshot,historyPanel\.step\)/);
  assert.match(historyPanel,/replaySteps\(record\.snapshot,step\)/);
