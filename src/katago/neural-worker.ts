@@ -14,7 +14,7 @@ import { toKataGoPosition } from "./position.mjs";
 let model: KataGoModelV8Tf | null = null;
 let boot: Promise<void> | null = null;
 let backend = "uninitialized";
-let newest: { id: number; state: unknown } | null = null;
+let newest: { id: number; state: unknown; kind?: "move" | "analyze" } | null = null;
 let busy = false;
 
 async function prepare() {
@@ -92,6 +92,34 @@ async function evaluate(state: unknown) {
     if (output) for (const t of Object.values(output)) t.dispose();
   }
 }
+async function evaluateMovePolicy(state: unknown) {
+  if (!model) throw new Error("KataGo model not initialized");
+  const pos = toKataGoPosition(state);
+  const spatialFeatures = new Float32Array(9 * 9 * 22);
+  const globalFeatures = new Float32Array(19);
+  fillInputsV7FastForPosition({
+    ...pos, komi: 7.5, rules: "chinese",
+    conservativePassAndIsRoot: true,
+    outSpatial: spatialFeatures, outGlobal: globalFeatures
+  });
+  const spatial = tf.tensor4d(spatialFeatures, [1, 9, 9, 22]);
+  const global = tf.tensor2d(globalFeatures, [1, 19]);
+  let output: ReturnType<KataGoModelV8Tf["forwardPolicyValue"]> | undefined;
+  try {
+    output = model.forwardPolicyValue(spatial, global);
+    const [raw, pass] = await Promise.all([output.policy.data(), output.policyPass.data()]);
+    const channels = model.policyOutChannels;
+    if (raw.length !== 81 * channels || !pass.length)
+      throw new Error("KataGo returned an unexpected policy shape");
+    const policy = Array.from({ length:81 }, (_, p) => raw[p * channels]);
+    if (!policy.every(Number.isFinite) || !Number.isFinite(pass[0]))
+      throw new Error("KataGo policy logits are not finite");
+    return { kind:"move", engine:"katago", backend, policy, passLogit:pass[0] };
+  } finally {
+    spatial.dispose(); global.dispose();
+    if (output) for (const t of Object.values(output)) t.dispose();
+  }
+}
 async function drain() {
   if (busy) return;
   busy = true;
@@ -102,11 +130,11 @@ async function drain() {
       try {
         await prepare();
         if (newest) continue; // superseded while the model was initializing
-        const result = await evaluate(next.state);
+        const result = next.kind === "move" ? await evaluateMovePolicy(next.state) : await evaluate(next.state);
         if (!newest) self.postMessage({ id: next.id, ...result });
       } catch (error) {
         if (!newest) self.postMessage({
-          id: next.id, error: error instanceof Error ? error.message : String(error), backend
+          id: next.id, kind: next.kind || "analyze", error: error instanceof Error ? error.message : String(error), backend
         });
       }
     }
@@ -116,6 +144,6 @@ async function drain() {
 }
 self.onmessage = event => {
   if (!event.data || !Number.isSafeInteger(event.data.id)) return;
-  newest = { id: event.data.id, state: event.data.state };
+  newest = { id: event.data.id, state: event.data.state, kind: event.data.kind === "move" ? "move" : "analyze" };
   void drain();
 };
