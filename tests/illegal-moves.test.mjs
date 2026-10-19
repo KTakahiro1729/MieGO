@@ -57,10 +57,10 @@ test("copied rule question names coordinate, current board, and ko history but n
   const game=koPosition(),attempt=inspectProvisionalMove(game,at(4,4)).forbidden;
   const question=makeIllegalMovePrompt(game,attempt);
   assert.match(question,/9路盤/);
-  assert.match(question,/交点 E5/);
+  assert.match(question,/交点：E5/);
   assert.match(question,/コウで直前の局面に戻せません/);
   assert.match(question,/直前の着手前の盤面/);
-  assert.match(question,/X=黒石、O=白石/);
+  assert.match(question,/●=黒、○=白、・=空点/);
   assert.doesNotMatch(question,/workers\.dev|guestKey|TURNSTILE_SECRET|招待URL/);
   assert.equal(pointLabel(at(0,8)),"A1");
   assert.equal(pointLabel(at(8,0)),"J9");
@@ -69,7 +69,7 @@ test("copied rule question names coordinate, current board, and ko history but n
 test("suicide question includes location and rule but no redundant previous snapshot",()=>{
   const game=suicidePosition(),attempt=inspectProvisionalMove(game,at(1,1)).forbidden;
   const question=makeIllegalMovePrompt(game,attempt);
-  assert.match(question,/交点 B8/);
+  assert.match(question,/交点：B8/);
   assert.match(question,/自殺手は禁止です/);
   assert.doesNotMatch(question,/直前の着手前の盤面/);
 });
@@ -85,5 +85,10 @@ test("board has no advance forbidden markers; only selected move has preview and
   assert.match(html,/id="copyIllegalPrompt"/);
   assert.match(html,/id="endStatus"/);
   assert.match(app,/classList\.toggle\("has-illegal",blocked\)/);
+  const style=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+  assert.match(style,/\.endgame-bar\.has-illegal \.end-status\{[^}]*font-size:clamp\(16px,4\.8vw,19px\)/);
+  assert.match(style,/\.endgame-bar\.has-illegal \.end-buttons\{display:none\}/);
+  assert.match(html,/AIへの質問をコピー/);
+  assert.match(app,/AIへの質問をコピー/);
   assert.doesNotMatch(html,/illegalMoveLegend|illegalMoveToggle/);
 });
