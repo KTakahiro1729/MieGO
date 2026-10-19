@@ -7,7 +7,7 @@ import { createP2PTransport } from "./p2p-transport.mjs";
 import { PALETTES, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
-import {inspectProvisionalMove,makeIllegalMovePrompt,pointLabel,ILLEGAL_KO} from "./illegal-moves.mjs";
+import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
@@ -128,8 +128,8 @@ function updateEndUi() {
     "終局はいつでも提案できます。提案はパスと異なります。";
   // The stable left-hand status slot doubles as a rule explanation for illegal previews.
   if(playing && illegalCandidate){
-    $("endStatus").textContent=pointLabel(illegalCandidate.position)+"は"+
-      (illegalCandidate.reason===ILLEGAL_KO?"コウのため打てません":"自殺手なので打てません");
+    $("endStatus").textContent=illegalCandidate.reason===ILLEGAL_KO?
+      "コウのため打てません":"自殺手なので打てません";
   }
 }
 
@@ -560,7 +560,16 @@ $("cancel").onclick=()=>{
 $("copyIllegalPrompt").onclick=async()=>{
   const selected=illegalCandidate;
   if(!selected || selected.source!==game)return;
-  const question=makeIllegalMovePrompt(game,selected);
+  let question;
+  try {
+    // Reuse the same SGF replay URL implementation as "AI向けにコピー".
+    // Do not use location.href: a live P2P room URL contains private credentials.
+    const link=makeReviewUrl(location.origin,{snapshot:game},game.moves.length);
+    question=makeIllegalMovePrompt(game,selected,link);
+  }catch(error){
+    $("endStatus").textContent="棋譜URLを作れません："+error.message;
+    return;
+  }
   try{
     if(typeof navigator.clipboard?.writeText!=="function")throw Error("Clipboard API unavailable");
     await navigator.clipboard.writeText(question);
