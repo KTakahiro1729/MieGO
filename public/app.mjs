@@ -6,6 +6,8 @@ import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, r
 import { createP2PTransport } from "./p2p-transport.mjs";
 import { PALETTES, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
+import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
+import { takeBackForHuman, policyHints } from "./ai-assist.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
 import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
@@ -18,6 +20,7 @@ import { activeReviewSnapshot, proposeReviewStone, commitReviewStone, variationF
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board");
+const cancelIcon = $("cancel").innerHTML;
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
 let fallbackMode = false;
 function switchToFallback(reason) {
@@ -67,6 +70,7 @@ let opacity = Number.isFinite(storedOpacity) && storedOpacity>=0 && storedOpacit
 let connected = false;
 let gameMode = room ? "online" : "local";
 let humanColor = BLACK, aiLevel = "standard", invasion = 50, reinforcement = 50;
+let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackArmed = false;
 let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
 let endgameStage = "playing", endExpanded = false, analysisContext = null;
@@ -160,7 +164,7 @@ function stopAiTurn() {
 function rememberSettings() {
   try {
     localStorage.setItem("miego-local-settings", JSON.stringify({
-      mode:gameMode,humanColor,aiLevel,invasion,reinforcement
+      mode:gameMode,humanColor,aiLevel,invasion,reinforcement,aiStrength,aiHints
     }));
   } catch {}
 }
@@ -173,8 +177,22 @@ let displayedOwnership = null, transitionFrame = null;
 const {draw} = createBoardRenderer({
   canvas,
   getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette,opacity,
-    humanTurn:isHumanTurn()})
+    humanTurn:isHumanTurn(),hints:visibleHints()})
 });
+// Hints belong to one committed position and are only drawn on the human's turn.
+function visibleHints() {
+  if(!aiHints || room || gameMode!=="ai" || boardReview || candidate || illegalCandidate ||
+     game.status!=="playing" || !isHumanTurn())return null;
+  return hints && hints.number===game.moveNumber && hints.hash===boardHash(game.board)
+    ? hints.moves : null;
+}
+const canTakeBack = () => !room && gameMode==="ai" && !boardReview && katagoReady && !fallbackMode &&
+  game.status==="playing" && !game.endProposal && game.moves.some(m=>m.color===humanColor);
+function resetTakebackButton() {
+  if(takebackArmed)$("cancel").innerHTML=cancelIcon;
+  takebackArmed=false;
+  $("cancel").classList.remove("takeback-armed");
+}
 function transitionOwnership(next) {
   if (transitionFrame!==null) cancelAnimationFrame(transitionFrame);
   const from=displayedOwnership;
@@ -276,10 +294,11 @@ function finishAiMove(result) {
   try {
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
       ownership:result.ownership,
-      invasion,reinforcement,
+      invasion,reinforcement,strength:aiStrength,
       temperature:aiLevel==="gentle"?1.05:0.38
     });
-    $("aiMatchStatus").textContent = "侵入度 "+invasion+"% / 補強度 "+reinforcement+"% で対局中（探索なし）";
+    $("aiMatchStatus").textContent = "強さ「"+AI_STRENGTHS[aiStrength].label+"」・侵入度 "+invasion+
+      "% / 補強度 "+reinforcement+"% で対局中（探索なし）";
     submitMove(next,true);
   } catch(error) {
     switchToFallback(error instanceof Error?error.message:String(error));
@@ -337,6 +356,10 @@ function handleAnalysis(event) {
     result.engine==="katago") {
     endgameStage=endgameAdvisor.observe(game,result.ownership);
     updateEndUi();
+    if(gameMode==="ai" && !room && game.next===humanColor && Array.isArray(result.policy)) {
+      hints={number:context.number,hash:context.hash,moves:policyHints(game,result.policy)};
+      draw();
+    }
   }
   if(!game.assisted)return;
   analysis=result;
@@ -390,7 +413,13 @@ function show() {
   $("confirm").hidden=blocked;
   $("copyIllegalPrompt").hidden=!blocked;
   $("copyIllegalPrompt").textContent=illegalPromptCopied?"コピーしました":"AIへの質問をコピー";
-  $("cancel").disabled=!candidate && !blocked;
+  const takeBack=!candidate && !blocked && canTakeBack();
+  if(!takeBack && takebackArmed)resetTakebackButton();
+  $("cancel").disabled=!candidate && !blocked && !takeBack;
+  const cancelLabel=takebackArmed?"もう一度押すと待った（自分の直前の手まで戻す）":
+    takeBack?"待った：自分の直前の手まで戻す。確認のため二度押し":"仮置きを戻す";
+  $("cancel").setAttribute("aria-label",cancelLabel);
+  $("cancel").title=cancelLabel;
   $("endgameBar").classList.toggle("has-illegal",blocked);
   $("pass").disabled=!myTurn || game.status!=="playing";
   $("resign").disabled=!myTurn || game.status!=="playing";
@@ -581,6 +610,17 @@ $("confirm").onclick=()=>{
   }
 };
 $("cancel").onclick=()=>{
+  if(!candidate && !illegalCandidate) {
+    if(!canTakeBack())return;
+    if(!takebackArmed) {
+      takebackArmed=true;
+      $("cancel").classList.add("takeback-armed");
+      $("cancel").textContent="待った";
+      show();return;
+    }
+    resetTakebackButton();
+    takeBackMove();return;
+  }
   candidate=null;illegalCandidate=null;illegalPromptCopied=false;
   $("illegalPromptFallbackPanel").hidden=true;
   show();requestAnalysis();
@@ -651,11 +691,29 @@ $("resign").onclick=()=>{
   }
   resetResignButton();submitMove("resign");
 };
-function resetArmedButtons(){resetPassButton();resetResignButton();}
+function resetArmedButtons(){resetPassButton();resetResignButton();resetTakebackButton();}
 document.addEventListener("pointerdown",e=>{
   if(resignArmed && e.target!==$("resign"))resetResignButton();
   if(passArmed && e.target!==$("pass"))resetPassButton();
+  if(takebackArmed && !$("cancel").contains(e.target)){
+    resetTakebackButton();show();
+  }
 });
+// 待った in AI games: drop the human's latest move and any AI reply after it.
+function takeBackMove() {
+  const undone=takeBackForHuman(game,humanColor);
+  if(!undone)return;
+  stopAiTurn();
+  game=undone.game;lastPosition=undone.lastPosition;
+  candidate=null;illegalCandidate=null;hints=null;
+  if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
+  transitionFrame=null;analysis=null;displayedOwnership=null;
+  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
+  lastOfferKey=null;endHintSuppressedUntil=-1;
+  deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
+  $("aiMatchStatus").textContent="待ったをしました。";
+  save();show();requestAnalysis();
+}
 function resetLocalBoard() {
   if (room || gameMode!=="local") return;
   // The current match stays in the saved-game library; no modal is needed.
@@ -752,7 +810,7 @@ function updateGradient(){$("gradient").style.backgroundImage=paletteGradient(pa
 function save(){
   try {
     const record=gameLibrary.save({id:currentGameId,mode:room?"online":gameMode,
-      roomId:room||null,snapshot:game,lastPosition,humanColor,aiLevel,invasion,reinforcement,seat},currentRevision);
+      roomId:room||null,snapshot:game,lastPosition,humanColor,aiLevel,aiStrength,invasion,reinforcement,seat},currentRevision);
     currentGameId=record.id;currentRevision=record.revision;
     if(!room)gameLibrary.setActive(gameMode,record.id);
     if(room)persistOnline();
@@ -768,6 +826,7 @@ function savedGame(mode) {
   if(mode==="ai" && record){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     aiLevel=record.aiLevel==="gentle"?"gentle":"standard";
+    aiStrength=normalizeStrength(record.aiStrength);
     invasion=record.invasion;reinforcement=record.reinforcement;
   }
   return record?.snapshot||newGame(game.assisted);
@@ -1239,6 +1298,7 @@ function resumeSelectedReview(){
   if(gameMode==="ai"){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     aiLevel=record.aiLevel;invasion=record.invasion;reinforcement=record.reinforcement;
+    aiStrength=normalizeStrength(record.aiStrength);syncStrengthUi();
     $("aiColor").value=String(humanColor);
     const side=document.querySelector('input[name="aiSide"][value="'+humanColor+'"]');
     if(side)side.checked=true;
@@ -1314,6 +1374,9 @@ $("startAi").onclick=()=>{
   gameMode="ai";
   humanColor=Number($("aiColor").value)===WHITE?WHITE:BLACK;
   aiLevel=$("aiLevel").value==="gentle"?"gentle":"standard";
+  aiStrength=normalizeStrength(document.querySelector('input[name="aiStrength"]:checked')?.value,
+    DEFAULT_AI_STRENGTH);
+  hints=null;resetTakebackButton();
   game=newGame(game.assisted);currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   $("aiMatchStatus").textContent="対局を開始しました。";
@@ -1331,6 +1394,25 @@ for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforceme
   };
 }
 $("aiLevel").onchange=e=>{aiLevel=e.target.value==="gentle"?"gentle":"standard";rememberSettings();};
+function syncStrengthUi() {
+  const input=document.querySelector('input[name="aiStrength"][value="'+aiStrength+'"]');
+  if(input)input.checked=true;
+  $("aiHints").checked=aiHints;
+}
+// Strength applies from the next AI move, like the personality sliders.
+for(const input of document.querySelectorAll('input[name="aiStrength"]')) {
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    aiStrength=normalizeStrength(e.target.value,DEFAULT_AI_STRENGTH);
+    if(gameMode==="ai")save();else rememberSettings();
+    $("aiMatchStatus").textContent="次のAI着手から「"+AI_STRENGTHS[aiStrength].label+"」で打ちます。";
+  };
+}
+$("aiHints").onchange=e=>{
+  aiHints=e.target.checked;rememberSettings();
+  if(aiHints && !visibleHints())requestAnalysis();
+  draw();
+};
 $("copy").onclick=copyLink;
 $("inviteUrl").onclick=e=>e.currentTarget.select();
 $("nativeShare").onclick=async()=>{
@@ -1369,6 +1451,8 @@ else try {
     gameMode=settings.mode==="ai"?"ai":"local";
     humanColor=settings.humanColor===WHITE?WHITE:BLACK;
     aiLevel=settings.aiLevel==="gentle"?"gentle":"standard";
+    aiStrength=normalizeStrength(settings.aiStrength,DEFAULT_AI_STRENGTH);
+    aiHints=settings.aiHints===true;
     invasion=Math.max(0,Math.min(100,Number(settings.invasion??50)));
     reinforcement=Math.max(0,Math.min(100,Number(settings.reinforcement??50)));
   }
@@ -1380,7 +1464,7 @@ if(aiSide)aiSide.checked=true;
 $("aiLevel").value=aiLevel;
 $("aiInvasion").value=String(invasion);
 $("aiReinforcement").value=String(reinforcement);
-updatePersonaUi();
+updatePersonaUi();syncStrengthUi();
 const selectedPalette=document.querySelector('input[name="palette"][value="'+palette+'"]');
 if(selectedPalette)selectedPalette.checked=true;
 $("opacity").value=String(Math.round(opacity*100));

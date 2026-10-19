@@ -64,8 +64,9 @@ async function evaluate(state: unknown) {
   let output: ReturnType<KataGoModelV8Tf["forward"]> | undefined;
   try {
     output = model.forward(spatial, global);
-    const [owners, values, scores] = await Promise.all([
-      output.ownership.data(), output.value.data(), output.scoreValue.data()
+    const [owners, values, scores, rawPolicy] = await Promise.all([
+      output.ownership.data(), output.value.data(), output.scoreValue.data(),
+      output.policy.data()
     ]);
     const evaled = postprocessKataGoV8({
       nextPlayer: pos.currentPlayer, valueLogits: values, scoreValue: scores,
@@ -79,12 +80,17 @@ async function evaluate(state: unknown) {
       || !Number.isFinite(evaled.blackScoreLead) || !Number.isFinite(evaled.blackWinProb)) {
       throw new Error("Invalid KataGo neural network output");
     }
+    // Policy for the player to move; the UI may show it as optional hints.
+    const channels = model.policyOutChannels;
+    const policy = rawPolicy.length === 81 * channels
+      ? Array.from({ length: 81 }, (_, p) => rawPolicy[p * channels]) : null;
     let black = 0, white = 7.5;
     for (const v of ownership) { black += (1 + v) / 2; white += (1 - v) / 2; }
     return {
       engine: "katago", backend, model: "katago-small (test network)",
       ownership, black, white, lead: evaled.blackScoreLead,
-      winRate: evaled.blackWinProb
+      winRate: evaled.blackWinProb,
+      policy: policy && policy.every(Number.isFinite) ? policy : null
     };
   } finally {
     spatial.dispose();

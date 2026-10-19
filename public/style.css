@@ -123,6 +123,10 @@ button:hover:not(:disabled){border-color:#748094}
 .ai-color-choices span{display:block;padding:14px 8px;border:1px solid #505766;border-radius:12px;text-align:center;background:#252c38;font-size:13px}
 .ai-color-choices input:checked+span{border-color:#efcb81;background:#38342d;color:#f8ddac}
 .ai-color-choices input:focus-visible+span{outline:3px solid #f2c875;outline-offset:2px}
+.ai-subhead{margin-top:22px}
+.ai-strength-choices span{padding:11px 6px}
+.ai-strength-choices small{display:block;margin-top:3px;font-size:11px;color:var(--muted)}
+.action-row .undo-button.takeback-armed{font-size:12px;font-weight:700;border-color:#efcb81;color:#f8ddac}
 .ai-advanced select{display:block;width:100%;margin:6px 0 15px}
 .ai-advanced label{display:flex;justify-content:space-between;gap:12px;margin-top:12px}
 .ai-advanced input[type=range]{width:100%}
