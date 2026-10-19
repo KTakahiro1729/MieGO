@@ -141,9 +141,26 @@
           <label class="palette-choice"><input type="radio" name="palette" value="mono" checked><span class="swatch" data-palette="mono"></span><span>白〜黒</span></label>
           <label class="palette-choice"><input type="radio" name="palette" value="orangePurple"><span class="swatch" data-palette="orangePurple"></span><span>橙〜紫</span></label>
           <label class="palette-choice"><input type="radio" name="palette" value="greenPurple"><span class="swatch" data-palette="greenPurple"></span><span>緑〜紫</span></label>
+          <label class="palette-choice"><input type="radio" name="palette" value="blueOrange"><span class="swatch" data-palette="blueOrange"></span><span>橙〜青</span></label>
+          <label class="palette-choice"><input type="radio" name="palette" value="custom"><span class="swatch" data-palette="custom"></span><span>カスタム</span></label>
           <label class="palette-choice"><input type="radio" name="palette" value="none"><span class="swatch" data-palette="none"></span><span>表示しない</span></label>
         </fieldset>
-        <label for="opacity">色の濃さ</label>
+        <details class="info-disclosure colour-editor" id="colourEditor">
+          <summary>色を調整</summary>
+          <p class="explanation">左から白の地（確定）、白寄り、黒寄り、黒の地（確定）です。変えると「カスタム」になります。</p>
+          <div class="colour-inputs">
+            <label><input type="color" id="colour-whiteSettled" aria-label="白の地（確定）の色"><span>白の地</span></label>
+            <label><input type="color" id="colour-whiteLeaning" aria-label="白寄りの色"><span>白寄り</span></label>
+            <label><input type="color" id="colour-blackLeaning" aria-label="黒寄りの色"><span>黒寄り</span></label>
+            <label><input type="color" id="colour-blackSettled" aria-label="黒の地（確定）の色"><span>黒の地</span></label>
+          </div>
+          <fieldset class="shape-choices">
+            <legend>濃さの付き方</legend>
+            <label><input type="radio" name="opacityShape" value="V" checked><span>V字（傾きに比例）</span></label>
+            <label><input type="radio" name="opacityShape" value="U"><span>U字（決まった所を強調）</span></label>
+          </fieldset>
+        </details>
+        <label for="opacity">色の濃さ（最大）</label>
         <input id="opacity" type="range" min="0" max="100" value="55">
         <div class="range-labels"><span>薄い</span><span>濃い</span></div>
         <span id="opacityValue" class="visually-hidden" aria-live="polite">55%</span>

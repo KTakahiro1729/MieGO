@@ -86,7 +86,7 @@ test("ownership overlay uses preview-independent review values and hides with th
   assert.equal(calls.filter(c=>c.kind==="image").length,0);
 });
 
-test("board looks change the board fill and the overlay colours, unknown looks fall back to wood",()=>{
+test("the overlay colours are the same on every board look",()=>{
   const game=newGame();
   let boardTheme;
   const fills=[];
@@ -97,8 +97,7 @@ test("board looks change the board fill and the overlay colours, unknown looks f
     draw();
     fills.push(overlay.data.slice(12*4,12*4+4).join(","));
   }
-  assert.equal(new Set(fills.slice(0,3)).size,3,"each look tunes the black side");
-  assert.equal(fills[3],fills[0]);
+  assert.equal(new Set(fills).size,1,"colours come from the map, not the board");
 });
 
 test("the estimate fades out past the outer lines instead of ending in a hard edge",()=>{
