@@ -75,6 +75,20 @@ export function paletteGradient(palette = DEFAULT_PALETTE, opacity = 1, theme = 
     ...[...levels].reverse().map(v=>stop(black,v,50+v*50))
   ].join(",")+")";
 }
+// Counting uses the same colour map as the estimate, but in flat cells:
+// soft edges are a guess, hard edges are the count. Counting is never hidden,
+// so "表示しない" falls back to the default map and a faint opacity is raised.
+export const COUNTING_MIN_OPACITY = .5;
+export const countingPalette = palette => showsOwnership(palette) && Object.hasOwn(PALETTES, palette) ? palette : DEFAULT_PALETTE;
+export const countingOpacity = opacity => Math.max(Number.isFinite(opacity) ? clamp(opacity,0,1) : 0, COUNTING_MIN_OPACITY);
+// The counting legend: White's area | neutral (a small ring, as on the board) | Black's area.
+export function countingGradient(palette = DEFAULT_PALETTE, opacity = 1, theme = DEFAULT_BOARD_THEME) {
+  const {white,black} = sidesFor(countingPalette(palette),theme);
+  const fill = s => "rgba("+s.rgb.join(",")+","+Number(ownershipAlpha(1,countingOpacity(opacity),s.gain).toFixed(3))+")";
+  return "radial-gradient(circle at 50% 50%,transparent 2.4px,"+NEUTRAL_MARK+" 2.4px 3.6px,transparent 3.6px),"+
+    "linear-gradient(90deg,"+fill(white)+" 0 33%,transparent 33% 67%,"+fill(black)+" 67% 100%)";
+}
+export const NEUTRAL_MARK = "rgba(96,92,84,.85)";
 export function interpolateOwnership(from,to,progress) {
   const t=clamp(progress,0,1);
   if (!Array.isArray(to) || ![81,169,361].includes(to.length)) throw new Error("Invalid ownership map");

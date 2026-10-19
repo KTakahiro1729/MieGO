@@ -43,6 +43,7 @@ test("neutral regions do not create artificial stones or region labels",()=>{
 });
 
 import {createBoardRenderer} from "../public/board-renderer.mjs";
+const overlayContext={createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData(){}};
 test("renderer paints one area label per connected region only for scored games",()=>{
   const game={...newGame(),status:"scoring",board:Array(81).fill(WHITE)};
   for(let y=3;y<=5;y++)for(let x=2;x<=6;x++)game.board[at(x,y)]=BLACK;
@@ -51,13 +52,13 @@ test("renderer paints one area label per connected region only for scored games"
   const ctx={
     save(){},restore(){},clearRect(){},fillRect(){},beginPath(){},moveTo(){},
     lineTo(){},arc(){},fill(){},stroke(){},setLineDash(){},fillText(t){labels.push(t);},
-    createRadialGradient(){return {addColorStop(){}}}
+    createRadialGradient(){return {addColorStop(){}}},drawImage(){}
   };
   const canvas={width:720,getContext:()=>ctx};
   const renderer=createBoardRenderer({canvas,
     getView:()=>({game,boardReview:null,candidate:null,lastPosition:null,
       displayedOwnership:null,palette:"mono",opacity:.55,humanTurn:false}),
-    createOverlayCanvas:()=>({getContext:()=>({})})
+    createOverlayCanvas:()=>({getContext:()=>overlayContext})
   });
   renderer.draw();
   assert.deepEqual(labels.sort(),["15","66"].sort());
@@ -79,7 +80,7 @@ test("scoring overlay is never drawn in active game replay",()=>{
     canvas:{width:720,getContext:()=>ctx},
     getView:()=>({game:state,boardReview:{display:newGame(),ownership:null},
       candidate:null,lastPosition:null,displayedOwnership:null,palette:"mono",opacity:.55,humanTurn:false}),
-    createOverlayCanvas:()=>({getContext:()=>({})})
+    createOverlayCanvas:()=>({getContext:()=>overlayContext})
   });
   renderer.draw();
   assert.equal(labels.length,0);

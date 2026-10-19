@@ -44,7 +44,7 @@
         </div>
         <div id="ownershipLegend" class="ownership-legend" aria-label="地合いの色の凡例">
           <div class="gradient" id="gradient" aria-hidden="true"></div>
-          <div class="legend-labels"><span>白寄り</span><span>黒寄り</span></div>
+          <div class="legend-labels"><span id="legendWhite">白寄り</span><span id="legendNeutral" hidden>中立</span><span id="legendBlack">黒寄り</span></div>
         </div>
         <div id="endgameBar" class="endgame-bar" aria-label="終局の相談">
           <span id="endStatus" class="end-status" role="status" aria-live="polite">終局はまだのようです</span>
@@ -279,6 +279,7 @@
           <ul class="help-list">
             <li>死石の候補は自動で選ばれます。違っていたら石をタップして直します。</li>
             <li>数字は石と地の合計です。</li>
+            <li>色は対局中の地合いと同じ配色で、確定した地を示します。小さな輪は、どちらの地でもない「中立」の点です。</li>
             <li>納得したら「この計算に同意」で確定します。対友人は2人とも同意すると確定します。</li>
           </ul>
         </details>

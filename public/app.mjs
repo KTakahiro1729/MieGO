@@ -4,7 +4,7 @@ import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
 import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
-import { isPaletteChoice, normalizePalette, showsOwnership, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
+import { isPaletteChoice, normalizePalette, showsOwnership, paletteGradient, countingGradient, interpolateOwnership } from "./territory-view.mjs";
 import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss } from "./board-theme.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
@@ -496,7 +496,7 @@ function show() {
   $("resign").disabled=!myTurn || game.status!=="playing";
   $("openCurrentMode").hidden=!room && gameMode!=="ai";
   $("openCurrentMode").textContent=room?"招待URLを表示":"AIの設定・再戦";
-  $("ownershipLegend").classList.toggle("overlay-off",!overlayOn());
+  updateGradient();
   const handicap=handicapOf(game),size=sizeOf(game.board);
   canvas.setAttribute("aria-label",shownSize()+"路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。");
   $("ruleSummary").textContent=size+"路盤 · 中国式ルール · "+(handicap?
@@ -939,10 +939,22 @@ $("resetAppearance").onclick=()=>{
   if(!wasOn){if(boardReview)requestReviewOwnership();else requestAnalysis();}
 };
 // The legend, the colour-map swatches and the board frame follow the chosen board.
+function isCounting(){
+  return !boardReview && (game.status==="scoring" ||
+    game.status==="finished" && !game.result?.endsWith("+R"));
+}
 function updateGradient(){
   const surface=surfaceCss(boardTheme);
   $("gradient").style.backgroundColor=surface;
-  $("gradient").style.backgroundImage=paletteGradient(palette,opacity,boardTheme);
+  // While counting, the same legend explains the flat area colours instead.
+  const counting=isCounting();
+  $("gradient").style.backgroundImage=counting?countingGradient(palette,opacity,boardTheme):
+    paletteGradient(palette,opacity,boardTheme);
+  $("legendWhite").textContent=counting?"白の地":"白寄り";
+  $("legendBlack").textContent=counting?"黒の地":"黒寄り";
+  $("legendNeutral").hidden=!counting;
+  $("ownershipLegend").classList.toggle("overlay-off",!counting && !overlayOn() ||
+    game.status==="finished" && !counting);
   document.querySelectorAll(".swatch[data-palette]").forEach(swatch=>{
     const name=swatch.dataset.palette;
     swatch.style.backgroundColor=surface;

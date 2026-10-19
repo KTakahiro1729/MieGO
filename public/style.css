@@ -265,7 +265,6 @@ body{overflow:hidden}
 .endgame-bar #analysisStatus{flex:1;min-width:0;font-size:11px;text-align:right}
 
 
-.game-panel.is-scoring .ownership-legend,.game-panel.is-finished .ownership-legend{display:none}
 .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:346px}
 .score-box{flex:none;margin:3px 0 2px;padding:7px 10px;border-radius:10px;min-height:0}
 .score-box strong{display:block;font-size:15px;line-height:1.2}
