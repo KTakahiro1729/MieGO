@@ -28,12 +28,15 @@ test("replay does not write moves to an active live or P2P session",()=>{
   assert.match(app,/if\(boardReview\.source==="live"\)boardReview\.snapshot=game/);
   assert.match(app,/const updates=source==="live"/);
 });
-test("archives open on the main board without an additional screen or tab",()=>{
-  assert.match(html,/id="historyBoard"[^>]*role="button"/);
-  assert.match(app,/enterBoardReview\(record\.snapshot,step,"archive",record\.sgfMeta\)/);
-  assert.match(app,/\$\("historyBoard"\)\.addEventListener\("keydown"/);
-  assert.match(html,/id="historyLink"/);
-  assert.match(html,/id="historyAiLink"/);
+test("saved records open directly on the main board from the header picker",()=>{
+  assert.match(html,/<option value="history">保存した棋譜…<\/option>/);
+  assert.match(app,/if\(selected==="history"\)openHistoryPanel\(\)/);
+  assert.match(app,/enterBoardReview\(record\.snapshot,count,"archive",record\.sgfMeta,record\)/);
+  assert.doesNotMatch(html,/id="historyBoard"|id="historyStepRange"/);
+  assert.doesNotMatch(html,/id="openHistory"/);
+  assert.match(html,/id="reviewLink"/);
+  assert.match(html,/id="reviewAiLink"/);
+  assert.match(html,/id="reviewExport"/);
 });
 test("shared URLs open in review and do not replace active local saved positions",()=>{
   assert.match(app,/if\(!room && params\.has\("sgf"\)\)/);
@@ -48,7 +51,7 @@ test("AI copy is only a description of the link format, not separate SGF or a qu
   assert.match(handoff,/SGFの着手列を合法な手順に編集/);
   assert.doesNotMatch(handoff,/SGF本文：|次の一手を教えて|私は囲碁の初心者です/);
   assert.match(html,/id="reviewAiLink"/);
-  assert.match(html,/id="historyAiLink"/);
+  assert.doesNotMatch(html,/id="historyAiLink"/);
 });
 
 test("replay entry does not make the existing game header taller",()=>{
@@ -56,14 +59,19 @@ test("replay entry does not make the existing game header taller",()=>{
  assert.match(style,/\.move-history-toggle::before\{[^}]*inset:-9px 0/);
 });
 
-test("saved history share replaces SGF export button height instead of adding another row",()=>{
- const begin=html.indexOf('id="historyShareMenu"');
- const end=html.indexOf('id="historyActionNotice"',begin);
- const fragment=html.slice(begin,end);
- assert.match(fragment,/id="historyExport"/);
- assert.match(fragment,/id="historyLink"/);
- assert.match(fragment,/id="historyAiLink"/);
- assert.match(style,/\.history-share-popover\{position:absolute/);
- assert.match(style,/\.history-share-menu>summary\{min-height:44px/);
- assert.doesNotMatch(html,/class="history-share-actions"/);
+test("SGF exports and AI sharing share the existing single-row replay menu",()=>{
+ const review=html.slice(html.indexOf('id="reviewMenu"'),html.indexOf('id="reviewCopyFallback"'));
+ assert.match(review,/id="reviewExport"/);
+ assert.match(review,/id="reviewLink"/);
+ assert.match(review,/id="reviewAiLink"/);
+ assert.match(review,/id="reviewResume"/);
+ assert.match(style,/\.review-menu-popover\{position:absolute/);
+ assert.doesNotMatch(html,/id="historyShareMenu"|id="historyExport"/);
+});
+
+test("saved-game picker is a repeatable command, not a persistent fourth mode",()=>{
+ assert.match(app,/modePicker"\)\.value=room\?"online":gameMode/);
+ assert.match(app,/if\(selected==="history"\)openHistoryPanel\(\)/);
+ assert.match(app,/if\(boardReview\?\.source==="url"\)clearImportedReviewUrl\(\)/);
+ assert.match(app,/gamePanel"\)\.classList\.remove\("is-scoring","is-finished"\)/);
 });

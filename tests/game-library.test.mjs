@@ -91,20 +91,19 @@ test("imported SGF records are read-only and keep source metadata",()=>{
  assert.equal(normal.source,"played");
  assert.equal(normal.sgfMeta,null);
 });
-test("SGF import/replay is exposed in saved game sheet without changing live game",async()=>{
+test("SGF import and saved games open on the common board without touching the current match",async()=>{
  const {readFileSync}=await import("node:fs");
  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
  const historyPanel=readFileSync(new URL("../public/history-panel.mjs",import.meta.url),"utf8");
  const historyNavigation=readFileSync(new URL("../public/history-navigation.mjs",import.meta.url),"utf8");
- for(const id of ["historyImportFile","historyExport","historyFirst","historyPrevious",
-  "historyNext","historyLast","historyStepRange","historyBranch"]){
-  assert.match(html,new RegExp('id="'+id+'"'));
- }
- assert.match(historyNavigation,/source==="sgf"/);
+ for(const id of ["historyImportFile","historyList","reviewResume","reviewExport","reviewBranch"])
+   assert.match(html,new RegExp('id="'+id+'"'));
  assert.match(historyPanel,/gameLibrary\.save\(\{mode:"local",snapshot:parsed\.snapshot,source:"sgf"/);
- assert.match(app,/forkReview\(selected\.snapshot,historyPanel\.step\)/);
- assert.match(historyPanel,/replaySteps\(record\.snapshot,step\)/);
+ assert.match(historyPanel,/onSelect\(record\)/);
+ assert.match(app,/enterBoardReview\(record\.snapshot,count,"archive",record\.sgfMeta,record\)/);
+ assert.match(app,/forkReview\(boardReview\.snapshot,boardReview\.step\)/);
+ assert.doesNotMatch(html,/id="historyBoard"|id="historyDetail"|id="historyStepRange"/);
 });
 
 test("AI resumption distinguishes model initialization, a pending AI move and model failure",async()=>{
@@ -116,17 +115,15 @@ test("AI resumption distinguishes model initialization, a pending AI move and mo
  assert.match(app,/gameMode=record.mode;game=JSON\.parse\(JSON\.stringify\(record\.snapshot\)\)/);
 });
 
-test("phase-two sheet keeps scoring UX, contextual feedback, and keyboard focus",async()=>{
+test("unified history sheet preserves scoring and keyboard-friendly selection",async()=>{
  const {readFileSync}=await import("node:fs");
  const h=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
  const a=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
- const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
  const historyPanel=readFileSync(new URL("../public/history-panel.mjs",import.meta.url),"utf8");
- for(const id of ["historyActionNotice","historySaveNotice","scoringActions","openCurrentMode","historyStepRange"])
+ for(const id of ["historySaveNotice","scoringActions","openCurrentMode","reviewStepRange","reviewExport"])
    assert.match(h,new RegExp('id="'+id+'"'));
  assert.match(a,/\$\("openCurrentMode"\)\.onclick/);
- assert.match(historyPanel,/\$\("historyBack"\)\.focus\(\)/);
- assert.match(a,/\$\("gameMenu"\)\.querySelector\("summary"\)\.focus\(\)/);
- assert.match(historyPanel,/\$\("historyActionNotice"\)\.textContent="SGFを書き出しました/);
- assert.match(css,/\.history-back\{min-height:44px\}/);
+ assert.match(historyPanel,/\$\("closeHistory"\)\.focus\(\)/);
+ assert.match(a,/\$\("modePicker"\)\.focus\(\)/);
+ assert.match(a,/\$\("reviewNotice"\)\.textContent="SGFを書き出しました/);
 });

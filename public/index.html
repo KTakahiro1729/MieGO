@@ -17,6 +17,7 @@
             <option value="local">1台で打つ</option>
             <option value="online">URLで対戦</option>
             <option value="ai">AIと対戦</option>
+            <option value="history">保存した棋譜…</option>
           </select>
         </label>
         <button id="settingsToggle" class="icon-button" type="button" aria-label="設定を開く" aria-controls="settingsPanel" aria-expanded="false">
@@ -73,7 +74,6 @@
           <details id="gameMenu" class="game-actions">
             <summary aria-label="対局メニュー" title="対局メニュー"><svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
             <div class="game-action-popover" role="group" aria-label="対局操作">
-              <button id="openHistory" type="button">保存した棋譜</button>
               <button id="openCurrentMode" type="button" hidden>現在の対局設定</button>
               <button id="resetLocalGame" type="button" hidden>新しい対局（盤面をリセット）</button>
               <button id="resign" class="danger-button" type="button">投了する</button>
@@ -100,7 +100,9 @@
                 </div>
                 <button id="reviewLink" type="button">この手数のURLをコピー</button>
                 <button id="reviewAiLink" type="button">AI向けにコピー</button>
+                <button id="reviewResume" type="button" hidden>この対局の続きを打つ</button>
                 <button id="reviewBranch" type="button">この局面から1台で検討</button>
+                <button id="reviewExport" type="button">SGFを書き出す</button>
                 <p id="reviewNotice" role="status" aria-live="polite"></p>
                 <textarea id="reviewCopyFallback" readonly hidden aria-label="手動コピー用の文字列"></textarea>
               </div>
@@ -173,7 +175,7 @@
     </aside>
     <aside id="historyPanel" class="settings-panel history-panel" role="dialog" aria-modal="true" aria-label="保存した棋譜" hidden>
       <div class="settings-head"><h2>保存した棋譜</h2><button id="closeHistory" class="icon-button" type="button" aria-label="棋譜を閉じる">×</button></div>
-      <p class="explanation">この端末に自動保存された棋譜を確認できます。</p>
+      <p class="explanation">棋譜を選ぶと大きな碁盤に表示します。</p>
       <div class="history-import-row">
         <label for="historyImportFile" class="history-import-label">SGFファイルを読み込む</label>
         <input id="historyImportFile" type="file" accept=".sgf,application/x-go-sgf,text/plain" aria-label="SGFファイルを読み込む">
@@ -181,33 +183,6 @@
       <p id="historySaveNotice" class="invite-status history-notice" role="status" aria-live="polite"></p>
       <div id="historyList" class="history-list"></div>
       <p id="historyEmpty" class="history-empty" hidden>保存された棋譜はまだありません。</p>
-      <section id="historyDetail" class="history-detail" hidden>
-        <button id="historyBack" class="history-back" type="button">← 棋譜一覧に戻る</button>
-        <h3 id="historySelectionName">保存した局面</h3>
-        <canvas id="historyBoard" width="360" height="360" role="button" tabindex="0" aria-label="この局面を大きな碁盤で再生"></canvas>
-        <div class="replay-controls" aria-label="棋譜の手順再生">
-          <button id="historyFirst" type="button" aria-label="最初の局面へ" title="最初の局面へ">≪</button>
-          <button id="historyPrevious" type="button" aria-label="1手戻る" title="1手戻る">‹</button>
-          <span id="historyStepLabel" aria-live="polite">0 / 0</span>
-          <button id="historyNext" type="button" aria-label="1手進む" title="1手進む">›</button>
-          <button id="historyLast" type="button" aria-label="最後の局面へ" title="最後の局面へ">≫</button>
-        </div>
-        <input id="historyStepRange" class="history-step-range" type="range" min="0" max="0" step="1" value="0" aria-label="閲覧する手順">
-        <p id="historyMeta" class="explanation"></p>
-        <button id="historyResume" class="primary full" type="button" hidden>この対局の続きを打つ</button>
-        <button id="historyBranch" class="outline full" type="button">この局面から1台で検討</button>
-        <details id="historyShareMenu" class="history-share-menu">
-          <summary>共有・書き出し</summary>
-          <div class="history-share-popover" role="group" aria-label="棋譜共有">
-            <button id="historyExport" type="button">SGFを書き出す</button>
-            <button id="historyLink" type="button">この手数のURLをコピー</button>
-            <button id="historyAiLink" type="button">AI向けにコピー</button>
-          </div>
-        </details>
-        <p id="historyActionNotice" class="invite-status history-notice" role="status" aria-live="polite"></p>
-        <textarea id="historyCopyFallback" readonly hidden aria-label="コピーできなかった内容を手動でコピー"></textarea>
-        <p id="historyReadOnlyHint" class="explanation"></p>
-      </section>
     </aside>
   </div>
   <script type="module" src="/app.mjs"></script>
