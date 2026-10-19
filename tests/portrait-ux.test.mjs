@@ -36,7 +36,7 @@ test("game screen viewport never scrolls and board responds to available height"
 test("pass is immediate; solo endgame uses in-bar accept/continue, not a dialog",()=>{
   assert.match(app,/\$\("pass"\)\.onclick=\(\)=>submitMove\(null\);/);
   assert.doesNotMatch(app,/confirm\("パスしますか？"\)/);
-  assert.match(app,/if\(!room\)\{\s*endExpanded=true;/);
+  assert.match(app,/if\(!room\)\{[\s\S]{0,240}endExpanded=true;show\(\);/);
   assert.match(app,/if\(!room && endExpanded && !game\.endProposal\)/);
   assert.match(app,/type:"solo_scoring",number:game\.moveNumber/);
   assert.doesNotMatch(app,/type:"end_answer",color:-color,accept:true/);
@@ -82,8 +82,34 @@ test("confirm button uses the original shared gold-and-opacity disabled appearan
   assert.match(html,/id="confirm" class="primary" type="button" disabled/);
   assert.match(app,/\$\("confirm"\)\.disabled=!candidate \|\| !myTurn/);
 });
-test("solo endgame prompt names AI only in AI games and shows the AI as paused",()=>{
+test("solo endgame prompt names AI only in AI games",()=>{
   assert.match(app,/localPrompt\?\(gameMode==="ai"\?"あなたの判断で採点へ進みます。AIが終局を承認するわけではありません。":\s*"採点に進み、死石を確認します。対局の再開もできます。"\)/);
-  assert.match(app,/isAiTurn\(\)&&endExpanded\?"採点するか確認中のため、AIは待機しています":\s*isAiTurn\(\)\?"AIが着手を計算しています"/);
-  assert.match(app,/endExpanded=true;[\s\S]{0,120}if\(isAiTurn\(\)\)\{\s*stopAiTurn\(\);/);
+});
+test("continue-style choices sit left of the advancing choice, in the bar and while scoring",()=>{
+  const bar=html.slice(html.indexOf('id="endActions"'),html.indexOf('id="analysisStatus"'));
+  assert.ok(bar.indexOf('id="endDecline"')<bar.indexOf('id="endAccept"'));
+  const scoring=html.slice(html.indexOf('id="scoringActions"'),html.indexOf('id="resign"'));
+  assert.ok(scoring.indexOf('id="resume"')<scoring.indexOf('id="agree"'));
+});
+test("only a solo accept is gold; an incoming online offer gets two equal choices",()=>{
+  assert.match(app,/\$\("endAccept"\)\.classList\.toggle\("primary",!room\)/);
+  assert.match(css,/\.endgame-bar #endAccept\.primary\{background:linear-gradient/);
+  assert.doesNotMatch(css,/\.endgame-bar #endAccept\{background/);
+});
+test("solo prompt hides the second gold button without shifting the action row",()=>{
+  assert.match(app,/\$\("actionRow"\)\.classList\.toggle\("end-prompt-open",localPrompt\)/);
+  assert.match(css,/\.action-row\.end-prompt-open #confirm\{visibility:hidden\}/);
+  // Opening the prompt drops any provisional stone; tapping the board means "keep playing".
+  assert.match(app,/candidate=null;illegalCandidate=null;illegalPromptCopied=false;[\s\S]{0,80}endExpanded=true;show\(\)/);
+  assert.match(app,/if\(!room && endExpanded\)endExpanded=false;/);
+});
+test("AI scoring waits for a computing move instead of pausing the AI",()=>{
+  assert.match(app,/if\(aiThinking\)\$\("endPropose"\)\.disabled=true;/);
+  assert.match(app,/if\(!room\)\{\s*if\(aiThinking\)return;/);
+  assert.doesNotMatch(app,/AIは待機しています/);
+});
+test("a disconnected online bar says why its buttons are disabled",()=>{
+  assert.match(app,/const offline=!!room && \(!connected \|\| color===null\);/);
+  assert.match(app,/!playing\?"":offline\?"接続を待っています":/);
+  assert.match(app,/\$\(id\)\.disabled=offline;/);
 });

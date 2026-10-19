@@ -109,7 +109,9 @@ function updateEndUi() {
   const incoming=!!(offer && room && color!==null && offer.from!==color);
   const localPrompt=playing && !room && endExpanded && !offer;
   const waiting=!!(offer && !incoming);
-  $("endStatus").textContent=!playing?"":incoming?"終局が提案されました":
+  const offline=!!room && (!connected || color===null);
+  $("endStatus").textContent=!playing?"":offline?"接続を待っています":
+    incoming?"終局が提案されました":
     waiting?"相手の返答を待っています":
     localPrompt?"採点を始めますか？":
     endgameHint(game,endgameAdvisor,{
@@ -122,7 +124,12 @@ function updateEndUi() {
   $("endAccept").textContent=!room?"採点へ進む":"受け入れる";
   $("endDecline").textContent=waiting?"取り下げる":"打ち続ける";
   for(const id of ["endPropose","endAccept","endDecline"])
-    $(id).disabled=!!room && (!connected || color===null);
+    $(id).disabled=offline;
+  // A move being computed is about to arrive; scoring waits for it instead of pausing the AI.
+  if(aiThinking)$("endPropose").disabled=true;
+  // Answering an opponent's offer is a negotiation: neither choice is emphasized.
+  $("endAccept").classList.toggle("primary",!room);
+  $("actionRow").classList.toggle("end-prompt-open",localPrompt);
   $("endDetail").textContent=incoming?"受け入れると採点に進みます。打ち続けることもできます。":
     localPrompt?(gameMode==="ai"?"あなたの判断で採点へ進みます。AIが終局を承認するわけではありません。":
       "採点に進み、死石を確認します。対局の再開もできます。"):
@@ -381,7 +388,6 @@ function show() {
     game.status==="scoring"?"盤上の石をタップすると死石を指定できます":
     gameMode==="ai" && fallbackMode?"KataGoを利用できないためAI対局は停止中":
     gameMode==="ai" && !katagoReady?"KataGoの準備ができるまで待機中":
-    isAiTurn()&&endExpanded?"採点するか確認中のため、AIは待機しています":
     isAiTurn()?"AIが着手を計算しています":"";
   const blocked=!!illegalCandidate;
   $("confirm").disabled=!candidate || !myTurn || blocked;
@@ -573,6 +579,7 @@ canvas.addEventListener("click",e=>{
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
   if(game.status!=="playing" || !isHumanTurn())return;
+  if(!room && endExpanded)endExpanded=false;
   // Occupied intersections cannot hold a provisional stone.
   if(game.board[position]!==0)return;
   const selected=inspectProvisionalMove(game,position);
@@ -684,14 +691,11 @@ $("endPropose").onclick=()=>{
   const color=myColorForEnd();
   if(!color || (room&&!connected))return;
   if(!room){
-    endExpanded=true;
-    // Pause the AI explicitly instead of computing a move that will be discarded.
-    if(isAiTurn()){
-      stopAiTurn();
-      $("analysisStatus").textContent="採点するか確認中";
-      $("aiMatchStatus").textContent="採点するか確認中のため、AIは待機しています。";
-    }
-    show();return;
+    if(aiThinking)return;
+    // The prompt replaces any provisional stone; the board is not half-committed.
+    candidate=null;illegalCandidate=null;illegalPromptCopied=false;
+    $("illegalPromptFallbackPanel").hidden=true;
+    endExpanded=true;show();requestAnalysis();return;
   }
   apply({type:"end_offer",color,number:game.moveNumber,before:boardHash(game.board)});
 };
