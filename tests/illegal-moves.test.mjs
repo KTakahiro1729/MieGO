@@ -83,6 +83,7 @@ test("board has no advance forbidden markers; only selected move has preview and
   assert.match(app,/\$\("confirm"\)\.disabled=!candidate \|\| !myTurn \|\| blocked/);
   assert.match(app,/makeIllegalMovePrompt\(game,selected\)/);
   assert.match(html,/id="copyIllegalPrompt"/);
-  assert.match(html,/id="illegalMoveNotice"/);
+  assert.match(html,/id="endStatus"/);
+  assert.match(app,/classList\.toggle\("has-illegal",blocked\)/);
   assert.doesNotMatch(html,/illegalMoveLegend|illegalMoveToggle/);
 });
