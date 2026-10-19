@@ -544,7 +544,8 @@ canvas.addEventListener("click",e=>{
   illegalPromptCopied=false;
   $("illegalPromptFallbackPanel").hidden=true;
   show();
-  if(candidate)requestAnalysis();
+  // Invalidate any earlier legal-preview analysis before showing a forbidden point.
+  requestAnalysis();
 });
 $("confirm").onclick=()=>{
   if(candidate && !illegalCandidate && isHumanTurn()){
@@ -559,7 +560,7 @@ $("cancel").onclick=()=>{
 };
 $("copyIllegalPrompt").onclick=async()=>{
   const selected=illegalCandidate;
-  if(!selected || selected.source!==game || !isHumanTurn())return;
+  if(!selected || selected.source!==game)return;
   const question=makeIllegalMovePrompt(game,selected);
   try{
     if(typeof navigator.clipboard?.writeText!=="function")throw Error("Clipboard API unavailable");
