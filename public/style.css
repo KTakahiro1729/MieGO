@@ -30,8 +30,33 @@ button:hover:not(:disabled){border-color:#748094}
 .connection-status{font-size:11px;color:#aeb6c0;white-space:nowrap;display:flex;align-items:center;gap:7px}
 .connection-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#7b8392;flex:none}
 .connection-status.online::before{background:#4fca8a;box-shadow:0 0 8px #4fca8a66}
-.board-frame{width:min(100%,calc(100dvh - 294px),675px);min-width:0;align-self:center;aspect-ratio:1;padding:5px;background:linear-gradient(135deg,#b28751,#e4c587 35%,#956c43 100%);border:1px solid #d3b078;border-radius:14px;box-shadow:0 2px 1px #ffffff13 inset,0 15px 40px #0008,0 0 0 1px #f2d69422;overflow:hidden}
-#board{display:block;width:100%;height:100%;aspect-ratio:1;touch-action:manipulation;cursor:crosshair;background:#e8c78f;border-radius:8px}
+.board-frame{width:min(100%,calc(100dvh - 294px),675px);min-width:0;align-self:center;aspect-ratio:1;padding:5px;background:linear-gradient(135deg,#b28751,#e4c587 35%,#956c43 100%);border:1px solid #d3b078;border-radius:14px;box-shadow:0 2px 1px #ffffff13 inset,0 15px 40px #0008,0 0 0 1px #f2d69422;position:relative;isolation:isolate;transition:box-shadow .3s,border-color .3s}
+.board-viewport{width:100%;height:100%;overflow:hidden;border-radius:8px}
+#board{display:block;width:100%;height:100%;aspect-ratio:1;touch-action:none;cursor:crosshair;background:#e8c78f;border-radius:8px;transform-origin:0 0;transition:transform .24s ease-out}
+.board-frame.is-gesturing #board{transition:none}
+
+/* Zoomed: the whole board glows softly behind the frame as an ambient backdrop. */
+.board-ambient{position:absolute;inset:-22px;width:calc(100% + 44px);height:calc(100% + 44px);z-index:-1;border-radius:28px;filter:blur(22px) saturate(1.5) brightness(1.1);opacity:0;transition:opacity .3s;pointer-events:none}
+.board-frame.is-zoomed{border-color:var(--gold);box-shadow:0 0 0 1px #f0c77355,0 15px 40px #0008}
+.board-frame.is-zoomed .board-ambient{opacity:.9}
+.board-zoom-reset{position:absolute;top:12px;right:12px;min-height:34px;padding:5px 11px;border-radius:999px;font-size:12px;color:#f5dfad;background:#171c27cc;border:1px solid #f0c77388;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 4px 14px #0007}
+.board-zoom-reset::before{content:"";position:absolute;inset:-6px}
+
+/* One-time, non-blocking pinch-out hint over the board. */
+.pinch-hint{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center;border-radius:14px}
+.pinch-hint[hidden]{display:none}
+.pinch-finger{position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px;border-radius:50%;background:#fffaedcc;border:2px solid #f0c773;box-shadow:0 2px 10px #0008;opacity:0}
+.pinch-hint-text{position:absolute;left:50%;bottom:14%;transform:translateX(-50%);white-space:nowrap;padding:6px 12px;border-radius:999px;background:#171c27e0;color:#f5dfad;font-size:12px;opacity:0}
+.pinch-hint.is-playing .pinch-finger-a{animation:pinch-a 1.4s ease-in-out 2}
+.pinch-hint.is-playing .pinch-finger-b{animation:pinch-b 1.4s ease-in-out 2}
+.pinch-hint.is-playing .pinch-hint-text{animation:pinch-text 3.1s ease-in-out forwards}
+@keyframes pinch-a{0%{opacity:0;transform:translate(-8px,8px)}20%{opacity:1;transform:translate(-8px,8px)}75%{opacity:1;transform:translate(-46px,46px)}100%{opacity:0;transform:translate(-46px,46px)}}
+@keyframes pinch-b{0%{opacity:0;transform:translate(8px,-8px)}20%{opacity:1;transform:translate(8px,-8px)}75%{opacity:1;transform:translate(46px,-46px)}100%{opacity:0;transform:translate(46px,-46px)}}
+@keyframes pinch-text{0%{opacity:0}12%{opacity:1}85%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  #board,.board-ambient{transition:none}
+  .pinch-hint.is-playing .pinch-finger-a,.pinch-hint.is-playing .pinch-finger-b{animation:none}
+}
 .ownership-legend{width:88%;max-width:490px;margin:19px auto 0}
 .gradient{height:13px;border-radius:100px;border:1px solid #686d76;background-color:#e5c58c;background-image:linear-gradient(90deg,rgba(249,247,238,.55),rgba(249,247,238,0) 50%,rgba(27,32,38,0) 50%,rgba(27,32,38,.55));box-shadow:0 1px 0 #ffffff13}
 .legend-labels{display:flex;justify-content:space-between;gap:8px;padding-top:8px;color:#aab0bc;font-size:11px}

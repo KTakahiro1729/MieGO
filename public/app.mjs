@@ -9,6 +9,7 @@ import { choosePolicyMove } from "./ai-opponent.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
 import { takeBackForHuman, policyHints } from "./ai-assist.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
+import { createBoardZoom } from "./board-zoom.mjs";
 import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
@@ -183,11 +184,16 @@ function updatePersonaUi() {
 }
 
 let displayedOwnership = null, transitionFrame = null;
-const {draw} = createBoardRenderer({
+const boardZoom=createBoardZoom({
+  frame:$("boardFrame"),canvas,ambient:$("boardAmbient"),resetButton:$("boardZoomReset"),
+  hint:$("pinchHint"),getSize:()=>SIZE,redraw:()=>draw()
+});
+const boardRenderer = createBoardRenderer({
   canvas,
   getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette,opacity,
     humanTurn:isHumanTurn(),hints:visibleHints()})
 });
+function draw(){boardRenderer.draw();boardZoom.paintAmbient();}
 // Hints belong to one committed position and are only drawn on the human's turn.
 function visibleHints() {
   if(!aiHints || room || gameMode!=="ai" || boardReview || candidate || illegalCandidate ||
@@ -509,7 +515,7 @@ function show() {
   updateEndUi();
   draw();
 }
-function apply(action, remote=false) {
+function apply(action, remote=false, isAiMove=false) {
   // End-offer messages can race with an actual stone. Ignore stale metadata
   // without tearing down the live Go DataChannel.
   if(remote && (action?.type==="end_offer" || action?.type==="end_answer" ||
@@ -586,6 +592,8 @@ function apply(action, remote=false) {
     }
     const hadCandidate=!!candidate;
     if(room)onlineRevision++;
+    // The opponent's move may land anywhere, so show the whole board again.
+    if(action.type==="move" && (remote || isAiMove))boardZoom.reset();
     candidate=null;save();show();
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) ||
@@ -602,12 +610,15 @@ function submitMove(position,fromAi=false){
   const before=boardHash(game.board);
   let next;
   try{next=play(game,position);}catch(error){showNotice(error.message);return;}
-  apply({type:"move",position,number:game.moveNumber+1,before,after:boardHash(next.board)});
+  apply({type:"move",position,number:game.moveNumber+1,before,after:boardHash(next.board)},false,fromAi);
 }
 canvas.addEventListener("click",e=>{
   const rect=canvas.getBoundingClientRect(),x=Math.round(((e.clientX-rect.left)/rect.width*canvas.width-canvas.width/(SIZE+1))/(canvas.width/(SIZE+1))),
     y=Math.round(((e.clientY-rect.top)/rect.height*canvas.height-canvas.height/(SIZE+1))/(canvas.height/(SIZE+1)));
+  // A click that ends a pan or pinch is navigation, not a stone placement.
+  if(boardZoom.consumeGestureClick())return;
   if(x<0||x>=SIZE||y<0||y>=SIZE)return;
+  boardZoom.noteTap(x,y);
   const position=y*SIZE+x;
   if(boardReview){
     try{
