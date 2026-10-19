@@ -428,3 +428,34 @@ body{overflow:hidden}
   .endgame-bar .end-buttons{gap:3px}
   .action-row .resign-control{flex-basis:44px;width:44px;min-width:44px}
 }
+
+/* Help: one sheet of topics. A local ? is a small glyph whose tap area
+   reaches 44px through ::after, so it never grows the row it sits in. */
+.help-button{position:relative;display:inline-grid;place-items:center;flex:none;width:24px;height:24px;min-height:0;padding:0;margin:0 0 0 4px;
+  border:0;border-radius:50%;background:transparent;color:#aab0bc;vertical-align:middle}
+.help-button::after{content:"";position:absolute;inset:-10px}
+.help-button:hover:not(:disabled){color:var(--gold)}
+.help-button svg{display:block}
+.legend-labels .help-button{width:20px;height:20px;margin:-4px 0 -4px 3px}
+.legend-labels .help-button svg{width:15px;height:15px}
+.palette-choices legend .help-button{margin:-4px 0 -4px 4px}
+.endgame-bar .help-button{margin:0 6px 0 2px}
+.score-head{display:flex;align-items:center}
+.slider-head{display:flex;align-items:center;margin:0 0 6px;font-size:13px}
+.step-slider .slider-head label[for]{display:block;margin:0}
+.slider-head .setting-value{margin-left:auto}
+.label-with-help{display:flex;align-items:center}
+.label-with-help label{margin:0}
+.sheet-head-actions{display:flex;align-items:center;gap:6px}
+.sheet-head-actions .help-button{width:44px;height:44px;margin:0}
+.sheet-head-actions .help-button::after{display:none}
+.sheet-head-actions .help-button svg{width:21px;height:21px}
+.help-panel{z-index:11}
+.help-topics{padding-top:0;border-top:0}
+.help-topic:first-child{margin-top:0;border-top:0;padding-top:0}
+.help-list{margin:4px 0 12px;padding-left:1.2em;font-size:12px;line-height:1.7;color:#aeb3be}
+.help-list li+li{margin-top:4px}
+.help-list strong{color:#d6dae3}
+.help-panel .settings-head{position:sticky;top:-22px;z-index:1;background:#181e2a;margin:-22px 0 4px;padding:16px 0 6px}
+.help-topic{scroll-margin-top:64px}
+@media(max-width:700px){.help-panel .settings-head{top:-20px;margin-top:-20px;padding-top:14px}}

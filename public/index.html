@@ -14,6 +14,9 @@
       <div class="brand" aria-label="MieGO">Mie<span>GO</span></div>
       <div class="header-actions">
         <button id="newGameButton" class="secondary new-game-button" type="button" aria-haspopup="dialog" aria-controls="modePanel">新規対戦</button>
+        <button id="helpToggle" class="icon-button" type="button" aria-label="ヘルプを開く" aria-controls="helpPanel" aria-expanded="false">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg>
+        </button>
         <button id="settingsToggle" class="icon-button" type="button" aria-label="設定を開く" aria-controls="settingsPanel" aria-expanded="false">
           <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9.7 2.5-.45 2.1-1.7.7-1.8-1.16-2.6 2.6 1.16 1.8-.7 1.7-2.11.46v3.6l2.1.45.7 1.7-1.16 1.8 2.6 2.6 1.8-1.16 1.7.7.46 2.11h3.6l.45-2.1 1.7-.7 1.8 1.16 2.6-2.6-1.16-1.8.7-1.7 2.11-.46v-3.6l-2.1-.45-.7-1.7 1.16-1.8-2.6-2.6-1.8 1.16-1.7-.7-.46-2.11Z"/><circle cx="11.5" cy="12.5" r="3.2"/></svg>
         </button>
@@ -41,10 +44,11 @@
         </div>
         <div id="ownershipLegend" class="ownership-legend" aria-label="地合いの色の凡例">
           <div class="gradient" id="gradient" aria-hidden="true"></div>
-          <div class="legend-labels"><span>白寄り</span><span>中立（透明）</span><span>黒寄り</span></div>
+          <div class="legend-labels"><span>白寄り</span><span>中立（透明）<button class="help-button" type="button" data-help="ownership" aria-label="地合いの表示のヘルプ" title="地合いの表示のヘルプ"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span><span>黒寄り</span></div>
         </div>
         <div id="endgameBar" class="endgame-bar" aria-label="終局の相談">
           <span id="endStatus" class="end-status" role="status" aria-live="polite">終局はまだのようです</span>
+          <button class="help-button" type="button" data-help="endgame" aria-label="終局と採点のヘルプ" title="終局と採点のヘルプ" id="endHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button>
           <div id="endActions" class="end-buttons">
             <button id="endPropose" class="secondary end-action" type="button">終局を提案</button>
             <button id="endDecline" class="secondary end-action" type="button" hidden>打ち続ける</button>
@@ -55,7 +59,7 @@
           <span id="hint" class="visually-hidden" aria-live="polite"></span>
         </div>
         <div id="scoreBox" class="score-box hidden">
-          <strong>死石を確認</strong>
+          <div class="score-head"><strong>死石を確認</strong><button class="help-button" type="button" data-help="scoring" aria-label="死石の確認のヘルプ" title="死石の確認のヘルプ"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></div>
           <p id="scoreInstruction">死石をタップして指定し、双方で結果を確認してください。</p>
           <div id="scoreText"></div>
         </div>
@@ -133,7 +137,7 @@
           <label class="palette-choice"><input type="radio" name="boardTheme" value="dark"><span class="board-swatch dark"></span><span>ダーク</span></label>
         </fieldset>
         <fieldset class="palette-choices">
-          <legend>地合いのカラーマップ</legend>
+          <legend>地合いのカラーマップ<button class="help-button" type="button" data-help="ownership" aria-label="地合いの表示のヘルプ" title="地合いの表示のヘルプ"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></legend>
           <label class="palette-choice"><input type="radio" name="palette" value="mono" checked><span class="swatch" data-palette="mono"></span><span>白〜黒</span></label>
           <label class="palette-choice"><input type="radio" name="palette" value="orangePurple"><span class="swatch" data-palette="orangePurple"></span><span>橙〜紫</span></label>
           <label class="palette-choice"><input type="radio" name="palette" value="greenPurple"><span class="swatch" data-palette="greenPurple"></span><span>緑〜紫</span></label>
@@ -143,7 +147,6 @@
         <input id="opacity" type="range" min="0" max="100" value="55">
         <div class="range-labels"><span>薄い</span><span>濃い</span></div>
         <span id="opacityValue" class="visually-hidden" aria-live="polite">55%</span>
-        <details class="info-disclosure"><summary>地合いの表示について</summary><p class="explanation">色は黒寄り・白寄りの傾向を示し、中立では碁盤がそのまま見えます。紫はいつも黒側です。色の濃さは碁盤ごとに、黒側と白側が同じくらい目立つよう調整しています。確定した地や勝率ではありません。「表示しない」を選ぶと色を消し、対局中でもいつでも切り替えられます。</p></details>
         <button id="resetAppearance" class="secondary full" type="button">表示を初期状態に戻す</button>
       </section>
       <section class="settings-section" aria-label="対局と棋譜の操作">
@@ -151,13 +154,9 @@
         <button id="openHistorySettings" class="secondary full" type="button">保存した棋譜</button>
         <button id="openCurrentMode" class="secondary full" type="button" hidden>AIの設定・再戦</button>
       </section>
-      <section class="settings-section">
-        <h3>その他</h3><p id="ruleSummary" class="explanation">9路盤 · 中国式ルール · コミ7.5</p>
-        <details class="info-disclosure"><summary>クレジット</summary><p class="explanation"><a href="https://github.com/lightvector/KataGo" target="_blank" rel="noopener noreferrer">KataGo</a> · <a href="https://github.com/Sir-Teo/web-katrain" target="_blank" rel="noopener noreferrer">Web KaTrain</a></p></details>
-      </section>
     </aside>
     <aside id="modePanel" class="settings-panel mode-panel" role="dialog" aria-modal="true" aria-labelledby="modeTitle" hidden>
-      <div class="settings-head"><h2 id="modeTitle">新規対戦</h2><button id="closeMode" class="icon-button" type="button" aria-label="閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="settings-head"><h2 id="modeTitle">新規対戦</h2><span class="sheet-head-actions"><button class="help-button" type="button" data-help="local" aria-label="新規対戦のヘルプ" title="新規対戦のヘルプ" id="modeHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="closeMode" class="icon-button" type="button" aria-label="閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span></div>
       <section class="settings-section new-game-common">
         <div class="new-game-modes">
           <label><input type="radio" name="newGameMode" value="local" checked><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><circle cx="10" cy="10" r="2" fill="currentColor"/><circle cx="14" cy="14" r="2"/></svg><strong>1台で打つ</strong></span></label>
@@ -183,13 +182,13 @@
           </div>
         </div>
         <div id="aiStrengthRow" class="step-slider" hidden>
-          <label for="aiStrength">AIの強さ <span id="aiStrengthValue" class="setting-value"></span></label>
+          <span class="slider-head"><label for="aiStrength">AIの強さ</label><button class="help-button" type="button" data-help="ai" aria-label="対COMのヘルプ" title="対COMのヘルプ"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><span id="aiStrengthValue" class="setting-value"></span></span>
           <input id="aiStrength" type="range" min="0" max="3" step="1" value="1">
           <div class="step-ticks" aria-hidden="true"><span data-note="囲碁を覚えたての人向け。形の悪い手をよく打ちます。"><small>はじめて</small></span><span data-note="ルールに慣れた人向け。ときどき大きく緩めます。"><small>やさしい</small></span><span data-note="少し手ごたえがあります。緩める手は控えめです。"><small>ふつう</small></span><span data-note="手加減なし。KataGoの候補手どおりに打ちます。"><small>つよい</small></span></div>
           <p id="aiStrengthNote" class="explanation step-note"></p>
         </div>
         <details id="newGameAdvanced" class="info-disclosure new-game-advanced"><summary>詳細設定</summary>
-          <div id="handicapSetup" class="advanced-row"><label for="handicap">置き石</label>
+          <div id="handicapSetup" class="advanced-row"><span class="label-with-help"><label for="handicap">置き石</label><button class="help-button" type="button" data-help="rules" aria-label="ルールと置き石のヘルプ" title="ルールと置き石のヘルプ"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span>
             <select id="handicap" class="handicap-select">
               <option value="0">なし（互先）</option>
               <option value="2">2子</option><option value="3">3子</option><option value="4">4子</option><option value="5">5子</option>
@@ -211,7 +210,6 @@
               <div class="step-ticks" aria-hidden="true"><span data-note="自分の石を補強する手を控えます。"><small>控える</small></span><span data-note="補強を特に好みも避けもしません。"><small>ふつう</small></span><span data-note="自分の石の補強や守りを優先します。"><small>重視</small></span></div>
               <p id="aiReinforcementNote" class="explanation step-note"></p>
             </div>
-            <p class="explanation">強さは段級位の目安ではありません。打ち間違えたら盤の下の「待った」で戻せます。</p>
           </div>
         </details>
         </div>
@@ -242,6 +240,95 @@
         <p id="historySaveNotice" class="invite-status history-notice" role="status" aria-live="polite"></p>
         <div id="historyList" class="history-list"></div>
         <p id="historyEmpty" class="history-empty" hidden>保存された棋譜はまだありません。</p>
+      </section>
+    </aside>
+    <aside id="helpPanel" class="settings-panel help-panel" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
+      <div class="settings-head"><h2 id="helpTitle">ヘルプ</h2><button id="closeHelp" class="icon-button" type="button" aria-label="ヘルプを閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <section class="settings-section help-topics">
+        <details id="help-basics" class="info-disclosure help-topic" name="helpTopic"><summary>石の打ち方</summary>
+          <ul class="help-list">
+            <li>交点をタップすると石を仮置きします。「この手を打つ」で確定します。</li>
+            <li>仮置き中は盤下の左端が×になり、押すと仮置きを戻せます。</li>
+            <li>2本の指で広げると碁盤を拡大できます。「全体を表示」で元に戻ります。</li>
+            <li>盤の上の「○手目 ‹ ›」を押すと、この対局の棋譜を1手ずつ再生できます。</li>
+          </ul>
+        </details>
+        <details id="help-moves" class="info-disclosure help-topic" name="helpTopic"><summary>待った・パス・投了</summary>
+          <ul class="help-list">
+            <li><strong>待った</strong>：盤下の左端のボタン。1台で打つときは直前の1手、対COMは自分の直前の手まで戻します。対友人では相手が受け入れると自分の直前の手まで戻ります。</li>
+            <li><strong>パス</strong>：その手番で石を打ちません。待ったで戻せます。</li>
+            <li><strong>投了</strong>：2回続けて押すと負けが確定します。取り消せません。</li>
+          </ul>
+        </details>
+        <details id="help-endgame" class="info-disclosure help-topic" name="helpTopic"><summary>終局と採点</summary>
+          <ul class="help-list">
+            <li>終局はパスとは別の操作です。打つ場所がなくなったと思ったら、盤下の欄から始めます。</li>
+            <li>1台で打つ・対COM：「採点を始める」→「採点へ進む」。対COMでも、AIが終局を承認するわけではありません。</li>
+            <li>対友人：「終局を提案」すると相手に届き、相手が「受け入れる」と採点に進みます。「打ち続ける」で断ることも、自分の提案を「取り下げる」こともできます。</li>
+            <li>採点中に「対局を再開」を押すと対局に戻れます。</li>
+          </ul>
+        </details>
+        <details id="help-scoring" class="info-disclosure help-topic" name="helpTopic"><summary>死石の確認</summary>
+          <ul class="help-list">
+            <li>採点に進むと、KataGoが死石の候補を自動で判定します。判定は参考です。</li>
+            <li>盤上の石をタップすると死石の指定を切り替えられます。</li>
+            <li>表示される数字は石＋地（中国式の面積計算）です。</li>
+            <li>結果に納得したら「この計算に同意」で確定します。対友人では双方の同意が必要です。</li>
+          </ul>
+        </details>
+        <details id="help-illegal" class="info-disclosure help-topic" name="helpTopic"><summary>打てない場所（禁止手）</summary>
+          <ul class="help-list">
+            <li><strong>コウ</strong>：取られた直後に、すぐ取り返して直前の局面に戻すことはできません。</li>
+            <li><strong>自殺手</strong>：相手の石を取れないのに、自分の石の呼吸点がなくなる場所には打てません。</li>
+            <li>禁止手を仮置きすると、盤下の欄に理由を表示します。確定はできません。</li>
+            <li>「AIへの質問をコピー」を押すと、局面と質問の文章をコピーします。好きなAIに貼り付けて理由を聞けます。</li>
+          </ul>
+        </details>
+        <details id="help-ownership" class="info-disclosure help-topic" name="helpTopic"><summary>地合いの表示</summary>
+          <p class="explanation">KataGoの推定をもとに、盤上の各点が黒寄りか白寄りかを色で示します。中立では碁盤がそのまま見えます。紫はいつも黒側です。色の濃さは碁盤ごとに、黒側と白側が同じくらい目立つよう調整しています。確定した地や勝率ではありません。</p>
+          <p class="explanation">設定（歯車）の「地合いのカラーマップ」で色を、「色の濃さ」で濃さを変えられます。「表示しない」を選ぶと色を消し、対局中でもいつでも切り替えられます。</p>
+        </details>
+        <details id="help-rules" class="info-disclosure help-topic" name="helpTopic"><summary>ルールと置き石</summary>
+          <ul class="help-list">
+            <li>中国式ルール（面積計算）です。自分の石と囲んだ地の合計で勝敗を決めます。</li>
+            <li>互先はコミ7.5目です。</li>
+            <li>置き碁は新規対戦の「詳細設定」で選べます。白が先に打ち、コミ0.5目、白に置き石の数だけ加点します。9路は5子まで、13路・19路は9子までです。</li>
+          </ul>
+          <p class="explanation">現在の対局：<span id="ruleSummary">9路盤 · 中国式ルール · コミ7.5</span></p>
+        </details>
+        <details id="help-local" class="info-disclosure help-topic" name="helpTopic"><summary>1台で打つ</summary>
+          <ul class="help-list">
+            <li>1台の端末で、黒と白を交互に打ちます。</li>
+            <li>「対局を始める」で新しい対局になります。直前の対局は「保存した棋譜」に残ります。</li>
+          </ul>
+        </details>
+        <details id="help-ai" class="info-disclosure help-topic" name="helpTopic"><summary>対COM</summary>
+          <ul class="help-list">
+            <li>ブラウザの中でKataGoを動かして対局します。初回は準備に時間がかかります。</li>
+            <li><strong>AIの強さ</strong>：はじめて・やさしい・ふつう・つよいの4段階。段級位の目安ではありません。</li>
+            <li><strong>詳細設定</strong>：「ヒントを表示」であなたの番にKataGoの候補手を1〜3で示します。「侵入度」「補強度」でAIの打ち方の好みを変えられます。</li>
+            <li>打ち間違えたら盤下の「待った」で戻せます。</li>
+          </ul>
+        </details>
+        <details id="help-online" class="info-disclosure help-topic" name="helpTopic"><summary>対友人</summary>
+          <ul class="help-list">
+            <li>「招待リンクを準備する」を押し、もう一度押すと招待URLをコピーします。友人に送って開いてもらうと対局が始まります。</li>
+            <li>自分の石は「ランダム／● 黒／○ 白」から選べます。</li>
+            <li>対局の通信は端末どうしで直接行います（P2P）。新しい対局の作成・初回参加には本人確認が必要な場合があります。</li>
+            <li>対局中に招待URLを見直すには、設定の「招待URLを表示」を開きます。</li>
+          </ul>
+        </details>
+        <details id="help-history" class="info-disclosure help-topic" name="helpTopic"><summary>保存した棋譜</summary>
+          <ul class="help-list">
+            <li>対局はこの端末のブラウザに自動で保存されます。新規対戦の「履歴」から開けます。</li>
+            <li>棋譜を選ぶと大きな碁盤で再生します。盤をタップすると変化図を試せます。</li>
+            <li>再生欄の右端のメニューから、この手数のURLやAI向けの文章のコピー、SGFの保存、「ここから1台で打つ」ができます。</li>
+            <li>「SGFファイルを読み込む」で他のアプリの棋譜も開けます。</li>
+          </ul>
+        </details>
+        <details id="help-about" class="info-disclosure help-topic" name="helpTopic"><summary>このアプリについて</summary>
+          <p class="explanation">MieGOは地合いを感じながら打てる囲碁アプリです。形勢の推定と対COMには <a href="https://github.com/lightvector/KataGo" target="_blank" rel="noopener noreferrer">KataGo</a> のニューラルネットを、ブラウザでの実行には <a href="https://github.com/Sir-Teo/web-katrain" target="_blank" rel="noopener noreferrer">Web KaTrain</a> の推論モジュールを使っています。</p>
+        </details>
       </section>
     </aside>
   </div>
