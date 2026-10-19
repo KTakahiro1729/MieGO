@@ -400,3 +400,9 @@ body{overflow:hidden}
  .review-play-actions .review-cancel{flex-basis:58px;font-size:11px}
  .review-play-actions .review-confirm{font-size:11px}
 }
+
+/* A variation never reserves more height than the regular playing controls. */
+.game-panel:has(.review-panel:not([hidden])){--board-reserve:292px}
+@media(max-width:430px){
+ .game-panel:has(.review-panel:not([hidden])){--board-reserve:285px}
+}
