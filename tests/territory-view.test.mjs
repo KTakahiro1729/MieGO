@@ -28,8 +28,8 @@ test("neutral is completely transparent in all palettes, with opacity increasing
     assert.equal(ownershipPixel(0,name,.55,theme)[3],0);
     assert.equal(ownershipPixel(-1,name,1,theme)[3],255);
     assert.equal(ownershipPixel(1,name,1,theme)[3],255);
-    assert.deepEqual(paletteAt(-.01,name,theme),PALETTES[name][theme].white.rgb);
-    assert.deepEqual(paletteAt(.01,name,theme),PALETTES[name][theme].black.rgb);
+    assert.deepEqual(paletteAt(-1,name,theme),PALETTES[name][theme].white.rgb);
+    assert.deepEqual(paletteAt(1,name,theme),PALETTES[name][theme].black.rgb);
     assert.ok(ownershipPixel(-.05,name,.55,theme)[3]<ownershipPixel(-.8,name,.55,theme)[3]);
     assert.ok(ownershipPixel(.05,name,.55,theme)[3]<ownershipPixel(.8,name,.55,theme)[3]);
     const gradient=paletteGradient(name,.55,theme);
@@ -37,6 +37,24 @@ test("neutral is completely transparent in all palettes, with opacity increasing
     assert.match(gradient,/,0\) 50%,rgba\(.+,0\) 50%,/,"neutral centre is transparent");
     assert.match(gradient,/\) 100%\)$/);
   }
+});
+test("five steps: each side slides from its weak colour near neutral to its strong colour",()=>{
+  for(const name of Object.keys(PALETTES))for(const theme of THEMES){
+    const {white,black}=PALETTES[name][theme];
+    assert.notDeepEqual(white.weak,white.rgb,name+"/"+theme+" white has an inner colour");
+    assert.notDeepEqual(black.weak,black.rgb,name+"/"+theme+" black has an inner colour");
+    assert.deepEqual(paletteAt(-.001,name,theme),white.weak);
+    assert.deepEqual(paletteAt(.001,name,theme),black.weak);
+    const half=paletteAt(.5,name,theme);
+    half.forEach((c,i)=>assert.ok(Math.abs(c-(black.weak[i]+black.rgb[i])/2)<=1));
+    assert.deepEqual(ownershipPixel(-.5,name,.55,theme).slice(0,3),paletteAt(-.5,name,theme));
+  }
+  assert.deepEqual(PALETTES.orangePurple.wood.white.weak,[253,184,99],"ColorBrewer PuOr inner orange");
+  assert.deepEqual(PALETTES.orangePurple.wood.black.weak,[178,171,210],"ColorBrewer PuOr inner purple");
+  const legend=paletteGradient("orangePurple",1,"wood");
+  assert.match(legend,/rgba\(230,97,1,1\) 0%/);
+  assert.match(legend,/rgba\(253,184,99,0\) 50%/);
+  assert.match(legend,/rgba\(94,60,153,1\) 100%/);
 });
 test("weak leanings are lifted above a linear ramp",()=>{
   assert.ok(ownershipAlpha(.3,.55)>.3*.55);
