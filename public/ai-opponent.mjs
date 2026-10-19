@@ -1,5 +1,6 @@
 
 import {play} from "./core.mjs";
+import {boardScale} from "./endgame.mjs";
 import {personalityFeatures} from "./ai-personality.mjs";
 import {samplePolicyCandidate} from "./ai-policy-sampling.mjs";
 import {AI_STRENGTHS,pickWeakenedMove} from "./ai-strength.mjs";
@@ -41,9 +42,10 @@ export function scorePolicyCandidates(state, logits, ownership, options={}) {
  * considered; it never forces an automatic pass.
  */
 export function canConsiderAiPass(state,stage="playing") {
-  if(state.passes===1 && state.moveNumber>=18)return true;
+  const scale=boardScale(state.board?.length);
+  if(state.passes===1 && state.moveNumber>=18*scale)return true;
   const minimum=stage==="ready"?45:stage==="near"?52:58;
-  return state.moveNumber>=minimum;
+  return state.moveNumber>=minimum*scale;
 }
 export function choosePolicyMove(state, logits, passLogit, options={}) {
   if (state.status!=="playing") throw new Error("対局中ではありません");

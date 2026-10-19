@@ -83,3 +83,10 @@ test("weakened strengths use the same endgame-aware pass eligibility",()=>{
   s.moveNumber=145;
   assert.equal(choosePolicyMove(s,p,-1000,{strength:"easy",random:()=>.5}),position);
 });
+
+test("AI pass eligibility scales with the board area",()=>{
+  const s={...newGame(true,{size:19}),moveNumber:58};
+  assert.equal(canConsiderAiPass(s,"playing"),false);
+  s.moveNumber=Math.ceil(58*361/81);
+  assert.equal(canConsiderAiPass(s,"playing"),true);
+});

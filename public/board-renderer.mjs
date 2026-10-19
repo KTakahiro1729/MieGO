@@ -49,12 +49,16 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   // One pixel per intersection, scaled up: smoothed for the estimate,
-  // hard-edged cells for the count.
+  // hard-edged cells for the count. The estimate gets a ring of transparent
+  // pixels around it, so the smoothing fades it out past the outer lines
+  // instead of stopping at a hard square edge.
   function paintOverlay(values,palette,opacity,themeName,gap,pad,smooth) {
-    const image = overlayContext.createImageData(SIZE,SIZE);
+    const border=smooth?1:0, width=SIZE+2*border;
+    if(overlayCanvas.width!==width)overlayCanvas.width=overlayCanvas.height=width;
+    const image = overlayContext.createImageData(width,width);
     for(let i=0;i<SIZE*SIZE;i++) {
       const [r,g,b,a] = ownershipPixel(values[i],palette,opacity,themeName);
-      const p = i*4;
+      const p = ((Math.floor(i/SIZE)+border)*width+i%SIZE+border)*4;
       image.data[p]=r;
       image.data[p+1]=g;
       image.data[p+2]=b;
@@ -64,7 +68,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     ctx.save();
     ctx.imageSmoothingEnabled=smooth;
     if(smooth)ctx.imageSmoothingQuality="high";
-    ctx.drawImage(overlayCanvas,pad-gap/2,pad-gap/2,gap*SIZE,gap*SIZE);
+    const origin=pad-gap/2-gap*border;
+    ctx.drawImage(overlayCanvas,origin,origin,gap*width,gap*width);
     ctx.restore();
   }
 
@@ -218,7 +223,6 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const {game,boardReview}=view;
     const display=boardReview?.display||game;
     SIZE=sizeOf(display.board);
-    if(overlayCanvas.width!==SIZE)overlayCanvas.width=overlayCanvas.height=SIZE;
     const theme=boardTheme(view.boardTheme);
     const d=canvas.width, gap=d/(SIZE+1), pad=gap;
     paintGrid(theme,d,gap,pad);
