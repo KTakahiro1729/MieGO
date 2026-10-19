@@ -7,6 +7,7 @@ import { createP2PTransport } from "./p2p-transport.mjs";
 import { PALETTES, ownershipPixel, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { illegalMoveReasons, drawIllegalMoveMarker } from "./illegal-moves.mjs";
+import { stoneForPreview } from "./board-preview.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { parseSGF, exportSGF, replaySteps, forkReview } from "./sgf.mjs";
@@ -187,7 +188,7 @@ function transitionOwnership(next) {
 }
 let illegalCacheGame=null,illegalCache=new Map();
 function draw() {
-  const d = canvas.width, gap = d / (SIZE + 1), pad = gap, b = candidate?.board || game.board;
+  const d = canvas.width, gap = d / (SIZE + 1), pad = gap;
   ctx.clearRect(0,0,d,d); ctx.fillStyle="#e5c58c";ctx.fillRect(0,0,d,d);
   ctx.strokeStyle="#685537";ctx.lineWidth=2;
   for(let i=0;i<SIZE;i++){const p=pad+i*gap;ctx.beginPath();ctx.moveTo(pad,p);ctx.lineTo(d-pad,p);ctx.moveTo(p,pad);ctx.lineTo(p,d-pad);ctx.stroke();}
@@ -208,16 +209,18 @@ function draw() {
     ctx.beginPath();ctx.arc(pad+x*gap,pad+y*gap,4,0,Math.PI*2);ctx.fillStyle="#725b39";ctx.fill();
   }
   const preview = candidate?.moves.at(-1)?.position;
-  for(let i=0;i<b.length;i++){
-    if(!b[i])continue;
+  for(let i=0;i<game.board.length;i++){
+    const { color, captured } = stoneForPreview(game.board, candidate?.board, i);
+    if(!color)continue;
     const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
     const r=gap*.44;ctx.save();
-    if (i===preview) ctx.globalAlpha=.68;
+    if (captured) ctx.globalAlpha=.4;
+    else if (i===preview) ctx.globalAlpha=.68;
     ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
     const grad=ctx.createRadialGradient(x-r*.3,y-r*.3,2,x,y,r*1.2);
-    if(b[i]===BLACK){grad.addColorStop(0,"#555b5a");grad.addColorStop(1,"#101718");}
+    if(color===BLACK){grad.addColorStop(0,"#555b5a");grad.addColorStop(1,"#101718");}
     else{grad.addColorStop(0,"#fff");grad.addColorStop(1,"#b8b8b1");}
-    ctx.fillStyle=grad;ctx.fill();ctx.strokeStyle=b[i]===BLACK?"#1a2626":"#a1a29c";ctx.lineWidth=1.5;ctx.stroke();
+    ctx.fillStyle=grad;ctx.fill();ctx.strokeStyle=color===BLACK?"#1a2626":"#a1a29c";ctx.lineWidth=1.5;ctx.stroke();
     ctx.restore();
     if (i===preview) {
       ctx.save();ctx.strokeStyle="#f5d58b";ctx.lineWidth=3;ctx.setLineDash([7,5]);
