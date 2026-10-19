@@ -19,3 +19,9 @@ export function formatBoardForAi(board,{selectedPosition=null}={}) {
   }
   return rows.join("\n");
 }
+
+/** The legend, a heading and the diagram, in the order every AI handoff uses. */
+export function formatBoardSection(heading,board,{selectedPosition=null}={}) {
+  const legend=selectedPosition===null?AI_BOARD_LEGEND:AI_BOARD_LEGEND+" "+AI_SELECTED_POINT;
+  return [legend,"",heading+"：",formatBoardForAi(board,{selectedPosition})].join("\n");
+}

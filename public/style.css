@@ -75,6 +75,7 @@ body.board-zoomed .board-bleed{opacity:1}
 
 .primary{color:#17191e;background:linear-gradient(180deg,#f5d88f,#e4b85c);border:1px solid #ffe1a0;box-shadow:0 2px 14px #e4b85c30;font-weight:750}
 .button-stone{display:inline-block;width:19px;height:19px;border-radius:50%;background:radial-gradient(circle at 32% 26%,#5e6268,#11161a 70%);border:1px solid #656d72;vertical-align:-4px;margin-right:8px}
+.button-stone.white{background:radial-gradient(circle at 32% 26%,#fff,#deddd6 72%);border-color:#b7b6b0}
 .score-box{background:#1b2430;border:1px solid #65615c;padding:18px;border-radius:13px;margin:12px 0 18px}
 .score-box strong{font-size:15px}
 .score-box p,.score-box #scoreText{font-size:13px;line-height:1.6;color:#c7c9ca}
@@ -115,7 +116,7 @@ body.board-zoomed .board-bleed{opacity:1}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 
-@media(max-width:350px){.header-actions{gap:5px}}
+@media(max-width:350px){.header-actions{gap:4px}.header-actions .icon-button{width:38px;padding:6px}}
 
 /* Compact game-mode selector and dedicated bottom sheets */
 .visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
@@ -296,7 +297,16 @@ body{overflow:hidden}
 #reviewStepRange{flex:1;min-width:0;accent-color:var(--gold)}
 #reviewNotice{margin:0;color:#efca90;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
 #reviewNotice:empty{display:none}
-#reviewCopyFallback{width:100%;max-height:110px;min-height:50px;background:#17202e;border:1px solid #6b7588;color:#f4f4ee;padding:6px;border-radius:8px;font-size:12px}
+.share-image-actions{display:flex;gap:10px;margin-top:16px}
+.share-image-actions button{flex:1 1 0;min-width:0}
+.share-image-actions button[hidden]{display:none}
+.share-kind-choices span{display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px}
+.share-preview{display:block;width:100%;aspect-ratio:4/5;object-fit:contain;border-radius:8px;background:#0e1119}
+.share-preview[hidden]{display:none}
+.share-preview-status{display:grid;place-items:center;font-size:11px;color:#aeb3be}
+.share-panel .described{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left}
+.share-panel .described small{font-size:11px;font-weight:400;line-height:1.55;color:#aeb3be}
+#shareCopyFallback{margin-top:8px;width:100%;max-height:110px;min-height:50px;background:#17202e;border:1px solid #6b7588;color:#f4f4ee;padding:6px;border-radius:8px;font-size:12px}
 
 
 /* While the solo scoring prompt is open, keep the move button's slot but not a second gold button. */
@@ -323,7 +333,7 @@ body{overflow:hidden}
 }
 
 /* Forbidden points are not marked in advance; the existing endgame status displays the reason. */
-/* Match the status text to the size of "この手を打つ" in all states.
+/* Match the status text to the size of "ここに打つ" in all states.
    Neither normal status nor forbidden-move feedback uses bold styling. */
 .action-row #confirm{font-size:14px}
 .endgame-bar .end-status,.endgame-bar.has-illegal .end-status{

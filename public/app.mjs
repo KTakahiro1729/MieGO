@@ -16,6 +16,10 @@ import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
+import { shareLabels, shareFrameSize, paintShareFrame, buildGameAnimation, loadShareFonts } from "./share-image.mjs";
+import { OwnershipStore } from "./ownership-store.mjs";
+import { resultLabel } from "./result-label.mjs";
+import { influence } from "./influence.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
@@ -360,7 +364,7 @@ function finishAiMove(result) {
       result.ownership.length===game.board.length &&
       result.ownership.every(v=>Number.isFinite(v)&&Math.abs(v)<=1.001);
     const passStage=valid?endgameAdvisor.observe(game,result.ownership):"playing";
-    if(valid)endgameStage=passStage;
+    if(valid){endgameStage=passStage;rememberOwnership(game.board,result.ownership);}
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
       ownership:result.ownership,endgameStage:passStage,
       invasion,reinforcement,strength:aiStrength,
@@ -419,6 +423,9 @@ function handleAnalysis(event) {
   }
   if(game.status!=="playing")return;
   const context=analysisContext;
+  if(context?.id===result.id && context.committed && !candidate &&
+    context.number===game.moveNumber && context.hash===boardHash(game.board))
+    rememberOwnership(game.board,result.ownership);
   // Sandbox positions and stale asynchronous results must never generate advice.
   if(context?.id===result.id && context.committed && !candidate &&
     context.number===game.moveNumber && context.hash===boardHash(game.board) &&
@@ -476,6 +483,8 @@ function show() {
   const blocked=!!illegalCandidate;
   $("confirm").disabled=!candidate || !myTurn || blocked;
   $("confirm").hidden=blocked;
+  // The stone on the button shows the colour that will be placed.
+  $("confirmStone").classList.toggle("white",game.next===WHITE);
   $("copyIllegalPrompt").hidden=!blocked;
   $("copyIllegalPrompt").textContent=illegalPromptCopied?"コピーしました":"AIへの質問をコピー";
   // With a provisional stone the button discards it; otherwise it is 待った.
@@ -542,15 +551,11 @@ function show() {
   }
   if(isFinished) {
     const result=game.result;
+    $("scoreBox").querySelector("strong").textContent=resultLabel(result)||"終局";
     if(result?.endsWith("+R")) {
-      $("scoreBox").querySelector("strong").textContent=(result.startsWith("B+")?"黒":"白")+"の投了勝ち";
       $("scoreText").textContent="投了により終局";
     } else {
       const score=areaScore(game);
-      $("scoreBox").querySelector("strong").textContent=
-        (result?.startsWith("B+")?"黒":result?.startsWith("W+")?"白":"引き分け")+
-        (result?.startsWith("B+")||result?.startsWith("W+")?
-          "の"+Math.abs(score.difference).toFixed(1)+"目勝ち":"");
       $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（"+compensationLabel()+"）";
     }
   }
@@ -725,6 +730,23 @@ $("cancel").onclick=()=>{
   $("illegalPromptFallbackPanel").hidden=true;
   show();requestAnalysis();
 };
+// Every copy of text meant for an AI chat (or a plain link) uses the async
+// Clipboard API; when the browser refuses, the text is left selected instead.
+const MANUAL_COPY="自動でコピーできませんでした。下の文章を選択してコピーしてください。";
+async function writeClipboard(text) {
+  if(typeof navigator.clipboard?.writeText!=="function")throw Error("Clipboard API unavailable");
+  await navigator.clipboard.writeText(text);
+}
+async function copyWithFallback(text,status,field,copied="コピーしました。") {
+  try{
+    await writeClipboard(text);
+    field.hidden=true;status.textContent=copied;
+  }catch{
+    field.value=text;field.hidden=false;field.focus();field.select();
+    try{field.setSelectionRange(0,text.length);}catch{}
+    status.textContent=MANUAL_COPY;
+  }
+}
 $("copyIllegalPrompt").onclick=async()=>{
   const selected=illegalCandidate;
   if(!selected || selected.source!==game)return;
@@ -739,8 +761,7 @@ $("copyIllegalPrompt").onclick=async()=>{
     return;
   }
   try{
-    if(typeof navigator.clipboard?.writeText!=="function")throw Error("Clipboard API unavailable");
-    await navigator.clipboard.writeText(question);
+    await writeClipboard(question);
     if(illegalCandidate===selected){
       illegalPromptCopied=true;
       $("copyIllegalPrompt").textContent="コピーしました";
@@ -1143,16 +1164,19 @@ async function copyLink(){
   }catch(error){$("inviteStatus").textContent=error.message;}
   finally{renderInviteButton();}
 }
-/** kind: "settings", or a 新規対戦 tab ("local", "ai", "online", "history"). */
+/** kind: "settings", "share", or a 新規対戦 tab ("local", "ai", "online", "history"). */
 function openPanel(kind) {
   setBackgroundInert(true);
   $("settingsBackdrop").hidden=false;
   $("settingsPanel").hidden=kind!=="settings";
-  $("modePanel").hidden=kind==="settings";
+  $("sharePanel").hidden=kind!=="share";
+  const newGame=kind!=="settings" && kind!=="share";
+  $("modePanel").hidden=!newGame;
   $("settingsToggle").setAttribute("aria-expanded",String(kind==="settings"));
-  $("newGameButton").setAttribute("aria-expanded",String(kind!=="settings"));
-  if(kind!=="settings")showNewGameMode(kind);
-  const panel=kind==="settings"?$("settingsPanel"):$("modePanel");
+  $("shareToggle").setAttribute("aria-expanded",String(kind==="share"));
+  $("newGameButton").setAttribute("aria-expanded",String(newGame));
+  if(newGame)showNewGameMode(kind);
+  const panel=kind==="settings"?$("settingsPanel"):kind==="share"?$("sharePanel"):$("modePanel");
   panel.querySelector(".settings-head .icon-button").focus();
 }
 // The 新規対戦 sheet: common board size and handicap, then the chosen mode's options.
@@ -1267,6 +1291,7 @@ function renderBoardReview() {
   $("reviewNext").hidden=isPreview;
   $("reviewStepToggle").hidden=isPreview;
   $("reviewPlayActions").hidden=!isPreview;
+  $("reviewConfirmStone").classList.toggle("white",boardReview.preview?.moves.at(-1)?.color===WHITE);
   $("reviewOriginal").hidden=!variationActive;
   $("reviewVariation").hidden=variationActive || !boardReview.variation;
   $("reviewSaveVariation").hidden=!boardReview.variation;
@@ -1317,8 +1342,6 @@ function enterBoardReview(snapshot,step,source="live",metadata=null,record=null)
     activeLine:"main",variation:null,preview:null,previewPosition:null,
     openedAt:game.moveNumber,analysisId:0};
   $("reviewNotice").textContent="";
-  $("reviewCopyFallback").hidden=true;
-  $("reviewCopyFallback").hidden=true;
   show();requestReviewOwnership();
 }
 function setBoardReviewStep(step) {
@@ -1334,7 +1357,6 @@ function setBoardReviewStep(step) {
     boardReview.display=display;boardReview.step=step;
     boardReview.preview=null;boardReview.previewPosition=null;
     reviewFeedback("");$("reviewNotice").textContent="";
-    $("reviewCopyFallback").hidden=true;
     show();requestReviewOwnership();
   }catch(error){$("reviewNotice").textContent="棋譜を再生できません："+error.message;}
 }
@@ -1343,8 +1365,6 @@ function clearBoardReview() {
   const wasUrl=boardReview.source==="url";
   boardReview=null;reviewSequence++;
   if(wasUrl)clearImportedReviewUrl();
-  $("reviewCopyFallback").hidden=true;
-  $("reviewCopyFallback").hidden=true;
   $("moveLabel").setAttribute("aria-label","棋譜を再生する");
 }
 function leaveBoardReview() {
@@ -1378,31 +1398,25 @@ function forkBoardReview() {
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
   clearImportedReviewUrl();
   boardReview=null;reviewSequence++;
-  $("reviewCopyFallback").hidden=true;
   save();show();requestAnalysis();
 }
-async function copyReviewText(text,statusId,fallbackId) {
-  const status=$(statusId),field=$(fallbackId);
-  try{
-    if(typeof navigator.clipboard?.writeText!=="function")throw Error("clipboard unavailable");
-    await navigator.clipboard.writeText(text);
-    field.hidden=true;status.textContent="コピーしました。";
-  }catch{
-    field.value=text;field.hidden=false;field.focus();field.select();
-    try{field.setSelectionRange(0,text.length);}catch{}
-    status.textContent="自動コピーできませんでした。選択された文章を手動でコピーしてください。";
-  }
+// Everything in the share sheet works on the displayed board: the replayed
+// line and step while replaying, otherwise the live game as it stands.
+function sharedPosition() {
+  if(boardReview)return {...variationForSharing(boardReview,game),
+    gameId:boardReview.source==="live" ? currentGameId : boardReview.record?.id ?? null};
+  return {snapshot:game,metadata:null,step:game.moves.filter(m=>m.position!=="resign").length,
+    gameId:currentGameId};
 }
-function selectedBoardReviewUrl() {
-  const {snapshot,metadata,step}=variationForSharing(boardReview,game);
+function sharedUrl() {
+  const {snapshot,metadata,step}=sharedPosition();
   return makeReviewUrl(location.origin,{snapshot,sgfMeta:metadata},step);
 }
-async function shareBoardReview(ai) {
-  if(!boardReview)return;
+async function copyShareUrl(ai) {
   try{
-    const url=selectedBoardReviewUrl();
-    await copyReviewText(ai?makeAiHandoff(url):url,"reviewNotice","reviewCopyFallback");
-  }catch(error){$("reviewNotice").textContent="共有URLを作れません："+error.message;}
+    const url=sharedUrl();
+    await copyWithFallback(ai?makeAiHandoff(url):url,$("shareNotice"),$("shareCopyFallback"));
+  }catch(error){$("shareNotice").textContent="共有URLを作れません："+error.message;}
 }
 function canResumeSelectedReview(){
   const review=boardReview,record=review?.record;
@@ -1427,19 +1441,150 @@ function openSavedBoard(record) {
     if($("historySetup").hidden)openHistoryPanel();
   }
 }
-function exportReviewSGF(){
-  if(!boardReview)return;
+function exportSharedSGF(){
   try{
-    const details=variationForSharing(boardReview,game);
+    const details=sharedPosition();
     const contents=exportSGF({snapshot:details.snapshot,sgfMeta:details.metadata});
-    const blob=new Blob([contents],{type:"application/x-go-sgf;charset=utf-8"});
-    const url=URL.createObjectURL(blob);
-    const link=document.createElement("a");
-    link.href=url;link.download="miego-"+(boardReview.record?.id||"shared")+".sgf";
-    document.body.append(link);link.click();link.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
-    $("reviewNotice").textContent="SGFを書き出しました。";
-  }catch(error){$("reviewNotice").textContent="SGFを書き出せません："+error.message;}
+    const id=boardReview?boardReview.record?.id||"shared":currentGameId||"game";
+    downloadBlob(new Blob([contents],{type:"application/x-go-sgf;charset=utf-8"}),"miego-"+id+".sgf");
+    $("shareNotice").textContent="SGFを書き出しました。";
+  }catch(error){$("shareNotice").textContent="SGFを書き出せません："+error.message;}
+}
+function downloadBlob(blob,name){
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;link.download=name;
+  document.body.append(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+// Shared images end on the board exactly as drawn (board look, ownership
+// colours, marks and labels come from the canvas itself), set in a card
+// naming the moves, the result, where to play and where it is developed.
+// Both kinds are made when the sheet opens so each choice shows its image.
+const SHARE_KINDS=["still","animation"];
+let shareImageKind="still",shareImageJob=0;
+let shareImages={},sharePreviewUrls=[];
+let frameRenderer=null,frameState=null,frameOwnership=null;
+const ANIMATION_SIZE=600;
+// The ownership shown for each committed position, kept per saved game so
+// every frame of a shared animation carries the colours seen while playing.
+const ownershipStore=new OwnershipStore(localStorage);
+function rememberOwnership(board,values){
+  try{ownershipStore.remember(currentGameId,board,values);}catch(error){console.warn("Ownership not kept",error);}
+}
+const frameCanvas=(width,height)=>Object.assign(document.createElement("canvas"),{width,height});
+function shareImageDetails(animated){
+  const {snapshot,metadata,step,gameId}=sharedPosition();
+  const total=snapshot.moves.filter(m=>m.position!=="resign").length;
+  const result=metadata?.result || (snapshot.status==="finished" ? snapshot.result : null);
+  // The legend explains colours only when the image carries them: every
+  // animation frame is coloured, a still only what the board now shows.
+  const coloured=overlayOn() && (animated ||
+    (boardReview ? !!boardReview.ownership : game.status==="playing" && !!displayedOwnership));
+  return {snapshot,step,gameId,labels:{...shareLabels({step,total,result,animated,
+      komi:Number.isFinite(Number(metadata?.komi)) ? Number(metadata.komi) : komiOf(snapshot),
+      handicap:handicapOf(snapshot)}),boardSize:sizeOf(snapshot.board),
+    theme:boardTheme,legend:coloured ? {palette,opacity} : null}};
+}
+// An animation frame: the replayed position with the ownership recorded for
+// it, or the replay view's quick estimate where none was recorded.
+function renderFrameBoard(state,gameId){
+  if(!frameRenderer){
+    const board=frameCanvas(ANIMATION_SIZE,ANIMATION_SIZE);
+    frameRenderer={board,...createBoardRenderer({canvas:board,getView:()=>({game:frameState,
+      boardReview:{display:frameState,ownership:frameOwnership},candidate:null,illegalCandidate:null,
+      lastPosition:null,displayedOwnership:null,palette,opacity,boardTheme,hints:null})})};
+  }
+  frameState=state;
+  frameOwnership=overlayOn() ? ownershipStore.recall(gameId,state.board) ?? influence(state.board) : null;
+  frameRenderer.draw();
+  return frameRenderer.board;
+}
+async function makeShareImage(kind,job){
+  await loadShareFonts();
+  draw();
+  const animated=kind==="animation";
+  const {snapshot,step,gameId,labels}=shareImageDetails(animated);
+  if(animated){
+    frameRenderer=null;
+    const bytes=await buildGameAnimation({snapshot,step,size:ANIMATION_SIZE,
+      renderBoard:state=>renderFrameBoard(state,gameId),finalBoard:canvas,createCanvas:frameCanvas,labels,
+      onProgress:(i,total)=>{
+        if(job!==shareImageJob)throw Error("中断しました");
+        shareImages.animation={progress:i+"/"+total+"手"};renderShareImages();
+      }});
+    return new File([bytes],"miego-moves"+step+".gif",{type:"image/gif"});
+  }
+  const {width,height}=shareFrameSize(canvas.width);
+  const target=frameCanvas(width,height);
+  paintShareFrame(target,canvas,labels);
+  const blob=await new Promise((resolve,reject)=>
+    target.toBlob(b=>b?resolve(b):reject(Error("画像を作れません")),"image/png"));
+  return new File([blob],"miego-move"+step+".png",{type:"image/png"});
+}
+const canShareFile=file=>{
+  try{return typeof navigator.share==="function" && !!navigator.canShare?.({files:[file]});}
+  catch{return false;}
+};
+function renderShareImages(){
+  for(const kind of SHARE_KINDS){
+    const entry=shareImages[kind]||{},id=kind==="still"?"Still":"Animation";
+    const preview=$("share"+id+"Preview"),status=$("share"+id+"Status");
+    preview.hidden=!entry.url;
+    if(entry.url && preview.getAttribute("src")!==entry.url)preview.src=entry.url;
+    status.hidden=!!entry.url;
+    status.textContent=entry.failed?"作れませんでした":"作成中…"+(entry.progress?" "+entry.progress:"");
+  }
+  // Saving always works; sharing appears where the device can take the file.
+  const file=shareImages[shareImageKind]?.file;
+  $("saveImage").disabled=$("shareImage").disabled=!file;
+  $("saveImage").textContent=file ? "画像を保存" :
+    shareImages[shareImageKind]?.failed ? "画像を作れませんでした" : "画像を作成中…";
+  $("shareImage").hidden=!file || !canShareFile(file);
+}
+function clearShareImages(){
+  shareImageJob++;shareImages={};
+  sharePreviewUrls.forEach(url=>URL.revokeObjectURL(url));sharePreviewUrls=[];
+}
+// The images are made before the tap: sharing must start straight from the
+// tap, and a long game's animation takes a moment to encode.
+async function prepareShareImages(){
+  clearShareImages();
+  const job=shareImageJob;
+  renderShareImages();
+  for(const kind of SHARE_KINDS){
+    try{
+      const file=await makeShareImage(kind,job);
+      if(job!==shareImageJob)return;
+      const url=URL.createObjectURL(file);sharePreviewUrls.push(url);
+      shareImages[kind]={file,url};
+    }catch(error){
+      if(job!==shareImageJob)return;
+      shareImages[kind]={failed:true};
+      $("shareNotice").textContent="画像を作れません："+error.message;
+    }
+    renderShareImages();
+  }
+}
+function saveImage(){
+  const file=shareImages[shareImageKind]?.file;
+  if(!file)return;
+  downloadBlob(file,file.name);
+  $("shareNotice").textContent="画像を保存しました。";
+}
+async function shareImage(){
+  const file=shareImages[shareImageKind]?.file;
+  if(!file || !canShareFile(file))return;
+  try{await navigator.share({files:[file]});$("shareNotice").textContent="";}
+  catch(error){
+    if(error?.name!=="AbortError")$("shareNotice").textContent="画像を共有できません："+error.message;
+  }
+}
+function openSharePanel(){
+  openPanel("share");
+  $("shareNotice").textContent="";
+  $("shareCopyFallback").hidden=true;
+  void prepareShareImages();
 }
 $("moveLabel").onclick=()=>{
   if(boardReview){leaveBoardReview();return;}
@@ -1464,9 +1609,18 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && $("reviewMenu").open)$("reviewMenu").open=false;
 });
 $("reviewBranch").onclick=forkBoardReview;
-$("reviewExport").onclick=exportReviewSGF;
-$("reviewLink").onclick=()=>void shareBoardReview(false);
-$("reviewAiLink").onclick=()=>void shareBoardReview(true);
+$("saveImage").onclick=saveImage;
+$("shareImage").onclick=()=>void shareImage();
+document.querySelectorAll('input[name="shareImageKind"]').forEach(input=>{
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    shareImageKind=e.target.value==="animation"?"animation":"still";
+    renderShareImages();
+  };
+});
+$("shareLink").onclick=()=>void copyShareUrl(false);
+$("shareAiLink").onclick=()=>void copyShareUrl(true);
+$("shareSgf").onclick=exportSharedSGF;
 function resumeSelectedReview(){
   if(!canResumeSelectedReview())return;
   const selected=boardReview.record;
@@ -1526,6 +1680,8 @@ function closePanels() {
   setBackgroundInert(false);
   $("settingsBackdrop").hidden=true;
   $("settingsPanel").hidden=true;
+  $("sharePanel").hidden=true;
+  clearShareImages();
   $("modePanel").hidden=true;
   $("helpPanel").hidden=true;
   $("helpToggle").setAttribute("aria-expanded","false");
@@ -1535,11 +1691,15 @@ function closePanels() {
   $("aiSetup").hidden=true;
   $("localSetup").hidden=true;
   $("settingsToggle").setAttribute("aria-expanded","false");
+  $("shareToggle").setAttribute("aria-expanded","false");
   $("newGameButton").setAttribute("aria-expanded","false");
 }
 function closeSettings(){closePanels();$("settingsToggle").focus();}
 $("settingsToggle").onclick=()=>$("settingsPanel").hidden?openSettings():closeSettings();
 $("closeSettings").onclick=closeSettings;
+$("shareToggle").onclick=()=>$("sharePanel").hidden?openSharePanel():closeShare();
+function closeShare(){closePanels();$("shareToggle").focus();}
+$("closeShare").onclick=closeShare;
 $("closeMode").onclick=()=>{closePanels();$("newGameButton").focus();};
 // The full help sheet opens from the header and stacks above any open sheet.
 let helpOwnsBackdrop=false;
@@ -1596,16 +1756,7 @@ async function copyBeginnerPrompt(make) {
   try{link=makeReviewUrl(location.origin,{snapshot:game},game.moves.length);}catch{}
   try{question=make(game,link);}
   catch(error){status.textContent="質問文を作れません："+error.message;return;}
-  try{
-    if(typeof navigator.clipboard?.writeText!=="function")throw Error("Clipboard API unavailable");
-    await navigator.clipboard.writeText(question);
-    area.hidden=true;
-    status.textContent="コピーしました。AIのチャットに貼り付けてください。";
-  }catch{
-    area.value=question;area.hidden=false;
-    status.textContent="自動でコピーできませんでした。下の文章を選択してコピーしてください。";
-    area.focus();area.select();
-  }
+  await copyWithFallback(question,status,area,"コピーしました。AIのチャットに貼り付けてください。");
 }
 $("copyRulesPrompt").onclick=()=>void copyBeginnerPrompt(makeRulesPrompt);
 $("copyPositionPrompt").onclick=()=>void copyBeginnerPrompt(makePositionPrompt);

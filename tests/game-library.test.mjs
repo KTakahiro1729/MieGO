@@ -97,7 +97,7 @@ test("SGF import and saved games open on the common board without touching the c
  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
  const historyPanel=readFileSync(new URL("../public/history-panel.mjs",import.meta.url),"utf8");
  const historyNavigation=readFileSync(new URL("../public/history-navigation.mjs",import.meta.url),"utf8");
- for(const id of ["historyImportFile","historyList","reviewResume","reviewExport","reviewBranch"])
+ for(const id of ["historyImportFile","historyList","reviewResume","shareSgf","reviewBranch"])
    assert.match(html,new RegExp('id="'+id+'"'));
  assert.match(historyPanel,/gameLibrary\.save\(\{mode:"local",snapshot:parsed\.snapshot,source:"sgf"/);
  assert.match(historyPanel,/onSelect\(record\)/);
@@ -120,12 +120,12 @@ test("unified history sheet preserves scoring and keyboard-friendly selection",a
  const h=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
  const a=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
  const historyPanel=readFileSync(new URL("../public/history-panel.mjs",import.meta.url),"utf8");
- for(const id of ["historySaveNotice","scoringActions","openCurrentMode","reviewStepRange","reviewExport"])
+ for(const id of ["historySaveNotice","scoringActions","openCurrentMode","reviewStepRange","shareSgf"])
    assert.match(h,new RegExp('id="'+id+'"'));
  assert.match(a,/\$\("openCurrentMode"\)\.onclick/);
  assert.match(historyPanel,/function showHistory\(\)/);
  assert.match(a,/\$\("newGameButton"\)\.focus\(\)/);
- assert.match(a,/\$\("reviewNotice"\)\.textContent="SGFを書き出しました/);
+ assert.match(a,/\$\("shareNotice"\)\.textContent="SGFを書き出しました/);
 });
 
 test("variation snapshots stay independently archived and never become resumable active games",()=>{
