@@ -51,7 +51,7 @@ test("replay traverses legal positions, captures, passes and scoring transitions
 test("resignation exports as RE and reviewing its final board can be branched",()=>{
  const s=play(play(newGame(),40),"resign");
  const sgf=exportSGF({snapshot:s});
- assert.match(sgf,/RE\[W\+R\]/);
+ assert.match(sgf,/RE\[B\+R\]/);
  assert.equal((sgf.match(/;B\[/g)||[]).length,1);
  const fork=forkReview(s,s.moves.length);
  assert.equal(fork.status,"playing");
