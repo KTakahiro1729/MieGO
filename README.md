@@ -55,3 +55,9 @@ npm run dev
 地合いの初期カラーマップは**白〜灰〜黒**。設定から紫〜緑・青〜赤に変更でき、濃さも変更できます。配色は端末のブラウザに保存されます。グラデーションは新しいOwnership評価を受け取った際に短時間で変化し、動きを減らす端末設定にも対応します。
 
 画面はあくまで所有傾向の可視化です。確率や予測目数差は表示せず、KataGoが利用できない場合は簡易モデル使用を通知します。
+
+### CloudflareのPR Preview
+
+Cloudflare Workers BuildsのPRデプロイコマンドが `npx wrangler preview` の場合、`wrangler.jsonc` の `previews.durable_objects.bindings` が必要です。MieGOは `env.ROOMS` を使うため、`GameRoom` をPreviewにも宣言しています。CloudflareはPreviewごとに独立したDurable Object名前空間とストレージを作成します。Build commandは `npm test`、Preview deploy commandは `npx wrangler preview` のままで構いません。Productionへのデプロイには `npx wrangler deploy` を使用してください。
+
+Cloudflare公式仕様: https://developers.cloudflare.com/workers/previews/resources/#durable-objects
