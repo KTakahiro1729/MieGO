@@ -1,53 +1,74 @@
-import { SIZE, play } from "./core.mjs";
+import { SIZE, BLACK, play } from "./core.mjs";
+import { formatBoardForAi, AI_BOARD_LEGEND, AI_SELECTED_POINT } from "./board-text.mjs";
 
 export const ILLEGAL_SUICIDE = "suicide";
 export const ILLEGAL_KO = "ko";
+const reasons = {
+  [ILLEGAL_SUICIDE]: "自殺手は禁止です",
+  [ILLEGAL_KO]: "コウで直前の局面に戻せません"
+};
 
-/** Use the actual game engine, not a separate approximation, to identify
- * empty intersections prohibited for the player whose turn it is.
- */
-export function illegalMoveReasons(state) {
-  const reasons = new Map();
-  if(state.status !== "playing") return reasons;
-  for(let position=0;position<SIZE*SIZE;position++) {
-    if(state.board[position] !== 0) continue;
-    try {
-      play(state, position);
-    } catch(error) {
-      if(error instanceof Error && error.message === "自殺手は禁止です")
-        reasons.set(position, ILLEGAL_SUICIDE);
-      else if(error instanceof Error && error.message === "コウで直前の局面に戻せません")
-        reasons.set(position, ILLEGAL_KO);
-    }
-  }
-  return reasons;
+export function forbiddenMoveReason(error) {
+  if(!(error instanceof Error))return null;
+  return Object.entries(reasons).find(([,message])=>error.message===message)?.[0]||null;
 }
 
-/** Both reasons use precisely the same circle, color, opacity and stroke.
- * Only the central slash or cross differs. Draw on the existing canvas.
- */
-export function drawIllegalMoveMarker(ctx, x, y, gap, reason) {
-  if(reason !== ILLEGAL_KO && reason !== ILLEGAL_SUICIDE) return;
-  const radius=gap*.18;
-  const inner=radius*.57;
-  ctx.save();
-  ctx.globalAlpha=.84;
-  ctx.fillStyle="#ecdfc4";
-  ctx.strokeStyle="#4d4a44";
-  ctx.lineWidth=Math.max(1.7,gap*.032);
-  ctx.lineCap="round";
-  ctx.beginPath();
-  ctx.arc(x,y,radius,0,Math.PI*2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.beginPath();
-  // Ko: circle with slash. Suicide: circle with cross.
-  ctx.moveTo(x-inner,y+inner);
-  ctx.lineTo(x+inner,y-inner);
-  if(reason===ILLEGAL_SUICIDE) {
-    ctx.moveTo(x-inner,y-inner);
-    ctx.lineTo(x+inner,y+inner);
+/** The rules engine remains the only authority for whether a move is legal.
+ * A forbidden preview is separate from committed game state. */
+export function inspectProvisionalMove(game,position) {
+  if(game.status!=="playing" || !Number.isInteger(position) ||
+     position<0 || position>=SIZE*SIZE || game.board[position]!==0)
+    return {candidate:null,forbidden:null};
+  try {return {candidate:play(game,position),forbidden:null};}
+  catch(error) {
+    const reason=forbiddenMoveReason(error);
+    if(!reason)throw error;
+    return {candidate:null,forbidden:{position,reason,source:game}};
   }
-  ctx.stroke();
-  ctx.restore();
+}
+
+/** Kept as a rules-only helper; never used to draw marks on the board. */
+export function illegalMoveReasons(state) {
+  const result=new Map();
+  if(state.status!=="playing")return result;
+  for(let i=0;i<SIZE*SIZE;i++) {
+    if(state.board[i])continue;
+    const {forbidden}=inspectProvisionalMove(state,i);
+    if(forbidden)result.set(i,forbidden.reason);
+  }
+  return result;
+}
+
+/** A self-contained Japanese question for a user to paste into an AI chat.
+ * Includes a public SGF replay URL and a highlighted glyph board, but never
+ * a private P2P invitation URL or an on-board coordinate label. */
+export function makeIllegalMovePrompt(game,forbidden,reviewUrl) {
+  if(!forbidden || !Object.hasOwn(reasons,forbidden.reason) ||
+     game.board?.[forbidden.position]!==0 || game.status!=="playing")
+    throw Error("説明する禁止手がありません");
+  const color=game.next===BLACK?"黒":"白";
+  const url=new URL(reviewUrl);
+  if(!["https:","http:"].includes(url.protocol) || url.searchParams.has("room") ||
+     !url.searchParams.get("sgf") || !url.searchParams.has("move"))
+    throw Error("有効なSGF棋譜URLが必要です");
+  let before="";
+  if(forbidden.reason===ILLEGAL_KO && game.history?.length>=2) {
+    const hash=game.history.at(-2);
+    if(typeof hash==="string" && hash.length===SIZE*SIZE && /^[012]+$/.test(hash)) {
+      const previous=[...hash].map(n=>Number(n)-1);
+      before="\n\n直前の着手前の盤面：\n"+formatBoardForAi(previous);
+    }
+  }
+  return [
+    "MieGO・9路盤の着手確認",
+    "手番："+color+"、選択した空点は図中の◇です。",
+    "禁止理由："+reasons[forbidden.reason],
+    "なぜこの手が打てないのか、盤面と囲碁のルールに沿って説明してください。",
+    "棋譜URL: "+url.href,
+    "",
+    AI_BOARD_LEGEND+" "+AI_SELECTED_POINT,
+    "",
+    "現在の盤面：",
+    formatBoardForAi(game.board,{selectedPosition:forbidden.position})+before
+  ].join("\n");
 }

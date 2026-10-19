@@ -1,6 +1,5 @@
 import {SIZE, BLACK} from "./core.mjs";
 import {ownershipPixel} from "./territory-view.mjs";
-import {illegalMoveReasons, drawIllegalMoveMarker} from "./illegal-moves.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
 
 const STAR_POINTS = [[2,2],[6,2],[4,4],[2,6],[6,6]];
@@ -16,10 +15,6 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   overlayCanvas.width = SIZE;
   overlayCanvas.height = SIZE;
   const overlayContext = overlayCanvas.getContext("2d");
-
-  // The cache is private to this renderer and the immutable committed game.
-  let illegalCacheGame = null;
-  let illegalCache = new Map();
 
   function paintGrid(d, gap, pad) {
     ctx.clearRect(0,0,d,d);
@@ -61,20 +56,6 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     ctx.restore();
   }
 
-  function paintIllegalMarkers({game,boardReview,humanTurn}, gap, pad) {
-    if(!boardReview && game.status==="playing" && humanTurn) {
-      if(illegalCacheGame!==game) {
-        illegalCacheGame=game;
-        illegalCache=illegalMoveReasons(game);
-      }
-      for(const [position,reason] of illegalCache) {
-        const x=pad+(position%SIZE)*gap;
-        const y=pad+Math.floor(position/SIZE)*gap;
-        drawIllegalMoveMarker(ctx,x,y,gap,reason);
-      }
-    }
-  }
-
   function paintStarPoints(gap,pad) {
     for(const [x,y] of STAR_POINTS) {
       ctx.beginPath();
@@ -106,11 +87,15 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   function paintStones(view, display, gap, pad) {
-    const {game,boardReview,candidate} = view;
+    const {game,boardReview,candidate,illegalCandidate} = view;
     const proposedBoard = boardReview?.preview?.board || (boardReview ? null : candidate?.board);
-    const preview = boardReview ? boardReview.previewPosition : candidate?.moves.at(-1)?.position;
+    const preview = boardReview ? boardReview.previewPosition :
+      (candidate?.moves.at(-1)?.position ?? illegalCandidate?.position);
     for(let i=0;i<display.board.length;i++) {
-      const {color,captured} = stoneForPreview(display.board, proposedBoard, i);
+      const {color:committedColor,captured} = stoneForPreview(display.board, proposedBoard, i);
+      // A forbidden point is selectable, but the stone is never committed.
+      const color=!boardReview && illegalCandidate?.position===i && display.board[i]===0
+        ? game.next : committedColor;
       if(!color)continue;
       const x=pad+(i%SIZE)*gap;
       const y=pad+Math.floor(i/SIZE)*gap;
@@ -141,9 +126,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   function paintLastMove(view,display,gap,pad) {
-    const {game,boardReview,candidate,lastPosition} = view;
+    const {game,boardReview,candidate,illegalCandidate,lastPosition} = view;
     const marker=boardReview?display.moves.at(-1)?.position:lastPosition;
-    if(Number.isInteger(marker) && (boardReview||(!candidate && game.status==="playing"))) {
+    if(Number.isInteger(marker) && (boardReview||(!candidate && !illegalCandidate && game.status==="playing"))) {
       const x=pad+(marker%SIZE)*gap;
       const y=pad+Math.floor(marker/SIZE)*gap;
       ctx.fillStyle="#d0b25c";
@@ -158,7 +143,6 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const d=canvas.width, gap=d/(SIZE+1), pad=gap;
     paintGrid(d,gap,pad);
     paintOwnership(view,gap,pad);
-    paintIllegalMarkers(view,gap,pad);
     paintStarPoints(gap,pad);
     paintStones(view,display,gap,pad);
     paintLastMove(view,display,gap,pad);
