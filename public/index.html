@@ -20,6 +20,9 @@
         <button id="settingsToggle" class="icon-button" type="button" aria-label="設定を開く" aria-controls="settingsPanel" aria-expanded="false">
           <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9.7 2.5-.45 2.1-1.7.7-1.8-1.16-2.6 2.6 1.16 1.8-.7 1.7-2.11.46v3.6l2.1.45.7 1.7-1.16 1.8 2.6 2.6 1.8-1.16 1.7.7.46 2.11h3.6l.45-2.1 1.7-.7 1.8 1.16 2.6-2.6-1.16-1.8.7-1.7 2.11-.46v-3.6l-2.1-.45-.7-1.7 1.16-1.8-2.6-2.6-1.8 1.16-1.7-.7-.46-2.11Z"/><circle cx="11.5" cy="12.5" r="3.2"/></svg>
         </button>
+        <button id="shareToggle" class="icon-button" type="button" aria-label="共有を開く" aria-controls="sharePanel" aria-expanded="false">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7.5A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-2"/></svg>
+        </button>
       </div>
     </header>
     <main class="game-layout">
@@ -42,9 +45,9 @@
             <span class="pinch-hint-text">2本の指で広げると拡大できます</span>
           </div>
         </div>
-        <div id="ownershipLegend" class="ownership-legend" aria-label="地合いの色の凡例">
+        <div id="ownershipLegend" class="ownership-legend" aria-label="地合いの推定の色の凡例">
           <div class="gradient" id="gradient" aria-hidden="true"></div>
-          <div class="legend-labels"><span id="legendWhite">白寄り</span><span id="legendNeutral" hidden>中立</span><span id="legendBlack">黒寄り</span></div>
+          <div class="legend-labels"><span id="legendWhite">白の地</span><span id="legendNeutral" hidden>中立</span><span id="legendBlack">黒の地</span></div>
         </div>
         <div id="endgameBar" class="endgame-bar" aria-label="終局の相談">
           <span id="endStatus" class="end-status" role="status" aria-live="polite">終局はまだのようです</span>
@@ -81,7 +84,7 @@
           <button id="newMatch" class="primary" type="button" hidden>もう一局</button>
         </div>
         <div id="illegalPromptFallbackPanel" class="illegal-prompt-fallback" hidden>
-          <label for="illegalPromptFallback">自動コピーできませんでした。下の文章を選択してコピーしてください。</label>
+          <label for="illegalPromptFallback">自動でコピーできませんでした。下の文章を選択してコピーしてください。</label>
           <textarea id="illegalPromptFallback" readonly rows="7" spellcheck="false"></textarea>
           <button id="closeIllegalPromptFallback" class="secondary" type="button">閉じる</button>
         </div>
@@ -112,13 +115,9 @@
                 <button id="reviewVariation" type="button" hidden>変化図を見る</button>
                 <button id="reviewPass" type="button">この局面からパスを試す</button>
                 <button id="reviewSaveVariation" type="button" hidden>変化図を棋譜に保存</button>
-                <button id="reviewLink" type="button">この手数のURLをコピー</button>
-                <button id="reviewAiLink" type="button">AI向けにコピー</button>
                 <button id="reviewResume" type="button" hidden>対局の続き</button>
                 <button id="reviewBranch" type="button">ここから1台で打つ</button>
-                <button id="reviewExport" type="button">SGFを保存</button>
                 <p id="reviewNotice" role="status" aria-live="polite"></p>
-                <textarea id="reviewCopyFallback" readonly hidden aria-label="手動コピー用の文字列"></textarea>
               </div>
             </details>
           </div>
@@ -155,6 +154,28 @@
         <button id="openHistorySettings" class="secondary full" type="button">保存した棋譜</button>
         <button id="openCurrentMode" class="secondary full" type="button" hidden>AIの設定・再戦</button>
       </section>
+    </aside>
+    <aside id="sharePanel" class="settings-panel share-panel" role="dialog" aria-modal="true" aria-label="共有" hidden>
+      <div class="settings-head"><h2>共有</h2><button id="closeShare" class="icon-button" type="button" aria-label="共有を閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <section class="settings-section">
+        <h3>画像</h3>
+        <div class="ai-color-choices share-kind-choices" role="radiogroup" aria-label="画像の種類">
+          <label><input type="radio" name="shareImageKind" value="still" checked><span><img id="shareStillPreview" class="share-preview" alt="共有する静止画のプレビュー" hidden><small id="shareStillStatus" class="share-preview share-preview-status">作成中…</small>静止画</span></label>
+          <label><input type="radio" name="shareImageKind" value="animation"><span><img id="shareAnimationPreview" class="share-preview" alt="共有する棋譜アニメのプレビュー" hidden><small id="shareAnimationStatus" class="share-preview share-preview-status">作成中…</small>棋譜アニメ（GIF）</span></label>
+        </div>
+        <div class="share-image-actions">
+          <button id="saveImage" class="secondary" type="button" disabled>画像を保存</button>
+          <button id="shareImage" class="primary" type="button" disabled hidden>SNSで共有</button>
+        </div>
+      </section>
+      <section class="settings-section">
+        <h3>棋譜</h3>
+        <button id="shareLink" class="secondary full" type="button">この局面のURLをコピー</button>
+        <button id="shareAiLink" class="secondary full described" type="button"><span>AI向けにコピー</span><small>この盤面をAIに相談したい時に使ってください。今の盤面とMieGOの使い方を説明した文章をクリップボードにコピーします</small></button>
+        <button id="shareSgf" class="secondary full described" type="button"><span>SGFを保存</span><small>囲碁の棋譜の標準形式です。ほかの囲碁ソフトで開いたり、MieGOの「保存した棋譜」から読み込み直したりできます</small></button>
+      </section>
+      <p id="shareNotice" class="invite-status" role="status" aria-live="polite"></p>
+      <textarea id="shareCopyFallback" readonly hidden aria-label="手動コピー用の文字列"></textarea>
     </aside>
     <aside id="modePanel" class="settings-panel mode-panel" role="dialog" aria-modal="true" aria-labelledby="modeTitle" hidden>
       <div class="settings-head"><h2 id="modeTitle">新規対戦</h2><span class="sheet-head-actions"><button class="help-button" type="button" data-help="local" aria-label="新規対戦のヘルプ" title="新規対戦のヘルプ" id="modeHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="closeMode" class="icon-button" type="button" aria-label="閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span></div>
@@ -338,6 +359,10 @@
         </details>
       </section>
     </aside>
+    <div id="helpPopover" class="help-popover" role="dialog" aria-labelledby="helpPopoverTitle" hidden>
+      <div class="help-popover-head"><strong id="helpPopoverTitle"></strong><button id="closeHelpPopover" class="icon-button" type="button" aria-label="ヘルプを閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div id="helpPopoverBody" class="help-popover-body"></div>
+    </div>
   </div>
   <script type="module" src="/app.mjs"></script>
 </body>

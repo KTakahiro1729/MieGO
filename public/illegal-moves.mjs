@@ -1,5 +1,6 @@
 import { BLACK, play, sizeOf } from "./core.mjs";
-import { formatBoardForAi, AI_BOARD_LEGEND, AI_SELECTED_POINT } from "./board-text.mjs";
+import { formatBoardForAi, formatBoardSection } from "./board-text.mjs";
+import { shareableReviewUrl } from "./sgf-link.mjs";
 
 export const ILLEGAL_SUICIDE = "suicide";
 export const ILLEGAL_KO = "ko";
@@ -47,10 +48,7 @@ export function makeIllegalMovePrompt(game,forbidden,reviewUrl) {
      game.board?.[forbidden.position]!==0 || game.status!=="playing")
     throw Error("説明する禁止手がありません");
   const color=game.next===BLACK?"黒":"白";
-  const url=new URL(reviewUrl);
-  if(!["https:","http:"].includes(url.protocol) || url.searchParams.has("room") ||
-     !url.searchParams.get("sgf") || !url.searchParams.has("move"))
-    throw Error("有効なSGF棋譜URLが必要です");
+  const url=shareableReviewUrl(reviewUrl);
   let before="";
   if(forbidden.reason===ILLEGAL_KO && game.history?.length>=2) {
     const hash=game.history.at(-2);
@@ -66,9 +64,6 @@ export function makeIllegalMovePrompt(game,forbidden,reviewUrl) {
     "なぜこの手が打てないのか、盤面と囲碁のルールに沿って説明してください。",
     "棋譜URL: "+url.href,
     "",
-    AI_BOARD_LEGEND+" "+AI_SELECTED_POINT,
-    "",
-    "現在の盤面：",
-    formatBoardForAi(game.board,{selectedPosition:forbidden.position})+before
+    formatBoardSection("現在の盤面",game.board,{selectedPosition:forbidden.position})+before
   ].join("\n");
 }

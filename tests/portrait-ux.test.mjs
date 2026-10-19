@@ -26,7 +26,7 @@ test("final score is above sticky actions and visible in a compact score area",(
   assert.match(css,/\.game-panel\.is-scoring,\.game-panel\.is-finished\{--board-reserve:337px\}/);
   // The legend stays while counting and explains the counted areas.
   assert.doesNotMatch(css,/\.is-scoring \.ownership-legend[^}]*display:none/);
-  assert.match(app,/counting\?"白の地":"白寄り"/);
+  assert.match(app,/\$\("legendNeutral"\)\.hidden=!counting/);
   assert.match(app,/\$\("scoreBox"\)\.querySelector\("strong"\)\.textContent=/);
   assert.match(app,/\$\("gamePanel"\)\.classList\.toggle\("is-finished",isFinished\)/);
 });
