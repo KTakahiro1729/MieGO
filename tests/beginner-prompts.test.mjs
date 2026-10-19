@@ -43,5 +43,5 @@ test("the help sheet opens with the beginner questions and falls back to manual 
   assert.match(app,/\$\("copyPositionPrompt"\)\.onclick=\(\)=>void copyBeginnerPrompt\(makePositionPrompt\)/);
   // The live game is described, built with the same SGF URL as the forbidden-move question.
   assert.match(app,/link=makeReviewUrl\(location\.origin,\{snapshot:game\},game\.moves\.length\)/);
-  assert.match(app,/area\.value=question;area\.hidden=false;/);
+  assert.match(app,/await copyWithFallback\(question,status,area,/);
 });

@@ -1,5 +1,6 @@
 import { BLACK, sizeOf, handicapOf, komiOf } from "./core.mjs";
-import { formatBoardForAi, AI_BOARD_LEGEND } from "./board-text.mjs";
+import { formatBoardSection } from "./board-text.mjs";
+import { shareableReviewUrl } from "./sgf-link.mjs";
 
 // Questions a beginner can paste into any AI chat. Like the forbidden-move
 // question they carry a public SGF replay URL at most, never a P2P room URL.
@@ -27,11 +28,7 @@ export function makeRulesPrompt(game) {
 
 /** reviewUrl is optional; a long game may not fit in a URL. */
 export function makePositionPrompt(game,reviewUrl=null) {
-  if(reviewUrl!==null){
-    const url=new URL(reviewUrl);
-    if(!["https:","http:"].includes(url.protocol) || url.searchParams.has("room"))
-      throw Error("共有できない棋譜URLです");
-  }
+  const url=reviewUrl===null?null:shareableReviewUrl(reviewUrl);
   const color=game.next===BLACK?"黒":"白";
   const state=game.status==="playing"?"手番："+color+"。"+(game.moveNumber?game.moveNumber+"手目まで打ちました。":"まだ1手も打っていません。"):
     game.status==="scoring"?"いま採点中です。":"対局は終わっています。";
@@ -45,11 +42,8 @@ export function makePositionPrompt(game,reviewUrl=null) {
     ask,
     "場所は「上から○行目・左から○列目」で示してください。",
     AFTERWARDS,
-    ...(reviewUrl?["棋譜URL: "+reviewUrl]:[]),
+    ...(url?["棋譜URL: "+url.href]:[]),
     "",
-    AI_BOARD_LEGEND,
-    "",
-    "現在の盤面：",
-    formatBoardForAi(game.board)
+    formatBoardSection("現在の盤面",game.board)
   ].join("\n");
 }

@@ -1,7 +1,7 @@
 import { exportSGF, parseSGF, replaySteps } from "./sgf.mjs";
-import { formatBoardForAi, AI_BOARD_LEGEND } from "./board-text.mjs";
+import { formatBoardSection } from "./board-text.mjs";
 
-// A human- and AI-readable 9x9 SGF is carried in the URL query string.
+// A human- and AI-readable SGF (9x9, 13x13 or 19x19) is carried in the URL query string.
 // Keep the uncompressed SGF, rather than inventing a proprietary binary code.
 export const MAX_SHARE_URL_LENGTH = 8192;
 
@@ -39,8 +39,18 @@ export function readReviewUrl(input) {
   return {kind:"review",snapshot:parsed.snapshot,step,sgf:source,metadata:parsed.metadata};
 }
 
+/** The only URL any text meant for an AI chat may carry: a public SGF replay,
+ * never a live P2P invitation whose query holds the room's credentials. */
+export function shareableReviewUrl(input) {
+  const url=new URL(input);
+  if(!["https:","http:"].includes(url.protocol) || url.searchParams.has("room") ||
+     !url.searchParams.get("sgf") || !url.searchParams.has("move"))
+    throw Error("共有できない棋譜URLです");
+  return url;
+}
+
 export function makeAiHandoff(reviewUrl) {
-  const url=new URL(reviewUrl);
+  const url=shareableReviewUrl(reviewUrl);
   const guide=new URL("/ai.md",url.origin);
   const review=readReviewUrl(url.href);
   if(review.kind!=="review")throw Error("棋譜URLではありません");
@@ -50,9 +60,7 @@ export function makeAiHandoff(reviewUrl) {
     "",
     "棋譜URL: "+url.href,
     "",
-    "選択している局面（"+review.step+"手目）の盤面：",
-    AI_BOARD_LEGEND,
-    formatBoardForAi(shown.board),
+    formatBoardSection("選択している局面（"+review.step+"手目）の盤面",shown.board),
     "",
     "sgf はURLエンコードされた標準SGFの全着手列です。move は表示する手数で、0は初期盤面、省略時は最終局面です。",
     "同じ棋譜の別の局面はsgfを変えずmoveの値を変更して提示できます。",
