@@ -35,7 +35,12 @@ test("switch confirms only when a game or connection is active",()=>{
 });
 
 test("late P2P events cannot modify a local game after leaving a room",()=>{
-  assert.match(app,/if\(!room \|\| c!==channel\)return;/);
+  const start=app.indexOf("c.onmessage=e=>{");
+  assert.notEqual(start,-1,"P2P data channel message handler must exist");
+  const messageHandler=app.slice(start,app.indexOf("\n  };",start));
+  // A late event must be rejected if the user left or its channel was replaced.
+  // Both operand orders of the channel inequality are equivalent.
+  assert.match(messageHandler,/if\s*\(\s*!room\s*\|\|\s*(?:channel\s*!==\s*c|c\s*!==\s*channel)\s*\)\s*return\s*;/);
   assert.match(app,/function leaveOnlineRoom\(\)/);
 });
 
