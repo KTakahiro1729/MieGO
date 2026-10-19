@@ -1,4 +1,5 @@
 import { group } from "./core.mjs";
+import { OWNERSHIP_BANDS } from "./territory-view.mjs";
 
 /** Non-authoritative endgame advice for 9x9 Chinese rules.
  * Evaluations must be from committed positions (never sandbox/preview moves).
@@ -41,7 +42,7 @@ export class EndgameAdvisor {
       if(g.liberties.size<=1){dangerous=true;break;}
     }
     const settled = free.length
-      ? free.filter(i=>Math.abs(ownership[i])>=.72).length/free.length : 1;
+      ? free.filter(i=>Math.abs(ownership[i])>=OWNERSHIP_BANDS.SETTLED).length/free.length : 1;
     let change = Infinity;
     if(this.previous) {
       change = free.length

@@ -19,7 +19,7 @@ export const PALETTES = Object.freeze({
   }),
   // ColorBrewer 5-class PuOr / PRGn (outer and inner hues), re-lit per board.
   orangePurple: Object.freeze({
-    wood: sides(side([230,97,1],[253,184,99],1.5),side([94,60,153],[178,171,210],.8)),
+    wood: sides(side([230,97,1],[247,150,50],1.5),side([94,60,153],[178,171,210],.8)),
     light: sides(side([230,97,1],[253,184,99],1.3),side([94,60,153],[178,171,210],.95)),
     dark: sides(side([245,150,50],[253,200,140],.7),side([120,80,190],[178,171,210],1.5))
   }),
@@ -40,9 +40,22 @@ export function normalizePalette(value) {
   return isPaletteChoice(value) ? value : DEFAULT_PALETTE;
 }
 export const showsOwnership = palette => palette !== PALETTE_NONE;
-// Opacity follows |v|^(1/1.33) so leanings near neutral are still visible.
-export const OWNERSHIP_GAMMA = 1.33;
+// The five colours are bands with a meaning, not a smooth ramp:
+//   |v| <  LEANING  neutral, almost no colour;
+//   |v| >= LEANING  the side's weak colour: leaning that way, not decided;
+//   |v| >= SETTLED  the side's strong colour: as good as decided.
+// SETTLED is the same line the endgame advisor counts as "settled", so a
+// board that is nearly all strong colour is a board where scoring is offered.
+// Bands meet over a short blend so the board does not look posterized.
+export const OWNERSHIP_BANDS = Object.freeze({LEANING:.3, SETTLED:.72, BLEND:.05});
+// Overlay strength (before the opacity slider) of each band.
+const NEUTRAL_LEVEL = .1, LEANING_LEVEL = .6;
 const clamp = (v,lo,hi) => Math.min(hi,Math.max(lo,v));
+const smoothstep = (edge,x) => {
+  const t=clamp((x-edge+OWNERSHIP_BANDS.BLEND)/(2*OWNERSHIP_BANDS.BLEND),0,1);
+  return t*t*(3-2*t);
+};
+const strength = value => Number.isFinite(value) ? clamp(Math.abs(value),0,1) : 0;
 function sidesFor(palette, theme) {
   const map = PALETTES[palette] || PALETTES[DEFAULT_PALETTE];
   return map[isBoardTheme(theme) ? theme : DEFAULT_BOARD_THEME];
@@ -52,35 +65,37 @@ function sideAt(value, palette, theme) {
   const {white,black} = sidesFor(palette,theme);
   return v > 0 ? black : white;
 }
-// The side's colour at strength |v|: its weak colour near neutral, its strong one at 1.
+// The side's colour: weak below SETTLED, strong from it.
 function mix(s, value) {
-  const t = Number.isFinite(value) ? clamp(Math.abs(value),0,1) : 0;
+  const t = smoothstep(OWNERSHIP_BANDS.SETTLED,strength(value));
   return s.rgb.map((c,i)=>Math.round(s.weak[i]+(c-s.weak[i])*t));
 }
 export function paletteAt(value, palette = DEFAULT_PALETTE, theme = DEFAULT_BOARD_THEME) {
   return mix(sideAt(value,palette,theme),value);
 }
 export function ownershipAlpha(value, opacity = 1, gain = 1) {
-  const v=Number.isFinite(value)?clamp(value,-1,1):0;
+  const a=strength(value);
   const max=Number.isFinite(opacity)?clamp(opacity,0,1):0;
-  const base=Math.abs(v)**(1/OWNERSHIP_GAMMA)*max;
+  const neutral=NEUTRAL_LEVEL*Math.min(a/(OWNERSHIP_BANDS.LEANING-OWNERSHIP_BANDS.BLEND),1);
+  const leaning=neutral+(LEANING_LEVEL-neutral)*smoothstep(OWNERSHIP_BANDS.LEANING,a);
+  const level=leaning+(1-leaning)*smoothstep(OWNERSHIP_BANDS.SETTLED,a);
   const g=Number.isFinite(gain)&&gain>0?gain:1;
-  return clamp(1-(1-base)**g,0,1);
+  return clamp(1-(1-level*max)**g,0,1);
 }
 export function ownershipPixel(value, palette = DEFAULT_PALETTE, opacity = 1, theme = DEFAULT_BOARD_THEME) {
   const s = sideAt(value,palette,theme);
   return [...mix(s,value),Math.round(255*ownershipAlpha(value,opacity,s.gain))];
 }
-// The legend runs from White (left) through neutral (centre) to Black (right).
+// The legend runs from White (left) through neutral (centre) to Black (right),
+// sampled from the same function as the board so its bands line up with it.
 export function paletteGradient(palette = DEFAULT_PALETTE, opacity = 1, theme = DEFAULT_BOARD_THEME) {
-  const {white,black} = sidesFor(palette,theme);
-  const stop = (s,v,at) => "rgba("+mix(s,v).join(",")+","+
-    Number(ownershipAlpha(v,opacity,s.gain).toFixed(3))+") "+at+"%";
-  const levels = [1,.75,.5,.25,0];
-  return "linear-gradient(90deg,"+[
-    ...levels.map(v=>stop(white,v,(1-v)*50)),
-    ...[...levels].reverse().map(v=>stop(black,v,50+v*50))
-  ].join(",")+")";
+  const stops=[];
+  for(let i=0;i<=40;i++){
+    const v=i/20-1;
+    const [r,g,b,a]=ownershipPixel(v===0?-0:v,palette,opacity,theme);
+    stops.push("rgba("+r+","+g+","+b+","+Number((a/255).toFixed(3))+") "+(i*2.5)+"%");
+  }
+  return "linear-gradient(90deg,"+stops.join(",")+")";
 }
 // Counting uses the same colour map as the estimate, but in flat cells:
 // soft edges are a guess, hard edges are the count. Counting is never hidden,
