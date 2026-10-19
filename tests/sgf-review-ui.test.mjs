@@ -4,21 +4,17 @@ import {readFileSync} from "node:fs";
 
 const source=name=>readFileSync(new URL("../public/"+name,import.meta.url),"utf8");
 const html=source("index.html"),app=source("app.mjs"),renderer=source("board-renderer.mjs"),style=source("style.css");
-test("main board reuses one control row for move replay without scroll-inducing additions",()=>{
-  const review=html.slice(html.indexOf('<section id="reviewPanel"'),html.indexOf('<p id="saveStatus"'));
-  assert.match(review,/class="review-navigation"/);
-  assert.match(review,/id="reviewPrevious"/);
-  assert.match(review,/id="reviewNext"/);
-  assert.match(review,/id="reviewBack"/);
-  assert.match(review,/id="reviewMenu"/);
-  assert.ok(review.indexOf('id="reviewStepRange"')>review.indexOf('class="review-menu-popover"'));
-  assert.ok(review.indexOf('id="reviewLink"')>review.indexOf('class="review-menu-popover"'));
-  assert.ok(review.indexOf('id="reviewAiLink"')>review.indexOf('class="review-menu-popover"'));
-  assert.match(app,/\$\("actionRow"\)\.hidden=true/);
-  assert.match(app,/\$\("reviewPanel"\)\.hidden=true/);
-  assert.match(style,/\.review-menu-popover\{position:absolute/);
-  assert.match(style,/\.review-panel\{[^}]*position:sticky/);
-  assert.doesNotMatch(review,/class="review-explanation"|class="review-share"/);
+test("shared board replay actions remain accessible without a hidden menu",()=>{
+ const review=html.slice(html.indexOf('<section id="reviewPanel"'),html.indexOf('<p id="saveStatus"'));
+ for(const id of ["reviewPrevious","reviewNext","reviewBack","reviewFirst","reviewLast",
+   "reviewStepRange","reviewLink","reviewAiLink","reviewResume","reviewExport","reviewBranch"])
+   assert.match(review,new RegExp('id="'+id+'"'));
+ assert.match(review,/class="review-direct-actions"/);
+ assert.doesNotMatch(review,/<details|review-menu-popover/);
+ assert.match(app,/\$\("actionRow"\)\.hidden=true/);
+ assert.match(app,/\$\("reviewPanel"\)\.hidden=true/);
+ assert.match(style,/\.review-tools\{display:flex/);
+ assert.match(style,/\.review-panel\{[^}]*position:sticky/);
 });
 test("replay does not write moves to an active live or P2P session",()=>{
   assert.match(renderer,/const display=boardReview\?\.display\|\|game/);
@@ -33,7 +29,7 @@ test("saved records open directly on the main board from the header picker",()=>
   assert.match(app,/if\(selected==="history"\)openHistoryPanel\(\)/);
   assert.match(app,/enterBoardReview\(record\.snapshot,count,"archive",record\.sgfMeta,record\)/);
   assert.doesNotMatch(html,/id="historyBoard"|id="historyStepRange"/);
-  assert.doesNotMatch(html,/id="openHistory"/);
+  assert.match(html,/id="openHistory"/);
   assert.match(html,/id="reviewLink"/);
   assert.match(html,/id="reviewAiLink"/);
   assert.match(html,/id="reviewExport"/);
@@ -65,7 +61,7 @@ test("SGF exports and AI sharing share the existing single-row replay menu",()=>
  assert.match(review,/id="reviewLink"/);
  assert.match(review,/id="reviewAiLink"/);
  assert.match(review,/id="reviewResume"/);
- assert.match(style,/\.review-menu-popover\{position:absolute/);
+ assert.match(style,/\.review-direct-actions\{display:flex/);
  assert.doesNotMatch(html,/id="historyShareMenu"|id="historyExport"/);
 });
 
