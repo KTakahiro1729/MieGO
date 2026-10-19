@@ -33,13 +33,16 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   for(const id of ["startLocal","startAi","copy","openHistoryFromNew"])assert.match(sheet,new RegExp('id="'+id+'"'));
   assert.match(app,/\$\("newGameButton"\)\.onclick=\(\)=>openPanel\(room\?"online":gameMode\)/);
 });
-test("settings is presentation-only, with credits and no board rotation",()=>{
+test("settings is presentation-only and has no board rotation",()=>{
   const [common] = html.split('<aside id="modePanel"');
   assert.match(common,/id="settingsPanel"/);
   assert.match(common,/name="palette"/);
   assert.match(common,/id="opacity"/);
   assert.match(common,/id="resetAppearance"/);
-  assert.match(common,/クレジット/);
+  // Credits and rule notes moved into the help sheet with the other explanations.
+  const help=html.slice(html.indexOf('<aside id="helpPanel"'));
+  assert.match(help,/github\.com\/lightvector\/KataGo/);
+  assert.match(help,/id="ruleSummary"/);
   assert.doesNotMatch(common,/盤面を回転|id="aiLevel"|id="aiInvasion"|id="copy"/);
   // Board size and handicap are chosen when starting a game, not in settings.
   assert.doesNotMatch(common,/name="boardSize"|name="handicap"|id="localHandicap"|id="resetLocalGame"/);

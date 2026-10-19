@@ -19,6 +19,7 @@ import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
+import { makeRulesPrompt, makePositionPrompt } from "./beginner-prompts.mjs";
 import { activeReviewSnapshot, proposeReviewStone, commitReviewStone, variationForSharing } from "./review-variation.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 const $ = id => document.getElementById(id);
@@ -185,6 +186,7 @@ function updateEndUi() {
      takebackNotice.hash===boardHash(game.board))
     $("endStatus").textContent=takebackNotice.text;
   // The stable left-hand status slot doubles as a rule explanation for illegal previews.
+  $("endHelp").dataset.help=playing && illegalCandidate?"illegal":"endgame";
   if(playing && illegalCandidate){
     $("endStatus").textContent=illegalCandidate.reason===ILLEGAL_KO?
       "コウのため打てません":"自殺手なので打てません";
@@ -1153,7 +1155,7 @@ function openPanel(kind) {
   $("newGameButton").setAttribute("aria-expanded",String(kind!=="settings"));
   if(kind!=="settings")showNewGameMode(kind);
   const panel=kind==="settings"?$("settingsPanel"):$("modePanel");
-  panel.querySelector(".settings-head button").focus();
+  panel.querySelector(".settings-head .icon-button").focus();
 }
 // The 新規対戦 sheet: common board size and handicap, then the chosen mode's options.
 function showNewGameMode(kind) {
@@ -1169,6 +1171,7 @@ function showNewGameMode(kind) {
   if(kind==="history")historyPanel.showHistory();
   $("aiSideRow").hidden=$("aiStrengthRow").hidden=$("aiOptions").hidden=kind!=="ai";
   $("onlineSideRow").hidden=kind!=="online";
+  $("modeHelp").dataset.help=kind;
   syncReturnButton(kind);
   syncHandicapUi();
   if(kind==="online" && room)showInviteLink();
@@ -1527,6 +1530,8 @@ function closePanels() {
   $("settingsBackdrop").hidden=true;
   $("settingsPanel").hidden=true;
   $("modePanel").hidden=true;
+  $("helpPanel").hidden=true;
+  $("helpToggle").setAttribute("aria-expanded","false");
   $("historySetup").hidden=true;
   $("onlineSetup").hidden=true;
   $("aiSetup").hidden=true;
@@ -1538,8 +1543,59 @@ function closeSettings(){closePanels();$("settingsToggle").focus();}
 $("settingsToggle").onclick=()=>$("settingsPanel").hidden?openSettings():closeSettings();
 $("closeSettings").onclick=closeSettings;
 $("closeMode").onclick=()=>{closePanels();$("newGameButton").focus();};
-$("settingsBackdrop").onclick=closePanels;
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("settingsBackdrop").hidden)closePanels();});
+// Help stacks above whichever sheet asked for it; closing it returns there.
+let helpOpener=null,helpOwnsBackdrop=false;
+function openHelp(topic,opener=$("helpToggle")) {
+  helpOpener=opener;
+  helpOwnsBackdrop=$("settingsBackdrop").hidden;
+  if(helpOwnsBackdrop){setBackgroundInert(true);$("settingsBackdrop").hidden=false;}
+  $("helpPanel").hidden=false;
+  $("helpToggle").setAttribute("aria-expanded","true");
+  const target=topic && $("help-"+topic);
+  for(const item of $("helpPanel").querySelectorAll("details"))item.open=item===target;
+  $("beginnerPromptStatus").textContent="";$("beginnerPromptFallback").hidden=true;
+  $("helpPanel").scrollTop=0;
+  if(target)target.scrollIntoView({block:"nearest"});
+  (target?.querySelector("summary")||$("closeHelp")).focus();
+}
+function closeHelp() {
+  $("helpPanel").hidden=true;
+  $("helpToggle").setAttribute("aria-expanded","false");
+  if(helpOwnsBackdrop)closePanels();
+  helpOpener?.focus();helpOpener=null;
+}
+// Beginner questions describe the live game, never the board being replayed.
+async function copyBeginnerPrompt(make) {
+  const status=$("beginnerPromptStatus"),area=$("beginnerPromptFallback");
+  let link=null,question;
+  try{link=makeReviewUrl(location.origin,{snapshot:game},game.moves.length);}catch{}
+  try{question=make(game,link);}
+  catch(error){status.textContent="質問文を作れません："+error.message;return;}
+  try{
+    if(typeof navigator.clipboard?.writeText!=="function")throw Error("Clipboard API unavailable");
+    await navigator.clipboard.writeText(question);
+    area.hidden=true;
+    status.textContent="コピーしました。AIのチャットに貼り付けてください。";
+  }catch{
+    area.value=question;area.hidden=false;
+    status.textContent="自動でコピーできませんでした。下の文章を選択してコピーしてください。";
+    area.focus();area.select();
+  }
+}
+$("copyRulesPrompt").onclick=()=>void copyBeginnerPrompt(makeRulesPrompt);
+$("copyPositionPrompt").onclick=()=>void copyBeginnerPrompt(makePositionPrompt);
+$("helpToggle").onclick=()=>$("helpPanel").hidden?openHelp(null):closeHelp();
+$("closeHelp").onclick=closeHelp;
+// Every local ? names its topic in data-help, so one listener serves them all.
+document.addEventListener("click",e=>{
+  const button=e.target.closest?.("[data-help]");
+  if(button)openHelp(button.dataset.help,button);
+});
+$("settingsBackdrop").onclick=()=>$("helpPanel").hidden?closePanels():closeHelp();
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Escape"||$("settingsBackdrop").hidden)return;
+  if(!$("helpPanel").hidden)closeHelp();else closePanels();
+});
 $("newGameButton").onclick=()=>openPanel(room?"online":gameMode);
 $("startAi").onclick=()=>{
   if(!katagoReady || fallbackMode){
