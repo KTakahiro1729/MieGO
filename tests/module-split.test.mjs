@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import {at,boardHash,newGame,play} from "../public/core.mjs";
 import {createBoardRenderer} from "../public/board-renderer.mjs";
 import {createHistoryPanel} from "../public/history-panel.mjs";
@@ -64,4 +65,8 @@ test("history panel is only a list and importer; main board owns replay state",(
   assert.equal(typeof history.importHistoryFile,"function");
   assert.equal("selection" in history,false);
   assert.equal("step" in history,false);
+});
+test("opening saved games does not touch the removed game menu",()=>{
+  const panel=readFileSync(new URL("../public/history-panel.mjs",import.meta.url),"utf8");
+  assert.doesNotMatch(panel,/gameMenu/);
 });
