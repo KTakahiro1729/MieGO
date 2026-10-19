@@ -294,7 +294,6 @@ body{overflow:hidden}
 .action-row .resign-control[aria-label^="もう一度"]{
   color:#ffe0c5;border-color:#bb795b;background:#58392f;
 }
-.action-row #pass[aria-label^="もう一度"]{color:#f5d88f;border-color:#a8894f;background:#38342d}
 .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:302px}
 .game-panel.is-scoring .score-box,.game-panel.is-finished .score-box{margin-top:7px}
 .game-panel.is-scoring .action-row,.game-panel.is-finished .action-row{margin-top:auto}

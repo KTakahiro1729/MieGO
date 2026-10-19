@@ -691,23 +691,8 @@ $("closeIllegalPromptFallback").onclick=()=>{
   $("illegalPromptFallbackPanel").hidden=true;
   $("copyIllegalPrompt").focus();
 };
-let passArmed=false;
-function resetPassButton() {
-  passArmed=false;
-  $("pass").textContent="パス";
-  $("pass").removeAttribute("aria-label");
-}
-$("pass").onclick=()=>{
-  // On one shared device either player can reach the button, so a pass there
-  // needs a second tap. Friend and AI games keep the immediate pass.
-  if(!room && gameMode==="local" && !passArmed){
-    passArmed=true;
-    $("pass").textContent="パス？";
-    $("pass").setAttribute("aria-label","もう一度押すとパスします");
-    return;
-  }
-  resetPassButton();submitMove(null);
-};
+// A mistaken pass is undone with 待った, so every mode passes on one tap.
+$("pass").onclick=()=>submitMove(null);
 let resignArmed=false;
 function resetResignButton() {
   resignArmed=false;
@@ -724,10 +709,9 @@ $("resign").onclick=()=>{
   }
   resetResignButton();submitMove("resign");
 };
-function resetArmedButtons(){resetPassButton();resetResignButton();}
+function resetArmedButtons(){resetResignButton();}
 document.addEventListener("pointerdown",e=>{
   if(resignArmed && e.target!==$("resign"))resetResignButton();
-  if(passArmed && e.target!==$("pass"))resetPassButton();
 });
 // Signals computed for the abandoned line must not survive a rewind.
 function afterTakeback() {
