@@ -38,3 +38,42 @@ test("late P2P events cannot modify a local game after leaving a room",()=>{
   assert.match(app,/if\(!room \|\| c!==channel\)return;/);
   assert.match(app,/function leaveOnlineRoom\(\)/);
 });
+
+test("a local reset creates an empty independent game while retaining display assist preference",async()=>{
+  const {newGame,play}=await import("../public/core.mjs");
+  const {freshLocalGame}=await import("../public/mode-state.mjs");
+  const previous=play(newGame(false),40);
+  const reset=freshLocalGame(previous);
+  assert.equal(reset.assisted,false);
+  assert.equal(reset.moveNumber,0);
+  assert.equal(reset.next,1);
+  assert.equal(reset.status,"playing");
+  assert.ok(reset.board.every(s=>s===0));
+  assert.equal(previous.moveNumber,1);
+  assert.equal(reset.moves.length,0);
+});
+test("the game menu shares the action row with pass and keeps reset local-only",()=>{
+  const row=html.slice(html.indexOf('<div class="action-row">'),html.indexOf('</div>',html.indexOf('<div class="action-row">')));
+  assert.ok(row.indexOf('id="pass"') < row.indexOf('id="gameMenu"'));
+  assert.match(row,/id="resetLocalGame"/);
+  assert.match(row,/id="resign"/);
+  assert.match(html,/id="cancel"[^>]*aria-label="仮置きを戻す"/);
+  assert.match(app,/if \(room \|\| gameMode!=="local"\) return;/);
+  assert.match(app,/resetLocalGame"\)\.hidden=!!room \|\| gameMode!=="local"/);
+  assert.match(app,/game=freshLocalGame\(game\);\s*save\(\);show\(\);requestAnalysis\(\);/);
+});
+test("settings button shows a toothed gear and is labeled",()=>{
+  const gear=html.slice(html.indexOf('id="settingsToggle"'),html.indexOf('</button>',html.indexOf('id="settingsToggle"')));
+  assert.match(gear,/aria-label="設定を開く"/);
+  assert.match(gear,/circle/);
+  assert.match(gear,/m9\.7 2\.5/);
+  assert.match(gear,/<circle cx="11\.5" cy="12\.5"/);
+});
+
+test("reset discards endgame and dead-stone hints",()=>{
+  const block=app.slice(app.indexOf("function resetLocalBoard()"),app.indexOf('$("resetLocalGame").onclick'));
+  assert.match(block,/endgameAdvisor\.reset\(\)/);
+  assert.match(block,/deadReview="idle"/);
+  assert.match(block,/deadEvaluation=null/);
+  assert.match(block,/analysisContext=null/);
+});

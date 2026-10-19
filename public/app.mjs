@@ -147,8 +147,7 @@ function draw() {
   for(let i=0;i<SIZE;i++){const p=pad+i*gap;ctx.beginPath();ctx.moveTo(pad,p);ctx.lineTo(d-pad,p);ctx.moveTo(p,pad);ctx.lineTo(p,d-pad);ctx.stroke();}
   paintOwnership(d,gap,pad);
   if(game.status==="playing" && isHumanTurn()) {
-    // Cache by immutable game state to avoid rechecking 81 intersections
-    // during every ownership-animation frame.
+    // This state is immutable; cache legal checks during heatmap animation.
     if(illegalCacheGame!==game) {
       illegalCacheGame=game;
       illegalCache=illegalMoveReasons(game);
