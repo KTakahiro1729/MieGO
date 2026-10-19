@@ -7,7 +7,7 @@ const html=source("index.html"),app=source("app.mjs"),renderer=source("board-ren
 test("replay and variations share a single action row with a non-scrolling overlay menu",()=>{
  const review=html.slice(html.indexOf('<section id="reviewPanel"'),html.indexOf('<p id="saveStatus"'));
  for(const id of ["reviewPrevious","reviewNext","reviewBack","reviewFirst","reviewLast",
-   "reviewStepRange","reviewLink","reviewAiLink","reviewResume","reviewExport","reviewBranch"])
+   "reviewStepRange","reviewResume","reviewBranch"])
    assert.match(review,new RegExp('id="'+id+'"'));
  assert.match(review,/class="review-navigation"/);
  assert.match(review,/id="reviewPlayActions"/);
@@ -32,9 +32,9 @@ test("saved records open directly on the main board from the header picker",()=>
   assert.match(app,/enterBoardReview\(record\.snapshot,count,"archive",record\.sgfMeta,record\)/);
   assert.doesNotMatch(html,/id="historyBoard"|id="historyStepRange"/);
   assert.match(html,/id="openHistory"/);
-  assert.match(html,/id="reviewLink"/);
-  assert.match(html,/id="reviewAiLink"/);
-  assert.match(html,/id="reviewExport"/);
+  assert.match(html,/id="shareLink"/);
+  assert.match(html,/id="shareAiLink"/);
+  assert.match(html,/id="shareSgf"/);
 });
 test("shared URLs open in review and do not replace active local saved positions",()=>{
   assert.match(app,/if\(!room && params\.has\("sgf"\)\)/);
@@ -48,7 +48,7 @@ test("AI copy is only a description of the link format, not separate SGF or a qu
   assert.match(handoff,/makeAiHandoff\(reviewUrl\)/);
   assert.match(handoff,/SGFの着手列を合法な手順に編集/);
   assert.doesNotMatch(handoff,/SGF本文：|次の一手を教えて|私は囲碁の初心者です/);
-  assert.match(html,/id="reviewAiLink"/);
+  assert.match(html,/id="shareAiLink"/);
   assert.doesNotMatch(html,/id="historyAiLink"/);
 });
 
@@ -57,12 +57,21 @@ test("replay entry does not make the existing game header taller",()=>{
  assert.match(style,/\.move-history-toggle::before\{[^}]*inset:-9px 0/);
 });
 
-test("SGF exports and AI sharing share the existing single-row replay menu",()=>{
- const review=html.slice(html.indexOf('id="reviewMenu"'),html.indexOf('id="reviewCopyFallback"'));
- assert.match(review,/id="reviewExport"/);
- assert.match(review,/id="reviewLink"/);
- assert.match(review,/id="reviewAiLink"/);
+test("sharing lives in one sheet beside settings, not in the replay menu",()=>{
+ const header=html.slice(html.indexOf('class="header-actions"'),html.indexOf('</header>'));
+ assert.ok(header.indexOf('id="settingsToggle"')<header.indexOf('id="shareToggle"'),"share sits right of settings");
+ assert.match(header,/id="shareToggle"[^>]*aria-label="共有を開く"[^>]*aria-controls="sharePanel"/);
+ const sheet=html.slice(html.indexOf('<aside id="sharePanel"'),html.indexOf('<aside id="modePanel"'));
+ for(const id of ["shareGif","shareImage","shareLink","shareAiLink","shareSgf","shareInvite","shareNotice","shareCopyFallback"])
+   assert.match(sheet,new RegExp('id="'+id+'"'));
+ const review=html.slice(html.indexOf('id="reviewMenu"'),html.indexOf('id="reviewNotice"'));
+ assert.doesNotMatch(review,/id="share|SGFを保存|URLをコピー|AI向け|GIF/);
  assert.match(review,/id="reviewResume"/);
+ const settings=html.slice(html.indexOf('<aside id="settingsPanel"'),html.indexOf('<aside id="sharePanel"'));
+ assert.doesNotMatch(settings,/GIF/);
+ // Outside replay the sheet shares the live game as it stands.
+ assert.match(app,/if\(boardReview\)return variationForSharing\(boardReview,game\);/);
+ assert.match(app,/\$\("shareInviteSection"\)\.hidden=!room/);
  assert.match(style,/\.review-menu-popover>button\{min-height:44px/);
  assert.doesNotMatch(html,/id="historyShareMenu"|id="historyExport"/);
 });

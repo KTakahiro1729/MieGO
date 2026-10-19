@@ -1084,14 +1084,16 @@ function openPanel(kind) {
   setBackgroundInert(true);
   $("settingsBackdrop").hidden=false;
   $("settingsPanel").hidden=kind!=="settings";
-  $("modePanel").hidden=kind==="settings";
+  $("sharePanel").hidden=kind!=="share";
+  $("modePanel").hidden=kind!=="online" && kind!=="ai";
   $("onlineSetup").hidden=kind!=="online";
   $("aiSetup").hidden=kind!=="ai";
   $("modeTitle").textContent=kind==="online"?"URLで対戦":"AIと対戦";
   $("settingsToggle").setAttribute("aria-expanded",String(kind==="settings"));
+  $("shareToggle").setAttribute("aria-expanded",String(kind==="share"));
   if(kind==="online" && room)showInviteLink();
   if(kind==="online")renderInviteButton();
-  const panel=kind==="settings"?$("settingsPanel"):$("modePanel");
+  const panel=kind==="settings"?$("settingsPanel"):kind==="share"?$("sharePanel"):$("modePanel");
   panel.querySelector(".settings-head button").focus();
 }
 function reviewFeedback(message){
@@ -1225,8 +1227,6 @@ function enterBoardReview(snapshot,step,source="live",metadata=null,record=null)
     activeLine:"main",variation:null,preview:null,previewPosition:null,
     openedAt:game.moveNumber,analysisId:0};
   $("reviewNotice").textContent="";
-  $("reviewCopyFallback").hidden=true;
-  $("reviewCopyFallback").hidden=true;
   show();requestReviewOwnership();
 }
 function setBoardReviewStep(step) {
@@ -1242,7 +1242,6 @@ function setBoardReviewStep(step) {
     boardReview.display=display;boardReview.step=step;
     boardReview.preview=null;boardReview.previewPosition=null;
     reviewFeedback("");$("reviewNotice").textContent="";
-    $("reviewCopyFallback").hidden=true;
     show();requestReviewOwnership();
   }catch(error){$("reviewNotice").textContent="棋譜を再生できません："+error.message;}
 }
@@ -1251,8 +1250,6 @@ function clearBoardReview() {
   const wasUrl=boardReview.source==="url";
   boardReview=null;reviewSequence++;
   if(wasUrl)clearImportedReviewUrl();
-  $("reviewCopyFallback").hidden=true;
-  $("reviewCopyFallback").hidden=true;
   $("moveLabel").setAttribute("aria-label","棋譜を再生する");
 }
 function leaveBoardReview() {
@@ -1286,7 +1283,6 @@ function forkBoardReview() {
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
   clearImportedReviewUrl();
   boardReview=null;reviewSequence++;
-  $("reviewCopyFallback").hidden=true;
   save();show();requestAnalysis();
 }
 async function copyReviewText(text,statusId,fallbackId) {
@@ -1301,16 +1297,21 @@ async function copyReviewText(text,statusId,fallbackId) {
     status.textContent="自動コピーできませんでした。選択された文章を手動でコピーしてください。";
   }
 }
-function selectedBoardReviewUrl() {
-  const {snapshot,metadata,step}=variationForSharing(boardReview,game);
+// Everything in the share sheet works on the displayed board: the replayed
+// line and step while replaying, otherwise the live game as it stands.
+function sharedPosition() {
+  if(boardReview)return variationForSharing(boardReview,game);
+  return {snapshot:game,metadata:null,step:game.moves.filter(m=>m.position!=="resign").length};
+}
+function sharedUrl() {
+  const {snapshot,metadata,step}=sharedPosition();
   return makeReviewUrl(location.origin,{snapshot,sgfMeta:metadata},step);
 }
-async function shareBoardReview(ai) {
-  if(!boardReview)return;
+async function copyShareUrl(ai) {
   try{
-    const url=selectedBoardReviewUrl();
-    await copyReviewText(ai?makeAiHandoff(url):url,"reviewNotice","reviewCopyFallback");
-  }catch(error){$("reviewNotice").textContent="共有URLを作れません："+error.message;}
+    const url=sharedUrl();
+    await copyReviewText(ai?makeAiHandoff(url):url,"shareNotice","shareCopyFallback");
+  }catch(error){$("shareNotice").textContent="共有URLを作れません："+error.message;}
 }
 function canResumeSelectedReview(){
   const review=boardReview,record=review?.record;
@@ -1335,15 +1336,14 @@ function openSavedBoard(record) {
     if($("historyPanel").hidden)openHistoryPanel();
   }
 }
-function exportReviewSGF(){
-  if(!boardReview)return;
+function exportSharedSGF(){
   try{
-    const details=variationForSharing(boardReview,game);
+    const details=sharedPosition();
     const contents=exportSGF({snapshot:details.snapshot,sgfMeta:details.metadata});
-    downloadBlob(new Blob([contents],{type:"application/x-go-sgf;charset=utf-8"}),
-      "miego-"+(boardReview.record?.id||"shared")+".sgf");
-    $("reviewNotice").textContent="SGFを書き出しました。";
-  }catch(error){$("reviewNotice").textContent="SGFを書き出せません："+error.message;}
+    const id=boardReview?boardReview.record?.id||"shared":currentGameId||"game";
+    downloadBlob(new Blob([contents],{type:"application/x-go-sgf;charset=utf-8"}),"miego-"+id+".sgf");
+    $("shareNotice").textContent="SGFを書き出しました。";
+  }catch(error){$("shareNotice").textContent="SGFを書き出せません："+error.message;}
 }
 function downloadBlob(blob,name){
   const url=URL.createObjectURL(blob);
@@ -1352,16 +1352,39 @@ function downloadBlob(blob,name){
   document.body.append(link);link.click();link.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-// Saves the board exactly as drawn: board look, ownership colours, replay
+// The board exactly as drawn: board look, ownership colours, replay
 // position, marks and labels all come from the canvas itself.
-function exportBoardGif(noticeId){
+function boardGifFile(){
+  draw();
+  const image=canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height);
+  const step=boardReview?boardReview.step:game.moves.length;
+  return new File([encodeGif(image)],"miego-move"+step+".gif",{type:"image/gif"});
+}
+function exportBoardGif(){
   try{
-    draw();
-    const image=canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height);
-    const step=boardReview?boardReview.step:game.moves.length;
-    downloadBlob(new Blob([encodeGif(image)],{type:"image/gif"}),"miego-move"+step+".gif");
-    $(noticeId).textContent="盤面をGIFで書き出しました。";
-  }catch(error){$(noticeId).textContent="GIFを書き出せません："+error.message;}
+    const file=boardGifFile();
+    downloadBlob(file,file.name);
+    $("shareNotice").textContent="盤面をGIFで書き出しました。";
+  }catch(error){$("shareNotice").textContent="GIFを書き出せません："+error.message;}
+}
+const canShareImage=()=>typeof navigator.share==="function" &&
+  !!navigator.canShare?.({files:[new File([""],"miego.gif",{type:"image/gif"})]});
+async function shareBoardImage(){
+  try{
+    await navigator.share({title:"MieGO",files:[boardGifFile()]});
+    $("shareNotice").textContent="";
+  }catch(error){
+    if(error?.name!=="AbortError")$("shareNotice").textContent="画像を共有できません："+error.message;
+  }
+}
+function openSharePanel(){
+  openPanel("share");
+  const step=boardReview?boardReview.step:game.moves.length;
+  $("shareTarget").textContent=(boardReview?"再生中の":"現在の")+"局面（"+step+"手目）を共有します。";
+  $("shareImage").hidden=!canShareImage();
+  $("shareInviteSection").hidden=!room;
+  $("shareNotice").textContent="";
+  $("shareCopyFallback").hidden=true;
 }
 $("moveLabel").onclick=()=>{
   if(boardReview){leaveBoardReview();return;}
@@ -1386,10 +1409,12 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && $("reviewMenu").open)$("reviewMenu").open=false;
 });
 $("reviewBranch").onclick=forkBoardReview;
-$("reviewExport").onclick=exportReviewSGF;
-$("reviewGif").onclick=()=>exportBoardGif("reviewNotice");
-$("reviewLink").onclick=()=>void shareBoardReview(false);
-$("reviewAiLink").onclick=()=>void shareBoardReview(true);
+$("shareGif").onclick=exportBoardGif;
+$("shareImage").onclick=()=>void shareBoardImage();
+$("shareLink").onclick=()=>void copyShareUrl(false);
+$("shareAiLink").onclick=()=>void copyShareUrl(true);
+$("shareSgf").onclick=exportSharedSGF;
+$("shareInvite").onclick=()=>openPanel("online");
 function resumeSelectedReview(){
   if(!canResumeSelectedReview())return;
   const selected=boardReview.record;
@@ -1442,7 +1467,6 @@ $("openCurrentMode").onclick=()=>{
 $("openHistory").onclick=openHistoryPanel;
 $("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
 $("openHistorySettings").onclick=openHistoryPanel;
-$("exportBoardGif").onclick=()=>exportBoardGif("boardGifNotice");
 $("closeHistory").onclick=()=>{closePanels();$("modePicker").focus();};
 document.addEventListener("storage",e=>{
   if(e.key?.startsWith("miego:game:v1:") && !$("historyPanel").hidden)renderHistoryList();
@@ -1453,16 +1477,21 @@ function closePanels() {
   setBackgroundInert(false);
   $("settingsBackdrop").hidden=true;
   $("settingsPanel").hidden=true;
+  $("sharePanel").hidden=true;
   $("modePanel").hidden=true;
   $("historyPanel").hidden=true;
   $("onlineSetup").hidden=true;
   $("aiSetup").hidden=true;
   $("settingsToggle").setAttribute("aria-expanded","false");
+  $("shareToggle").setAttribute("aria-expanded","false");
   $("modePicker").value=room?"online":gameMode;
 }
 function closeSettings(){closePanels();$("settingsToggle").focus();}
 $("settingsToggle").onclick=()=>$("settingsPanel").hidden?openSettings():closeSettings();
 $("closeSettings").onclick=closeSettings;
+$("shareToggle").onclick=()=>$("sharePanel").hidden?openSharePanel():closeShare();
+function closeShare(){closePanels();$("shareToggle").focus();}
+$("closeShare").onclick=closeShare;
 $("closeMode").onclick=()=>{closePanels();$("modePicker").focus();};
 $("settingsBackdrop").onclick=closePanels;
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("settingsBackdrop").hidden)closePanels();});

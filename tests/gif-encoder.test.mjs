@@ -65,13 +65,11 @@ test("malformed pixels are refused",()=>{
   assert.throws(()=>encodeGif({width:2,height:2,data:new Uint8ClampedArray(3)}),/画像データ/);
 });
 
-test("the board can be saved as a GIF from play and from replay",()=>{
+test("the board is saved as a GIF from the share sheet",()=>{
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
   const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
-  assert.match(html,/id="exportBoardGif" class="secondary full" type="button">盤面をGIFで保存<\/button>/);
-  assert.match(html,/id="reviewGif" type="button">盤面をGIFで保存<\/button>/);
-  assert.match(app,/\$\("exportBoardGif"\)\.onclick=\(\)=>exportBoardGif\("boardGifNotice"\)/);
-  assert.match(app,/\$\("reviewGif"\)\.onclick=\(\)=>exportBoardGif\("reviewNotice"\)/);
+  assert.match(html,/id="shareGif" class="secondary full" type="button">盤面をGIFで保存<\/button>/);
+  assert.match(app,/\$\("shareGif"\)\.onclick=exportBoardGif/);
   // The canvas already carries the board look and ownership overlay.
   assert.match(app,/canvas\.getContext\("2d"\)\.getImageData\(0,0,canvas\.width,canvas\.height\)/);
 });
