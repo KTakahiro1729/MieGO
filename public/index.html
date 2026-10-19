@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <canvas id="boardBleed" class="board-bleed" aria-hidden="true"></canvas>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand" aria-label="MieGO">Mie<span>GO</span></div>
@@ -35,7 +36,6 @@
           <div id="netStatus" class="connection-status" role="status" aria-live="polite">ローカル練習</div>
         </div>
         <div id="boardFrame" class="board-frame">
-          <canvas id="boardAmbient" class="board-ambient" width="48" height="48" aria-hidden="true"></canvas>
           <div class="board-viewport">
             <canvas id="board" width="720" height="720" aria-label="9路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。"></canvas>
           </div>

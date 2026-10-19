@@ -60,12 +60,13 @@ export function createRepeatTapDetector({count=3, windowMs=8000, radius=1.5}={})
 }
 
 /** Wires gestures, the ambient backdrop and the one-time hint to the board DOM. */
-export function createBoardZoom({frame, canvas, ambient, resetButton, hint, getSize,
+export function createBoardZoom({frame, canvas, bleed, resetButton, hint, getSize,
   baseResolution=canvas.width, redraw=()=>{}, storage=globalThis.localStorage, now=()=>Date.now()}) {
   let view = IDENTITY_VIEW, gesture = null, suppressClick = false, hintTimer = null;
   const pointers = new Map();
   const detector = createRepeatTapDetector();
-  const ambientContext = ambient?.getContext("2d");
+  const bleedContext = bleed?.getContext("2d");
+  const BLEED_DOWNSCALE = 2; // a low-resolution copy is cheap and already soft
   let hintSeen = false;
   try { hintSeen = storage?.getItem(HINT_KEY) === "1"; } catch {}
 
@@ -81,8 +82,9 @@ export function createBoardZoom({frame, canvas, ambient, resetButton, hint, getS
     canvas.style.transform = zoomed ?
       `translate(${view.x*100}%,${view.y*100}%) scale(${view.scale})` : "";
     frame.classList.toggle("is-zoomed", zoomed);
+    frame.ownerDocument.body.classList.toggle("board-zoomed", zoomed);
     if(resetButton)resetButton.hidden = !zoomed;
-    paintAmbient();
+    paintBleed();
   }
   // Re-render the canvas at a higher backing resolution once a gesture settles.
   function sharpen() {
@@ -97,10 +99,16 @@ export function createBoardZoom({frame, canvas, ambient, resetButton, hint, getS
     render();
     if(animate)sharpen();
   }
-  function paintAmbient() {
-    if(!ambientContext || view.scale <= 1)return;
-    ambientContext.clearRect(0, 0, ambient.width, ambient.height);
-    ambientContext.drawImage(canvas, 0, 0, ambient.width, ambient.height);
+  // Copy the transformed board to the full-screen layer at its on-screen position.
+  function paintBleed() {
+    if(!bleedContext || view.scale <= 1)return;
+    const win = frame.ownerDocument.defaultView;
+    const width = Math.ceil(win.innerWidth/BLEED_DOWNSCALE), height = Math.ceil(win.innerHeight/BLEED_DOWNSCALE);
+    if(bleed.width !== width || bleed.height !== height) { bleed.width = width; bleed.height = height; }
+    const rect = canvas.getBoundingClientRect();
+    bleedContext.clearRect(0, 0, width, height);
+    bleedContext.drawImage(canvas, rect.left/BLEED_DOWNSCALE, rect.top/BLEED_DOWNSCALE,
+      rect.width/BLEED_DOWNSCALE, rect.height/BLEED_DOWNSCALE);
   }
 
   function showHint() {
@@ -163,6 +171,8 @@ export function createBoardZoom({frame, canvas, ambient, resetButton, hint, getS
     gesture = {type:"wheel", wheelTimer:setTimeout(() => { gesture = null; setView(view); }, 160)};
   }, {passive:false});
   resetButton?.addEventListener("click", () => reset());
+  canvas.addEventListener("transitionend", paintBleed);
+  frame.ownerDocument.defaultView.addEventListener("resize", paintBleed);
 
   function reset() {
     if(view.scale === 1)return;
@@ -170,7 +180,7 @@ export function createBoardZoom({frame, canvas, ambient, resetButton, hint, getS
   }
   return {
     reset,
-    paintAmbient,
+    paintBleed,
     get view() { return view; },
     /** Returns true when the click finished a pan/pinch and must not place a stone. */
     consumeGestureClick() {

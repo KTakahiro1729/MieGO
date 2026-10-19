@@ -205,7 +205,7 @@ function updatePersonaUi() {
 
 let displayedOwnership = null, transitionFrame = null;
 const boardZoom=createBoardZoom({
-  frame:$("boardFrame"),canvas,ambient:$("boardAmbient"),resetButton:$("boardZoomReset"),
+  frame:$("boardFrame"),canvas,bleed:$("boardBleed"),resetButton:$("boardZoomReset"),
   hint:$("pinchHint"),getSize:()=>SIZE,redraw:()=>draw()
 });
 const boardRenderer = createBoardRenderer({
@@ -213,7 +213,7 @@ const boardRenderer = createBoardRenderer({
   getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette,opacity,
     humanTurn:isHumanTurn(),hints:visibleHints()})
 });
-function draw(){boardRenderer.draw();boardZoom.paintAmbient();}
+function draw(){boardRenderer.draw();boardZoom.paintBleed();}
 // Hints belong to one committed position and are only drawn on the human's turn.
 function visibleHints() {
   if(!aiHints || room || gameMode!=="ai" || boardReview || candidate || illegalCandidate ||
