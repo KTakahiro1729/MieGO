@@ -84,7 +84,12 @@ function reviewUnavailable() {
 const gameLibrary=new GameLibrary(localStorage);
 let currentGameId=null,currentRevision=null;
 const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard});
-const {renderHistoryList,openHistoryPanel,importHistoryFile}=historyPanel;
+const {renderHistoryList,importHistoryFile}=historyPanel;
+// Sheets are aria-modal: keep Tab and taps out of the board behind them.
+function setBackgroundInert(on){
+  for(const el of document.querySelectorAll(".topbar,.game-layout"))el.inert=on;
+}
+function openHistoryPanel(){setBackgroundInert(true);historyPanel.openHistoryPanel();}
 // The actual match always remains in 'game'; only the visible board is replayed.
 let boardReview=null,reviewWorker=null,reviewSequence=0;
 try {gameLibrary.migrateLegacy();}
@@ -97,6 +102,11 @@ function storageError(error){
 }
 function clearStorageError() {
   $("saveStatus").hidden=true;$("historySaveNotice").textContent="";
+}
+// Non-blocking replacement for alert(); cleared by the next successful save or a tap.
+function showNotice(message) {
+  $("saveStatus").hidden=false;
+  $("saveStatus").textContent=message;
 }
 function myColorForEnd() {
   if(room)return myOnlineColor();
@@ -111,9 +121,12 @@ function updateEndUi() {
   const waiting=!!(offer && !incoming);
   const near=(endgameStage==="near" || endgameStage==="ready") &&
     game.moveNumber>endHintSuppressedUntil;
+  // Without a KataGo evaluation (loading or fallback) there is no basis for advice.
+  const advised=endgameAdvisor.previous!==null;
   $("endStatus").textContent=!playing?"":incoming?"終局が提案されました":
     waiting?"相手の返答を待っています":
     localPrompt?"終局しますか？":
+    !advised?"":
     near?"終局はいかがですか？":"終局はまだのようです";
   $("endPropose").hidden=!playing||!!offer||localPrompt;
   $("endAccept").hidden=!playing||!(incoming||localPrompt);
@@ -355,8 +368,10 @@ function show() {
   $("aiInvasion").disabled=false;
   $("aiReinforcement").disabled=false;
   $("turn").classList.toggle("white-to-play",game.next===WHITE);
+  // Nobody is to move while scoring or after the game, so no turn stone.
+  $("turn").classList.toggle("no-stone",game.status!=="playing");
   $("turn").textContent=game.status==="finished"?"対局終了":
-    game.status==="scoring"?"死石を確認":
+    game.status==="scoring"?"採点中":
     room?(connected?(myTurn?"あなたの番":"相手の番"):"対局相手を待っています"):
     gameMode==="ai"?(fallbackMode?"AI対局を停止しました":!katagoReady?"AIを準備中…":
       isAiTurn()?"AIの番です":"あなたの番です"):
@@ -515,7 +530,7 @@ function apply(action, remote=false) {
        (hadCandidate && game.status==="playing"))
       requestAnalysis();
     if(!remote&&room)p2pTransport.sendAction(action);
-  }catch(error){alert(error.message); if(remote){$("netStatus").textContent="同期エラー";p2pTransport.refresh();}}
+  }catch(error){showNotice(error.message); if(remote){$("netStatus").textContent="同期エラー";p2pTransport.refresh();}}
 }
 function submitMove(position,fromAi=false){
   if(boardReview && !fromAi)return;
@@ -523,7 +538,7 @@ function submitMove(position,fromAi=false){
   if(fromAi && !isAiTurn())return;
   const before=boardHash(game.board);
   let next;
-  try{next=play(game,position);}catch(error){alert(error.message);return;}
+  try{next=play(game,position);}catch(error){showNotice(error.message);return;}
   apply({type:"move",position,number:game.moveNumber+1,before,after:boardHash(next.board)});
 }
 canvas.addEventListener("click",e=>{
@@ -603,7 +618,23 @@ $("closeIllegalPromptFallback").onclick=()=>{
   $("illegalPromptFallbackPanel").hidden=true;
   $("copyIllegalPrompt").focus();
 };
-$("pass").onclick=()=>submitMove(null);
+let passArmed=false;
+function resetPassButton() {
+  passArmed=false;
+  $("pass").textContent="パス";
+  $("pass").removeAttribute("aria-label");
+}
+$("pass").onclick=()=>{
+  // On one shared device a committed move cannot be taken back, so a pass
+  // there needs a second tap. Friend and AI games keep the immediate pass.
+  if(!room && gameMode==="local" && !passArmed){
+    passArmed=true;
+    $("pass").textContent="パス？";
+    $("pass").setAttribute("aria-label","もう一度押すとパスします");
+    return;
+  }
+  resetPassButton();submitMove(null);
+};
 let resignArmed=false;
 function resetResignButton() {
   resignArmed=false;
@@ -613,20 +644,23 @@ function resetResignButton() {
 $("resign").onclick=()=>{
   if(!resignArmed){
     resignArmed=true;
-    $("resign").textContent="確定";
+    // Name the action: a bare "確定" reads like the adjacent move confirmation.
+    $("resign").textContent="投了？";
     $("resign").setAttribute("aria-label","もう一度押すと投了します");
     return;
   }
   resetResignButton();submitMove("resign");
 };
+function resetArmedButtons(){resetPassButton();resetResignButton();}
 document.addEventListener("pointerdown",e=>{
   if(resignArmed && e.target!==$("resign"))resetResignButton();
+  if(passArmed && e.target!==$("pass"))resetPassButton();
 });
 function resetLocalBoard() {
   if (room || gameMode!=="local") return;
   // The current match stays in the saved-game library; no modal is needed.
   if(!save())return;
-  resetResignButton();
+  resetArmedButtons();
   clearTimeout(analysisTimer);
   analysisTimer=null;
   // Discard late analysis results and animation frames belonging to the old board.
@@ -739,7 +773,7 @@ function savedGame(mode) {
   return record?.snapshot||newGame(game.assisted);
 }
 function leaveOnlineRoom() {
-  resetResignButton();
+  resetArmedButtons();
   if(!room)return;
   save();
   p2pTransport?.leave();
@@ -752,7 +786,7 @@ function leaveOnlineRoom() {
   $("roomInfo").textContent="URLを共有すると、別の端末から対局に参加できます。";
 }
 function switchToLocal() {
-  resetResignButton();
+  resetArmedButtons();
   if(gameMode==="local" && !room){
     if(boardReview)leaveBoardReview();
     closePanels();return;
@@ -885,6 +919,7 @@ async function copyLink(){
   finally{renderInviteButton();}
 }
 function openPanel(kind) {
+  setBackgroundInert(true);
   $("settingsBackdrop").hidden=false;
   $("settingsPanel").hidden=kind!=="settings";
   $("modePanel").hidden=kind==="settings";
@@ -985,6 +1020,7 @@ function renderBoardReview() {
   $("moveLabel").textContent=(variationActive?"変化図 ":"")+step+" / "+count+"手";
   $("moveLabel").setAttribute("aria-label","棋譜再生を終了する");
   $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
+  $("turn").classList.remove("no-stone");
   $("turn").textContent=isPreview?"仮置き中":variationActive?"変化図":"棋譜を確認中";
   $("modePicker").disabled=false;
   $("gamePanel").classList.remove("is-scoring","is-finished");
@@ -1174,6 +1210,7 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && $("reviewMenu").open)$("reviewMenu").open=false;
 });
 $("reviewBranch").onclick=forkBoardReview;
+$("reviewExport").onclick=exportReviewSGF;
 $("reviewLink").onclick=()=>void shareBoardReview(false);
 $("reviewAiLink").onclick=()=>void shareBoardReview(true);
 function resumeSelectedReview(){
@@ -1219,10 +1256,13 @@ function resumeSelectedReview(){
   clearBoardReview();rememberSettings();
   closePanels();show();requestAnalysis();
 }
+$("reviewResume").onclick=resumeSelectedReview;
+$("historyImportFile").onchange=e=>void importHistoryFile(e.target.files?.[0]);
 $("openCurrentMode").onclick=()=>{
   if(room)openPanel("online");else if(gameMode==="ai")openPanel("ai");
 };
 $("openHistory").onclick=openHistoryPanel;
+$("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
 $("openHistorySettings").onclick=openHistoryPanel;
 $("closeHistory").onclick=()=>{closePanels();$("modePicker").focus();};
 document.addEventListener("storage",e=>{
@@ -1230,7 +1270,8 @@ document.addEventListener("storage",e=>{
 });
 function openSettings(){openPanel("settings");}
 function closePanels() {
-  resetResignButton();
+  resetArmedButtons();
+  setBackgroundInert(false);
   $("settingsBackdrop").hidden=true;
   $("settingsPanel").hidden=true;
   $("modePanel").hidden=true;
