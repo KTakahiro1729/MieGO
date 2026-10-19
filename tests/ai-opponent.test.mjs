@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { newGame, play, at, boardHash } from "../public/core.mjs";
-import { legalAiMoves, choosePolicyMove, scorePolicyCandidates, personalityFeatures } from "../public/ai-opponent.mjs";
+import { legalAiMoves, choosePolicyMove, canConsiderAiPass, scorePolicyCandidates, personalityFeatures } from "../public/ai-opponent.mjs";
 const logits=point=>{const a=Array(81).fill(-100);a[point]=100;return a;};
 test("KataGo policy selects legal moves and excludes occupied points",()=>{
   const g=newGame();
@@ -47,4 +47,39 @@ test("invasion and reinforcement sliders adjust separate candidate scores",()=>{
 test("invalid policy and finished games cannot generate AI turns",()=>{
   assert.throws(()=>choosePolicyMove(newGame(),[1],0),/Invalid/);
   assert.equal(legalAiMoves({...newGame(),status:"finished"}).length,0);
+});
+
+test("KataGo pass eligibility uses soft advice but never mandates passing",()=>{
+  const s=newGame(),position=at(4,4),p=logits(position);
+  s.moveNumber=44;
+  assert.equal(canConsiderAiPass(s,"ready"),false);
+  s.moveNumber=45;
+  assert.equal(canConsiderAiPass(s,"ready"),true);
+  assert.equal(canConsiderAiPass(s,"near"),false);
+  assert.equal(canConsiderAiPass(s,"playing"),false);
+  assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"playing",random:()=>.5}),position);
+  assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"ready",random:()=>.5}),null);
+  assert.equal(choosePolicyMove(s,p,-1000,{endgameStage:"ready",random:()=>.5}),position);
+  s.moveNumber=52;
+  assert.equal(canConsiderAiPass(s,"near"),true);
+  assert.equal(canConsiderAiPass(s,"playing"),false);
+  s.moveNumber=58;
+  assert.equal(canConsiderAiPass(s,"playing"),true);
+  s.moveNumber=18;s.passes=1;
+  assert.equal(canConsiderAiPass(s,"playing"),true);
+});
+test("no forced pass on move 145; actual KataGo policy remains decisive",()=>{
+  const s=newGame(),p=logits(at(4,4));
+  s.moveNumber=145;
+  assert.equal(choosePolicyMove(s,p,-1000,{random:()=>.5}),at(4,4));
+  assert.equal(choosePolicyMove(s,p,1000,{random:()=>.5}),null);
+});
+test("weakened strengths use the same endgame-aware pass eligibility",()=>{
+  const s=newGame(),position=at(4,4),p=logits(position);
+  s.moveNumber=44;
+  assert.equal(choosePolicyMove(s,p,105,{strength:"easy",endgameStage:"ready",random:()=>.5}),position);
+  s.moveNumber=45;
+  assert.equal(choosePolicyMove(s,p,105,{strength:"easy",endgameStage:"ready",random:()=>.5}),null);
+  s.moveNumber=145;
+  assert.equal(choosePolicyMove(s,p,-1000,{strength:"easy",random:()=>.5}),position);
 });
