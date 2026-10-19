@@ -4,7 +4,8 @@ import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
 import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
-import { isPaletteChoice, showsOwnership, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
+import { isPaletteChoice, normalizePalette, showsOwnership, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
+import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss } from "./board-theme.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
 import { policyHints } from "./ai-assist.mjs";
@@ -64,8 +65,9 @@ function persistOnline(){
 }
 let game = newGame(), candidate = null, illegalCandidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
 let illegalPromptCopied = false;
-const storedPalette = localStorage.getItem("miego-palette");
-let palette = isPaletteChoice(storedPalette) ? storedPalette : "mono";
+let palette = normalizePalette(localStorage.getItem("miego-palette"));
+const storedBoardTheme = localStorage.getItem("miego-board");
+let boardTheme = isBoardTheme(storedBoardTheme) ? storedBoardTheme : DEFAULT_BOARD_THEME;
 const overlayOn = () => showsOwnership(palette);
 const storedOpacity = Number(localStorage.getItem("miego-opacity"));
 let opacity = Number.isFinite(storedOpacity) && storedOpacity>=0 && storedOpacity<=1 && localStorage.getItem("miego-opacity")!==null ? storedOpacity : .55;
@@ -97,7 +99,7 @@ function reviewUnavailable() {
 }
 const gameLibrary=new GameLibrary(localStorage);
 let currentGameId=null,currentRevision=null;
-const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard});
+const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard,getBoardTheme:()=>boardTheme});
 const {renderHistoryList,importHistoryFile}=historyPanel;
 // Sheets are aria-modal: keep Tab and taps out of the board behind them.
 function setBackgroundInert(on){
@@ -215,7 +217,7 @@ const boardZoom=createBoardZoom({
 });
 const boardRenderer = createBoardRenderer({
   canvas,
-  getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette,opacity,
+  getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette,opacity,boardTheme,
     humanTurn:isHumanTurn(),hints:visibleHints()})
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
@@ -893,6 +895,14 @@ document.querySelectorAll('input[name="palette"]').forEach(input => {
     }
   };
 });
+document.querySelectorAll('input[name="boardTheme"]').forEach(input => {
+  input.onchange = e => {
+    if (!e.target.checked) return;
+    boardTheme=isBoardTheme(e.target.value)?e.target.value:DEFAULT_BOARD_THEME;
+    try{localStorage.setItem("miego-board",boardTheme);}catch{}
+    updateGradient();draw();
+  };
+});
 $("opacity").oninput=e=>{
   opacity=Number(e.target.value)/100;
   localStorage.setItem("miego-opacity",String(opacity));
@@ -901,16 +911,30 @@ $("opacity").oninput=e=>{
 };
 $("resetAppearance").onclick=()=>{
   const wasOn=overlayOn();
-  palette="mono";opacity=.55;
+  palette="mono";opacity=.55;boardTheme=DEFAULT_BOARD_THEME;
   localStorage.setItem("miego-palette",palette);
   localStorage.setItem("miego-opacity","0.55");
+  localStorage.setItem("miego-board",boardTheme);
   const selected=document.querySelector('input[name="palette"][value="mono"]');
   if(selected)selected.checked=true;
+  const selectedBoard=document.querySelector('input[name="boardTheme"][value="'+boardTheme+'"]');
+  if(selectedBoard)selectedBoard.checked=true;
   $("opacity").value="55";$("opacityValue").textContent="55%";
   updateGradient();show();
   if(!wasOn){if(boardReview)requestReviewOwnership();else requestAnalysis();}
 };
-function updateGradient(){$("gradient").style.backgroundImage=paletteGradient(palette,opacity);}
+// The legend, the colour-map swatches and the board frame follow the chosen board.
+function updateGradient(){
+  const surface=surfaceCss(boardTheme);
+  $("gradient").style.backgroundColor=surface;
+  $("gradient").style.backgroundImage=paletteGradient(palette,opacity,boardTheme);
+  document.querySelectorAll(".swatch[data-palette]").forEach(swatch=>{
+    const name=swatch.dataset.palette;
+    swatch.style.backgroundColor=surface;
+    swatch.style.backgroundImage=showsOwnership(name)?paletteGradient(name,opacity,boardTheme):"none";
+  });
+  canvas.closest(".board-frame")?.setAttribute("data-board-theme",boardTheme);
+}
 function save(){
   try {
     const record=gameLibrary.save({id:currentGameId,mode:room?"online":gameMode,
@@ -1653,6 +1677,8 @@ $("aiReinforcement").value=String(reinforcement);
 updatePersonaUi();syncStrengthUi();syncHandicapUi();
 const selectedPalette=document.querySelector('input[name="palette"][value="'+palette+'"]');
 if(selectedPalette)selectedPalette.checked=true;
+const selectedBoardTheme=document.querySelector('input[name="boardTheme"][value="'+boardTheme+'"]');
+if(selectedBoardTheme)selectedBoardTheme.checked=true;
 $("opacity").value=String(Math.round(opacity*100));
 $("opacityValue").textContent=Math.round(opacity*100)+"%";
 updateGradient();

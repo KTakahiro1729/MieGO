@@ -1,5 +1,6 @@
 import {SIZE as DEFAULT_SIZE, BLACK, sizeOf, starPoints} from "./core.mjs";
 import {ownershipPixel,showsOwnership} from "./territory-view.mjs";
+import {boardTheme} from "./board-theme.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
 import {scoringRegions} from "./scoring-regions.mjs";
 
@@ -17,11 +18,15 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   // The side length of the position being drawn; set at the start of each draw.
   let SIZE = DEFAULT_SIZE;
 
-  function paintGrid(d, gap, pad) {
+  function paintGrid(theme, d, gap, pad) {
     ctx.clearRect(0,0,d,d);
-    ctx.fillStyle = "#e5c58c";
+    if(theme.fill.length>1 && ctx.createLinearGradient) {
+      const grad=ctx.createLinearGradient(0,0,d,d);
+      theme.fill.forEach((color,i)=>grad.addColorStop(i/(theme.fill.length-1),color));
+      ctx.fillStyle=grad;
+    } else ctx.fillStyle = theme.fill[0];
     ctx.fillRect(0,0,d,d);
-    ctx.strokeStyle = "#685537";
+    ctx.strokeStyle = theme.line;
     ctx.lineWidth = 2;
     for(let i=0;i<SIZE;i++) {
       const p = pad+i*gap;
@@ -35,7 +40,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   function paintOwnership(view, gap, pad) {
-    const {game,boardReview,displayedOwnership,palette,opacity} = view;
+    const {game,boardReview,displayedOwnership,palette,opacity,boardTheme:themeName} = view;
     const values = boardReview ? boardReview.ownership : displayedOwnership;
     if(!boardReview && game.status!=="playing")return;
     // An estimate for another board size (e.g. just after switching) is skipped.
@@ -43,7 +48,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
 
     const image = overlayContext.createImageData(SIZE,SIZE);
     for(let i=0;i<SIZE*SIZE;i++) {
-      const [r,g,b,a] = ownershipPixel(values[i],palette,opacity);
+      const [r,g,b,a] = ownershipPixel(values[i],palette,opacity,themeName);
       const p = i*4;
       image.data[p]=r;
       image.data[p+1]=g;
@@ -58,32 +63,31 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     ctx.restore();
   }
 
-  function paintStarPoints(gap,pad) {
+  function paintStarPoints(theme,gap,pad) {
     for(const point of starPoints(SIZE)) {
       const x=point%SIZE, y=Math.floor(point/SIZE);
       ctx.beginPath();
       ctx.arc(pad+x*gap,pad+y*gap,4,0,Math.PI*2);
-      ctx.fillStyle="#725b39";
+      ctx.fillStyle=theme.star;
       ctx.fill();
     }
   }
 
-  function paintStone(color,x,y,r,alpha) {
+  function paintStone(theme,color,x,y,r,alpha) {
+    const look=color===BLACK?theme.stones.black:theme.stones.white;
     ctx.save();
     ctx.globalAlpha=alpha;
     ctx.beginPath();
     ctx.arc(x,y,r,0,Math.PI*2);
-    const grad=ctx.createRadialGradient(x-r*.3,y-r*.3,2,x,y,r*1.2);
-    if(color===BLACK) {
-      grad.addColorStop(0,"#555b5a");
-      grad.addColorStop(1,"#101718");
-    } else {
-      grad.addColorStop(0,"#fff");
-      grad.addColorStop(1,"#b8b8b1");
+    if(theme.flatStones) ctx.fillStyle=look.outer;
+    else {
+      const grad=ctx.createRadialGradient(x-r*.3,y-r*.3,2,x,y,r*1.2);
+      grad.addColorStop(0,look.inner);
+      grad.addColorStop(1,look.outer);
+      ctx.fillStyle=grad;
     }
-    ctx.fillStyle=grad;
     ctx.fill();
-    ctx.strokeStyle=color===BLACK?"#1a2626":"#a1a29c";
+    ctx.strokeStyle=look.rim;
     ctx.lineWidth=1.5;
     ctx.stroke();
     ctx.restore();
@@ -123,7 +127,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       ctx.fillText(label,x,y+1);ctx.restore();
     }
   }
-  function paintStones(view, display, gap, pad) {
+  function paintStones(theme, view, display, gap, pad) {
     const {game,boardReview,candidate,illegalCandidate} = view;
     const proposedBoard = boardReview?.preview?.board || (boardReview ? null : candidate?.board);
     const preview = boardReview ? boardReview.previewPosition :
@@ -139,7 +143,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       const x=pad+(i%SIZE)*gap;
       const y=pad+Math.floor(i/SIZE)*gap;
       const r=gap*.44;
-      paintStone(color,x,y,r,captured ? 0.4 : i===preview ? 0.68 : 1);
+      paintStone(theme,color,x,y,r,captured ? 0.4 : i===preview ? 0.68 : 1);
 
       if(i===preview) {
         ctx.save();
@@ -207,15 +211,16 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const display=boardReview?.display||game;
     SIZE=sizeOf(display.board);
     if(overlayCanvas.width!==SIZE)overlayCanvas.width=overlayCanvas.height=SIZE;
+    const theme=boardTheme(view.boardTheme);
     const d=canvas.width, gap=d/(SIZE+1), pad=gap;
-    paintGrid(d,gap,pad);
+    paintGrid(theme,d,gap,pad);
     paintOwnership(view,gap,pad);
     const scoredFinished=game.status==="finished" && !game.result?.endsWith("+R");
     const scoring=!boardReview && (game.status==="scoring" || scoredFinished)?
       scoringRegions(game):null;
     if(scoring)paintCountingStones(game,scoring,gap,pad,scoredFinished);
-    paintStarPoints(gap,pad);
-    paintStones(view,display,gap,pad);
+    paintStarPoints(theme,gap,pad);
+    paintStones(theme,view,display,gap,pad);
     if(scoring)paintRegionLabels(scoring.regions,gap,pad);
     paintLastMove(view,display,gap,pad);
     if(!boardReview)paintHints(view,display,gap,pad);

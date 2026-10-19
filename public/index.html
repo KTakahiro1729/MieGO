@@ -125,21 +125,25 @@
     <aside id="settingsPanel" class="settings-panel" role="dialog" aria-modal="true" aria-label="表示設定" hidden>
       <div class="settings-head"><h2>設定</h2><button id="closeSettings" class="icon-button" type="button" aria-label="設定を閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <section class="settings-section">
-        <h3>地合いの見え方</h3>
+        <h3>見た目</h3>
+        <fieldset class="palette-choices board-choices">
+          <legend>碁盤</legend>
+          <label class="palette-choice"><input type="radio" name="boardTheme" value="wood" checked><span class="board-swatch wood"></span><span>木目</span></label>
+          <label class="palette-choice"><input type="radio" name="boardTheme" value="light"><span class="board-swatch light"></span><span>ライト</span></label>
+          <label class="palette-choice"><input type="radio" name="boardTheme" value="dark"><span class="board-swatch dark"></span><span>ダーク</span></label>
+        </fieldset>
         <fieldset class="palette-choices">
-          <legend>カラーマップ</legend>
-          <label class="palette-choice"><input type="radio" name="palette" value="mono" checked><span class="swatch mono"></span><span>白〜黒</span></label>
-          <label class="palette-choice"><input type="radio" name="palette" value="purpleGreen"><span class="swatch purple"></span><span>紫〜緑</span></label>
-          <label class="palette-choice"><input type="radio" name="palette" value="blueRed"><span class="swatch blue"></span><span>青〜赤</span></label>
-          <label class="palette-choice"><input type="radio" name="palette" value="brownTeal"><span class="swatch brown"></span><span>茶〜青緑</span></label>
-          <label class="palette-choice"><input type="radio" name="palette" value="orangePurple"><span class="swatch orange"></span><span>橙〜紫</span></label>
-          <label class="palette-choice"><input type="radio" name="palette" value="none"><span class="swatch none"></span><span>表示しない</span></label>
+          <legend>地合いのカラーマップ</legend>
+          <label class="palette-choice"><input type="radio" name="palette" value="mono" checked><span class="swatch" data-palette="mono"></span><span>白〜黒</span></label>
+          <label class="palette-choice"><input type="radio" name="palette" value="orangePurple"><span class="swatch" data-palette="orangePurple"></span><span>橙〜紫</span></label>
+          <label class="palette-choice"><input type="radio" name="palette" value="greenPurple"><span class="swatch" data-palette="greenPurple"></span><span>緑〜紫</span></label>
+          <label class="palette-choice"><input type="radio" name="palette" value="none"><span class="swatch" data-palette="none"></span><span>表示しない</span></label>
         </fieldset>
         <label for="opacity">色の濃さ</label>
         <input id="opacity" type="range" min="0" max="100" value="55">
         <div class="range-labels"><span>薄い</span><span>濃い</span></div>
         <span id="opacityValue" class="visually-hidden" aria-live="polite">55%</span>
-        <details class="info-disclosure"><summary>地合いの表示について</summary><p class="explanation">色は黒寄り・白寄りの傾向を示し、中立では碁盤がそのまま見えます。確定した地や勝率ではありません。「表示しない」を選ぶと色を消し、対局中でもいつでも切り替えられます。</p></details>
+        <details class="info-disclosure"><summary>地合いの表示について</summary><p class="explanation">色は黒寄り・白寄りの傾向を示し、中立では碁盤がそのまま見えます。紫はいつも黒側です。色の濃さは碁盤ごとに、黒側と白側が同じくらい目立つよう調整しています。確定した地や勝率ではありません。「表示しない」を選ぶと色を消し、対局中でもいつでも切り替えられます。</p></details>
         <button id="resetAppearance" class="secondary full" type="button">表示を初期状態に戻す</button>
       </section>
       <section class="settings-section" aria-label="対局と棋譜の操作">
