@@ -100,6 +100,14 @@ export function answerEndProposal(state, color, accept) {
   return { ...state, status: "scoring", passes: 0, endProposal: null,
     dead: [], agreed: { black: false, white: false } };
 }
+/** A human may open scoring in a solo/AI match, without fabricating
+ * another player's (or an AI's) acceptance of an endgame offer.
+ */
+export function beginSoloScoring(state) {
+  if(state.status!=="playing")throw new Error("対局中のみ採点を開始できます");
+  return {...state,status:"scoring",passes:0,endProposal:null,dead:[],
+    agreed:{black:false,white:false}};
+}
 export function toggleDead(state, index) {
   if (state.status !== "scoring" || !state.board[index]) throw new Error("石を指定してください");
   const stones = group(state.board, index).stones;
@@ -161,6 +169,15 @@ export function agreeScore(state, color) {
   const s = areaScore(state);
   return { ...state, agreed, status: "finished",
     result: (s.difference > 0 ? "B+" : "W+") + Math.abs(s.difference).toFixed(1) };
+}
+/** A single human confirms the provisional score without writing
+ * fake agreement by the opposing color into the match record.
+ */
+export function finalizeSoloScore(state) {
+  if(state.status!=="scoring")throw new Error("採点中のみ確定できます");
+  const s=areaScore(state);
+  return {...state,status:"finished",
+    result:(s.difference>0?"B+":"W+")+Math.abs(s.difference).toFixed(1)};
 }
 export function setAssisted(state, value) {
   if (state.moveNumber !== 0) throw new Error("開始後はモードを変更できません");
