@@ -5,7 +5,7 @@ import { copyInviteText } from "./invite.mjs";
 import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
 import { isPaletteChoice, normalizePalette, showsOwnership, paletteGradient, countingGradient, interpolateOwnership, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
-import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss } from "./board-theme.mjs";
+import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss, boardTheme as boardLook } from "./board-theme.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
 import { policyHints } from "./ai-assist.mjs";
@@ -1023,9 +1023,13 @@ function updateGradient(){
   $("legendNeutral").hidden=!counting;
   $("ownershipLegend").classList.toggle("overlay-off",!counting && !overlayOn() ||
     game.status==="finished" && !counting);
-  // The editor's ramp shows the colours at full strength on the chosen board.
+  // The editor's ramp lies on a strip of the chosen board, grid lines and
+  // all, so neutral is clear and every colour is seen as it is on the board.
+  const look=boardLook(boardTheme);
+  const grid=dir=>"repeating-linear-gradient("+dir+",transparent 0 9px,"+look.line+" 9px 10.5px,transparent 10.5px 20px)";
   $("rampPreview").style.backgroundColor=surface;
-  $("rampPreview").style.backgroundImage=paletteGradient(showsOwnership(palette)?palette:PALETTE_CUSTOM,1);
+  $("rampPreview").style.backgroundImage=[paletteGradient(showsOwnership(palette)?palette:PALETTE_CUSTOM,1),
+    grid("90deg"),grid("0deg"),"linear-gradient(135deg,"+(look.fill.length>1?look.fill.join(","):look.fill[0]+","+look.fill[0])+")"].join(",");
   document.querySelectorAll(".swatch[data-palette]").forEach(swatch=>{
     const name=swatch.dataset.palette;
     swatch.style.backgroundColor=surface;

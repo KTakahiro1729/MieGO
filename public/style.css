@@ -497,8 +497,8 @@ body{overflow:hidden}
 .ramp-stone.white{background:radial-gradient(circle at 32% 27%,#fff,#d8d7d0 72%)}
 .ramp-stone.black{background:radial-gradient(circle at 32% 28%,#5a5d63,#0c1013 72%)}
 .ramp-track{position:relative;height:44px;margin:10px 11px 2px}
-.ramp-preview{position:absolute;left:-11px;right:-11px;top:13px;height:18px;border-radius:999px;box-shadow:inset 0 0 0 1px #0004,0 2px 8px #0006}
-.ramp-neutral{position:absolute;left:50%;top:9px;width:2px;height:26px;margin-left:-1px;border-radius:2px;background:#ffffff59}
+.ramp-preview{position:absolute;left:-11px;right:-11px;top:2px;height:40px;border-radius:10px;box-shadow:inset 0 0 0 1px #0004,0 2px 8px #0006}
+.ramp-neutral{position:absolute;left:50%;top:-3px;width:2px;height:50px;margin-left:-1px;border-radius:2px;background:#ffffff59}
 .ramp-track .ramp-stop{position:absolute;left:var(--at);top:7px;display:block;width:30px;height:30px;margin:0;line-height:0;transform:translateX(-50%);cursor:pointer}
 .ramp-stop input{display:block;width:30px;height:30px;padding:0;margin:0;border:3px solid #f4f1ea;border-radius:50%;background:none;cursor:pointer;-webkit-appearance:none;appearance:none;box-shadow:0 2px 8px #000a;transition:transform .15s}
 .ramp-stop input:hover,.ramp-stop input:focus-visible{transform:scale(1.12)}
