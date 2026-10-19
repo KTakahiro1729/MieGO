@@ -6,8 +6,8 @@ import {resultLabel,shareLabels,shareFrameSize,buildGameAnimation,paintShareFram
 import {OwnershipStore,encodeOwnership,decodeOwnership} from "../public/ownership-store.mjs";
 
 test("results read in Japanese",()=>{
-  assert.equal(resultLabel("B+3.5"),"黒の3.5目勝ち");
-  assert.equal(resultLabel("W+12"),"白の12.0目勝ち");
+  assert.equal(resultLabel("B+3.5"),"黒が3.5目差で勝利");
+  assert.equal(resultLabel("W+12"),"白が12.0目差で勝利");
   assert.equal(resultLabel("W+R"),"白の投了勝ち");
   assert.equal(resultLabel("B+Resign"),"黒の投了勝ち");
   assert.equal(resultLabel("0"),"引き分け");
@@ -16,7 +16,7 @@ test("results read in Japanese",()=>{
 });
 
 test("labels name the moves, the result and the winner",()=>{
-  assert.deepEqual(shareLabels({step:42,total:60,result:"B+3.5",animated:false}),{moves:"42手目",result:"黒の3.5目勝ち",winner:"B"});
+  assert.deepEqual(shareLabels({step:42,total:60,result:"B+3.5",animated:false}),{moves:"42手目",result:"黒が3.5目差で勝利",winner:"B"});
   assert.deepEqual(shareLabels({step:12,total:12,result:null,animated:false}),{moves:"12手目",result:"終局前",winner:null});
   assert.deepEqual(shareLabels({step:60,total:60,result:"W+R",animated:true}),{moves:"全60手",result:"白の投了勝ち",winner:"W"});
   assert.equal(shareLabels({step:5,total:5,result:"0",animated:false}).winner,null,"a draw has no winner");
@@ -35,30 +35,38 @@ function recordingContext() {
     measureText:t=>({width:t.length*10})};
 }
 
-test("the card is the board with brand, result, legend and links beneath",()=>{
+test("the card is the board with the result above and legend and links below",()=>{
   assert.deepEqual(SHARE_LINKS,[["自分でプレイする","miego.fun"],["開発に参加する","github.com/KTakahiro1729/MieGO"]]);
   const ctx=recordingContext();
   paintShareFrame({width:800,getContext:()=>ctx},{width:720},
-    {moves:"42手目",result:"白の3.5目勝ち",winner:"W",theme:"wood",legend:{palette:"mono",opacity:.55}});
-  assert.deepEqual(ctx.texts.map(t=>t.text),["MieGO","42手目","白の3.5目勝ち","白寄り","黒寄り",
+    {moves:"42手目",result:"白が3.5目差で勝利",winner:"W",theme:"wood",legend:{palette:"mono",opacity:.55}});
+  assert.deepEqual(ctx.texts.map(t=>t.text),["MieGO","42手目","白が3.5目差で勝利","白寄り","黒寄り",
     "miego.fun","自分でプレイする","github.com/KTakahiro1729/MieGO","開発に参加する"]);
   assert.deepEqual(ctx.images,[[0,0,800,800]],"the board fills the card's top");
   const at=text=>ctx.texts.find(t=>t.text===text);
   assert.equal(at("MieGO").x,80,"text aligns with the grid's edge");
-  assert.ok(at("白の3.5目勝ち").y>800 && at("白の3.5目勝ち").font.includes("Mincho"));
-  assert.ok(ctx.arcs.some(([x,y,r])=>r===16 && y<866),"the winner's stone precedes the result");
-  // Each link: the address on top, what it is for underneath.
+  // The result sits in the top margin, centred together with the winner's stone.
+  const result=at("白が3.5目差で勝利"),stone=ctx.arcs.find(([,,r])=>r===14);
+  assert.ok(result.y<80 && result.font.includes("Mincho"));
+  const width=result.text.length*10;
+  assert.ok(Math.abs((stone[0]-14)+(result.x+width-(stone[0]-14))/2-400)<1,"stone and result are centred");
+  // The legend is centred just under the board.
+  assert.ok(at("白寄り").y>800 && at("白寄り").y<860);
+  assert.ok(Math.abs((at("白寄り").x+at("黒寄り").x)/2-400)<1);
+  // Each link is centred in its half, the address above its purpose.
+  assert.equal(at("miego.fun").x,240);
+  assert.equal(at("github.com/KTakahiro1729/MieGO").x,560);
   for(const [label,link] of SHARE_LINKS){
     assert.equal(at(link).x,at(label).x);
     assert.ok(at(link).y<at(label).y);
   }
-  assert.ok(at("github.com/KTakahiro1729/MieGO").x>at("miego.fun").x,"links sit side by side");
   assert.ok(ctx.texts.every(t=>t.y<1000));
   const plain=recordingContext();
   paintShareFrame({width:800,getContext:()=>plain},{width:720},
     {moves:"1手目",result:"終局前",winner:null,theme:"dark",legend:null});
   assert.ok(!plain.texts.some(t=>t.text==="白寄り"),"no legend without colours");
   assert.equal(plain.arcs.length,0,"no stone before an unfinished result");
+  assert.equal(plain.texts.find(t=>t.text==="終局前").x,400-15,"an unfinished result is centred alone");
 });
 
 test("the animation replays every move and ends on the board as drawn",async()=>{

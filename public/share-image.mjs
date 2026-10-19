@@ -5,10 +5,10 @@ import { ownershipPixel, showsOwnership } from "./territory-view.mjs";
 import { boardTheme } from "./board-theme.mjs";
 
 // A shared image is a 4:5 card made of the board itself: the board fills the
-// top, its surface continues below, the brand and move count sit in the
-// board's top margin, and the result (with the winner's stone), the
-// ownership legend sit underneath, aligned to the grid's edge; below a rule,
-// each link is a column with the address on top and what it is for beneath.
+// top and its surface continues below. The board's top margin carries the
+// brand, the result (centred, with the winner's stone) and the move count;
+// the ownership legend sits centred just under the board; below a rule, each
+// link is a centred column with the address on top and its purpose beneath.
 // Sizes are in 1/800ths of the card width; the grid edge is at 80.
 const CARD_RATIO = 1.25, EDGE = 80;
 const MOVE_DELAY = 45, FIRST_DELAY = 90, LAST_DELAY = 350;
@@ -21,7 +21,7 @@ const INK = {wood:["#2e2416","rgba(46,36,22,.62)"],light:["#1d2127","rgba(29,33,
   dark:["#eef3f8","rgba(238,243,248,.62)"]};
 const MINCHO = "'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', serif";
 const GOTHIC = "'Zen Kaku Gothic New', 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif";
-const FONT_TEXT = "MieGO0123456789.+〜·全手目白黒の勝ち投了時間引き分け終局前自分でプレイする開発に参加寄り"+
+const FONT_TEXT = "MieGO0123456789.+〜·全手目白黒の勝ち投了時間引き分け終局前が差で利自分でプレイする開発に参加寄り"+
   "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/:-";
 
 /** Loads the card's two typefaces (subset to its text); falls back to system fonts. */
@@ -50,7 +50,7 @@ export function resultLabel(result) {
   const [,side,detail]=match;
   if(/^R(esign)?$/i.test(detail))return COLOR[side]+"の投了勝ち";
   if(/^T(ime)?$/i.test(detail))return COLOR[side]+"の時間勝ち";
-  if(/^\d+(\.\d+)?$/.test(detail))return COLOR[side]+"の"+Number(detail).toFixed(1)+"目勝ち";
+  if(/^\d+(\.\d+)?$/.test(detail))return COLOR[side]+"が"+Number(detail).toFixed(1)+"目差で勝利";
   return COLOR[side]+"の勝ち";
 }
 
@@ -76,22 +76,23 @@ function paintStone(ctx,theme,color,x,y,r) {
   ctx.strokeStyle=look.rim;ctx.lineWidth=1.2;ctx.stroke();
 }
 
-// White-leaning on the left, Black-leaning on the right, over the board colour.
-function paintLegend(ctx,u,right,y,{palette,opacity,theme},muted) {
-  const w=140*u,h=7*u,x=right-w,steps=48;
+// White-leaning on the left, Black-leaning on the right, over the board colour,
+// centred on `center` with its labels either side of the bar.
+function paintLegend(ctx,u,center,y,{palette,opacity,theme},muted) {
+  const w=200*u,h=8*u,x=center-w/2,steps=48;
   ctx.save();
-  ctx.beginPath();ctx.roundRect?.(x,y,w,h,h/2);ctx.clip();
-  ctx.fillStyle="rgb("+boardTheme(theme).surface.join(",")+")";ctx.fillRect(x,y,w,h);
+  ctx.beginPath();ctx.roundRect?.(x,y-h/2,w,h,h/2);ctx.clip();
+  ctx.fillStyle="rgb("+boardTheme(theme).surface.join(",")+")";ctx.fillRect(x,y-h/2,w,h);
   for(let i=0;i<steps;i++) {
     const [r,g,b,a]=ownershipPixel(i/(steps-1)*2-1,palette,opacity,theme);
     ctx.fillStyle="rgba("+r+","+g+","+b+","+(a/255).toFixed(3)+")";
-    ctx.fillRect(x+w*i/steps,y,w/steps+1,h);
+    ctx.fillRect(x+w*i/steps,y-h/2,w/steps+1,h);
   }
   ctx.restore();
-  ctx.font="500 "+Math.round(13*u)+"px "+GOTHIC;ctx.fillStyle=muted;ctx.textBaseline="top";
-  ctx.textAlign="left";ctx.fillText("白寄り",x,y+h+6*u);
-  ctx.textAlign="right";ctx.fillText("黒寄り",right,y+h+6*u);
-  ctx.textAlign="left";ctx.textBaseline="alphabetic";
+  ctx.font="500 "+Math.round(14*u)+"px "+GOTHIC;ctx.fillStyle=muted;ctx.textBaseline="middle";
+  ctx.textAlign="right";ctx.fillText("白寄り",x-12*u,y);
+  ctx.textAlign="left";ctx.fillText("黒寄り",x+w+12*u,y);
+  ctx.textBaseline="alphabetic";
 }
 
 /**
@@ -113,27 +114,31 @@ export function paintShareFrame(target,board,{moves,result,winner=null,theme,leg
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
   ctx.drawImage(board,0,0,width,width);
 
-  const left=EDGE*u,right=width-EDGE*u;
+  const left=EDGE*u,right=width-EDGE*u,center=width/2;
   ctx.textBaseline="alphabetic";ctx.textAlign="left";
-  ctx.font="700 "+Math.round(26*u)+"px Georgia, 'Times New Roman', serif";
+  ctx.font="700 "+Math.round(22*u)+"px Georgia, 'Times New Roman', serif";
   ctx.fillStyle=muted;ctx.fillText("MieGO",left,52*u);
   ctx.font="500 "+Math.round(18*u)+"px "+GOTHIC;
-  ctx.textAlign="right";ctx.fillText(moves,right,50*u);ctx.textAlign="left";
+  ctx.textAlign="right";ctx.fillText(moves,right,51*u);
 
-  const baseline=866*u,showLegend=!!legend && showsOwnership(legend.palette);
-  let x=left;
-  if(winner==="B" || winner==="W"){paintStone(ctx,look,winner,left+16*u,baseline-16*u,16*u);x=left+46*u;}
-  ctx.font="800 "+Math.round(44*u)+"px "+MINCHO;ctx.fillStyle=ink;
-  ctx.fillText(result,x,baseline,right-x-(showLegend ? 170*u : 0));
-  if(showLegend)paintLegend(ctx,u,right,baseline-20*u,{...legend,theme},muted);
+  // The result, centred between the brand and the move count.
+  ctx.font="800 "+Math.round(36*u)+"px "+MINCHO;
+  const hasStone=winner==="B" || winner==="W",stone=hasStone ? 38*u : 0,room=420*u-stone;
+  const textWidth=Math.min(ctx.measureText(result).width,room),start=center-(stone+textWidth)/2;
+  if(hasStone)paintStone(ctx,look,winner,start+14*u,42*u,14*u);
+  ctx.textAlign="left";ctx.fillStyle=ink;ctx.fillText(result,start+stone,55*u,room);
 
-  ctx.fillStyle=muted;ctx.fillRect(left,898*u,right-left,Math.max(1,u));
-  const columns=[left,left+250*u];
+  if(legend && showsOwnership(legend.palette))paintLegend(ctx,u,center,828*u,{...legend,theme},muted);
+
+  ctx.fillStyle=muted;ctx.fillRect(left,868*u,right-left,Math.max(1,u));
+  const column=(right-left)/SHARE_LINKS.length;
+  ctx.textAlign="center";
   SHARE_LINKS.forEach(([label,link],i)=>{
-    const x=columns[i],room=(i+1<columns.length ? columns[i+1]-24*u : right)-x;
-    ctx.font="700 "+Math.round(19*u)+"px "+GOTHIC;ctx.fillStyle=ink;ctx.fillText(link,x,940*u,room);
-    ctx.font="500 "+Math.round(14*u)+"px "+GOTHIC;ctx.fillStyle=muted;ctx.fillText(label,x,966*u,room);
+    const x=left+column*(i+.5);
+    ctx.font="700 "+Math.round(19*u)+"px "+GOTHIC;ctx.fillStyle=ink;ctx.fillText(link,x,920*u,column-16*u);
+    ctx.font="500 "+Math.round(14*u)+"px "+GOTHIC;ctx.fillStyle=muted;ctx.fillText(label,x,948*u,column-16*u);
   });
+  ctx.textAlign="left";
 }
 
 /**
