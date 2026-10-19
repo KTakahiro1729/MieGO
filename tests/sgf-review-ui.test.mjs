@@ -27,7 +27,7 @@ test("replay does not write moves to an active live or P2P session",()=>{
   assert.match(app,/const updates=source==="live"/);
 });
 test("saved records open directly on the main board from the saved-game entries",()=>{
-  assert.match(html,/id="openHistoryFromNew"[^>]*>保存した棋譜を開く<\/button>/);
+  assert.match(html,/id="openHistoryFromNew"[^>]*>[\s\S]*?<strong>履歴<\/strong><\/button>/);
   assert.match(app,/\$\("openHistoryFromNew"\)\.onclick=openHistoryPanel/);
   assert.match(app,/enterBoardReview\(record\.snapshot,count,"archive",record\.sgfMeta,record\)/);
   assert.doesNotMatch(html,/id="historyBoard"|id="historyStepRange"/);

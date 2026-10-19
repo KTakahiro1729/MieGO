@@ -12,8 +12,15 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   for(const size of [9,13,19])assert.match(sheet,new RegExp('name="boardSize" value="'+size+'"'));
   const handicap=sheet.slice(sheet.indexOf('<select id="handicap"'),sheet.indexOf('</select>',sheet.indexOf('<select id="handicap"')));
   for(const stones of [0,2,3,4,5,6,7,8,9])assert.match(handicap,new RegExp('<option value="'+stones+'"'));
-  // The mode is a full-width row with an icon.
+  // The modes and 履歴 form a 2x2 grid of icon tiles.
   assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,3);
+  assert.match(sheet,/id="openHistoryFromNew" class="new-game-tile"[^>]*><svg class="mode-icon"/);
+  assert.equal((sheet.match(/name="boardSize"[^>]*><span><svg class="size-icon"/g)||[]).length,3);
+  // Handicap and the AI's options live under 詳細設定; the sampling-variance setting is gone.
+  const advanced=sheet.slice(sheet.indexOf('<details class="info-disclosure new-game-advanced">'),sheet.indexOf('</details>'));
+  for(const id of ["handicap","aiInvasion","aiReinforcement","aiHints"])assert.match(advanced,new RegExp('id="'+id+'"'));
+  assert.match(advanced,/name="aiStrength"/);
+  assert.doesNotMatch(html+app,/aiLevel/);
   for(const id of ["startLocal","startAi","copy","openHistoryFromNew"])assert.match(sheet,new RegExp('id="'+id+'"'));
   assert.match(app,/\$\("newGameButton"\)\.onclick=\(\)=>openPanel\(room\?"online":gameMode\)/);
 });

@@ -29,7 +29,7 @@ test("AI saves retain own parameters separately from local",()=>{
  const {lib}=setup();
  const local=lib.save({mode:"local",snapshot:newGame()});
  const ai=lib.save({mode:"ai",snapshot:play(newGame(),40),humanColor:-1,
-   aiLevel:"gentle",invasion:75,reinforcement:35});
+   invasion:75,reinforcement:35});
  lib.setActive("local",local.id);
  lib.setActive("ai",ai.id);
  assert.equal(lib.active("local").mode,"local");
@@ -58,7 +58,7 @@ test("migrate legacy snapshots once without deleting original keys",()=>{
  const {lib,storage}=setup();
  storage.setItem("miego-local",JSON.stringify(play(newGame(false),12)));
  storage.setItem("miego-game-ai",JSON.stringify(play(newGame(),40)));
- storage.setItem("miego-local-settings",JSON.stringify({humanColor:-1,aiLevel:"gentle"}));
+ storage.setItem("miego-local-settings",JSON.stringify({humanColor:-1}));
  lib.migrateLegacy();
  assert.equal(lib.list().length,2);
  assert.equal(lib.active("local").snapshot.assisted,false);
