@@ -282,7 +282,8 @@ body{overflow:hidden}
 #p2pVerify p{font-size:12px;opacity:.85;margin:0 0 8px}
 
 /* Playback replaces the existing action row, never increases page height. */
-.move-history-toggle{border:1px solid #525666;border-radius:9px;background:#212733;min-height:44px;padding:7px 11px;color:#ead194;font-size:12px}
+.move-history-toggle{position:relative;border:1px solid #525666;border-radius:9px;background:#212733;min-height:26px;height:26px;padding:2px 7px;color:#ead194;font-size:11px;line-height:20px}
+.move-history-toggle::before{content:"";position:absolute;inset:-9px 0}
 .move-history-toggle:hover{border-color:var(--gold)}
 .review-panel{margin:4px -2px 0;padding:10px 2px max(12px,env(safe-area-inset-bottom));position:sticky;bottom:0;z-index:4;background:linear-gradient(180deg,#0d101800,#0d1018 12%)}
 .review-navigation{display:flex;align-items:stretch;gap:7px;position:relative}

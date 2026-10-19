@@ -50,3 +50,8 @@ test("AI copy is only a description of the link format, not separate SGF or a qu
   assert.match(html,/id="reviewAiLink"/);
   assert.match(html,/id="historyAiLink"/);
 });
+
+test("replay entry does not make the existing game header taller",()=>{
+ assert.match(style,/\.move-history-toggle\{[^}]*min-height:26px/);
+ assert.match(style,/\.move-history-toggle::before\{[^}]*inset:-9px 0/);
+});
