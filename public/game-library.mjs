@@ -41,7 +41,7 @@ export class GameLibrary {
     this.storage.setItem(ACTIVE+mode,id);
   }
   save({id=null,mode,snapshot,roomId=null,lastPosition=null,humanColor=1,aiLevel="standard",
-        invasion=50,reinforcement=50,seat=null},expectedRevision=null) {
+        invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null},expectedRevision=null) {
     if(!MODES.has(mode))throw Error("無効な対局モード");
     if(!parseGameSnapshot(JSON.stringify(snapshot)))throw Error("棋譜データが不正です");
     if(mode==="online" && !ROOM_RE.test(roomId||""))throw Error("不正なルームID");
@@ -62,7 +62,14 @@ export class GameLibrary {
       aiLevel:aiLevel==="gentle"?"gentle":"standard",
       invasion:Number.isFinite(invasion)?invasion:50,
       reinforcement:Number.isFinite(reinforcement)?reinforcement:50,
-      seat:mode==="online"?(seat==="guest"?"guest":seat==="host"?"host":null):null
+      seat:mode==="online"?(seat==="guest"?"guest":seat==="host"?"host":null):null,
+      source:previous?.source==="sgf"?"sgf":source==="sgf"?"sgf":"played",
+      sgfMeta:previous?.sgfMeta||((source==="sgf" && sgfMeta)?{
+        komi:String(sgfMeta.komi??"7.5"),rules:String(sgfMeta.rules??"Chinese"),
+        result:sgfMeta.result?String(sgfMeta.result):null,
+        blackName:sgfMeta.blackName?String(sgfMeta.blackName):null,
+        whiteName:sgfMeta.whiteName?String(sgfMeta.whiteName):null
+      }:null)
     };
     this.storage.setItem(PREFIX+result.id,JSON.stringify(result));
     return result;
