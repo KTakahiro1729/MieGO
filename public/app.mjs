@@ -10,6 +10,7 @@ import { illegalMoveReasons, drawIllegalMoveMarker } from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { parseSGF, exportSGF, replaySteps, forkReview } from "./sgf.mjs";
+import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board"), ctx = canvas.getContext("2d");
@@ -77,6 +78,8 @@ function reviewUnavailable() {
 }
 const gameLibrary=new GameLibrary(localStorage);
 let currentGameId=null,currentRevision=null,historySelection=null,historyStep=0;
+// The actual match always remains in 'game'; only the visible board is replayed.
+let boardReview=null,reviewWorker=null,reviewSequence=0;
 try {gameLibrary.migrateLegacy();}
 catch(error){console.warn("Saved-game migration failed",error);}
 function storageError(error){
@@ -153,10 +156,12 @@ overlayCanvas.width = SIZE; overlayCanvas.height = SIZE;
 const overlayContext = overlayCanvas.getContext("2d");
 
 function paintOwnership(d, gap, pad) {
-  if (!game.assisted || !displayedOwnership) return;
+  const shown=boardReview?.display||game;
+  const values=boardReview?boardReview.ownership:displayedOwnership;
+  if (!shown.assisted || !values) return;
   const data = overlayContext.createImageData(SIZE,SIZE);
   for (let i=0;i<SIZE*SIZE;i++) {
-    const [r,g,b,a]=ownershipPixel(displayedOwnership[i],palette,opacity);
+    const [r,g,b,a]=ownershipPixel(values[i],palette,opacity);
     const p=i*4;
     data.data[p]=r; data.data[p+1]=g; data.data[p+2]=b; data.data[p+3]=a;
   }
@@ -187,12 +192,13 @@ function transitionOwnership(next) {
 }
 let illegalCacheGame=null,illegalCache=new Map();
 function draw() {
-  const d = canvas.width, gap = d / (SIZE + 1), pad = gap, b = candidate?.board || game.board;
+  const display=boardReview?.display||game;
+  const d = canvas.width, gap = d / (SIZE + 1), pad = gap, b = boardReview?display.board:candidate?.board || game.board;
   ctx.clearRect(0,0,d,d); ctx.fillStyle="#e5c58c";ctx.fillRect(0,0,d,d);
   ctx.strokeStyle="#685537";ctx.lineWidth=2;
   for(let i=0;i<SIZE;i++){const p=pad+i*gap;ctx.beginPath();ctx.moveTo(pad,p);ctx.lineTo(d-pad,p);ctx.moveTo(p,pad);ctx.lineTo(p,d-pad);ctx.stroke();}
   paintOwnership(d,gap,pad);
-  if(game.status==="playing" && isHumanTurn()) {
+  if(!boardReview && game.status==="playing" && isHumanTurn()) {
     // This state is immutable; cache legal checks during heatmap animation.
     if(illegalCacheGame!==game) {
       illegalCacheGame=game;
@@ -207,7 +213,7 @@ function draw() {
   for(const [x,y] of [[2,2],[6,2],[4,4],[2,6],[6,6]]){
     ctx.beginPath();ctx.arc(pad+x*gap,pad+y*gap,4,0,Math.PI*2);ctx.fillStyle="#725b39";ctx.fill();
   }
-  const preview = candidate?.moves.at(-1)?.position;
+  const preview = boardReview?null:candidate?.moves.at(-1)?.position;
   for(let i=0;i<b.length;i++){
     if(!b[i])continue;
     const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
@@ -223,10 +229,11 @@ function draw() {
       ctx.save();ctx.strokeStyle="#f5d58b";ctx.lineWidth=3;ctx.setLineDash([7,5]);
       ctx.beginPath();ctx.arc(x,y,r+4,0,Math.PI*2);ctx.stroke();ctx.restore();
     }
-    if(game.status==="scoring"&&game.dead.includes(i)){ctx.strokeStyle="#d95a4e";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x-r*.45,y-r*.45);ctx.lineTo(x+r*.45,y+r*.45);ctx.moveTo(x+r*.45,y-r*.45);ctx.lineTo(x-r*.45,y+r*.45);ctx.stroke();}
+    if(!boardReview && game.status==="scoring"&&game.dead.includes(i)){ctx.strokeStyle="#d95a4e";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x-r*.45,y-r*.45);ctx.lineTo(x+r*.45,y+r*.45);ctx.moveTo(x+r*.45,y-r*.45);ctx.lineTo(x-r*.45,y+r*.45);ctx.stroke();}
   }
-  if(lastPosition!==null && !candidate && game.status==="playing"){
-    const x=pad+(lastPosition%SIZE)*gap,y=pad+Math.floor(lastPosition/SIZE)*gap;
+  const marker=boardReview?display.moves.at(-1)?.position:lastPosition;
+  if(Number.isInteger(marker) && (boardReview||(!candidate && game.status==="playing"))){
+    const x=pad+(marker%SIZE)*gap,y=pad+Math.floor(marker/SIZE)*gap;
     ctx.fillStyle="#d0b25c";ctx.fillRect(x-4,y-4,8,8);
   }
 }
@@ -384,6 +391,12 @@ function handleAnalysis(event) {
 }
 worker.onmessage=handleAnalysis;
 function show() {
+  if(boardReview){renderBoardReview();return;}
+  $("actionRow").hidden=false;
+  $("reviewPanel").hidden=true;
+  $("endgameBar").hidden=false;
+  $("scoreBox").hidden=false;
+  $("modePicker").disabled=false;
   const myTurn=isHumanTurn();
   $("modePicker").value=room ? "online" : gameMode;
   $("startAi").disabled=!katagoReady || fallbackMode;
@@ -402,7 +415,7 @@ function show() {
     (game.next===BLACK?"黒の番です":"白の番です");
   if(!room)$("netStatus").textContent=gameMode==="ai"?"AIと対戦":"1台で打つ";
   $("netStatus").classList.toggle("online",connected);
-  $("moveLabel").textContent=game.moveNumber+"手目";
+  $("moveLabel").textContent=game.moveNumber+"手目 ‹ ›";
   $("hint").textContent=candidate?"仮置き中。確定か取り消しを選べます":
     game.status==="scoring"?"盤上の石をタップすると死石を指定できます":
     gameMode==="ai" && fallbackMode?"KataGoを利用できないためAI対局は停止中":
@@ -544,6 +557,7 @@ function apply(action, remote=false) {
   }catch(error){alert(error.message); if(remote){$("netStatus").textContent="同期エラー";p2pTransport.refresh();}}
 }
 function submitMove(position,fromAi=false){
+  if(boardReview && !fromAi)return;
   if(!fromAi && !isHumanTurn())return;
   if(fromAi && !isAiTurn())return;
   const before=boardHash(game.board);
@@ -552,6 +566,7 @@ function submitMove(position,fromAi=false){
   apply({type:"move",position,number:game.moveNumber+1,before,after:boardHash(next.board)});
 }
 canvas.addEventListener("click",e=>{
+  if(boardReview)return;
   const rect=canvas.getBoundingClientRect(),x=Math.round(((e.clientX-rect.left)/rect.width*canvas.width-canvas.width/(SIZE+1))/(canvas.width/(SIZE+1))),
     y=Math.round(((e.clientY-rect.top)/rect.height*canvas.height-canvas.height/(SIZE+1))/(canvas.height/(SIZE+1)));
   if(x<0||x>=SIZE||y<0||y>=SIZE)return;
