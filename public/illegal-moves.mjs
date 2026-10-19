@@ -1,9 +1,8 @@
 import { SIZE, BLACK, play } from "./core.mjs";
-import { formatBoardForAi, AI_BOARD_LEGEND } from "./board-text.mjs";
+import { formatBoardForAi, AI_BOARD_LEGEND, AI_SELECTED_POINT } from "./board-text.mjs";
 
 export const ILLEGAL_SUICIDE = "suicide";
 export const ILLEGAL_KO = "ko";
-const columns = "ABCDEFGHJ";
 const reasons = {
   [ILLEGAL_SUICIDE]: "自殺手は禁止です",
   [ILLEGAL_KO]: "コウで直前の局面に戻せません"
@@ -40,19 +39,18 @@ export function illegalMoveReasons(state) {
   return result;
 }
 
-export function pointLabel(position) {
-  if(!Number.isInteger(position)||position<0||position>=SIZE*SIZE)throw Error("Invalid board point");
-  return columns[position%SIZE]+(SIZE-Math.floor(position/SIZE));
-}
 /** A self-contained Japanese question for a user to paste into an AI chat.
- * It includes the position, reason and (for ko) the preceding board, but
- * intentionally excludes the private invitation URL and account details. */
-export function makeIllegalMovePrompt(game,forbidden) {
+ * Includes a public SGF replay URL and a highlighted glyph board, but never
+ * a private P2P invitation URL or an on-board coordinate label. */
+export function makeIllegalMovePrompt(game,forbidden,reviewUrl) {
   if(!forbidden || !Object.hasOwn(reasons,forbidden.reason) ||
      game.board?.[forbidden.position]!==0 || game.status!=="playing")
     throw Error("説明する禁止手がありません");
   const color=game.next===BLACK?"黒":"白";
-  const point=pointLabel(forbidden.position);
+  const url=new URL(reviewUrl);
+  if(!["https:","http:"].includes(url.protocol) || url.searchParams.has("room") ||
+     !url.searchParams.get("sgf") || !url.searchParams.has("move"))
+    throw Error("有効なSGF棋譜URLが必要です");
   let before="";
   if(forbidden.reason===ILLEGAL_KO && game.history?.length>=2) {
     const hash=game.history.at(-2);
@@ -63,12 +61,14 @@ export function makeIllegalMovePrompt(game,forbidden) {
   }
   return [
     "MieGO・9路盤の着手確認",
-    "手番："+color+"、選択した交点："+point,
+    "手番："+color+"、選択した空点は図中の◇です。",
     "禁止理由："+reasons[forbidden.reason],
     "なぜこの手が打てないのか、盤面と囲碁のルールに沿って説明してください。",
-    AI_BOARD_LEGEND,
+    "棋譜URL: "+url.href,
+    "",
+    AI_BOARD_LEGEND+" "+AI_SELECTED_POINT,
     "",
     "現在の盤面：",
-    formatBoardForAi(game.board)+before
+    formatBoardForAi(game.board,{selectedPosition:forbidden.position})+before
   ].join("\n");
 }
