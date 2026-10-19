@@ -7,6 +7,7 @@ import { createP2PTransport } from "./p2p-transport.mjs";
 import { PALETTES, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
+import {inspectProvisionalMove,makeIllegalMovePrompt,pointLabel,ILLEGAL_KO} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
@@ -56,7 +57,8 @@ function persistOnline(){
     inviteKey,guestInviteKey,issuedSide,revision:onlineRevision,game,lastPosition}))
     storageError(Error("再接続用の局面を保存できません"));
 }
-let game = newGame(), candidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
+let game = newGame(), candidate = null, illegalCandidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
+let illegalPromptCopied = false;
 const storedPalette = localStorage.getItem("miego-palette");
 let palette = Object.hasOwn(PALETTES, storedPalette) ? storedPalette : "mono";
 const storedOpacity = Number(localStorage.getItem("miego-opacity"));
@@ -157,7 +159,7 @@ function updatePersonaUi() {
 let displayedOwnership = null, transitionFrame = null;
 const {draw} = createBoardRenderer({
   canvas,
-  getView:()=>({game,boardReview,candidate,lastPosition,displayedOwnership,palette,opacity,
+  getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette,opacity,
     humanTurn:isHumanTurn()})
 });
 function transitionOwnership(next) {
@@ -333,6 +335,11 @@ function handleAnalysis(event) {
 worker.onmessage=handleAnalysis;
 function show() {
   if(boardReview){renderBoardReview();return;}
+  // The forbidden stone is a provisional UI selection, never part of game state.
+  if(illegalCandidate && (illegalCandidate.source!==game || game.status!=="playing")) {
+    illegalCandidate=null;illegalPromptCopied=false;
+    $("illegalPromptFallbackPanel").hidden=true;
+  }
   $("actionRow").hidden=false;
   $("reviewPanel").hidden=true;
   $("endgameBar").hidden=false;
@@ -357,13 +364,24 @@ function show() {
   if(!room)$("netStatus").textContent=gameMode==="ai"?"AIと対戦":"1台で打つ";
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=game.moveNumber+"手目 ‹ ›";
-  $("hint").textContent=candidate?"仮置き中。確定か取り消しを選べます":
+  $("hint").textContent=illegalCandidate?"禁止手の仮置き中。確定せず、理由を質問する文をコピーできます":
+    candidate?"仮置き中。確定か取り消しを選べます":
     game.status==="scoring"?"盤上の石をタップすると死石を指定できます":
     gameMode==="ai" && fallbackMode?"KataGoを利用できないためAI対局は停止中":
     gameMode==="ai" && !katagoReady?"KataGoの準備ができるまで待機中":
     isAiTurn()?"AIが着手を計算しています":"";
-  $("confirm").disabled=!candidate || !myTurn;
-  $("cancel").disabled=!candidate;
+  const blocked=!!illegalCandidate;
+  $("confirm").disabled=!candidate || !myTurn || blocked;
+  $("confirm").hidden=blocked;
+  $("copyIllegalPrompt").hidden=!blocked;
+  $("copyIllegalPrompt").textContent=illegalPromptCopied?"コピーしました":"理由を質問する文をコピー";
+  $("cancel").disabled=!candidate && !blocked;
+  $("analysisStatus").hidden=blocked;
+  $("illegalMoveNotice").hidden=!blocked;
+  if(blocked) {
+    $("illegalMoveNotice").textContent=pointLabel(illegalCandidate.position)+"："+
+      (illegalCandidate.reason===ILLEGAL_KO?"コウのため打てません":"自殺手のため打てません");
+  }
   $("pass").disabled=!myTurn || game.status!=="playing";
   $("resign").disabled=!myTurn || game.status!=="playing";
   $("resetLocalGame").hidden=!!room || gameMode!=="local";
@@ -379,7 +397,9 @@ function show() {
   if(isScoring)$("analysisStatus").textContent="死石を確認";
   if(isFinished)$("analysisStatus").textContent="";
   $("scoringActions").hidden=!isScoring;
-  for(const id of ["cancel","confirm","pass"])$(id).hidden=isScoring || isFinished;
+  for(const id of ["cancel","pass"])$(id).hidden=isScoring || isFinished;
+  $("confirm").hidden=isScoring || isFinished || blocked;
+  $("copyIllegalPrompt").hidden=isScoring || isFinished || !blocked;
   $("actionRow").classList.toggle("finished-actions",isFinished);
   $("scoreBox").querySelector("strong").textContent=isFinished?"対局結果":"死石を確認";
   $("scoreInstruction").textContent=isFinished?
@@ -517,11 +537,50 @@ canvas.addEventListener("click",e=>{
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
   if(game.status!=="playing" || !isHumanTurn())return;
-  try{candidate=play(game,position);show();requestAnalysis();}
-  catch(error){$("hint").textContent=error.message;$("analysisStatus").textContent=error.message;}
+  // Occupied intersections cannot hold a provisional stone.
+  if(game.board[position]!==0)return;
+  const selected=inspectProvisionalMove(game,position);
+  candidate=selected.candidate;illegalCandidate=selected.forbidden;
+  illegalPromptCopied=false;
+  $("illegalPromptFallbackPanel").hidden=true;
+  show();
+  if(candidate)requestAnalysis();
 });
-$("confirm").onclick=()=>{if(candidate){const p=candidate.moves.at(-1).position;submitMove(p);}};
-$("cancel").onclick=()=>{candidate=null;show();requestAnalysis();};
+$("confirm").onclick=()=>{
+  if(candidate && !illegalCandidate && isHumanTurn()){
+    const position=candidate.moves.at(-1).position;
+    submitMove(position);
+  }
+};
+$("cancel").onclick=()=>{
+  candidate=null;illegalCandidate=null;illegalPromptCopied=false;
+  $("illegalPromptFallbackPanel").hidden=true;
+  show();requestAnalysis();
+};
+$("copyIllegalPrompt").onclick=async()=>{
+  const selected=illegalCandidate;
+  if(!selected || selected.source!==game || !isHumanTurn())return;
+  const question=makeIllegalMovePrompt(game,selected);
+  try{
+    if(typeof navigator.clipboard?.writeText!=="function")throw Error("Clipboard API unavailable");
+    await navigator.clipboard.writeText(question);
+    if(illegalCandidate===selected){
+      illegalPromptCopied=true;
+      $("copyIllegalPrompt").textContent="コピーしました";
+      $("illegalPromptFallbackPanel").hidden=true;
+    }
+  }catch(error){
+    if(illegalCandidate!==selected)return;
+    const area=$("illegalPromptFallback");
+    area.value=question;
+    $("illegalPromptFallbackPanel").hidden=false;
+    area.focus();area.select();
+  }
+};
+$("closeIllegalPromptFallback").onclick=()=>{
+  $("illegalPromptFallbackPanel").hidden=true;
+  $("copyIllegalPrompt").focus();
+};
 $("pass").onclick=()=>submitMove(null);
 let resignArmed=false;
 function resetResignButton() {
