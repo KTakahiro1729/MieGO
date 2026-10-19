@@ -544,6 +544,8 @@ canvas.addEventListener("click",e=>{
   }
   if(game.status==="scoring"){
     if(room&&!connected)return;
+    // Counting stones are drawn on empty territory; only real stones can be marked dead.
+    if(!game.board[position])return;
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
   if(game.status!=="playing" || !isHumanTurn())return;

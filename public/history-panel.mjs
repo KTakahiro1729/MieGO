@@ -34,7 +34,6 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{}})
     }
   }
   function openHistoryPanel() {
-    $("gameMenu").open=false;
     $("settingsBackdrop").hidden=false;
     $("settingsPanel").hidden=true;$("modePanel").hidden=true;
     $("historyPanel").hidden=false;
