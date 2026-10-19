@@ -50,7 +50,14 @@ export function reconcileGame(localGame, localRevision, incomingGame, incomingRe
       !Number.isInteger(localRevision) || localRevision < 0)
     return {kind:"invalid"};
   const incoming = parseGameSnapshot(JSON.stringify(incomingGame));
-  if (!incoming || !sameMoves(localGame,incoming)) return {kind:"conflict"};
+  if (!incoming) return {kind:"conflict"};
+  // An accepted 待った shortens the move list. The side that applied more
+  // takebacks and has the newer revision holds the agreed line.
+  const localTakebacks = localGame.takebacks || 0, incomingTakebacks = incoming.takebacks || 0;
+  if (incomingTakebacks > localTakebacks && incomingRevision > localRevision)
+    return {kind:"adopt",game:incoming,revision:incomingRevision};
+  if (localTakebacks > incomingTakebacks && localRevision > incomingRevision) return {kind:"send"};
+  if (!sameMoves(localGame,incoming)) return {kind:"conflict"};
   // Local validation rejects inconsistent board data even when move lists match.
   if (localGame.moves.length === incoming.moves.length &&
       boardHash(localGame.board) !== boardHash(incoming.board)) return {kind:"conflict"};

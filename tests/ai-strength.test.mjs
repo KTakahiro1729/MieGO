@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {newGame,play,at,boardHash} from "../public/core.mjs";
 import {choosePolicyMove} from "../public/ai-opponent.mjs";
 import {AI_STRENGTHS,pickCount,pickWeakenedMove,fillsOwnEye,normalizeStrength} from "../public/ai-strength.mjs";
-import {takeBackForHuman,policyHints} from "../public/ai-assist.mjs";
+import {policyHints} from "../public/ai-assist.mjs";
 
 // A deterministic generator so sampling tests do not flake.
 function seeded(seed) {
@@ -68,22 +68,6 @@ test("strength values from storage are validated with a full-strength fallback",
   assert.equal(normalizeStrength("beginner"),"beginner");
   assert.equal(normalizeStrength(undefined),"strong");
   assert.equal(normalizeStrength("bogus","easy"),"easy");
-});
-
-test("takeback removes the human move and the AI reply, rebuilding captures",()=>{
-  let g=newGame();
-  g=play(g,at(4,4));g=play(g,at(3,3));g=play(g,at(5,5));g=play(g,at(2,2));
-  const back=takeBackForHuman(g,1);
-  assert.equal(back.game.moveNumber,2);
-  assert.equal(back.game.next,1);
-  assert.equal(back.lastPosition,at(3,3));
-  assert.deepEqual(back.game.board,play(play(newGame(),at(4,4)),at(3,3)).board);
-  // Human as White: only Black's opening move remains.
-  const white=takeBackForHuman(g,-1);
-  assert.equal(white.game.moveNumber,3);
-  assert.equal(white.game.next,-1);
-  assert.equal(takeBackForHuman(newGame(),1),null);
-  assert.equal(takeBackForHuman({...g,status:"scoring"},1),null);
 });
 
 test("policy hints list the top legal points for the player to move",()=>{

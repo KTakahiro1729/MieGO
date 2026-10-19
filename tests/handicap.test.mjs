@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {newGame,play,at,areaScore,whiteCompensation,initialGame,HANDICAP_POINTS,KOMI,BLACK,WHITE} from "../public/core.mjs";
 import {parseSGF,exportSGF,replaySteps,forkReview} from "../public/sgf.mjs";
-import {takeBackForHuman} from "../public/ai-assist.mjs";
+import {takeBack} from "../public/takeback.mjs";
 import {freshLocalGame} from "../public/mode-state.mjs";
 import {toKataGoPosition} from "../src/katago/position.mjs";
 
@@ -40,11 +40,11 @@ test("replay, fork and takeback start from the handicap position",()=>{
   assert.deepEqual(replaySteps(g,0).board,initialGame(g).board);
   const fork=forkReview(g,1);
   assert.equal(fork.handicap,2);assert.equal(fork.next,BLACK);
-  const back=takeBackForHuman(g,BLACK);
+  const back=takeBack(g,{color:BLACK});
   assert.equal(back.game.moveNumber,1);
   assert.equal(back.game.board[HANDICAP_POINTS[0]],BLACK);
   assert.equal(back.game.next,BLACK);
-  const allBack=takeBackForHuman(play(newGame(true,{handicap:2}),at(4,4)),WHITE);
+  const allBack=takeBack(play(newGame(true,{handicap:2}),at(4,4)),{color:WHITE});
   assert.equal(allBack.game.moveNumber,0);assert.equal(allBack.game.next,WHITE);
   assert.equal(freshLocalGame(g,3).handicap,3);
   assert.equal(freshLocalGame(g).handicap,0);

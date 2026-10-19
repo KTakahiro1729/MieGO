@@ -50,6 +50,8 @@ export function newGame(assisted = true, { handicap = 0 } = {}) {
 export const initialGame = state => newGame(state?.assisted !== false, { handicap: handicapOf(state) });
 export function play(state, position) {
   if (state.status !== "playing") throw new Error("対局中ではありません");
+  // A real move answers any pending 待った request by moving on.
+  if (state.takebackRequest) { const { takebackRequest, ...rest } = state; state = rest; }
   const color = state.next;
   if (position === "resign") return {
     ...state, status: "finished", endProposal: null, result: color === BLACK ? "W+R" : "B+R",
@@ -97,6 +99,8 @@ export function proposeEnd(state, color) {
   if (state.status !== "playing" || ![BLACK, WHITE].includes(color)) {
     throw new Error("対局中のみ終局を提案できます");
   }
+  // A pending 待った request is settled first; an end offer would be ignored.
+  if (state.takebackRequest) return state;
   if (state.endProposal) {
     // Simultaneous proposals are deterministic across the two peers: Black
     // wins the tie, and the other offer is ignored (not a rule preference).
