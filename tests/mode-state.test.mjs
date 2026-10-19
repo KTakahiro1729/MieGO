@@ -66,8 +66,8 @@ test("settings button shows a toothed gear and is labeled",()=>{
   const gear=html.slice(html.indexOf('id="settingsToggle"'),html.indexOf('</button>',html.indexOf('id="settingsToggle"')));
   assert.match(gear,/aria-label="設定を開く"/);
   assert.match(gear,/circle/);
-  assert.match(gear,/m9\\.7 2\\.5/);
-  assert.match(gear,/<circle cx="11\\.5" cy="12\\.5"/);
+  assert.match(gear,/m9\.7 2\.5/);
+  assert.match(gear,/<circle cx="11\.5" cy="12\.5"/);
 });
 
 test("reset discards endgame and dead-stone hints",()=>{
