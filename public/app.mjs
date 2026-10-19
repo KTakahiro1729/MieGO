@@ -51,10 +51,13 @@ let ownerColor=null,onlineSession=null,guestInviteKey=null,issuedSide=null,onlin
 let p2pTransport;
 const myOnlineColor=()=>ownerColor===null?null:playerColor(p2pRole,ownerColor);
 const currentSideSelection=()=>document.querySelector('input[name="onlineSide"]:checked')?.value||"random";
+// Before play starts, a changed side, board size or handicap calls for a new invitation.
+const inviteMatchesChoice=()=>issuedSide===currentSideSelection() &&
+  (connected || game.moveNumber>0 || (sizeOf(game.board)===boardSize && handicapOf(game)===onlineHandicap));
 function renderInviteButton() {
   $("copy").disabled=!!room && p2pRole!=="owner";
   $("copy").textContent=!room?"招待リンクを準備する":
-    issuedSide!==null && currentSideSelection()!==issuedSide?
+    issuedSide!==null && !inviteMatchesChoice()?
       "新しい設定で招待リンクを作り直す":"招待リンクをコピー";
 }
 function persistOnline(){
@@ -76,7 +79,7 @@ let gameMode = room ? "online" : "local";
 let humanColor = BLACK, invasion = 50, reinforcement = 50;
 let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNotice = null;
 let aiSideChoice = "black";
-let aiHandicap = 0, localHandicap = 0;
+let aiHandicap = 0, localHandicap = 0, onlineHandicap = 0;
 // Up to nine stones; newGame() caps the count for the chosen board (9x9: five).
 const toHandicap = value => handicapOf({handicap:Number(value)},19);
 // The board size for the next new game in any mode; a running game keeps its own.
@@ -201,7 +204,7 @@ function stopAiTurn() {
 function rememberSettings() {
   try {
     localStorage.setItem("miego-local-settings", JSON.stringify({
-      mode:gameMode,humanColor,aiSide:aiSideChoice,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap,boardSize
+      mode:gameMode,humanColor,aiSide:aiSideChoice,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap,onlineHandicap,boardSize
     }));
   } catch {}
 }
@@ -1097,8 +1100,8 @@ function showInviteLink() {
 async function beginOnlineRoom(){
   const choice=currentSideSelection();
   if(room&&p2pRole!=="owner")throw Error("作成者だけが招待を更新できます");
-  if(room&&issuedSide===choice)return showInviteLink();
-  if(room&&(connected||game.moveNumber>0))throw Error("対局開始後は色を変更できません");
+  if(room&&inviteMatchesChoice())return showInviteLink();
+  if(room&&(connected||game.moveNumber>0))throw Error("対局開始後は設定を変更できません");
   if(room&&!confirm("古い招待URLを無効化して、新しい設定で作り直しますか？"))return null;
   if(!room && game.moveNumber>0 &&
      !confirm("現在の対局を離れて、友人と新しく対局しますか？"))return null;
@@ -1115,7 +1118,7 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  game=newGame(true,{size:boardSize});candidate=null;lastPosition=null;
+  game=newGame(true,{handicap:onlineHandicap,size:boardSize});candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
@@ -1125,7 +1128,7 @@ async function beginOnlineRoom(){
 }
 async function copyLink(){
   try{
-    if(!room||(issuedSide!==null&&issuedSide!==currentSideSelection())){
+    if(!room||(issuedSide!==null&&!inviteMatchesChoice())){
       $("copy").disabled=true;
       const url=await beginOnlineRoom();
       if(url)$("inviteStatus").textContent="招待を準備しました。もう一度押すとコピーできます。";
@@ -1162,9 +1165,6 @@ function showNewGameMode(kind) {
   $("newGameSetup").hidden=kind==="history";
   $("modePanel").scrollTop=0;
   if(kind==="history")historyPanel.showHistory();
-  // Friend matches are always even games, so they have nothing under 詳細設定.
-  $("newGameAdvanced").hidden=kind==="online";
-  $("handicapSetup").hidden=kind==="online";
   $("aiSideRow").hidden=$("aiStrengthRow").hidden=$("aiOptions").hidden=kind!=="ai";
   $("onlineSideRow").hidden=kind!=="online";
   syncReturnButton(kind);
@@ -1182,7 +1182,8 @@ for(const input of document.querySelectorAll('input[name="boardSize"]')) {
     // 9x9 has five star points, so a larger handicap is reduced to five.
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
-    syncHandicapUi();rememberSettings();
+    onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
+    syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
 function reviewFeedback(message){
@@ -1576,12 +1577,14 @@ function syncHandicapUi() {
   const sizeChoice=document.querySelector('input[name="boardSize"][value="'+boardSize+'"]');
   if(sizeChoice)sizeChoice.checked=true;
   // One set of handicap buttons shows the stored choice of the selected mode.
-  const ai=newGameModeKind()==="ai",shown=ai?aiHandicap:localHandicap;
+  const kind=newGameModeKind(),ai=kind==="ai";
+  const shown=ai?aiHandicap:kind==="online"?onlineHandicap:localHandicap;
   for(const option of $("handicap").options)option.disabled=Number(option.value)>maxHandicap(boardSize);
   $("handicap").value=String(shown);
   // The note only appears when stones are placed, so an even game shows no extra text.
   $("handicapNote").hidden=!shown;
-  $("handicapNote").textContent=(ai?"あなたが黒、AIが白で、白が先に打ちます。":"白が先に打ちます。")+
+  $("handicapNote").textContent=(ai?"あなたが黒、AIが白で、白が先に打ちます。":
+    kind==="online"?"黒を持つ側が置き石を受け、白が先に打ちます。":"白が先に打ちます。")+
     "コミ0.5目、白に置き石の数だけ加点（中国式）。"+(boardSize===9?"9路は5子まで。":"");
   // With handicap the human is Black; the saved side preference returns afterwards.
   for(const input of document.querySelectorAll('input[name="aiSide"]'))
@@ -1598,8 +1601,9 @@ function syncHandicapUi() {
       aiHandicap=value;
       $("aiMatchStatus").textContent=aiHandicap?
         "置き石"+aiHandicap+"子で次の対局を始めます（あなたは黒）。":"互先で次の対局を始めます。";
-    }else localHandicap=value;
-    syncHandicapUi();rememberSettings();
+    }else if(newGameModeKind()==="online")onlineHandicap=value;
+    else localHandicap=value;
+    syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
 for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]]) {
@@ -1671,9 +1675,11 @@ else try {
       humanColor===WHITE?"white":"black";
     aiStrength=normalizeStrength(settings.aiStrength,DEFAULT_AI_STRENGTH);
     aiHandicap=toHandicap(settings.aiHandicap);localHandicap=toHandicap(settings.localHandicap);
+    onlineHandicap=toHandicap(settings.onlineHandicap);
     boardSize=toBoardSize(settings.boardSize);
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
+    onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
     aiHints=settings.aiHints===true;
     invasion=personaStep(settings.invasion);
     reinforcement=personaStep(settings.reinforcement);
