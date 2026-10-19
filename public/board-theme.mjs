@@ -14,8 +14,8 @@ export const BOARD_THEMES = Object.freeze({
     flatStones:false
   }),
   // A flat, light grey board with flat stones and no grain.
-  modern: Object.freeze({
-    label:"モダン",
+  light: Object.freeze({
+    label:"ライト",
     surface:[189,193,199],
     fill:["#bdc1c7"],
     line:"#7b818b", star:"#6b717b",
@@ -25,10 +25,10 @@ export const BOARD_THEMES = Object.freeze({
     }),
     flatStones:true
   }),
-  // Smoked glass: a dark, slightly lit board; black stones carry a light rim
+  // A dark board with a faint sheen; black stones carry a light rim
   // so they stay visible against it.
-  glass: Object.freeze({
-    label:"ガラス",
+  dark: Object.freeze({
+    label:"ダーク",
     surface:[38,50,63],
     fill:["#334457","#26323f","#1c2631"],
     line:"rgba(200,225,245,.4)", star:"rgba(200,225,245,.62)",

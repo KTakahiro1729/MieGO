@@ -91,7 +91,7 @@ test("board looks change the board fill and the overlay colours, unknown looks f
   const ownership=Array(81).fill(1);
   const view={...baseView(game),displayedOwnership:ownership};
   const {draw,overlay}=mockBoard(()=>({...view,boardTheme}));
-  for(boardTheme of ["wood","modern","glass","bogus"]){
+  for(boardTheme of ["wood","light","dark","bogus"]){
     draw();
     fills.push(overlay.data.slice(0,4).join(","));
   }

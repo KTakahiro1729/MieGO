@@ -12,19 +12,19 @@ const sides = (white,black) => Object.freeze({white,black});
 export const PALETTES = Object.freeze({
   mono: Object.freeze({
     wood: sides(side([246,249,255],3),side([22,26,34],.65)),
-    modern: sides(side([255,255,255],2.5),side([16,20,28],.7)),
-    glass: sides(side([240,248,255],.5),side([0,2,8],2.6))
+    light: sides(side([255,255,255],2.5),side([16,20,28],.7)),
+    dark: sides(side([240,248,255],.5),side([0,2,8],2.6))
   }),
   // ColorBrewer PuOr / PRGn hues, re-lit per board.
   orangePurple: Object.freeze({
     wood: sides(side([230,97,1],1.5),side([94,60,153],.8)),
-    modern: sides(side([230,97,1],1.3),side([94,60,153],.95)),
-    glass: sides(side([245,150,50],.7),side([120,80,190],1.5))
+    light: sides(side([230,97,1],1.3),side([94,60,153],.95)),
+    dark: sides(side([245,150,50],.7),side([120,80,190],1.5))
   }),
   greenPurple: Object.freeze({
     wood: sides(side([90,190,120],2.2),side([84,39,120],.75)),
-    modern: sides(side([90,190,120],2.2),side([84,39,120],.75)),
-    glass: sides(side([110,215,160],.7),side([120,80,190],1.5))
+    light: sides(side([90,190,120],2.2),side([84,39,120],.75)),
+    dark: sides(side([110,215,160],.7),side([120,80,190],1.5))
   })
 });
 // "Hide the ownership overlay" is one of the colour-map choices, not a game setting.
