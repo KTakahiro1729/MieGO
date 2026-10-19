@@ -112,6 +112,8 @@ Cloudflare公式仕様: https://developers.cloudflare.com/workers/previews/resou
 
 ### Cloudflare Dashboardの設定（ターミナル不要）
 
+**キーを取得する画面から登録・確認までの詳細手順は[Cloudflareデプロイマニュアル（第6章）](DEPLOY_CLOUDFLARE.md#6-turnstileをcloudflareダッシュボードだけで設定p2pには必須)を参照してください。**
+
 1. Turnstile → Add widget → Managed。MieGOの本番ホスト名を登録します。開発用Previewホストは必要に応じて別途登録します。
 2. Workers & Pages → miego → Settings → Variables and Secretsで `TURNSTILE_SITE_KEY`（Text）と `TURNSTILE_SECRET`（Secret）を登録します。GitHubへSecretを書き込まないでください。
 3. TURN用の `TURN_KEY_ID` と `TURN_API_TOKEN` は不要です。既存設定があれば不要な課金経路を避けるため削除します。
