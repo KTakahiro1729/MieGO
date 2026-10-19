@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {at,newGame,play,boardHash} from "../public/core.mjs";
-import {resultLabel,shareCaption,shareFrameSize,buildGameAnimation,paintShareFrame,SHARE_LINKS} from "../public/share-image.mjs";
+import {resultLabel,shareLabels,shareFrameSize,shareCardWidth,buildGameAnimation,paintShareFrame,SHARE_LINKS} from "../public/share-image.mjs";
 import {OwnershipStore,encodeOwnership,decodeOwnership} from "../public/ownership-store.mjs";
 
 test("results read in Japanese",()=>{
@@ -15,22 +15,41 @@ test("results read in Japanese",()=>{
   assert.equal(resultLabel("?"),null);
 });
 
-test("captions name the move and the result, or that the game is unfinished",()=>{
-  assert.equal(shareCaption({step:42,total:60,result:"B+3.5",animated:false}),"42手目 · 黒の3.5目勝ち");
-  assert.equal(shareCaption({step:12,total:12,result:null,animated:false}),"12手目 · 終局前");
-  assert.equal(shareCaption({step:60,total:60,result:"W+R",animated:true}),"全60手 · 白の投了勝ち");
-  assert.equal(shareCaption({step:20,total:60,result:"W+R",animated:true}),"0〜20手目 · 白の投了勝ち");
-  assert.deepEqual(shareFrameSize(720),{width:720,height:900,footer:180});
+test("labels name the moves and the result, or that the game is unfinished",()=>{
+  assert.deepEqual(shareLabels({step:42,total:60,result:"B+3.5",animated:false}),{moves:"42手目",result:"黒の3.5目勝ち"});
+  assert.deepEqual(shareLabels({step:12,total:12,result:null,animated:false}),{moves:"12手目",result:"終局前"});
+  assert.deepEqual(shareLabels({step:60,total:60,result:"W+R",animated:true}),{moves:"全60手",result:"白の投了勝ち"});
+  assert.equal(shareLabels({step:20,total:60,result:"W+R",animated:true}).moves,"0〜20手目");
+  assert.deepEqual(shareFrameSize(800),{width:800,height:1000});
+  assert.equal(shareCardWidth(720),800,"a 720px board is drawn at full size");
 });
 
-test("the footer says where to play and where to join development",()=>{
+function recordingContext() {
+  const texts=[],images=[];
+  const noop=()=>{};
+  return {texts,images,font:"",fillStyle:"",
+    fillRect:noop,save:noop,restore:noop,clip:noop,beginPath:noop,moveTo:noop,arcTo:noop,closePath:noop,
+    drawImage:(board,...rect)=>images.push(rect),
+    fillText(text,x,y){texts.push({text,x,y});},
+    measureText:t=>({width:t.length*10})};
+}
+
+test("the card frames the board with the brand, result, legend and links",()=>{
   assert.deepEqual(SHARE_LINKS,[["自分でプレイする：","miego.fun"],["開発に参加する：","github.com/KTakahiro1729/MieGO"]]);
-  const texts=[];
-  const ctx={drawImage(){},fillRect(){},fillText:(text,x,y)=>texts.push([text,x,y]),measureText:t=>({width:t.length*10})};
-  paintShareFrame({width:480,getContext:()=>ctx},{width:720},{caption:"42手目 · 黒の3.5目勝ち"});
-  assert.deepEqual(texts.map(t=>t[0]),["42手目 · 黒の3.5目勝ち","自分でプレイする：","miego.fun","開発に参加する：","github.com/KTakahiro1729/MieGO"]);
-  assert.equal(texts[2][1],texts[1][1]+90,"the link follows its label");
-  assert.ok(texts.every(([,,y])=>y>480 && y<600),"all text sits in the footer");
+  const ctx=recordingContext();
+  paintShareFrame({width:720,getContext:()=>ctx},{width:720},
+    {moves:"42手目",result:"黒の3.5目勝ち",legend:{palette:"mono",opacity:.55,theme:"wood"}});
+  assert.deepEqual(ctx.texts.map(t=>t.text),["Mie","GO","42手目","黒の3.5目勝ち","白寄り","黒寄り",
+    "自分でプレイする：","miego.fun","開発に参加する：","github.com/KTakahiro1729/MieGO"]);
+  assert.deepEqual(ctx.images,[[36,78,648,648]],"the board sits inside the card margins");
+  const at=text=>ctx.texts.find(t=>t.text===text);
+  assert.ok(at("黒の3.5目勝ち").y>78+648,"the result is under the board");
+  assert.equal(at("miego.fun").x,at("自分でプレイする：").x+90,"each link follows its label");
+  assert.ok(ctx.texts.every(t=>t.y<900));
+  const hidden=recordingContext();
+  paintShareFrame({width:720,getContext:()=>hidden},{width:720},
+    {moves:"1手目",result:"終局前",legend:{palette:"none",opacity:.55,theme:"wood"}});
+  assert.ok(!hidden.texts.some(t=>t.text==="白寄り"),"no legend when the colours are hidden");
 });
 
 test("the animation replays every move and ends on the board as drawn",async()=>{
@@ -40,7 +59,7 @@ test("the animation replays every move and ends on the board as drawn",async()=>
   const fakeCanvas=(width,height)=>{
     let source=null;
     return {width,height,getContext:()=>({
-      drawImage(board){source=board;},fillRect(){},fillText(){},measureText:()=>({width:0}),
+      ...recordingContext(),drawImage(board){source=board;},
       getImageData(){
         const data=new Uint8ClampedArray(width*height*4);
         data.fill(source.shade);
@@ -50,7 +69,7 @@ test("the animation replays every move and ends on the board as drawn",async()=>
   };
   const renderBoard=state=>{rendered.push(state.moves.length);return {width:8,shade:state.moves.length*40};};
   const bytes=await buildGameAnimation({snapshot:game,step:3,size:8,renderBoard,
-    finalBoard:{width:8,shade:250},createCanvas:fakeCanvas,caption:"",pause:async()=>{}});
+    finalBoard:{width:8,shade:250},createCanvas:fakeCanvas,labels:{moves:"",result:""},pause:async()=>{}});
   assert.equal(String.fromCharCode(...bytes.slice(0,6)),"GIF89a");
   assert.deepEqual([...new Set(rendered)].sort(),[0,1,2],"each earlier move is replayed");
 });

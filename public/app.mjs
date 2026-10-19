@@ -15,7 +15,7 @@ import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
-import { shareCaption, shareFrameSize, paintShareFrame, buildGameAnimation } from "./share-image.mjs";
+import { shareLabels, shareFrameSize, shareCardWidth, paintShareFrame, buildGameAnimation } from "./share-image.mjs";
 import { OwnershipStore } from "./ownership-store.mjs";
 import { influence } from "./influence.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
@@ -1360,8 +1360,8 @@ function downloadBlob(blob,name){
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 // Shared images end on the board exactly as drawn (board look, ownership
-// colours, marks and labels come from the canvas itself), with a footer
-// naming the move, the result, where to play and where it is developed.
+// colours, marks and labels come from the canvas itself), set in a card
+// naming the moves, the result, where to play and where it is developed.
 // Both kinds are made when the sheet opens so each choice shows its image.
 const SHARE_KINDS=["still","animation"];
 let shareImageKind="still",shareImageJob=0;
@@ -1379,13 +1379,19 @@ function shareImageDetails(animated){
   const {snapshot,metadata,step,gameId}=sharedPosition();
   const total=snapshot.moves.filter(m=>m.position!=="resign").length;
   const result=metadata?.result || (snapshot.status==="finished" ? snapshot.result : null);
-  return {snapshot,step,gameId,caption:shareCaption({step,total,result,animated})};
+  // The legend explains colours only when the image carries them: every
+  // animation frame is coloured, a still only what the board now shows.
+  const coloured=overlayOn() && (animated ||
+    (boardReview ? !!boardReview.ownership : game.status==="playing" && !!displayedOwnership));
+  return {snapshot,step,gameId,labels:{...shareLabels({step,total,result,animated}),
+    legend:coloured ? {palette,opacity,theme:boardTheme} : null}};
 }
 // An animation frame: the replayed position with the ownership recorded for
 // it, or the replay view's quick estimate where none was recorded.
 function renderFrameBoard(state,gameId){
   if(!frameRenderer){
-    const board=frameCanvas(ANIMATION_SIZE,ANIMATION_SIZE);
+    const size=Math.round(ANIMATION_SIZE*.9);
+    const board=frameCanvas(size,size);
     frameRenderer={board,...createBoardRenderer({canvas:board,getView:()=>({game:frameState,
       boardReview:{display:frameState,ownership:frameOwnership},candidate:null,illegalCandidate:null,
       lastPosition:null,displayedOwnership:null,palette,opacity,boardTheme,hints:null})})};
@@ -1398,20 +1404,20 @@ function renderFrameBoard(state,gameId){
 async function makeShareImage(kind,job){
   draw();
   const animated=kind==="animation";
-  const {snapshot,step,gameId,caption}=shareImageDetails(animated);
+  const {snapshot,step,gameId,labels}=shareImageDetails(animated);
   if(animated){
     frameRenderer=null;
     const bytes=await buildGameAnimation({snapshot,step,size:ANIMATION_SIZE,
-      renderBoard:state=>renderFrameBoard(state,gameId),finalBoard:canvas,createCanvas:frameCanvas,caption,
+      renderBoard:state=>renderFrameBoard(state,gameId),finalBoard:canvas,createCanvas:frameCanvas,labels,
       onProgress:(i,total)=>{
         if(job!==shareImageJob)throw Error("中断しました");
         shareImages.animation={progress:i+"/"+total+"手"};renderShareImages();
       }});
     return new File([bytes],"miego-moves"+step+".gif",{type:"image/gif"});
   }
-  const {width,height}=shareFrameSize(canvas.width);
+  const {width,height}=shareFrameSize(shareCardWidth(canvas.width));
   const target=frameCanvas(width,height);
-  paintShareFrame(target,canvas,{caption});
+  paintShareFrame(target,canvas,labels);
   const blob=await new Promise((resolve,reject)=>
     target.toBlob(b=>b?resolve(b):reject(Error("画像を作れません")),"image/png"));
   return new File([blob],"miego-move"+step+".png",{type:"image/png"});
