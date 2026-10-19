@@ -1,115 +1,188 @@
 import { DurableObject } from "cloudflare:workers";
 
+// No TURN credentials are generated. Game positions and moves never enter this Worker.
 const ROOM_RE = /^[a-f0-9]{32}$/;
-const STUN = [{ urls: ["stun:stun.cloudflare.com:3478"] }];
-const json = (data, status = 200) => new Response(JSON.stringify(data), {
+const MAX_ROOM_AGE = 7 * 24 * 60 * 60 * 1000;
+const random = () => [...crypto.getRandomValues(new Uint8Array(24))].map(b => b.toString(16).padStart(2, "0")).join("");
+const hash = async value => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))).map(b => b.toString(16).padStart(2, "0")).join("");
+const json = (value, status = 200) => new Response(JSON.stringify(value), {
   status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
 });
+async function body(request) {
+  if (Number(request.headers.get("content-length") || 0) > 4096) throw Error("Request too large");
+  const text = await request.text();
+  if (text.length > 4096) throw Error("Request too large");
+  return JSON.parse(text);
+}
+const sameOrigin = (request, url) => request.headers.get("Origin") === url.origin;
 
+async function verifyHuman(token, request, env) {
+  if (!env.TURNSTILE_SECRET || !env.TURNSTILE_SITE_KEY || typeof token !== "string" || token.length > 2048 || token.length < 10) return false;
+  let response;
+  try {
+    response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST", body: new URLSearchParams({
+        secret: env.TURNSTILE_SECRET, response: token,
+        remoteip: request.headers.get("CF-Connecting-IP") || ""
+      })
+    });
+    if (!response.ok) return false;
+    const data = await response.json();
+    return data.success === true && data.hostname === new URL(request.url).hostname && data.action === "miego_p2p";
+  } catch { return false; }
+}
+const roomStub = (env, room) => env.ROOMS.get(env.ROOMS.idFromName(room));
+const callRoom = (stub, path, data) => stub.fetch(new Request("https://room.internal" + path, {
+  method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data)
+}));
+const inputError = () => json({ error: "Invalid request" }, 400);
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-    if (url.pathname === "/api/health" && request.method === "GET") {
-      // Assert that Cloudflare Builds really published the generated AI assets.
-      const assetIsPresent = async (path) => {
-        try {
-          const target = new URL(path, url.origin);
-          const response = await env.ASSETS.fetch(new Request(target, { method: "HEAD" }));
-          return response.ok;
-        } catch { return false; }
+    const url = new URL(request.url), path = url.pathname;
+    if (path === "/api/health" && request.method === "GET") {
+      const assetIsPresent = async path => {
+        try { return (await env.ASSETS.fetch(new Request(new URL(path, url.origin), { method: "HEAD" }))).ok; }
+        catch { return false; }
       };
       const [katagoWorkerReady, katagoModelReady] = await Promise.all([
-        assetIsPresent("/katago-worker.bundle.mjs"),
-        assetIsPresent("/models/katago-small.bin.gz")
+        assetIsPresent("/katago-worker.bundle.mjs"), assetIsPresent("/models/katago-small.bin.gz")
       ]);
-      return json({
-        status: katagoWorkerReady && katagoModelReady ? "ok" : "degraded",
-        app: "MieGO",
-        durableObjectBinding: Boolean(env.ROOMS),
-        turnConfigured: Boolean(env.TURN_KEY_ID && env.TURN_API_TOKEN),
-        katagoWorkerReady, katagoModelReady
+      return json({status:katagoWorkerReady&&katagoModelReady?"ok":"degraded",app:"MieGO",
+        durableObjectBinding:Boolean(env.ROOMS), turnConfigured:false,
+        turnstileConfigured:Boolean(env.TURNSTILE_SECRET&&env.TURNSTILE_SITE_KEY),
+        katagoWorkerReady,katagoModelReady});
+    }
+    if (path === "/api/p2p/config" && request.method === "GET") {
+      return json({ siteKey: env.TURNSTILE_SECRET && env.TURNSTILE_SITE_KEY ? env.TURNSTILE_SITE_KEY : null });
+    }
+    // No API endpoint creates rooms without a successful Turnstile validation.
+    if (path === "/api/rooms" && request.method === "POST") {
+      if (!sameOrigin(request,url)) return json({error:"Forbidden origin"},403);
+      let payload; try { payload = await body(request); } catch { return inputError(); }
+      if (!["black","white"].includes(payload.color)) return inputError();
+      if (!await verifyHuman(payload.turnstileToken,request,env)) return json({error:"Human verification failed"},403);
+      const room = [...crypto.getRandomValues(new Uint8Array(16))].map(b=>b.toString(16).padStart(2,"0")).join("");
+      const ownerKey = random(), guestKey = random(), ownerSession = random();
+      const setup = await callRoom(roomStub(env,room), "/init", {
+        ownerKeyHash:await hash(ownerKey),guestKeyHash:await hash(guestKey),
+        ownerSessionHash:await hash(ownerSession), ownerColor:payload.color
       });
+      if (!setup.ok) return json({error:"Could not create room"},503);
+      return json({room, ownerKey, guestKey, ownerSession, ownerColor:payload.color},201);
     }
-    if (url.pathname === "/api/rooms" && request.method === "POST") {
-      const bytes = crypto.getRandomValues(new Uint8Array(16));
-      const room = [...bytes].map(b => b.toString(16).padStart(2, "0")).join("");
-      return json({ room, url: new URL("/?room=" + room, url.origin).href }, 201);
-    }
-    const match = url.pathname.match(/^\/api\/rooms\/([a-f0-9]{32})\/ws$/);
-    if (match && request.method === "GET") {
-      if (request.headers.get("Origin") !== url.origin) return json({ error: "Forbidden origin" }, 403);
-      if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
-        return json({ error: "WebSocket upgrade required" }, 426);
+    const op = path.match(/^\/api\/rooms\/([a-f0-9]{32})\/(claim|ticket|revoke|ws)$/);
+    if (op) {
+      const [, room, action] = op;
+      const stub = roomStub(env,room);
+      if (action === "ws" && request.method === "GET") {
+        if (!sameOrigin(request,url)) return json({error:"Forbidden origin"},403);
+        if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") return json({error:"Upgrade required"},426);
+        // Only one-time short-lived tickets are placed in WebSocket URLs.
+        const ticket = url.searchParams.get("ticket");
+        if (!ticket || !/^[a-f0-9]{48}$/.test(ticket)) return json({error:"Invalid ticket"},403);
+        return stub.fetch(request);
       }
-      const stub = env.ROOMS.get(env.ROOMS.idFromName(match[1]));
-      return stub.fetch(request);
+      if (!["claim","ticket","revoke"].includes(action) || request.method !== "POST") return inputError();
+      if (!sameOrigin(request,url)) return json({error:"Forbidden origin"},403);
+      let data; try { data = await body(request); } catch { return inputError(); }
+      if (action === "claim" && !await verifyHuman(data.turnstileToken,request,env)) return json({error:"Human verification failed"},403);
+      return callRoom(stub,"/"+action,data);
     }
-    if (url.pathname === "/api/ice" && request.method === "GET") {
-      const room = url.searchParams.get("room");
-      if (!room || !ROOM_RE.test(room)) return json({ error: "Invalid room" }, 400);
-      if (!env.TURN_KEY_ID || !env.TURN_API_TOKEN) return json({ iceServers: STUN, turnEnabled: false });
-      try {
-        const result = await fetch(
-          "https://rtc.live.cloudflare.com/v1/turn/keys/" + encodeURIComponent(env.TURN_KEY_ID) + "/credentials/generate-ice-servers",
-          { method: "POST", headers: {
-            Authorization: "Bearer " + env.TURN_API_TOKEN,
-            "Content-Type": "application/json"
-          }, body: JSON.stringify({ ttl: 14400 }) }
-        );
-        if (!result.ok) throw new Error("TURN API " + result.status);
-        const data = await result.json();
-        return json({ iceServers: data.iceServers, turnEnabled: true });
-      } catch (error) {
-        return json({ iceServers: STUN, turnEnabled: false, warning: "TURN temporarily unavailable" });
-      }
-    }
-    if (url.pathname.startsWith("/api/")) return json({ error: "Not found" }, 404);
+    // Legacy clients cannot use the unprotected TURN/STUN discovery API.
+    if (path.startsWith("/api/")) return json({error:"Not found"},404);
     return env.ASSETS.fetch(request);
   }
 };
 
 export class GameRoom extends DurableObject {
+  constructor(ctx, env) { super(ctx, env); this.rate = new Map(); }
   peers() {
-    return this.ctx.getWebSockets().map(ws => ({ ws, info: ws.deserializeAttachment() })).filter(p => p.info?.seat);
+    return this.ctx.getWebSockets().map(ws=>({ws,info:ws.deserializeAttachment()})).filter(p=>p.info?.role);
+  }
+  async metadata() {
+    const m = await this.ctx.storage.get("meta");
+    if (!m || m.revoked || Date.now()>m.expires) return null;
+    return m;
+  }
+  allowed(kind, max, interval=60000) {
+    const now=Date.now(), old=this.rate.get(kind) || {time:now,count:0};
+    if (now-old.time>interval) {old.time=now;old.count=0;}
+    old.count++;
+    this.rate.set(kind,old);
+    return old.count<=max;
   }
   broadcastRoster() {
-    const peers = this.peers();
-    for (const p of peers) {
-      try { p.ws.send(JSON.stringify({ type: "roster", count: peers.length })); } catch {}
-    }
+    const count=this.peers().length;
+    for (const p of this.peers()) {try{p.ws.send(JSON.stringify({type:"roster",count}));}catch{}}
   }
   async fetch(request) {
-    const url = new URL(request.url);
-    const token = url.searchParams.get("token");
-    if (!token || !/^[a-zA-Z0-9-]{12,100}$/.test(token)) return json({ error: "Invalid seat token" }, 400);
-    if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") return json({ error: "Upgrade required" }, 426);
-    const peers = this.peers();
-    const existing = peers.find(p => p.info.token === token);
-    if (!existing && peers.length >= 2) return json({ error: "Room is full" }, 409);
-    const seat = existing?.info.seat ?? (peers.some(p => p.info.seat === "host") ? "guest" : "host");
-    if (existing) {
-      try { existing.ws.close(4000, "Reconnected"); } catch {}
-    }
-    const pair = new WebSocketPair();
-    const client = pair[0], server = pair[1];
-    this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ seat, token });
-    server.send(JSON.stringify({ type: "joined", seat }));
-    this.broadcastRoster();
-    return new Response(null, { status: 101, webSocket: client });
-  }
-  webSocketMessage(ws, data) {
-    if (typeof data !== "string" || data.length > 64_000) return;
-    let msg;
-    try { msg = JSON.parse(data); } catch { return; }
-    if (!["offer", "answer", "ice"].includes(msg?.type)) return;
-    const self = ws.deserializeAttachment();
-    for (const peer of this.peers()) {
-      if (peer.ws !== ws && peer.info.seat !== self.seat) {
-        try { peer.ws.send(JSON.stringify({ type: msg.type, payload: msg.payload })); } catch {}
+    const url=new URL(request.url);
+    if (request.method==="POST") {
+      let data; try {data=await body(request);} catch {return inputError();}
+      if (url.pathname==="/init") {
+        if (await this.ctx.storage.get("meta")) return json({error:"Exists"},409);
+        if (!["black","white"].includes(data.ownerColor)) return inputError();
+        await this.ctx.storage.put("meta", {...data, expires:Date.now()+MAX_ROOM_AGE,revoked:false});
+        return json({ok:true});
       }
+      let meta=await this.metadata();
+      if (!meta) return json({error:"Room expired or removed"},410);
+      if (url.pathname==="/claim") {
+        if (!this.allowed("claim",12)) return json({error:"Too many attempts"},429);
+        if (!["owner","guest"].includes(data.role) || typeof data.key!=="string" || data.key.length!==48) return inputError();
+        if (await hash(data.key)!==meta[data.role+"KeyHash"]) return json({error:"Invalid invitation"},403);
+        const session=random();
+        meta[data.role+"SessionHash"]=await hash(session);
+        await this.ctx.storage.put("meta",meta);
+        // A new claim replaces any existing device's session for that seat.
+        for(const peer of this.peers())if(peer.info.role===data.role)try{peer.ws.close(4001,"New sign-in");}catch{}
+        return json({session,role:data.role,ownerColor:meta.ownerColor});
+      }
+      if (!this.allowed("ticket",30)) return json({error:"Reconnect rate exceeded"},429);
+      if (!["owner","guest"].includes(data.role) || typeof data.session!=="string" || data.session.length!==48) return inputError();
+      if (await hash(data.session)!==meta[data.role+"SessionHash"]) return json({error:"Session expired"},403);
+      if (url.pathname==="/revoke") {
+        if (data.role!=="owner") return json({error:"Only creator may revoke"},403);
+        meta.revoked=true;await this.ctx.storage.put("meta",meta);
+        for(const p of this.peers())try{p.ws.close(4002,"Invitation replaced");}catch{}
+        return json({ok:true});
+      }
+      if (url.pathname==="/ticket") {
+        const ticket=random();
+        await this.ctx.storage.put("ticket:"+await hash(ticket),{role:data.role,expires:Date.now()+60000});
+        return json({ticket,role:data.role,ownerColor:meta.ownerColor});
+      }
+      return inputError();
     }
+    if (request.headers.get("Upgrade")?.toLowerCase()!=="websocket") return json({error:"Upgrade required"},426);
+    const meta=await this.metadata();
+    if (!meta || !this.allowed("websocket",30)) return json({error:"Room unavailable"},403);
+    const ticket=new URL(request.url).searchParams.get("ticket");
+    if (typeof ticket!=="string") return json({error:"Invalid ticket"},403);
+    const key="ticket:"+await hash(ticket);
+    const claim=await this.ctx.storage.get(key);
+    if (!claim || Date.now()>claim.expires) return json({error:"Ticket expired"},403);
+    await this.ctx.storage.delete(key);
+    for(const p of this.peers())if(p.info.role===claim.role)try{p.ws.close(4000,"Reconnected");}catch{}
+    const pair=new WebSocketPair(),client=pair[0],server=pair[1];
+    this.ctx.acceptWebSocket(server);
+    server.serializeAttachment({role:claim.role});
+    server.send(JSON.stringify({type:"joined",role:claim.role,ownerColor:meta.ownerColor}));
+    this.broadcastRoster();
+    return new Response(null,{status:101,webSocket:client});
   }
-  webSocketClose() { this.broadcastRoster(); }
-  webSocketError() { this.broadcastRoster(); }
+  webSocketMessage(ws,data) {
+    if(typeof data!=="string"||data.length>12000)return;
+    const role=ws.deserializeAttachment()?.role;
+    if(!role||!this.allowed("signal:"+role,120)) {try{ws.close(4008,"Too many signals");}catch{}return;}
+    let msg;try{msg=JSON.parse(data);}catch{return;}
+    if(!["offer","answer","ice"].includes(msg?.type))return;
+    if(msg.type==="offer"&&role!=="owner")return;
+    if(msg.type==="answer"&&role!=="guest")return;
+    if(JSON.stringify(msg.payload||{}).length>11000)return;
+    for(const p of this.peers())if(p.ws!==ws && p.info.role!==role)
+      try{p.ws.send(JSON.stringify({type:msg.type,payload:msg.payload}));}catch{}
+  }
+  webSocketClose(){this.broadcastRoster();}
+  webSocketError(){this.broadcastRoster();}
 }

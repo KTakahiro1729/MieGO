@@ -1,7 +1,9 @@
 import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
 import { EndgameAdvisor } from "./endgame.mjs";
-import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
+import { copyInviteText } from "./invite.mjs";
+import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame } from "./p2p-session.mjs";
+import { createP2PTransport } from "./p2p-transport.mjs";
 import { PALETTES, ownershipPixel, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { illegalMoveReasons, drawIllegalMoveMarker } from "./illegal-moves.mjs";
@@ -31,13 +33,32 @@ function switchToFallback(reason) {
 }
 worker.onerror = e => switchToFallback(e.message || "worker startup error");
 const params = new URLSearchParams(location.search);
-let room = params.get("room"), seat = room ? null : "host", ws, rtc, channel;
+let room = params.get("room"), seat = room ? null : "host";
+const inviteFragment=new URLSearchParams(location.hash.slice(1));
+let p2pRole=inviteFragment.get("role")==="guest"?"guest":"owner";
+let inviteKey=inviteFragment.get("key");
+let ownerColor=null,onlineSession=null,guestInviteKey=null,issuedSide=null,onlineRevision=0;
+let p2pTransport;
+const myOnlineColor=()=>ownerColor===null?null:playerColor(p2pRole,ownerColor);
+const currentSideSelection=()=>document.querySelector('input[name="onlineSide"]:checked')?.value||"random";
+function renderInviteButton() {
+  $("copy").disabled=!!room && p2pRole!=="owner";
+  $("copy").textContent=!room?"招待リンクを準備する":
+    issuedSide!==null && currentSideSelection()!==issuedSide?
+      "新しい設定で招待リンクを作り直す":"招待リンクをコピー";
+}
+function persistOnline(){
+  if(!room || !ROOM_PATTERN.test(room))return;
+  if(!saveCheckpoint(localStorage,room,{role:p2pRole,ownerColor,session:onlineSession,
+    inviteKey,guestInviteKey,issuedSide,revision:onlineRevision,game,lastPosition}))
+    storageError(Error("再接続用の局面を保存できません"));
+}
 let game = newGame(), candidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
 const storedPalette = localStorage.getItem("miego-palette");
 let palette = Object.hasOwn(PALETTES, storedPalette) ? storedPalette : "mono";
 const storedOpacity = Number(localStorage.getItem("miego-opacity"));
 let opacity = Number.isFinite(storedOpacity) && storedOpacity>=0 && storedOpacity<=1 && localStorage.getItem("miego-opacity")!==null ? storedOpacity : .55;
-let connected = false, roomCount = 0;
+let connected = false;
 let gameMode = room ? "online" : "local";
 let humanColor = BLACK, aiLevel = "standard", invasion = 50, reinforcement = 50;
 let katagoReady = false, aiThinking = false, aiJob = null;
@@ -68,7 +89,7 @@ function clearStorageError() {
   $("saveStatus").hidden=true;$("historySaveNotice").textContent="";
 }
 function myColorForEnd() {
-  if(room)return seat==="host"?BLACK:seat==="guest"?WHITE:null;
+  if(room)return myOnlineColor();
   return gameMode==="ai"?humanColor:BLACK;
 }
 function updateEndUi() {
@@ -106,7 +127,7 @@ function updateEndUi() {
 
 const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" && game.next === -humanColor;
 const isHumanTurn = () => room
-  ? (connected && (seat === "host" ? game.next === BLACK : game.next === WHITE))
+  ? (connected && (myOnlineColor()!==null && game.next===myOnlineColor()))
   : (gameMode !== "ai" || (katagoReady && !fallbackMode && game.next === humanColor));
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
@@ -223,7 +244,7 @@ function requestAnalysis() {
     if(deadReviewTouched || ["complete","none","modified","unavailable"].includes(deadReview)) {
       show();return;
     }
-    if(room && (seat!=="host" || !connected)) {
+    if(room && (p2pRole!=="owner" || !connected)) {
       deadReview="awaiting";show();return;
     }
     if(fallbackMode) {reviewUnavailable();return;}
@@ -394,7 +415,7 @@ function show() {
   $("resetLocalGame").hidden=!!room || gameMode!=="local";
   $("openCurrentMode").hidden=!room && gameMode!=="ai";
   $("openCurrentMode").textContent=room?"招待URLを表示":"AIの設定・再戦";
-  $("assisted").checked=game.assisted;$("assisted").disabled=game.moveNumber>0 || (room&&seat!=="host");
+  $("assisted").checked=game.assisted;$("assisted").disabled=game.moveNumber>0 || (room&&p2pRole!=="owner");
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
   $("gamePanel").classList.toggle("is-scoring",isScoring);
   $("gamePanel").classList.toggle("is-finished",isFinished);
@@ -423,7 +444,7 @@ function show() {
     $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（コミ込み）";
     const ready=canApproveScoring(game,deadReview,room,connected);
     $("agree").disabled=!ready;
-    const agreeing=room?(seat==="guest"?"white":"black"):
+    const agreeing=room?(myOnlineColor()===WHITE?"white":"black"):
       gameMode==="ai"?(humanColor===BLACK?"black":"white"):"black";
     $("agree").textContent=game.agreed[agreeing]?"確認済み · 相手待ち":
       ready?"この計算に同意":"死石判定を待っています";
@@ -512,14 +533,15 @@ function apply(action, remote=false) {
       deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
     }
     const hadCandidate=!!candidate;
+    if(room)onlineRevision++;
     candidate=null;save();show();
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode"].includes(action.type) ||
        (action.type==="end_answer" && game.status==="scoring") ||
        (hadCandidate && game.status==="playing"))
       requestAnalysis();
-    if(!remote&&room) send({type:"action",action});
-  }catch(error){alert(error.message); if(remote){$("netStatus").textContent="同期エラー";channel?.close();}}
+    if(!remote&&room)p2pTransport.sendAction(action);
+  }catch(error){alert(error.message); if(remote){$("netStatus").textContent="同期エラー";p2pTransport.refresh();}}
 }
 function submitMove(position,fromAi=false){
   if(!fromAi && !isHumanTurn())return;
@@ -595,7 +617,7 @@ document.addEventListener("keydown",e=>{
 });
 $("agree").onclick=()=>{
   if(!canApproveScoring(game,deadReview,room,connected))return;
-  const color=room?(seat==="guest"?WHITE:BLACK):gameMode==="ai"?humanColor:BLACK;
+  const color=room?myOnlineColor():gameMode==="ai"?humanColor:BLACK;
   if(game.agreed[color===BLACK?"black":"white"])return;
   apply({type:"agree",color});
   // Single-player modes require one human confirmation. No claim is made that
@@ -672,6 +694,7 @@ function save(){
       roomId:room||null,snapshot:game,lastPosition,humanColor,aiLevel,invasion,reinforcement,seat},currentRevision);
     currentGameId=record.id;currentRevision=record.revision;
     if(!room)gameLibrary.setActive(gameMode,record.id);
+    if(room)persistOnline();
     rememberSettings();clearStorageError();
     return true;
   }catch(error){storageError(error);return false;}
@@ -692,14 +715,11 @@ function leaveOnlineRoom() {
   $("gameMenu").open=false;
   if(!room)return;
   save();
-  const oldUrl=new URL(location.href);
-  oldUrl.searchParams.delete("room");
-  room=null;roomCount=0;seat="host";connected=false;
-  try{channel?.close();}catch{}
-  try{rtc?.close();}catch{}
-  try{ws?.close();}catch{}
-  channel=null;rtc=null;ws=null;
-  history.replaceState(null,"",oldUrl.pathname+oldUrl.search+oldUrl.hash);
+  p2pTransport?.leave();
+  const oldUrl=new URL(location.href);oldUrl.searchParams.delete("room");oldUrl.hash="";
+  room=null;seat="host";connected=false;ownerColor=null;onlineSession=null;
+  inviteKey=null;guestInviteKey=null;issuedSide=null;onlineRevision=0;p2pRole="owner";
+  history.replaceState(null,"",oldUrl.pathname+oldUrl.search);
   $("inviteDetails").classList.add("hidden");
   $("inviteStatus").textContent="";
   $("roomInfo").textContent="URLを共有すると、別の端末から対局に参加できます。";
@@ -716,127 +736,121 @@ function switchToLocal() {
   endgameAdvisor.reset();endgameStage="playing";endExpanded=!!game.endProposal;
   save();closePanels();show();requestAnalysis();
 }
-function send(msg){if(channel?.readyState==="open")channel.send(JSON.stringify(msg));}
-function signal(type,payload){if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type,payload}));}
-async function startRTC(){
-  if(rtc){rtc.close();rtc=null;}
-  const config=await fetch("/api/ice?room="+room).then(r=>r.json());
-  rtc=new RTCPeerConnection({iceServers:config.iceServers});
-  rtc.onicecandidate=e=>{if(e.candidate)signal("ice",e.candidate.toJSON());};
-  rtc.onconnectionstatechange=()=>{
-    if(["failed","disconnected","closed"].includes(rtc.connectionState)){
-      if(!room)return;
-      connected=false;$("netStatus").textContent="接続待機中";show();
-    }
-  };
-  rtc.ondatachannel=e=>setupChannel(e.channel);
-  if(seat==="host"){
-    setupChannel(rtc.createDataChannel("moves",{ordered:true}));
-    const offer=await rtc.createOffer();await rtc.setLocalDescription(offer);signal("offer",rtc.localDescription.toJSON());
+async function verifyP2P(){
+  $("p2pVerify").hidden=false;
+  if($("onlineSetup").hidden)openPanel("online");
+  const config=await fetch("/api/p2p/config").then(r=>r.json());
+  if(!config.siteKey)throw Error("CloudflareのTurnstile設定が必要です");
+  if(!window.turnstile){
+    await new Promise((resolve,reject)=>{
+      const script=document.createElement("script");
+      script.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.onload=resolve;script.onerror=()=>reject(Error("本人確認を読み込めません"));
+      document.head.append(script);
+    });
   }
+  return new Promise((resolve,reject)=>{
+    $("p2pTurnstile").replaceChildren();
+    window.turnstile.render($("p2pTurnstile"),{sitekey:config.siteKey,action:"miego_p2p",
+      callback:resolve,"error-callback":()=>reject(Error("本人確認に失敗しました")),
+      "expired-callback":()=>reject(Error("本人確認の期限が切れました"))});
+  });
 }
-function setupChannel(c){
-  channel=c;
-  c.onopen=()=>{
-    connected=true;$("netStatus").textContent="P2P接続中";
-    if(seat==="host")send({type:"snapshot",game,lastPosition,
-      scoringReview:game.status==="scoring" &&
-        ["complete","none","modified","unavailable"].includes(deadReview)?deadReview:null});
-    show();
-  };
-  c.onclose=()=>{if(!room)return;connected=false;$("netStatus").textContent="接続待機中";show();};
-  c.onmessage=e=>{
-    // Ignore late packets from a room that was left before the event arrived.
-    if(!room || c!==channel)return;
-    let msg;try{msg=JSON.parse(e.data);}catch{return;}
-    if(msg.type==="snapshot"&&seat==="guest"){
-      if(!msg.game||!Array.isArray(msg.game.board)||msg.game.board.length!==81)return;
-      game=msg.game;lastPosition=msg.lastPosition;candidate=null;
-      deadReview=game.status==="scoring" &&
-        ["complete","none","modified","unavailable"].includes(msg.scoringReview)
-        ?msg.scoringReview:"idle";
-      deadReviewTouched=deadReview==="modified";
-      deadEvaluation=null;
-      save();
-      endgameAdvisor.reset();endgameStage="playing";
-      endExpanded=!!game.endProposal && game.endProposal.from!==myColorForEnd();
-      show();requestAnalysis();
-    }
-    if(msg.type==="action")apply(msg.action,true);
-  };
+function onPeerSync(message){
+  const result=reconcileGame(game,onlineRevision,message.game,message.revision);
+  if(result.kind==="conflict"||result.kind==="invalid"){
+    connected=false;$("netStatus").textContent="局面が一致しません。自動上書きを停止しました";
+    show();return false;
+  }
+  if(result.kind==="adopt"){
+    game=result.game;onlineRevision=result.revision;lastPosition=message.lastPosition??null;
+    candidate=null;endgameAdvisor.reset();endgameStage="playing";
+    endExpanded=!!game.endProposal && game.endProposal.from!==myColorForEnd();
+    deadReviewTouched=false;deadEvaluation=null;
+    save();requestAnalysis();
+  }
+  if(game.status==="scoring"){
+    const review=message.scoringReview;
+    if(["complete","none","modified","unavailable"].includes(review)){
+      deadReview=review;deadReviewTouched=review==="modified";deadEvaluation=null;
+    }else if(p2pRole==="guest" && !["complete","none","modified","unavailable"].includes(deadReview))deadReview="awaiting";
+  }
+  if(result.kind==="send")p2pTransport.sendSync();
+  connected=true;$("netStatus").textContent="P2P接続中";show();return true;
 }
+p2pTransport=createP2PTransport({
+  verify:verifyP2P,
+  onSession:({session,ownerColor:chosen,role})=>{
+    onlineSession=session;p2pRole=role;ownerColor=chosen==="black"?BLACK:WHITE;
+    seat=role==="owner"?"host":"guest";persistOnline();show();
+  },
+  onSync:onPeerSync,
+  onAction:action=>apply(action,true),
+  onConnected:()=>{connected=true;$("netStatus").textContent="P2P接続中";show();},
+  onDisconnected:message=>{connected=false;$("netStatus").textContent=message;show();},
+  onError:error=>{$("netStatus").textContent=error.message||"接続エラー";console.warn("P2P",error);show();},
+  getSnapshot:()=>({game,revision:onlineRevision,lastPosition,
+    scoringReview:game.status==="scoring" &&
+    ["complete","none","modified","unavailable"].includes(deadReview)?deadReview:null})
+});
 async function joinRoom(){
-  if(!/^[a-f0-9]{32}$/.test(room)){alert("無効なルームIDです");return;}
-  const tokenKey="miego-token-"+room;
-  let token=sessionStorage.getItem(tokenKey);
-  if(!token){token=crypto.randomUUID();sessionStorage.setItem(tokenKey,token);}
-  const scheme=location.protocol==="https:"?"wss:":"ws:";
-  ws=new WebSocket(scheme+"//"+location.host+"/api/rooms/"+room+"/ws?token="+encodeURIComponent(token));
-  ws.onmessage=async e=>{
-    let msg;try{msg=JSON.parse(e.data);}catch{return;}
-    try{
-      if(msg.type==="joined"){seat=msg.seat;$("netStatus").textContent=seat==="host"?"黒番 · 接続待機":"白番 · 接続待機";show();}
-      if(msg.type==="roster"){roomCount=msg.count;if(roomCount===2&&seat==="host"&&!connected)await startRTC();}
-      if(msg.type==="offer"&&seat==="guest"){
-        if(!rtc)await startRTC();
-        await rtc.setRemoteDescription(msg.payload);
-        const answer=await rtc.createAnswer();await rtc.setLocalDescription(answer);signal("answer",rtc.localDescription.toJSON());
-      }
-      if(msg.type==="answer"&&seat==="host"&&rtc)await rtc.setRemoteDescription(msg.payload);
-      if(msg.type==="ice"&&rtc)await rtc.addIceCandidate(msg.payload);
-    }catch(err){console.error("WebRTC",err);$("netStatus").textContent="接続エラー";}
-  };
-  ws.onclose=()=>{if(!room)return;$("netStatus").textContent="ルーム切断";connected=false;show();};
-  $("roomInfo").textContent="招待URLを共有してください。ホストが黒、参加者が白です。";
+  if(!ROOM_PATTERN.test(room)){$("netStatus").textContent="招待URLが無効です";return;}
+  const targetRoom=room;
+  try{
+    await p2pTransport.join({room,role:p2pRole,session:onlineSession,inviteKey});
+    if(targetRoom!==room)return;
+  }catch(error){if(targetRoom===room){$("netStatus").textContent=error.message;show();}}
 }
 function showInviteLink() {
-  if (!room) return;
-  const link = makeInviteUrl(location.origin, room);
-  $("inviteDetails").classList.remove("hidden");
-  $("inviteUrl").value = link;
-  $("copy").textContent = "招待リンクをコピー";
-  $("roomInfo").textContent = "このURLを友人に共有してください。ホストが黒番、参加者が白番です。";
-  $("nativeShare").classList.toggle("hidden", typeof navigator.share !== "function");
-  return link;
+  if(!room||p2pRole!=="owner"||!guestInviteKey)return null;
+  const url=guestUrl(location.origin,room,guestInviteKey);
+  $("inviteDetails").classList.remove("hidden");$("inviteUrl").value=url;
+  $("roomInfo").textContent="あなたは"+colorLabel(ownerColor)+"です。相手に招待URLを送ってください。";
+  $("nativeShare").classList.toggle("hidden",typeof navigator.share!=="function");
+  renderInviteButton();return url;
 }
-function ensureRoom() {
-  if (room) return showInviteLink();
-  // The previous local/AI game remains accessible from history.
-  if(!save())return null;
-  // This room ID is purely random: the Durable Object room is created lazily by
-  // the first WebSocket connection. No async fetch is required here, preserving
-  // the browser's transient user activation for navigator.clipboard.writeText.
-  room = createRoomId();
-  gameMode="online";
-  stopAiTurn();
-  const link = makeInviteUrl(location.origin, room);
-  history.replaceState(null, "", new URL(link));
-  game = newGame(game.assisted);currentGameId=null;currentRevision=null;
+async function beginOnlineRoom(){
+  const choice=currentSideSelection();
+  if(room&&p2pRole!=="owner")throw Error("作成者だけが招待を更新できます");
+  if(room&&issuedSide===choice)return showInviteLink();
+  if(room&&(connected||game.moveNumber>0))throw Error("対局開始後は色を変更できません");
+  if(room&&!confirm("古い招待URLを無効化して、新しい設定で作り直しますか？"))return null;
+  if(!room && game.moveNumber>0 &&
+     !confirm("現在の対局を離れて、友人と新しく対局しますか？"))return null;
+  const color=selectColor(choice),token=await verifyP2P();
+  const created=await p2pTransport.post("/api/rooms",
+    {color:color===BLACK?"black":"white",turnstileToken:token});
+  if(room){
+    try{await p2pTransport.post("/api/rooms/"+room+"/revoke",{role:"owner",session:onlineSession});}
+    catch(error){$("inviteStatus").textContent="古い招待の無効化に失敗しました。";throw error;}
+    leaveOnlineRoom();
+  }else if(!save())return null;
+  room=created.room;p2pRole="owner";seat="host";ownerColor=color;
+  onlineSession=created.ownerSession;inviteKey=created.ownerKey;
+  guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;
+  gameMode="online";stopAiTurn();
+  game=newGame(game.assisted);candidate=null;lastPosition=null;
+  currentGameId=null;currentRevision=null;
+  deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
-  candidate = null;
-  save();showInviteLink();
-  void joinRoom();
-  show();
-  requestAnalysis();
-  return link;
+  history.replaceState(null,"",ownUrl(location.origin,room,inviteKey));
+  save();show();requestAnalysis();
+  void joinRoom();return showInviteLink();
 }
-async function copyLink() {
-  let link;
-  try { link = ensureRoom(); }
-  catch (error) { $("inviteStatus").textContent = "ルームの作成に失敗しました: " + error.message; return; }
-  if (!link) return;
-  $("inviteStatus").textContent = "";
-  // Invoke the clipboard API directly in the click handler without awaiting an
-  // HTTP request first. Safari/mobile browsers may revoke activation across awaits.
-  const copied = await copyInviteText(link, {
-    clipboard: navigator.clipboard,
-    input: $("inviteUrl"),
-    document
-  });
-  $("inviteStatus").textContent = copied
-    ? "招待URLをコピーしました。友人に貼り付けてください。"
-    : "自動コピーできませんでした。上のURLを長押ししてコピーしてください。";
-  openPanel("online");
+async function copyLink(){
+  try{
+    if(!room||(issuedSide!==null&&issuedSide!==currentSideSelection())){
+      $("copy").disabled=true;
+      const url=await beginOnlineRoom();
+      if(url)$("inviteStatus").textContent="招待を準備しました。もう一度押すとコピーできます。";
+      return;
+    }
+    const url=showInviteLink();
+    if(!url)throw Error("招待リンクを表示できません");
+    const copied=await copyInviteText(url,{clipboard:navigator.clipboard,input:$("inviteUrl"),document});
+    $("inviteStatus").textContent=copied?"招待URLをコピーしました。":"URLを選択して手動でコピーしてください。";
+  }catch(error){$("inviteStatus").textContent=error.message;}
+  finally{renderInviteButton();}
 }
 function openPanel(kind) {
   $("settingsBackdrop").hidden=false;
@@ -847,6 +861,7 @@ function openPanel(kind) {
   $("modeTitle").textContent=kind==="online"?"URLで対戦":"AIと対戦";
   $("settingsToggle").setAttribute("aria-expanded",String(kind==="settings"));
   if(kind==="online" && room)showInviteLink();
+  if(kind==="online")renderInviteButton();
   const panel=kind==="settings"?$("settingsPanel"):$("modePanel");
   panel.querySelector(".settings-head button").focus();
 }
@@ -1136,12 +1151,35 @@ $("aiLevel").onchange=e=>{aiLevel=e.target.value==="gentle"?"gentle":"standard";
 $("copy").onclick=copyLink;
 $("inviteUrl").onclick=e=>e.currentTarget.select();
 $("nativeShare").onclick=async()=>{
-  const link=ensureRoom();
+  const link=showInviteLink();
   if(!link||typeof navigator.share!=="function")return;
   try{await navigator.share({title:"MieGO 友人対局",url:link});}
   catch(error){if(error.name!=="AbortError")$("inviteStatus").textContent="共有できませんでした。URLを選択してコピーしてください。";}
 };
-if (room) { gameMode="online";save();showInviteLink(); void joinRoom(); }
+for(const input of document.querySelectorAll('input[name="onlineSide"]'))input.onchange=renderInviteButton;
+if(room){
+  const stored=readCheckpoint(localStorage,room);
+  const linkRole=inviteFragment.get("role");
+  const safeStored=stored && (linkRole===null||linkRole===stored.role);
+  if(safeStored){
+    p2pRole=stored.role;ownerColor=stored.ownerColor;
+    inviteKey=stored.inviteKey||inviteKey;guestInviteKey=stored.guestInviteKey;
+    onlineSession=stored.session;issuedSide=stored.issuedSide;onlineRevision=stored.revision;
+    game=stored.game;lastPosition=stored.lastPosition;
+    const prior=gameLibrary.list().find(r=>r.mode==="online"&&r.roomId===room);
+    if(prior){currentGameId=prior.id;currentRevision=prior.revision;}
+    endExpanded=!!game.endProposal;
+    if(issuedSide){
+      const input=document.querySelector('input[name="onlineSide"][value="'+issuedSide+'"]');
+      if(input)input.checked=true;
+    }
+  }
+  if(linkRole==="owner"||linkRole==="guest")p2pRole=linkRole;
+  seat=p2pRole==="owner"?"host":"guest";
+  gameMode="online";
+  if(p2pRole==="owner")showInviteLink();
+  void joinRoom();
+}
 else try {
   const settings=JSON.parse(localStorage.getItem("miego-local-settings")||"null");
   if(settings){

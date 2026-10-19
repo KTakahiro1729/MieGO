@@ -35,8 +35,11 @@ test("switch confirms only when a game or connection is active",()=>{
 });
 
 test("late P2P events cannot modify a local game after leaving a room",()=>{
-  assert.match(app,/if\(!room \|\| c!==channel\)return;/);
+  const transport=readFileSync(new URL("../public/p2p-transport.mjs",import.meta.url),"utf8");
+  assert.match(transport,/epoch!==generation\|\|channel!==c\|\|!current/);
+  assert.match(transport,/function leave\(\)/);
   assert.match(app,/function leaveOnlineRoom\(\)/);
+  assert.match(app,/p2pTransport\?\.leave\(\)/);
 });
 
 test("a local reset creates an empty independent game while retaining display assist preference",async()=>{

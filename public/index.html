@@ -115,13 +115,15 @@
       <section id="onlineSetup" class="settings-section" hidden>
         <h3>友人を招待</h3>
         <p id="roomInfo" class="explanation">URLを共有すると、別の端末から対局に参加できます。</p>
-        <button id="copy" class="primary full" type="button">招待リンクを作成・コピー</button>
+        <fieldset class="invite-side"><legend>自分の石</legend><label><input type="radio" name="onlineSide" value="random" checked> ランダム</label><label><input type="radio" name="onlineSide" value="black"> 黒番</label><label><input type="radio" name="onlineSide" value="white"> 白番</label></fieldset>
+        <div id="p2pVerify" hidden><p>新しい対局の作成・初回参加には本人確認が必要です。</p><div id="p2pTurnstile"></div></div>
+        <button id="copy" class="primary full" type="button">招待リンクを準備する</button>
         <div id="inviteDetails" class="invite-details hidden">
           <label for="inviteUrl">招待URL</label><input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="招待URL">
           <button id="nativeShare" class="outline full hidden" type="button">端末の共有メニューを開く</button>
         </div>
         <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
-        <p class="explanation">ルーム作成者が黒番です。相手が接続すると対局できます。</p>
+        <p class="explanation">作成者の端末で色を決めます。相手が参加すると対局できます。再接続では原則として本人確認は不要です。</p>
       </section>
       <section id="aiSetup" class="settings-section" hidden>
         <h3>自分の色</h3>

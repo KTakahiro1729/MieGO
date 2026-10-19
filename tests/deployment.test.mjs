@@ -12,6 +12,11 @@ test("Workers deployment configuration and static assets are present", () => {
   assert.deepEqual(config.assets.run_worker_first, ["/api/*"]);
   assert.equal(config.durable_objects.bindings[0].class_name, "GameRoom");
   assert.ok(config.migrations[0].new_sqlite_classes.includes("GameRoom"));
+  assert.equal(config.vars.TURNSTILE_SITE_KEY, "0x4AAAAAAFa_cYtTAe8aM3OA");
+  assert.equal(config.previews.vars.TURNSTILE_SITE_KEY, config.vars.TURNSTILE_SITE_KEY,
+    "Worker Previews must use the same configured Turnstile widget");
+  assert.equal(JSON.stringify(config).includes("TURNSTILE_SECRET"), false,
+    "Turnstile secret must never be committed in Wrangler configuration");
   // Preview environments do not inherit production bindings.
   assert.ok(config.previews, "Workers Preview requires a previews configuration");
   assert.deepEqual(config.previews.durable_objects.bindings, config.durable_objects.bindings,
@@ -23,8 +28,10 @@ test("Workers deployment configuration and static assets are present", () => {
 });
 test("browser-readable deployment health check exists", () => {
   const src = readFileSync(resolve(root, "src/worker.mjs"), "utf8");
-  assert.match(src, /url\.pathname === "\/api\/health"/);
+  assert.match(src, /path === "\/api\/health"/);
   assert.match(src, /durableObjectBinding:/);
   assert.match(src, /katagoWorkerReady/);
   assert.match(src, /katagoModelReady/);
+  assert.match(src, /turnstileConfigured:/);
+  assert.match(src, /Human verification failed/);
 });
