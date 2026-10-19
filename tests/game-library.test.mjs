@@ -102,7 +102,7 @@ test("SGF import and saved games open on the common board without touching the c
  assert.match(historyPanel,/gameLibrary\.save\(\{mode:"local",snapshot:parsed\.snapshot,source:"sgf"/);
  assert.match(historyPanel,/onSelect\(record\)/);
  assert.match(app,/enterBoardReview\(record\.snapshot,count,"archive",record\.sgfMeta,record\)/);
- assert.match(app,/forkReview\(boardReview\.snapshot,boardReview\.step\)/);
+ assert.match(app,/forkReview\(activeReviewSnapshot\(boardReview,game\),boardReview\.step\)/);
  assert.doesNotMatch(html,/id="historyBoard"|id="historyDetail"|id="historyStepRange"/);
 });
 
