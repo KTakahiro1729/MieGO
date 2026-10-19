@@ -88,8 +88,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
 
   function paintStones(view, display, gap, pad) {
     const {game,boardReview,candidate,illegalCandidate} = view;
-    const proposedBoard = boardReview ? null : candidate?.board;
-    const preview = boardReview ? null : (candidate?.moves.at(-1)?.position ?? illegalCandidate?.position);
+    const proposedBoard = boardReview?.preview?.board || (boardReview ? null : candidate?.board);
+    const preview = boardReview ? boardReview.previewPosition :
+      (candidate?.moves.at(-1)?.position ?? illegalCandidate?.position);
     for(let i=0;i<display.board.length;i++) {
       const {color:committedColor,captured} = stoneForPreview(display.board, proposedBoard, i);
       // A forbidden point is selectable, but the stone is never committed.
