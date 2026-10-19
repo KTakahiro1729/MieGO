@@ -122,12 +122,12 @@ test("counting paints flat cells in the chosen colour map and rings neutral poin
   // Black owns the left five columns, White the right three; column 5 is neutral.
   const game={...newGame(),status:"scoring",board:Array(81).fill(0)};
   for(let y=0;y<9;y++){game.board[at(4,y)]=1;game.board[at(6,y)]=WHITE;}
-  const view={...baseView(game),palette:"orangePurple",opacity:.2,boardTheme:"wood"};
+  const view={...baseView(game),palette:"greenPurple",opacity:.2,boardTheme:"wood"};
   const {draw,calls,overlay}=mockBoard(()=>view);
   draw();
   const pixel=i=>[...overlay.data.slice(i*4,i*4+4)];
-  const black=ownershipPixel(1,"orangePurple",countingOpacity(.2),"wood");
-  const white=ownershipPixel(-1,"orangePurple",countingOpacity(.2),"wood");
+  const black=ownershipPixel(1,"greenPurple",countingOpacity(.2),"wood");
+  const white=ownershipPixel(-1,"greenPurple",countingOpacity(.2),"wood");
   assert.deepEqual(pixel(at(0,0)),black);
   assert.deepEqual(pixel(at(8,0)),white);
   assert.equal(pixel(at(5,0))[3],0,"neutral points stay uncoloured");

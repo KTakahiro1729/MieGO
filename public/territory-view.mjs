@@ -17,18 +17,18 @@ const colours = (whiteSettled,whiteLeaning,blackLeaning,blackSettled) => Object.
 export const PALETTES = Object.freeze({
   // The stones' own colours, as KaTrain, Lizzie and OGS show ownership.
   mono: colours([246,249,255],[246,249,255],[22,26,34],[22,26,34]),
-  // ColorBrewer PuOr / PRGn, 5-class outer and inner colours.
-  orangePurple: colours([230,97,1],[253,184,99],[178,171,210],[94,60,153]),
-  greenPurple: colours([0,136,55],[166,219,160],[194,165,207],[123,50,148]),
-  // The colour-blind-safe blue-orange pair: White warm and light, Black cool
-  // and dark, like the stones (PuOr orange, RdBu blue).
-  blueOrange: colours([230,97,1],[253,184,99],[146,197,222],[5,113,176])
+  // After ColorBrewer PRGn, re-lit for one set of colours on every board:
+  // the two sides' steps keep about the same distance from wood, light and
+  // dark boards alike, and each leaning colour is lighter than its settled one.
+  greenPurple: colours([0,179,115],[116,202,151],[255,189,244],[202,105,200])
 });
 // The player's own colours; edited in the settings and kept in this module so
 // every drawing (board, legend, shared image) reads the same ones.
 export const PALETTE_CUSTOM = "custom";
 export const COLOUR_KEYS = Object.freeze(["whiteSettled","whiteLeaning","blackLeaning","blackSettled"]);
-let custom = PALETTES.mono;
+// Until the player picks, the custom map starts from the colour-blind-safe
+// blue-orange pair: White warm and light, Black cool and dark, like the stones.
+let custom = colours([230,97,1],[253,184,99],[146,197,222],[5,113,176]);
 const hex = rgb => "#"+rgb.map(c=>c.toString(16).padStart(2,"0")).join("");
 const rgbOf = value => /^#[0-9a-f]{6}$/i.test(value) ? [1,3,5].map(i=>parseInt(value.slice(i,i+2),16)) : null;
 export function paletteColours(palette) {

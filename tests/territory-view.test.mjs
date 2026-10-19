@@ -5,6 +5,9 @@ import { countingGradient,countingPalette,countingOpacity,PALETTES,paletteAt,own
   setOpacityShape,opacityShape,isPaletteChoice,showsOwnership,PALETTE_NONE } from "../public/territory-view.mjs";
 
 test("monochrome is the default: the stones' own colours, white and black on opposite sides",()=>{
+  assert.deepEqual(Object.keys(PALETTES),["mono","greenPurple"]);
+  assert.deepEqual(paletteColours("custom"),{whiteSettled:"#e66101",whiteLeaning:"#fdb863",blackLeaning:"#92c5de",blackSettled:"#0571b0"},
+    "the custom map starts from the colour-blind-safe blue-orange pair");
   assert.deepEqual(paletteAt(-1),PALETTES.mono.white.rgb);
   assert.deepEqual(paletteAt(1),PALETTES.mono.black.rgb);
   assert.deepEqual(paletteAt(.5),PALETTES.mono.black.rgb,"one colour per side");
@@ -18,7 +21,12 @@ test("each side shows its leaning colour below SETTLED and its settled colour be
     assert.deepEqual(paletteAt(-(SETTLED+BLEND),name),white.rgb);
     assert.deepEqual(paletteAt(.01,name),black.weak);
   }
-  assert.deepEqual(PALETTES.orangePurple.white.weak,[253,184,99],"ColorBrewer PuOr inner orange");
+  for(const name of Object.keys(PALETTES)){
+    const lightness=([r,g,b])=>.2126*r+.7152*g+.0722*b;
+    if(name==="mono")continue;
+    assert.ok(lightness(PALETTES[name].white.weak)>lightness(PALETTES[name].white.rgb),name+" White leaning is lighter");
+    assert.ok(lightness(PALETTES[name].black.weak)>lightness(PALETTES[name].black.rgb),name+" Black leaning is lighter");
+  }
 });
 test("opacity has one curve for both sides, V or U shaped, topped by the opacity slider",()=>{
   try{
@@ -56,7 +64,7 @@ test("the player's own colours make the custom map, shared by every drawing",()=
   assert.deepEqual(paletteAt(-1,PALETTE_CUSTOM),[255,0,0]);
   assert.deepEqual(paletteAt(.3,PALETTE_CUSTOM),[128,128,255]);
   assert.deepEqual(COLOUR_KEYS,["whiteSettled","whiteLeaning","blackLeaning","blackSettled"]);
-  assert.equal(paletteColours("orangePurple").whiteSettled,"#e66101");
+  assert.equal(paletteColours("greenPurple").whiteSettled,"#00b373");
 });
 test("field transitions are numeric and preserve inputs",()=>{
   const from=Array(81).fill(-1),to=Array(81).fill(1);
@@ -71,7 +79,7 @@ test("colour-map choices: presets, custom and hiding the overlay; old choices mi
   assert.equal(isPaletteChoice("bogus"),false);
   assert.equal(showsOwnership("none"),false);
   assert.equal(normalizePalette("purpleGreen"),"greenPurple");
-  for(const removed of ["blueRed","brownTeal",null,"bogus"])assert.equal(normalizePalette(removed),"mono");
+  for(const removed of ["blueRed","brownTeal","orangePurple","blueOrange",null,"bogus"])assert.equal(normalizePalette(removed),"mono");
   assert.equal(normalizePalette("custom"),"custom");
   const {readFileSync}=await import("node:fs");
   const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
@@ -85,11 +93,11 @@ test("counting legend shows White's area, a neutral ring and Black's area in the
   assert.equal(countingPalette("custom"),"custom");
   assert.equal(countingOpacity(.1),.5);
   assert.equal(countingOpacity(.8),.8);
-  const css=countingGradient("orangePurple",.8);
+  const css=countingGradient("greenPurple",.8);
   assert.match(css,/^radial-gradient\(/);
-  assert.match(css,/rgba\(230,97,1,0\.8\) 0 33%/);
+  assert.match(css,/rgba\(0,179,115,0\.8\) 0 33%/);
   assert.match(css,/transparent 33% 67%/);
-  assert.match(css,/rgba\(94,60,153,0\.8\) 67% 100%/);
+  assert.match(css,/rgba\(202,105,200,0\.8\) 67% 100%/);
 });
 test("the endgame advisor counts as settled exactly what is drawn in the settled colour",async()=>{
   const {readFileSync}=await import("node:fs");
