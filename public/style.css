@@ -436,8 +436,6 @@ body{overflow:hidden}
 .help-button::after{content:"";position:absolute;inset:-10px}
 .help-button:hover:not(:disabled){color:var(--gold)}
 .help-button svg{display:block}
-.legend-labels .help-button{width:20px;height:20px;margin:-4px 0 -4px 3px}
-.legend-labels .help-button svg{width:15px;height:15px}
 .palette-choices legend .help-button{margin:-4px 0 -4px 4px}
 .endgame-bar .help-button{margin:0 6px 0 2px}
 .score-head{display:flex;align-items:center}
