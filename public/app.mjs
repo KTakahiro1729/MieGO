@@ -14,6 +14,7 @@ import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
+import { activeReviewSnapshot, proposeReviewStone, commitReviewStone, variationForSharing } from "./review-variation.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board");
@@ -526,11 +527,21 @@ function submitMove(position,fromAi=false){
   apply({type:"move",position,number:game.moveNumber+1,before,after:boardHash(next.board)});
 }
 canvas.addEventListener("click",e=>{
-  if(boardReview)return;
   const rect=canvas.getBoundingClientRect(),x=Math.round(((e.clientX-rect.left)/rect.width*canvas.width-canvas.width/(SIZE+1))/(canvas.width/(SIZE+1))),
     y=Math.round(((e.clientY-rect.top)/rect.height*canvas.height-canvas.height/(SIZE+1))/(canvas.height/(SIZE+1)));
   if(x<0||x>=SIZE||y<0||y>=SIZE)return;
   const position=y*SIZE+x;
+  if(boardReview){
+    try{
+      boardReview.preview=proposeReviewStone(boardReview,game,position);
+      boardReview.previewPosition=position;
+      reviewFeedback("");show();requestReviewOwnership();
+    }catch(error){
+      boardReview.preview=null;boardReview.previewPosition=null;
+      reviewFeedback(error.message);show();requestReviewOwnership();
+    }
+    return;
+  }
   if(game.status==="scoring"){
     if(room&&!connected)return;
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
@@ -884,26 +895,95 @@ function openPanel(kind) {
   const panel=kind==="settings"?$("settingsPanel"):$("modePanel");
   panel.querySelector(".settings-head button").focus();
 }
+function reviewFeedback(message){
+  $("reviewFeedback").textContent=message;$("reviewFeedback").hidden=!message;
+}
+function discardReviewPreview(){
+  if(!boardReview?.preview)return;
+  boardReview.preview=null;boardReview.previewPosition=null;
+  reviewFeedback("");show();requestReviewOwnership();
+}
+function confirmReviewPreview(){
+  if(!boardReview?.preview)return;
+  try{
+    const result=commitReviewStone(boardReview,game,boardReview.previewPosition);
+    Object.assign(boardReview,result);
+    boardReview.preview=null;boardReview.previewPosition=null;
+    reviewFeedback("");
+    $("reviewNotice").textContent=result.created?"変化図を作成しました。元棋譜は変更されません。":"";
+    $("reviewMenu").open=false;
+    show();requestReviewOwnership();
+  }catch(error){reviewFeedback(error.message);}
+}
+function selectOriginalLine(){
+  if(!boardReview)return;
+  boardReview.activeLine="main";
+  boardReview.preview=null;boardReview.previewPosition=null;
+  const original=boardReview.source==="live"?game:boardReview.snapshot;
+  boardReview.step=Math.min(boardReview.step,original.moves.length);
+  boardReview.display=replaySteps(original,boardReview.step);
+  $("reviewMenu").open=false;
+  reviewFeedback("");show();requestReviewOwnership();
+}
+function selectVariationLine(){
+  if(!boardReview?.variation)return;
+  boardReview.activeLine="variation";
+  boardReview.preview=null;boardReview.previewPosition=null;
+  const line=boardReview.variation.snapshot;
+  boardReview.step=Math.min(boardReview.step,line.moves.length);
+  boardReview.display=replaySteps(line,boardReview.step);
+  $("reviewMenu").open=false;
+  reviewFeedback("");show();requestReviewOwnership();
+}
+function previewReviewPass(){
+  if(!boardReview)return;
+  try{
+    boardReview.preview=proposeReviewStone(boardReview,game,null);
+    boardReview.previewPosition=null;
+    $("reviewMenu").open=false;
+    reviewFeedback("パスを仮置き中");show();requestReviewOwnership();
+  }catch(error){reviewFeedback(error.message);}
+}
+function saveReviewVariation(){
+  if(!boardReview?.variation)return;
+  try{
+    gameLibrary.save({mode:"local",snapshot:boardReview.variation.snapshot,source:"variation"});
+    $("reviewNotice").textContent="変化図を保存した棋譜に追加しました。";
+  }catch(error){$("reviewNotice").textContent="変化図を保存できません："+error.message;}
+}
 function renderBoardReview() {
   if(!boardReview)return;
   // The live match may advance over WebRTC or AI while the chosen step stays fixed.
   if(boardReview.source==="live")boardReview.snapshot=game;
-  const {snapshot,step,source}=boardReview, count=snapshot.moves.length;
-  $("reviewTitle").textContent=source==="url"?"共有棋譜を確認中":"棋譜を確認中";
+  const {step,source}=boardReview;
+  const line=activeReviewSnapshot(boardReview,game),count=line.moves.length;
+  const variationActive=boardReview.activeLine==="variation" && !!boardReview.variation;
+  const isPreview=!!boardReview.preview;
+  $("reviewTitle").textContent=variationActive?"変化図を確認中":source==="url"?"共有棋譜を確認中":"棋譜を確認中";
   $("reviewStepText").textContent=step+" / "+count+"手";
   $("reviewStepRange").max=String(count);
   $("reviewStepRange").value=String(step);
-  $("reviewFirst").disabled=step===0;
-  $("reviewPrevious").disabled=step===0;
-  $("reviewNext").disabled=step>=count;
-  $("reviewLast").disabled=step>=count;
+  $("reviewFirst").disabled=step===0 || isPreview;
+  $("reviewPrevious").disabled=step===0 || isPreview;
+  $("reviewNext").disabled=step>=count || isPreview;
+  $("reviewLast").disabled=step>=count || isPreview;
+  $("reviewStepRange").disabled=isPreview;
+  $("reviewStepToggle").disabled=isPreview;
+  $("reviewPrevious").hidden=isPreview;
+  $("reviewNext").hidden=isPreview;
+  $("reviewStepToggle").hidden=isPreview;
+  $("reviewPlayActions").hidden=!isPreview;
+  $("reviewOriginal").hidden=!variationActive;
+  $("reviewVariation").hidden=variationActive || !boardReview.variation;
+  $("reviewSaveVariation").hidden=!boardReview.variation;
+  $("reviewPass").disabled=isPreview;
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?"新着 +"+updates:"";
-  $("moveLabel").textContent=step+" / "+count+"手";
+  $("moveLabel").textContent=(variationActive?"変化図 ":"")+step+" / "+count+"手";
   $("moveLabel").setAttribute("aria-label","棋譜再生を終了する");
   $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
-  $("turn").textContent="棋譜を確認中";
+  $("turn").textContent=isPreview?"仮置き中":variationActive?"変化図":"棋譜を確認中";
   $("modePicker").disabled=false;
   $("gamePanel").classList.remove("is-scoring","is-finished");
   $("netStatus").textContent=source==="archive"?"保存した棋譜":source==="url"?"共有棋譜":
@@ -911,7 +991,7 @@ function renderBoardReview() {
   // "保存した棋譜…" is a repeatable command, not a fourth playing mode.
   $("modePicker").value=room?"online":gameMode;
   $("reviewResume").hidden=!canResumeSelectedReview();
-  $("reviewBack").textContent=source==="live"?"最新に戻る":"対局に戻る";
+  $("reviewBack").textContent=variationActive?"元棋譜":source==="live"?"最新に戻る":"対局に戻る";
   $("actionRow").hidden=true;
   $("endgameBar").hidden=true;
   $("scoreBox").hidden=true;
@@ -937,11 +1017,12 @@ function requestReviewOwnership() {
       reviewWorker?.terminate();reviewWorker=null;
     };
   }
-  reviewWorker.postMessage({id:boardReview.analysisId,board:boardReview.display.board});
+  reviewWorker.postMessage({id:boardReview.analysisId,board:boardReview.preview?.board||boardReview.display.board});
 }
 function enterBoardReview(snapshot,step,source="live",metadata=null,record=null) {
   const display=replaySteps(snapshot,step);
   boardReview={snapshot,display,step,source,metadata,record,ownership:null,
+    activeLine:"main",variation:null,preview:null,previewPosition:null,
     openedAt:game.moveNumber,analysisId:0};
   $("reviewNotice").textContent="";
   $("reviewCopyFallback").hidden=true;
@@ -950,16 +1031,17 @@ function enterBoardReview(snapshot,step,source="live",metadata=null,record=null)
 }
 function setBoardReviewStep(step) {
   if(!boardReview)return;
-  const snapshot=boardReview.source==="live"?game:boardReview.snapshot;
+  const snapshot=activeReviewSnapshot(boardReview,game);
   if(!Number.isInteger(step)||step<0||step>snapshot.moves.length)return;
-  if(boardReview.source==="live" && step===snapshot.moves.length){
+  if(boardReview.source==="live" && boardReview.activeLine!=="variation" &&
+    step===snapshot.moves.length){
     leaveBoardReview();return;
   }
   try{
     const display=replaySteps(snapshot,step);
-    boardReview.snapshot=snapshot;
     boardReview.display=display;boardReview.step=step;
-    $("reviewNotice").textContent="";
+    boardReview.preview=null;boardReview.previewPosition=null;
+    reviewFeedback("");$("reviewNotice").textContent="";
     $("reviewCopyFallback").hidden=true;
     show();requestReviewOwnership();
   }catch(error){$("reviewNotice").textContent="棋譜を再生できません："+error.message;}
@@ -975,6 +1057,7 @@ function clearBoardReview() {
 }
 function leaveBoardReview() {
   if(!boardReview)return;
+  if(boardReview.activeLine==="variation"){selectOriginalLine();return;}
   clearBoardReview();
   show();requestAnalysis();
   $("moveLabel").focus();
@@ -988,7 +1071,7 @@ function clearImportedReviewUrl() {
 function forkBoardReview() {
   if(!boardReview)return;
   let fork;
-  try{fork=forkReview(boardReview.snapshot,boardReview.step);}
+  try{fork=forkReview(activeReviewSnapshot(boardReview,game),boardReview.step);}
   catch(error){$("reviewNotice").textContent="この局面から検討できません："+error.message;return;}
   if(room && connected && !confirm("友人との対局から離れて、この局面を1台で検討しますか？"))return;
   if(!save())return;
@@ -1019,9 +1102,8 @@ async function copyReviewText(text,statusId,fallbackId) {
   }
 }
 function selectedBoardReviewUrl() {
-  const {snapshot,metadata,step}=boardReview;
-  const moves=snapshot.moves.filter(m=>m.position!=="resign").length;
-  return makeReviewUrl(location.origin,{snapshot,sgfMeta:metadata},Math.min(step,moves));
+  const {snapshot,metadata,step}=variationForSharing(boardReview,game);
+  return makeReviewUrl(location.origin,{snapshot,sgfMeta:metadata},step);
 }
 async function shareBoardReview(ai) {
   if(!boardReview)return;
@@ -1033,6 +1115,7 @@ async function shareBoardReview(ai) {
 function canResumeSelectedReview(){
   const review=boardReview,record=review?.record;
   return !!(review?.source==="archive" && record &&
+    review.activeLine!=="variation" && !review.preview &&
     navigationState(record,review.step).resumable);
 }
 function openSavedBoard(record) {
@@ -1055,7 +1138,8 @@ function openSavedBoard(record) {
 function exportReviewSGF(){
   if(!boardReview)return;
   try{
-    const contents=exportSGF(boardReview.record||{snapshot:boardReview.snapshot,sgfMeta:boardReview.metadata});
+    const details=variationForSharing(boardReview,game);
+    const contents=exportSGF({snapshot:details.snapshot,sgfMeta:details.metadata});
     const blob=new Blob([contents],{type:"application/x-go-sgf;charset=utf-8"});
     const url=URL.createObjectURL(blob);
     const link=document.createElement("a");
@@ -1070,13 +1154,23 @@ $("moveLabel").onclick=()=>{
   try{enterBoardReview(game,game.moves.length,"live");}
   catch(error){$("saveStatus").hidden=false;$("saveStatus").textContent="棋譜を再生できません："+error.message;}
 };
-$("reviewStepToggle").onclick=()=>$("reviewStepRange").focus();
+$("reviewStepToggle").onclick=()=>{$("reviewMenu").open=true;$("reviewStepRange").focus();};
 $("reviewFirst").onclick=()=>setBoardReviewStep(0);
 $("reviewPrevious").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step-1);
 $("reviewNext").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
 $("reviewLast").onclick=()=>boardReview&&setBoardReviewStep(boardReview.snapshot.moves.length);
 $("reviewStepRange").oninput=e=>setBoardReviewStep(Number(e.target.value));
 $("reviewBack").onclick=leaveBoardReview;
+$("reviewConfirm").onclick=confirmReviewPreview;
+$("reviewCancel").onclick=discardReviewPreview;
+$("reviewOriginal").onclick=selectOriginalLine;
+$("reviewVariation").onclick=selectVariationLine;
+$("reviewPass").onclick=previewReviewPass;
+$("reviewSaveVariation").onclick=saveReviewVariation;
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape" && boardReview?.preview){discardReviewPreview();return;}
+  if(e.key==="Escape" && $("reviewMenu").open)$("reviewMenu").open=false;
+});
 $("reviewBranch").onclick=forkBoardReview;
 $("reviewLink").onclick=()=>void shareBoardReview(false);
 $("reviewAiLink").onclick=()=>void shareBoardReview(true);
