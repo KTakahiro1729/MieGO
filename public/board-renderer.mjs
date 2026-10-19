@@ -107,8 +107,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
 
   function paintStones(view, display, gap, pad) {
     const {game,boardReview,candidate} = view;
-    const proposedBoard = boardReview ? null : candidate?.board;
-    const preview = boardReview ? null : candidate?.moves.at(-1)?.position;
+    const proposedBoard = boardReview?.preview?.board || (boardReview ? null : candidate?.board);
+    const preview = boardReview ? boardReview.previewPosition : candidate?.moves.at(-1)?.position;
     for(let i=0;i<display.board.length;i++) {
       const {color,captured} = stoneForPreview(display.board, proposedBoard, i);
       if(!color)continue;

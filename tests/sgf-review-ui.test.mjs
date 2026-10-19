@@ -4,21 +4,23 @@ import {readFileSync} from "node:fs";
 
 const source=name=>readFileSync(new URL("../public/"+name,import.meta.url),"utf8");
 const html=source("index.html"),app=source("app.mjs"),renderer=source("board-renderer.mjs"),style=source("style.css");
-test("shared board replay actions remain accessible without a hidden menu",()=>{
+test("replay and variations share a single action row with a non-scrolling overlay menu",()=>{
  const review=html.slice(html.indexOf('<section id="reviewPanel"'),html.indexOf('<p id="saveStatus"'));
  for(const id of ["reviewPrevious","reviewNext","reviewBack","reviewFirst","reviewLast",
    "reviewStepRange","reviewLink","reviewAiLink","reviewResume","reviewExport","reviewBranch"])
    assert.match(review,new RegExp('id="'+id+'"'));
- assert.match(review,/class="review-direct-actions"/);
- assert.doesNotMatch(review,/<details|review-menu-popover/);
+ assert.match(review,/class="review-navigation"/);
+ assert.match(review,/id="reviewPlayActions"/);
+ assert.match(review,/class="review-menu-popover"/);
+ assert.match(review,/<details id="reviewMenu"/);
  assert.match(app,/\$\("actionRow"\)\.hidden=true/);
  assert.match(app,/\$\("reviewPanel"\)\.hidden=true/);
- assert.match(style,/\.review-tools\{display:flex/);
+ assert.match(style,/\.review-navigation>\.review-menu \.review-menu-popover\{position:absolute/);
  assert.match(style,/\.review-panel\{[^}]*position:sticky/);
 });
 test("replay does not write moves to an active live or P2P session",()=>{
   assert.match(renderer,/const display=boardReview\?\.display\|\|game/);
-  assert.match(app,/if\(boardReview\)return;\s*const rect=canvas\.getBoundingClientRect/);
+  assert.match(app,/boardReview\.preview=proposeReviewStone\(boardReview,game,position\)/);
   assert.match(app,/if\(boardReview && !fromAi\)return/);
   assert.match(app,/if\(boardReview\)\{renderBoardReview\(\);return;\}/);
   assert.match(app,/if\(boardReview\.source==="live"\)boardReview\.snapshot=game/);
@@ -61,7 +63,7 @@ test("SGF exports and AI sharing share the existing single-row replay menu",()=>
  assert.match(review,/id="reviewLink"/);
  assert.match(review,/id="reviewAiLink"/);
  assert.match(review,/id="reviewResume"/);
- assert.match(style,/\.review-direct-actions\{display:flex/);
+ assert.match(style,/\.review-menu-popover>button\{min-height:44px/);
  assert.doesNotMatch(html,/id="historyShareMenu"|id="historyExport"/);
 });
 

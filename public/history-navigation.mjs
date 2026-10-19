@@ -1,10 +1,12 @@
 /** Presentation fields and navigation rules for saved SGF/game records. */
 export function recordName(record) {
+  if(record.source==="variation")return "保存した変化図";
   if(record.source==="sgf")return "SGFから読み込んだ棋譜";
   return record.mode==="ai"?"AIと対戦":record.mode==="online"?"友人と対戦":"1台で打つ";
 }
 
 export function recordStatus(record) {
+  if(record.source==="variation")return "変化図";
   if(record.source==="sgf")return "読み込み済み";
   return record.snapshot.status==="finished"?"終局済み":
     record.snapshot.status==="scoring"?"採点中":"対局中";
@@ -17,7 +19,7 @@ export function dateLabel(timestamp) {
 }
 
 export function recordIcon(record) {
-  return record.source==="sgf"?"SGF":record.mode==="online"?"↗":record.mode==="ai"?"AI":"●";
+  return record.source==="variation"?"↪":record.source==="sgf"?"SGF":record.mode==="online"?"↗":record.mode==="ai"?"AI":"●";
 }
 
 export function recordSummary(record,includeKomi=false) {
@@ -26,6 +28,7 @@ export function recordSummary(record,includeKomi=false) {
 }
 
 export function readOnlyHint(record) {
+  if(record.source==="variation")return "元の棋譜とは独立して保存した検討用の変化図です。";
   if(record.source==="sgf")return "SGFの主変化のみを読み込みました。置き石・9路盤以外には未対応。検討はMieGOの中国式・コミ7.5で新しい対局として始まります。";
   if(record.mode==="online")return "友人対局は閲覧専用です。途中局面の検討は別の1台対局として開始します。";
   if(record.snapshot.status==="finished")return "終局した棋譜です。途中局面から新しい1台対局を始められます。";
@@ -41,7 +44,7 @@ export function navigationState(record,requestedStep) {
     count,step,
     firstDisabled:step===0,
     lastDisabled:step===count,
-    resumable:record.mode!=="online" && record.source!=="sgf" &&
+    resumable:record.mode!=="online" && !["sgf","variation"].includes(record.source) &&
       record.snapshot.status!=="finished" && step===count
   };
 }
