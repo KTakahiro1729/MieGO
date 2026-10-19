@@ -110,6 +110,7 @@
                 <button id="reviewResume" type="button" hidden>対局の続き</button>
                 <button id="reviewBranch" type="button">ここから1台で打つ</button>
                 <button id="reviewExport" type="button">SGFを保存</button>
+                <button id="reviewGif" type="button">盤面をGIFで保存</button>
                 <p id="reviewNotice" role="status" aria-live="polite"></p>
                 <textarea id="reviewCopyFallback" readonly hidden aria-label="手動コピー用の文字列"></textarea>
               </div>
@@ -147,6 +148,8 @@
       <section class="settings-section" aria-label="対局と棋譜の操作">
         <h3>対局と棋譜</h3>
         <button id="openHistorySettings" class="secondary full" type="button">保存した棋譜</button>
+        <button id="exportBoardGif" class="secondary full" type="button">盤面をGIFで保存</button>
+        <p id="boardGifNotice" class="invite-status" role="status" aria-live="polite"></p>
         <button id="openCurrentMode" class="secondary full" type="button" hidden>AIの設定・再戦</button>
         <label id="localHandicapRow" class="handicap-select" for="localHandicap" hidden>新しい対局の置き石<select id="localHandicap"><option value="0">なし（互先）</option><option value="2">2子</option><option value="3">3子</option><option value="4">4子</option><option value="5">5子</option></select></label>
         <button id="resetLocalGame" class="secondary full" type="button" hidden>新しい対局を始める</button>

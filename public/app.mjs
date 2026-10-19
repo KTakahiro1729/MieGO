@@ -15,6 +15,7 @@ import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
+import { encodeGif } from "./gif-encoder.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
@@ -1339,14 +1340,28 @@ function exportReviewSGF(){
   try{
     const details=variationForSharing(boardReview,game);
     const contents=exportSGF({snapshot:details.snapshot,sgfMeta:details.metadata});
-    const blob=new Blob([contents],{type:"application/x-go-sgf;charset=utf-8"});
-    const url=URL.createObjectURL(blob);
-    const link=document.createElement("a");
-    link.href=url;link.download="miego-"+(boardReview.record?.id||"shared")+".sgf";
-    document.body.append(link);link.click();link.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    downloadBlob(new Blob([contents],{type:"application/x-go-sgf;charset=utf-8"}),
+      "miego-"+(boardReview.record?.id||"shared")+".sgf");
     $("reviewNotice").textContent="SGFを書き出しました。";
   }catch(error){$("reviewNotice").textContent="SGFを書き出せません："+error.message;}
+}
+function downloadBlob(blob,name){
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;link.download=name;
+  document.body.append(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+// Saves the board exactly as drawn: board look, ownership colours, replay
+// position, marks and labels all come from the canvas itself.
+function exportBoardGif(noticeId){
+  try{
+    draw();
+    const image=canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height);
+    const step=boardReview?boardReview.step:game.moves.length;
+    downloadBlob(new Blob([encodeGif(image)],{type:"image/gif"}),"miego-move"+step+".gif");
+    $(noticeId).textContent="盤面をGIFで書き出しました。";
+  }catch(error){$(noticeId).textContent="GIFを書き出せません："+error.message;}
 }
 $("moveLabel").onclick=()=>{
   if(boardReview){leaveBoardReview();return;}
@@ -1372,6 +1387,7 @@ document.addEventListener("keydown",e=>{
 });
 $("reviewBranch").onclick=forkBoardReview;
 $("reviewExport").onclick=exportReviewSGF;
+$("reviewGif").onclick=()=>exportBoardGif("reviewNotice");
 $("reviewLink").onclick=()=>void shareBoardReview(false);
 $("reviewAiLink").onclick=()=>void shareBoardReview(true);
 function resumeSelectedReview(){
@@ -1426,6 +1442,7 @@ $("openCurrentMode").onclick=()=>{
 $("openHistory").onclick=openHistoryPanel;
 $("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
 $("openHistorySettings").onclick=openHistoryPanel;
+$("exportBoardGif").onclick=()=>exportBoardGif("boardGifNotice");
 $("closeHistory").onclick=()=>{closePanels();$("modePicker").focus();};
 document.addEventListener("storage",e=>{
   if(e.key?.startsWith("miego:game:v1:") && !$("historyPanel").hidden)renderHistoryList();
