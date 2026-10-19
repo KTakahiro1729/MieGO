@@ -114,7 +114,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       const index=region.position;
       if(!Number.isInteger(index))continue;
       const x=pad+(index%SIZE)*gap,y=pad+Math.floor(index/SIZE)*gap;
-      const label=region.count+"目";
+      const label=String(region.count);
       const width=label.length*fontSize*.68+10,height=fontSize+9;
       ctx.save();
       ctx.fillStyle=region.color===BLACK?"#172327":"#fcf8ed";

@@ -11,6 +11,7 @@ import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-stren
 import { policyHints } from "./ai-assist.mjs";
 import { takebackCut, takeBack, requestTakeback, answerTakeback } from "./takeback.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
+import { scoreBreakdown } from "./scoring-regions.mjs";
 import { createBoardZoom } from "./board-zoom.mjs";
 import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
@@ -531,8 +532,7 @@ function show() {
     "死石を確認しています…";
   // The scoring controls live in the existing sticky action row.
   if(isScoring){
-    const score=areaScore(game);
-    $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（"+compensationLabel()+"）";
+    $("scoreText").textContent=scoreBreakdown(game);
     const ready=canApproveScoring(game,deadReview,room,connected);
     $("agree").disabled=!ready;
     const agreeing=room?(myOnlineColor()===WHITE?"white":"black"):
@@ -553,7 +553,7 @@ function show() {
         (result?.startsWith("B+")?"黒":result?.startsWith("W+")?"白":"引き分け")+
         (result?.startsWith("B+")||result?.startsWith("W+")?
           "の"+Math.abs(score.difference).toFixed(1)+"目勝ち":"");
-      $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（"+compensationLabel()+"）";
+      $("scoreText").textContent=scoreBreakdown(game);
     }
   }
   updateEndUi();
@@ -897,9 +897,6 @@ $("endDecline").onclick=()=>{
   apply({type:"end_answer",color,accept:false,proposalFrom:game.endProposal.from,
     number:game.moveNumber,before:boardHash(game.board)});
 };
-function compensationLabel() {
-  return handicapOf(game)?"コミ・置き石補正込み":"コミ込み";
-}
 // Choosing "表示しない" hides the overlay; the next colour map brings it back.
 document.querySelectorAll('input[name="palette"]').forEach(input => {
   input.onchange = e => {

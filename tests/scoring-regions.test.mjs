@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {BLACK,WHITE,newGame,at,areaScore,KOMI} from "../public/core.mjs";
-import {scoringRegions} from "../public/scoring-regions.mjs";
+import {scoringRegions,scoreBreakdown} from "../public/scoring-regions.mjs";
 
 test("connected same-color area includes live stones and separated pockets joined by stones",()=>{
   const game={...newGame(),status:"scoring",board:Array(81).fill(WHITE)};
@@ -60,7 +60,7 @@ test("renderer paints one area label per connected region only for scored games"
     createOverlayCanvas:()=>({getContext:()=>({})})
   });
   renderer.draw();
-  assert.deepEqual(labels.sort(),["15目","66目"].sort());
+  assert.deepEqual(labels.sort(),["15","66"].sort());
   game.status="playing";labels.length=0;renderer.draw();
   assert.equal(labels.length,0);
   game.status="finished";game.result="W+R";labels.length=0;renderer.draw();
@@ -83,4 +83,12 @@ test("scoring overlay is never drawn in active game replay",()=>{
   });
   renderer.draw();
   assert.equal(labels.length,0);
+});
+
+test("score breakdown shows white area and komi separately so it matches the board labels",()=>{
+  const game={...newGame(),status:"scoring",board:Array(81).fill(0)};
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++)game.board[at(x,y)]=x<5?BLACK:WHITE;
+  assert.equal(scoreBreakdown(game),"黒 45 対 白 36＋コミ7.5＝43.5");
+  const handicap={...newGame(true,{handicap:3}),status:"scoring"};
+  assert.equal(scoreBreakdown(handicap),"黒 81 対 白 0＋コミ0.5＋置き石補正3＝3.5");
 });
