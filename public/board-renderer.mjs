@@ -115,7 +115,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       const x=pad+(i%SIZE)*gap;
       const y=pad+Math.floor(i/SIZE)*gap;
       const r=gap*.44;
-      paintStone(color,x,y,r,captured?.4:i===preview?.68:1);
+      paintStone(color,x,y,r,captured ? 0.4 : i===preview ? 0.68 : 1);
 
       if(i===preview) {
         ctx.save();
