@@ -1,4 +1,5 @@
 import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash } from "./core.mjs";
+import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board"), ctx = canvas.getContext("2d");
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
@@ -214,23 +215,64 @@ async function joinRoom(){
   ws.onclose=()=>{$("netStatus").textContent="ルーム切断";connected=false;show();};
   $("roomInfo").textContent="招待URLを共有してください。ホストが黒、参加者が白です。";
 }
-$("share").onclick=async()=>{
-  if(room){await copyLink();return;}
-  try{
-    const res=await fetch("/api/rooms",{method:"POST"});
-    if(!res.ok)throw new Error("ルームを作成できません");
-    const data=await res.json();room=data.room;history.replaceState(null,"","/?room="+room);
-    game=newGame(game.assisted);candidate=null;await joinRoom();show();requestAnalysis();await copyLink();
-  }catch(error){alert(error.message);}
-};
-async function copyLink(){
-  if(!room){alert("先に対局URLを作成してください");return;}
-  const link=location.origin+"/?room="+room;
-  try{await navigator.clipboard.writeText(link);$("copy").textContent="コピーしました";setTimeout(()=>$("copy").textContent="招待リンクをコピー",1800);}
-  catch{prompt("このURLを共有してください",link);}
+function showInviteLink() {
+  if (!room) return;
+  const link = makeInviteUrl(location.origin, room);
+  $("inviteDetails").classList.remove("hidden");
+  $("inviteUrl").value = link;
+  $("share").textContent = "招待リンクをコピー";
+  $("roomInfo").textContent = "このURLを友人に共有してください。ホストが黒番、参加者が白番です。";
+  $("nativeShare").classList.toggle("hidden", typeof navigator.share !== "function");
+  return link;
 }
-$("copy").onclick=copyLink;
-if(room)joinRoom();
+function ensureRoom() {
+  if (room) return showInviteLink();
+  if (game.moveNumber > 0 && !confirm("現在のローカル対局を終了して、新しい友人対局を作成しますか？")) return null;
+  // This room ID is purely random: the Durable Object room is created lazily by
+  // the first WebSocket connection. No async fetch is required here, preserving
+  // the browser's transient user activation for navigator.clipboard.writeText.
+  room = createRoomId();
+  const link = makeInviteUrl(location.origin, room);
+  history.replaceState(null, "", new URL(link));
+  game = newGame(game.assisted);
+  candidate = null;
+  showInviteLink();
+  void joinRoom();
+  show();
+  requestAnalysis();
+  return link;
+}
+async function copyLink() {
+  let link;
+  try { link = ensureRoom(); }
+  catch (error) { $("inviteStatus").textContent = "ルームの作成に失敗しました: " + error.message; return; }
+  if (!link) return;
+  $("inviteStatus").textContent = "";
+  // Invoke the clipboard API directly in the click handler without awaiting an
+  // HTTP request first. Safari/mobile browsers may revoke activation across awaits.
+  const copied = await copyInviteText(link, {
+    clipboard: navigator.clipboard,
+    input: $("inviteUrl"),
+    document
+  });
+  $("inviteStatus").textContent = copied
+    ? "招待URLをコピーしました。友人に貼り付けてください。"
+    : "自動コピーできませんでした。上のURLを長押ししてコピーしてください。";
+}
+$("share").onclick = copyLink;
+$("copy").onclick = copyLink;
+$("inviteUrl").onclick = e => e.currentTarget.select();
+$("nativeShare").onclick = async () => {
+  const link = ensureRoom();
+  if (!link || typeof navigator.share !== "function") return;
+  try { await navigator.share({ title: "MieGO 友人対局", url: link }); }
+  catch (error) {
+    if (error.name !== "AbortError") {
+      $("inviteStatus").textContent = "共有できませんでした。URLを選択してコピーしてください。";
+    }
+  }
+};
+if (room) { showInviteLink(); void joinRoom(); }
 else try{
   const saved=JSON.parse(localStorage.getItem("miego-local")||"null");
   if(saved?.board?.length===81&&Array.isArray(saved.moves))game=saved;
