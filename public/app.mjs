@@ -19,6 +19,7 @@ import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
+import { makeRulesPrompt, makePositionPrompt } from "./beginner-prompts.mjs";
 import { activeReviewSnapshot, proposeReviewStone, commitReviewStone, variationForSharing } from "./review-variation.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 const $ = id => document.getElementById(id);
@@ -1549,6 +1550,7 @@ function openHelp(topic,opener=$("helpToggle")) {
   $("helpToggle").setAttribute("aria-expanded","true");
   const target=topic && $("help-"+topic);
   for(const item of $("helpPanel").querySelectorAll("details"))item.open=item===target;
+  $("beginnerPromptStatus").textContent="";$("beginnerPromptFallback").hidden=true;
   $("helpPanel").scrollTop=0;
   if(target)target.scrollIntoView({block:"nearest"});
   (target?.querySelector("summary")||$("closeHelp")).focus();
@@ -1559,6 +1561,26 @@ function closeHelp() {
   if(helpOwnsBackdrop)closePanels();
   helpOpener?.focus();helpOpener=null;
 }
+// Beginner questions describe the live game, never the board being replayed.
+async function copyBeginnerPrompt(make) {
+  const status=$("beginnerPromptStatus"),area=$("beginnerPromptFallback");
+  let link=null,question;
+  try{link=makeReviewUrl(location.origin,{snapshot:game},game.moves.length);}catch{}
+  try{question=make(game,link);}
+  catch(error){status.textContent="質問文を作れません："+error.message;return;}
+  try{
+    if(typeof navigator.clipboard?.writeText!=="function")throw Error("Clipboard API unavailable");
+    await navigator.clipboard.writeText(question);
+    area.hidden=true;
+    status.textContent="コピーしました。AIのチャットに貼り付けてください。";
+  }catch{
+    area.value=question;area.hidden=false;
+    status.textContent="自動でコピーできませんでした。下の文章を選択してコピーしてください。";
+    area.focus();area.select();
+  }
+}
+$("copyRulesPrompt").onclick=()=>void copyBeginnerPrompt(makeRulesPrompt);
+$("copyPositionPrompt").onclick=()=>void copyBeginnerPrompt(makePositionPrompt);
 $("helpToggle").onclick=()=>$("helpPanel").hidden?openHelp(null):closeHelp();
 $("closeHelp").onclick=closeHelp;
 // Every local ? names its topic in data-help, so one listener serves them all.

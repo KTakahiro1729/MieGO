@@ -457,3 +457,6 @@ body{overflow:hidden}
 .help-panel .settings-head{position:sticky;top:-22px;z-index:1;background:#181e2a;margin:-22px 0 4px;padding:16px 0 6px}
 .help-topic{scroll-margin-top:64px}
 @media(max-width:700px){.help-panel .settings-head{top:-20px;margin-top:-20px;padding-top:14px}}
+.help-copy-status:empty{display:none}
+.help-copy-status{margin:10px 0 0}
+.help-copy-fallback{display:block;width:100%;margin:8px 0 12px;background:#141924;border:1px solid #666a73;border-radius:8px;color:#eee5d4;padding:10px;font-size:12px}

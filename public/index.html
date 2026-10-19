@@ -245,6 +245,13 @@
     <aside id="helpPanel" class="settings-panel help-panel" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
       <div class="settings-head"><h2 id="helpTitle">ヘルプ</h2><button id="closeHelp" class="icon-button" type="button" aria-label="ヘルプを閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <section class="settings-section help-topics">
+        <details id="help-beginner" class="info-disclosure help-topic" name="helpTopic"><summary>初心者の方へ：AIに質問する</summary>
+          <p class="explanation">わからないことは、ChatGPTやClaudeなど好きなAIに聞けます。ボタンで質問文をコピーし、AIのチャットに貼り付けてください。</p>
+          <button id="copyRulesPrompt" class="secondary full" type="button">ルールの質問をコピー</button>
+          <button id="copyPositionPrompt" class="secondary full" type="button">今の局面の質問をコピー</button>
+          <p id="beginnerPromptStatus" class="invite-status help-copy-status" role="status" aria-live="polite"></p>
+          <textarea id="beginnerPromptFallback" class="help-copy-fallback" readonly hidden rows="6" spellcheck="false" aria-label="手動コピー用の質問文"></textarea>
+        </details>
         <details id="help-basics" class="info-disclosure help-topic" name="helpTopic"><summary>石の打ち方</summary>
           <ul class="help-list">
             <li>交点をタップして仮置きし、「この手を打つ」で確定します。</li>
