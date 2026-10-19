@@ -1026,12 +1026,16 @@ function updateGradient(){
   // Colour and strength mean nothing while the overlay is hidden.
   $("ownershipSettings").classList.toggle("is-off",!showsOwnership(palette));
   for(const input of document.querySelectorAll(".ownership-tuning input"))input.disabled=!showsOwnership(palette);
+  // The V and U icons rise as high as the slider lets the colour go.
+  const top=17-14*opacity;
+  document.querySelector('input[name="opacityShape"][value="V"]+span path')?.setAttribute("d","M3 "+top+" 20 17 37 "+top);
+  document.querySelector('input[name="opacityShape"][value="U"]+span path')?.setAttribute("d","M3 "+top+"C10 "+top+" 13 17 20 17S30 "+top+" 37 "+top);
   // The editor's ramp lies on a strip of the chosen board, grid lines and
-  // all, so neutral is clear and every colour is seen as it is on the board.
+  // all, at the chosen strength, so every colour is seen as it is on the board.
   const look=boardLook(boardTheme);
   const grid=dir=>"repeating-linear-gradient("+dir+",transparent 0 9px,"+look.line+" 9px 10.5px,transparent 10.5px 20px)";
   $("rampPreview").style.backgroundColor=surface;
-  $("rampPreview").style.backgroundImage=[paletteGradient(showsOwnership(palette)?palette:PALETTE_CUSTOM,1),
+  $("rampPreview").style.backgroundImage=[paletteGradient(showsOwnership(palette)?palette:PALETTE_CUSTOM,opacity),
     grid("90deg"),grid("0deg"),"linear-gradient(135deg,"+(look.fill.length>1?look.fill.join(","):look.fill[0]+","+look.fill[0])+")"].join(",");
   document.querySelectorAll(".swatch[data-palette]").forEach(swatch=>{
     const name=swatch.dataset.palette;
