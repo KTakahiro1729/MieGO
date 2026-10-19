@@ -91,7 +91,7 @@ test("imported SGF records are read-only and keep source metadata",()=>{
  assert.equal(normal.source,"played");
  assert.equal(normal.sgfMeta,null);
 });
-test("SGF import/replay is exposed in saved game sheet without changing live game",()=>{
+test("SGF import/replay is exposed in saved game sheet without changing live game",async()=>{
  const {readFileSync}=await import("node:fs");
  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
