@@ -5,3 +5,12 @@
 .invite-details input{display:block;width:100%;min-width:0;padding:11px;border:1px solid #4a665d;border-radius:9px;background:#0e1b1c;color:#e5f2eb;font-size:13px;user-select:text;-webkit-user-select:text}
 .invite-details .hidden{display:none}
 .invite-status{min-height:18px;font-size:12px;line-height:1.5;color:#99d9ae;margin:9px 0 0}
+
+.ai-card{margin-top:23px;padding:18px 0 22px;border-top:1px solid #304140}
+.ai-card strong{font-size:15px}
+.ai-card p{color:#95a9a4;font-size:12px;line-height:1.6}
+.ai-options{display:grid;grid-template-columns:minmax(80px,1fr) minmax(130px,2fr);align-items:center;gap:10px;margin:15px 0}
+.ai-options label{font-size:12px;color:#c2d1ca}
+.ai-options select{min-width:0;background:#223534;color:#e1ece7;border:1px solid #39514d;border-radius:8px;padding:10px}
+.ai-card .full{width:100%;margin-top:9px}
+.ai-card .hidden{display:none}

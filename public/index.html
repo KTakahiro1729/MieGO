@@ -6,12 +6,22 @@
 <div class="board-frame"><canvas id="board" width="720" height="720" aria-label="9路盤"></canvas></div>
 <div class="board-foot"><span id="moveLabel">0手目</span><span id="hint">交点をタップして仮置き</span></div>
 <div class="action-row"><button id="confirm" class="primary" disabled>この手を確定</button><button id="cancel" disabled>仮置きを戻す</button><button id="pass">パス</button><button id="resign">投了</button></div>
-<div id="scoreBox" class="score-box hidden"><strong>終局の確認</strong><p>死石をタップして指定してください。双方が確認すると面積計算で勝敗を決定します。</p><div id="scoreText"></div><div class="action-row"><button id="agree" class="primary">この計算に同意</button><button id="resume">対局を再開</button></div></div>
+<div id="scoreBox" class="score-box hidden"><strong>終局の確認</strong><p id="scoreInstruction">死石をタップして指定してください。双方が確認すると面積計算で勝敗を決定します。</p><div id="scoreText"></div><div class="action-row"><button id="agree" class="primary">この計算に同意</button><button id="resume">対局を再開</button></div></div>
 </section>
 <aside class="side-panel"><div class="side-head"><span class="eyebrow">POSITION ANALYSIS</span><h2>地合いの見通し</h2><p>各交点の黒・白への帰属傾向を色で表示します。</p></div>
 <div class="analysis-card"><div class="stat-row"><span>黒寄りの交点数（参考）</span><strong id="blackEstimate">—</strong></div><div class="stat-row"><span>白寄りの交点数（コミ込み・参考）</span><strong id="whiteEstimate">—</strong></div><div class="stat-row"><span>予測目数差</span><strong id="leadEstimate">—</strong></div><div class="stat-row"><span>黒の予測勝率</span><strong id="winEstimate">—</strong></div><div id="analysisStatus" class="note">分析準備中</div></div>
 <div class="controls"><label for="palette">カラーマップ</label><select id="palette"><option value="blueRed">青・赤</option><option value="purpleGreen">紫・緑</option><option value="gray">グレースケール</option></select><div class="legend"><span>白寄り</span><span>中立</span><span>黒寄り</span></div><div class="gradient" id="gradient"></div><label for="opacity">表示の濃さ <span id="opacityValue">55%</span></label><input id="opacity" type="range" min="0" max="100" value="55"></div>
 <div class="mode"><div><strong>AI補助モード</strong><p>対局開始後は変更できません。</p></div><label class="switch"><input type="checkbox" id="assisted" checked><span></span></label></div>
 <div class="notice"><strong>KataGoの試験的ニューラル評価</strong><p>学習済みの小型KataGoテストモデルをブラウザ内で実行します。MCTS探索なしの単一局面評価で、棋力・目数・生死の精度は保証しません。モデル読み込みに失敗したときだけ簡易影響モデルに切り替え、画面に明示します。</p></div>
+<section class="ai-card" aria-label="AI対局">
+<strong>AIと対局</strong>
+<p>KataGoの着手方針で9路盤を対局します（探索なし・小型テストモデル）。</p>
+<div class="ai-options"><label for="aiColor">自分の色</label><select id="aiColor"><option value="1">黒（先手）</option><option value="-1">白（後手）</option></select>
+<label for="aiLevel">着手のばらつき</label><select id="aiLevel"><option value="standard">標準</option><option value="gentle">大きめ（やさしめ）</option></select></div>
+<button id="startAi" class="primary full" type="button">AIと対局を始める</button>
+<button id="returnLocal" class="outline full hidden" type="button">ローカル練習に戻る</button>
+<p id="aiMatchStatus" class="note" role="status" aria-live="polite">自分の色とAIの着手のばらつきを選択できます。</p>
+<p class="note">KataGoを利用できない場合は簡易AIに切り替え、その旨を表示します。難易度は棋力保証ではありません。</p>
+</section>
 <div class="room-card"><strong>友人と対局</strong><p id="roomInfo">URLを共有するとP2Pで対局できます。ルーム作成者が黒番です。</p><button id="copy" class="outline full">招待リンクをコピー</button><div id="inviteDetails" class="invite-details hidden"><label for="inviteUrl">招待URL（タップすると選択できます）</label><input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="招待URL"><button id="nativeShare" class="outline full hidden">端末の共有メニューを開く</button></div><p id="inviteStatus" role="status" aria-live="polite" class="invite-status"></p><p class="note">WebRTCの接続に失敗する環境ではTURN設定が必要です。</p></div>
 </aside></main><footer>MieGO · Browser-first Go</footer></div><script type="module" src="/app.mjs"></script></body></html>

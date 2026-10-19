@@ -1,5 +1,6 @@
 import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash } from "./core.mjs";
 import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
+import { choosePolicyMove, chooseFallbackMove } from "./ai-opponent.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board"), ctx = canvas.getContext("2d");
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
@@ -7,6 +8,8 @@ let fallbackMode = false;
 function switchToFallback(reason) {
   if (fallbackMode) return;
   fallbackMode = true;
+  aiThinking = false;
+  aiJob = null;
   console.warn("KataGo unavailable; switching to transparent approximation:", reason);
   worker.terminate();
   worker = new Worker("/analysis-worker.mjs", { type: "module" });
@@ -19,6 +22,22 @@ const params = new URLSearchParams(location.search);
 let room = params.get("room"), seat = room ? null : "host", ws, rtc, channel;
 let game = newGame(), candidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
 let palette = "blueRed", opacity = .55, connected = false, roomCount = 0;
+let gameMode = room ? "online" : "local";
+let humanColor = BLACK;
+let aiLevel = "standard";
+let aiThinking = false, aiJob = null, aiMoveTimer = null;
+const isAiTurn = () => !room && gameMode === "ai" &&
+  game.status === "playing" && game.next === -humanColor;
+const isHumanTurn = () => !room
+  ? (gameMode !== "ai" || game.next === humanColor)
+  : (connected && (seat === "host" ? game.next === BLACK : game.next === WHITE));
+function stopAiTask() {
+  clearTimeout(aiMoveTimer);
+  aiJob = null;
+  aiThinking = false;
+  pending = ++seq;
+}
+
 const colors = {
   blueRed: [[73,126,189],[230,230,220],[204,110,88]],
   purpleGreen: [[150,100,185],[230,230,220],[66,157,114]],
@@ -60,6 +79,27 @@ function draw() {
 let analysisTimer = null;
 function requestAnalysis() {
   clearTimeout(analysisTimer);
+  if (isAiTurn()) {
+    if (aiThinking) return;
+    analysis = null;
+    draw();
+    for (const key of ["blackEstimate","whiteEstimate","leadEstimate","winEstimate"]) $(key).textContent="—";
+    const id = ++seq;
+    pending = id;
+    aiThinking = true;
+    aiJob = { id, board: boardHash(game.board), number:game.moveNumber };
+    $("analysisStatus").textContent = fallbackMode
+      ? "簡易AIが着手を選択中…（KataGoが利用できません）"
+      : "KataGoが着手を計算中…";
+    $("aiMatchStatus").textContent = $("analysisStatus").textContent;
+    if (fallbackMode) {
+      aiMoveTimer = setTimeout(() => finishAiMove({id,kind:"move",engine:"fallback"}), 240);
+    } else {
+      worker.postMessage({id,kind:"move",state:game});
+    }
+    show();
+    return;
+  }
   pending = ++seq;
   if (!game.assisted) {
     analysis = null;
@@ -68,15 +108,43 @@ function requestAnalysis() {
     draw(); return;
   }
   const state = candidate || game;
+  const id = pending;
   $("analysisStatus").textContent=fallbackMode?"簡易推定を計算中…":"KataGoの推論中…（初回はモデルを読み込みます）";
-  // Avoid queuing expensive neural network evals on every fast tap.
   analysisTimer = setTimeout(() => {
-    worker.postMessage({id:pending,state,board:state.board});
+    worker.postMessage({id,state,board:state.board});
   },180);
+}
+function finishAiMove(result) {
+  const job = aiJob;
+  if (!job || job.id !== result.id) return;
+  aiThinking = false;
+  aiJob = null;
+  if (!isAiTurn() || game.moveNumber !== job.number || boardHash(game.board) !== job.board) return;
+  try {
+    const nextMove = result.engine === "fallback"
+      ? chooseFallbackMove(game)
+      : choosePolicyMove(game,result.policy,result.passLogit,{
+          temperature: aiLevel === "gentle" ? 1.05 : 0.38
+        });
+    $("aiMatchStatus").textContent = result.engine === "fallback"
+      ? "KataGoが利用できないため、簡易AIが対局中です。"
+      : "KataGoのニューラル着手方針で対局中（MCTS探索なし）。";
+    submitMove(nextMove,true);
+  } catch (error) {
+    console.error("AI move",error);
+    if (!fallbackMode) { switchToFallback(error.message); return; }
+    $("aiMatchStatus").textContent = "AIの着手に失敗しました。ローカル練習に戻すか、再戦してください。";
+    show();
+  }
 }
 function handleAnalysis(e) {
   const result = e.data;
-  if(result.id!==pending)return;
+  if (result.id !== pending) return;
+  if (result.kind === "move") {
+    if (result.error) { switchToFallback(result.error); return; }
+    finishAiMove(result);
+    return;
+  }
   if(result.error) { switchToFallback(result.error); return; }
   if(!Array.isArray(result.ownership)||result.ownership.length!==81) {
     switchToFallback("Invalid ownership output"); return;
@@ -96,18 +164,34 @@ function show() {
   $("turn").textContent=game.status==="finished"?"終局 "+game.result:game.status==="scoring"?"死石確認中":(game.next===BLACK?"● 黒番":"○ 白番");
   $("moveLabel").textContent=game.moveNumber+"手目";
   $("hint").textContent=candidate?"仮置き中 · 確定するまで相手に送られません":game.status==="scoring"?"死石をタップして指定":"交点をタップして仮置き";
-  const myTurn=!room || (connected && (seat==="host"?game.next===BLACK:game.next===WHITE));
+  const myTurn = isHumanTurn();
+  $("netStatus").textContent = !room ? (gameMode === "ai" ? "AI対局" : "ローカル練習") : $("netStatus").textContent;
+  $("startAi").disabled = !!room;
+  $("returnLocal").classList.toggle("hidden", gameMode !== "ai" || !!room);
+  $("startAi").textContent = gameMode === "ai" ? "設定してAIと再戦" : "AIと対局を始める";
+  $("scoreInstruction").textContent = gameMode === "ai"
+    ? "AIは死石判定を行いません。死石を自分で指定して確認すると、AI側も同意し、中国式面積計算で終局します。"
+    : "死石をタップして指定してください。双方が確認すると面積計算で勝敗を決定します。";
+  if (gameMode !== "ai" && !room) $("aiMatchStatus").textContent = "自分の色とAIの着手のばらつきを選択できます。";
+
   $("confirm").disabled=!candidate || !myTurn;
   $("cancel").disabled=!candidate;
   $("pass").disabled=!myTurn || game.status!=="playing";
   $("resign").disabled=!myTurn || game.status!=="playing";
   $("assisted").checked=game.assisted;$("assisted").disabled=game.moveNumber>0 || (room&&seat!=="host");
+  if (isAiTurn()) {
+    $("turn").textContent += "（AI）";
+    $("hint").textContent = "AIの着手を計算しています…";
+  }
+
   $("scoreBox").classList.toggle("hidden",game.status!=="scoring");
   if(game.status==="scoring"){
     const score=areaScore(game);
     $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（コミ込み）";
     $("agree").disabled=room&&!connected;
-    $("agree").textContent=game.agreed[seat==="guest"?"white":"black"]?"確認済み":"この計算に同意";
+    const scorer = room ? (seat==="guest"?"white":"black")
+      : gameMode==="ai" ? (humanColor===BLACK?"black":"white") : "black";
+    $("agree").textContent=game.agreed[scorer]?"確認済み":"この計算に同意";
     $("resume").disabled=room&&!connected;
   }
   draw();
@@ -129,7 +213,9 @@ function apply(action, remote=false) {
     if(!remote&&room) send({type:"action",action});
   }catch(error){alert(error.message); if(remote){$("netStatus").textContent="同期エラー";channel?.close();}}
 }
-function submitMove(position){
+function submitMove(position, fromAi=false){
+  if (!fromAi && !isHumanTurn()) return;
+  if (fromAi && !isAiTurn()) return;
   const before=boardHash(game.board);
   let next;
   try{next=play(game,position);}catch(error){alert(error.message);return;}
@@ -141,21 +227,31 @@ canvas.addEventListener("click",e=>{
   if(x<0||x>=SIZE||y<0||y>=SIZE)return;
   const position=y*SIZE+x;
   if(game.status==="scoring"){if(room&&!connected)return;apply({type:"dead",position});return;}
-  if(game.status!=="playing")return;
-  if(room&&(!connected||(seat==="host"?game.next!==BLACK:game.next!==WHITE)))return;
+  if(game.status!=="playing" || !isHumanTurn())return;
   try{candidate=play(game,position);show();requestAnalysis();}catch(error){$("hint").textContent=error.message;}
 });
 $("confirm").onclick=()=>{if(candidate){const p=candidate.moves.at(-1).position;submitMove(p);}};
 $("cancel").onclick=()=>{candidate=null;show();requestAnalysis();};
 $("pass").onclick=()=>{if(confirm("パスしますか？"))submitMove(null);};
 $("resign").onclick=()=>{if(confirm("投了しますか？"))submitMove("resign");};
-$("agree").onclick=()=>apply({type:"agree",color:seat==="guest"?WHITE:BLACK});
+$("agree").onclick=()=>{
+  if (room && !connected) return;
+  const color = room ? (seat==="guest"?WHITE:BLACK) : gameMode==="ai" ? humanColor : BLACK;
+  if (game.agreed[color===BLACK?"black":"white"]) return;
+  apply({type:"agree",color});
+  // A local AI has no independent dead-stone judgment: explicitly let
+  // the human mark dead stones and accept the score on behalf of the AI.
+  if (gameMode==="ai" && game.status==="scoring") apply({type:"agree",color:-humanColor});
+};
 $("resume").onclick=()=>apply({type:"resume"});
 $("assisted").onchange=e=>apply({type:"mode",value:e.target.checked});
 $("palette").onchange=e=>{palette=e.target.value;draw();updateGradient();};
 $("opacity").oninput=e=>{opacity=Number(e.target.value)/100;$("opacityValue").textContent=e.target.value+"%";draw();};
 function updateGradient(){$("gradient").style.background="linear-gradient(90deg,"+colors[palette].map(c=>"rgb("+c.join(",")+")").join(",")+")";}
-function save(){if(!room)try{localStorage.setItem("miego-local",JSON.stringify(game));}catch{}}
+function save(){if(!room)try{
+  localStorage.setItem("miego-local",JSON.stringify(game));
+  localStorage.setItem("miego-local-settings",JSON.stringify({mode:gameMode,humanColor,aiLevel}));
+}catch{}}
 function send(msg){if(channel?.readyState==="open")channel.send(JSON.stringify(msg));}
 function signal(type,payload){if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type,payload}));}
 async function startRTC(){
@@ -232,6 +328,8 @@ function ensureRoom() {
   // the first WebSocket connection. No async fetch is required here, preserving
   // the browser's transient user activation for navigator.clipboard.writeText.
   room = createRoomId();
+  gameMode = "online";
+  stopAiTask();
   const link = makeInviteUrl(location.origin, room);
   history.replaceState(null, "", new URL(link));
   game = newGame(game.assisted);
@@ -259,6 +357,28 @@ async function copyLink() {
     ? "招待URLをコピーしました。友人に貼り付けてください。"
     : "自動コピーできませんでした。上のURLを長押ししてコピーしてください。";
 }
+$("startAi").onclick = () => {
+  if (room) return;
+  if (game.moveNumber > 0 && !confirm("現在の対局を終了してAIと新しく対局しますか？")) return;
+  stopAiTask();
+  gameMode = "ai";
+  humanColor = Number($("aiColor").value) === WHITE ? WHITE : BLACK;
+  aiLevel = $("aiLevel").value === "gentle" ? "gentle" : "standard";
+  game = newGame(game.assisted);
+  lastPosition = null;
+  candidate = null;
+  $("aiMatchStatus").textContent = "AI対局を開始しました。";
+  save();show();requestAnalysis();
+};
+$("returnLocal").onclick = () => {
+  if (room || !confirm("AI対局を終了してローカル練習に戻りますか？")) return;
+  stopAiTask();
+  gameMode = "local";
+  game = newGame(game.assisted);
+  lastPosition = null;
+  candidate = null;
+  save();show();requestAnalysis();
+};
 $("share").onclick = copyLink;
 $("copy").onclick = copyLink;
 $("inviteUrl").onclick = e => e.currentTarget.select();
@@ -276,5 +396,13 @@ if (room) { showInviteLink(); void joinRoom(); }
 else try{
   const saved=JSON.parse(localStorage.getItem("miego-local")||"null");
   if(saved?.board?.length===81&&Array.isArray(saved.moves))game=saved;
+  const settings=JSON.parse(localStorage.getItem("miego-local-settings")||"null");
+  if(settings?.mode==="ai") {
+    gameMode="ai";
+    humanColor=settings.humanColor===WHITE?WHITE:BLACK;
+    aiLevel=settings.aiLevel==="gentle"?"gentle":"standard";
+  }
 }catch{}
+$("aiColor").value=String(humanColor);
+$("aiLevel").value=aiLevel;
 updateGradient();show();requestAnalysis();
