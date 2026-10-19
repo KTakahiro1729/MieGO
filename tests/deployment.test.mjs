@@ -12,6 +12,10 @@ test("Workers deployment configuration and static assets are present", () => {
   assert.deepEqual(config.assets.run_worker_first, ["/api/*"]);
   assert.equal(config.durable_objects.bindings[0].class_name, "GameRoom");
   assert.ok(config.migrations[0].new_sqlite_classes.includes("GameRoom"));
+  // Preview environments do not inherit production bindings.
+  assert.ok(config.previews, "Workers Preview requires a previews configuration");
+  assert.deepEqual(config.previews.durable_objects.bindings, config.durable_objects.bindings,
+    "Preview must bind ROOMS to its own isolated GameRoom namespace");
   for (const p of [config.main, "public/index.html", "public/app.mjs",
       "public/core.mjs", "public/analysis-worker.mjs", "public/style.css"]) {
     assert.ok(existsSync(resolve(root, p)), "Missing required file: " + p);

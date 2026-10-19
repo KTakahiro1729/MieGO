@@ -1,5 +1,6 @@
 import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash } from "./core.mjs";
 import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
+import { PALETTES, paletteAt, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board"), ctx = canvas.getContext("2d");
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
@@ -18,38 +19,74 @@ worker.onerror = e => switchToFallback(e.message || "worker startup error");
 const params = new URLSearchParams(location.search);
 let room = params.get("room"), seat = room ? null : "host", ws, rtc, channel;
 let game = newGame(), candidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
-let palette = "blueRed", opacity = .55, connected = false, roomCount = 0;
-const colors = {
-  blueRed: [[73,126,189],[230,230,220],[204,110,88]],
-  purpleGreen: [[150,100,185],[230,230,220],[66,157,114]],
-  gray: [[60,60,60],[170,170,170],[245,245,245]]
-};
-function colorFor(v) {
-  const c = colors[palette], t = Math.max(0,Math.min(1,(v+1)/2)), a = t < .5 ? c[0] : c[1], b = t < .5 ? c[1] : c[2], u = t < .5 ? t*2 : (t-.5)*2;
-  return a.map((x,i)=>Math.round(x*(1-u)+b[i]*u));
+const storedPalette = localStorage.getItem("miego-palette");
+let palette = Object.hasOwn(PALETTES, storedPalette) ? storedPalette : "mono";
+const storedOpacity = Number(localStorage.getItem("miego-opacity"));
+let opacity = Number.isFinite(storedOpacity) && storedOpacity>=0 && storedOpacity<=1 && localStorage.getItem("miego-opacity")!==null ? storedOpacity : .55;
+let connected = false, roomCount = 0;
+let displayedOwnership = null, transitionFrame = null;
+const overlayCanvas = document.createElement("canvas");
+overlayCanvas.width = SIZE; overlayCanvas.height = SIZE;
+const overlayContext = overlayCanvas.getContext("2d");
+
+function paintOwnership(d, gap, pad) {
+  if (!game.assisted || !displayedOwnership) return;
+  const data = overlayContext.createImageData(SIZE,SIZE);
+  for (let i=0;i<SIZE*SIZE;i++) {
+    const c=paletteAt(displayedOwnership[i],palette);
+    const p=i*4;
+    data.data[p]=c[0]; data.data[p+1]=c[1]; data.data[p+2]=c[2]; data.data[p+3]=Math.round(opacity*255);
+  }
+  overlayContext.putImageData(data,0,0);
+  ctx.save();
+  ctx.imageSmoothingEnabled=true;
+  ctx.imageSmoothingQuality="high";
+  ctx.drawImage(overlayCanvas,pad-gap/2,pad-gap/2,gap*SIZE,gap*SIZE);
+  ctx.restore();
+}
+function transitionOwnership(next) {
+  if (transitionFrame!==null) cancelAnimationFrame(transitionFrame);
+  const from=displayedOwnership;
+  if (!from || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    displayedOwnership=[...next];
+    draw(); return;
+  }
+  let begin=null;
+  const tick=time=>{
+    if(begin===null) begin=time;
+    const p=Math.min(1,(time-begin)/260);
+    const eased=p*p*(3-2*p);
+    displayedOwnership=interpolateOwnership(from,next,eased);
+    draw();
+    transitionFrame=p<1?requestAnimationFrame(tick):null;
+  };
+  transitionFrame=requestAnimationFrame(tick);
 }
 function draw() {
   const d = canvas.width, gap = d / (SIZE + 1), pad = gap, b = candidate?.board || game.board;
   ctx.clearRect(0,0,d,d); ctx.fillStyle="#e5c58c";ctx.fillRect(0,0,d,d);
   ctx.strokeStyle="#685537";ctx.lineWidth=2;
   for(let i=0;i<SIZE;i++){const p=pad+i*gap;ctx.beginPath();ctx.moveTo(pad,p);ctx.lineTo(d-pad,p);ctx.moveTo(p,pad);ctx.lineTo(p,d-pad);ctx.stroke();}
-  if(game.assisted && analysis) for(let i=0;i<SIZE*SIZE;i++){
-    const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
-    const c=colorFor(analysis.ownership[i]);
-    ctx.fillStyle="rgba("+c.join(",")+","+opacity+")";
-    ctx.fillRect(x-gap*.48,y-gap*.48,gap*.96,gap*.96);
-  }
+  paintOwnership(d,gap,pad);
   for(const [x,y] of [[2,2],[6,2],[4,4],[2,6],[6,6]]){
     ctx.beginPath();ctx.arc(pad+x*gap,pad+y*gap,4,0,Math.PI*2);ctx.fillStyle="#725b39";ctx.fill();
   }
+  const preview = candidate?.moves.at(-1)?.position;
   for(let i=0;i<b.length;i++){
     if(!b[i])continue;
     const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
-    const r=gap*.44;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+    const r=gap*.44;ctx.save();
+    if (i===preview) ctx.globalAlpha=.68;
+    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
     const grad=ctx.createRadialGradient(x-r*.3,y-r*.3,2,x,y,r*1.2);
     if(b[i]===BLACK){grad.addColorStop(0,"#555b5a");grad.addColorStop(1,"#101718");}
     else{grad.addColorStop(0,"#fff");grad.addColorStop(1,"#b8b8b1");}
     ctx.fillStyle=grad;ctx.fill();ctx.strokeStyle=b[i]===BLACK?"#1a2626":"#a1a29c";ctx.lineWidth=1.5;ctx.stroke();
+    ctx.restore();
+    if (i===preview) {
+      ctx.save();ctx.strokeStyle="#f5d58b";ctx.lineWidth=3;ctx.setLineDash([7,5]);
+      ctx.beginPath();ctx.arc(x,y,r+4,0,Math.PI*2);ctx.stroke();ctx.restore();
+    }
     if(game.status==="scoring"&&game.dead.includes(i)){ctx.strokeStyle="#d95a4e";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x-r*.45,y-r*.45);ctx.lineTo(x+r*.45,y+r*.45);ctx.moveTo(x+r*.45,y-r*.45);ctx.lineTo(x-r*.45,y+r*.45);ctx.stroke();}
   }
   if(lastPosition!==null && !candidate && game.status==="playing"){
@@ -63,12 +100,13 @@ function requestAnalysis() {
   pending = ++seq;
   if (!game.assisted) {
     analysis = null;
-    for (const key of ["blackEstimate","whiteEstimate","leadEstimate","winEstimate"]) $(key).textContent="—";
-    $("analysisStatus").textContent="AI補助オフ";
+    if (transitionFrame!==null) cancelAnimationFrame(transitionFrame);
+    transitionFrame=null;displayedOwnership=null;
+    $("analysisStatus").textContent="地合い補助オフ";
     draw(); return;
   }
   const state = candidate || game;
-  $("analysisStatus").textContent=fallbackMode?"簡易推定を計算中…":"KataGoの推論中…（初回はモデルを読み込みます）";
+  $("analysisStatus").textContent=fallbackMode?"簡易表示を更新中…":"地合いを更新中…";
   // Avoid queuing expensive neural network evals on every fast tap.
   analysisTimer = setTimeout(() => {
     worker.postMessage({id:pending,state,board:state.board});
@@ -82,21 +120,19 @@ function handleAnalysis(e) {
     switchToFallback("Invalid ownership output"); return;
   }
   analysis=result;
-  $("blackEstimate").textContent=result.black.toFixed(1)+"目";
-  $("whiteEstimate").textContent=result.white.toFixed(1)+"目";
-  $("leadEstimate").textContent=(result.lead>=0?"黒 +":"白 +")+Math.abs(result.lead).toFixed(1)+"目";
-  $("winEstimate").textContent=Number.isFinite(result.winRate)?(result.winRate*100).toFixed(1)+"%":"—";
   $("analysisStatus").textContent=result.engine==="katago"
-    ?"KataGo NN単独評価 · "+result.backend+" · 小型テストモデル（探索なし）"
-    :"近傍影響モデルによる簡易推定（KataGoは利用不可）";
-  draw();
+    ? "地合いを表示中 · KataGoによる試験的推定"
+    : "地合いを表示中 · 簡易影響モデル";
+  transitionOwnership(result.ownership);
 }
 worker.onmessage=handleAnalysis;
 function show() {
-  $("turn").textContent=game.status==="finished"?"終局 "+game.result:game.status==="scoring"?"死石確認中":(game.next===BLACK?"● 黒番":"○ 白番");
-  $("moveLabel").textContent=game.moveNumber+"手目";
-  $("hint").textContent=candidate?"仮置き中 · 確定するまで相手に送られません":game.status==="scoring"?"死石をタップして指定":"交点をタップして仮置き";
   const myTurn=!room || (connected && (seat==="host"?game.next===BLACK:game.next===WHITE));
+  $("turn").classList.toggle("white-to-play",game.next===WHITE);
+  $("turn").textContent=game.status==="finished"?"対局終了":game.status==="scoring"?"死石を確認":room?(connected?(myTurn?"あなたの番":"相手の番"):"対局相手を待っています"):(game.next===BLACK?"黒の番です":"白の番です");
+  $("netStatus").classList.toggle("online",connected);
+  $("moveLabel").textContent=game.moveNumber+"手目";
+  $("hint").textContent=candidate?"仮置き中 · 確定すると相手に届きます":game.status==="scoring"?"死石をタップして指定":"交点をタップして仮置き";
   $("confirm").disabled=!candidate || !myTurn;
   $("cancel").disabled=!candidate;
   $("pass").disabled=!myTurn || game.status!=="playing";
@@ -152,9 +188,9 @@ $("resign").onclick=()=>{if(confirm("投了しますか？"))submitMove("resign"
 $("agree").onclick=()=>apply({type:"agree",color:seat==="guest"?WHITE:BLACK});
 $("resume").onclick=()=>apply({type:"resume"});
 $("assisted").onchange=e=>apply({type:"mode",value:e.target.checked});
-$("palette").onchange=e=>{palette=e.target.value;draw();updateGradient();};
-$("opacity").oninput=e=>{opacity=Number(e.target.value)/100;$("opacityValue").textContent=e.target.value+"%";draw();};
-function updateGradient(){$("gradient").style.background="linear-gradient(90deg,"+colors[palette].map(c=>"rgb("+c.join(",")+")").join(",")+")";}
+$("palette").onchange=e=>{palette=Object.hasOwn(PALETTES,e.target.value)?e.target.value:"mono";localStorage.setItem("miego-palette",palette);draw();updateGradient();};
+$("opacity").oninput=e=>{opacity=Number(e.target.value)/100;localStorage.setItem("miego-opacity",String(opacity));$("opacityValue").textContent=e.target.value+"%";draw();};
+function updateGradient(){$("gradient").style.background=paletteGradient(palette);}
 function save(){if(!room)try{localStorage.setItem("miego-local",JSON.stringify(game));}catch{}}
 function send(msg){if(channel?.readyState==="open")channel.send(JSON.stringify(msg));}
 function signal(type,payload){if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type,payload}));}
@@ -258,7 +294,25 @@ async function copyLink() {
   $("inviteStatus").textContent = copied
     ? "招待URLをコピーしました。友人に貼り付けてください。"
     : "自動コピーできませんでした。上のURLを長押ししてコピーしてください。";
+  openSettings();
 }
+function openSettings() {
+  $("settingsBackdrop").hidden=false;
+  $("settingsPanel").hidden=false;
+  $("settingsToggle").setAttribute("aria-expanded","true");
+  $("settingsToggle").setAttribute("aria-label","設定を閉じる");
+}
+function closeSettings() {
+  $("settingsBackdrop").hidden=true;
+  $("settingsPanel").hidden=true;
+  $("settingsToggle").setAttribute("aria-expanded","false");
+  $("settingsToggle").setAttribute("aria-label","設定を開く");
+  $("settingsToggle").focus();
+}
+$("settingsToggle").onclick=()=>$("settingsPanel").hidden?openSettings():closeSettings();
+$("closeSettings").onclick=closeSettings;
+$("settingsBackdrop").onclick=closeSettings;
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("settingsPanel").hidden)closeSettings();});
 $("share").onclick = copyLink;
 $("copy").onclick = copyLink;
 $("inviteUrl").onclick = e => e.currentTarget.select();
@@ -277,4 +331,7 @@ else try{
   const saved=JSON.parse(localStorage.getItem("miego-local")||"null");
   if(saved?.board?.length===81&&Array.isArray(saved.moves))game=saved;
 }catch{}
+$("palette").value=palette;
+$("opacity").value=String(Math.round(opacity*100));
+$("opacityValue").textContent=Math.round(opacity*100)+"%";
 updateGradient();show();requestAnalysis();
