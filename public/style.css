@@ -317,3 +317,56 @@ body{overflow:hidden}
 
 #historyBoard[role="button"]{cursor:pointer}
 #historyBoard:focus-visible{outline:3px solid #f0c773;outline-offset:2px}
+
+/* Stable player-facing state row: description left, action buttons right. */
+.endgame-bar{height:48px;min-height:48px;max-height:48px;gap:6px;justify-content:space-between}
+.endgame-bar .end-status{flex:1 1 auto;min-width:0;font-size:12px;
+  color:#e2d7c3;font-weight:550;line-height:1.3}
+.endgame-bar .end-buttons{display:flex;align-items:center;justify-content:flex-end;
+  flex:0 0 auto;min-width:0;gap:5px}
+.endgame-bar .end-action{flex:0 0 auto;min-height:44px;height:44px;
+  font-size:12px;font-weight:650;padding:5px 10px}
+.endgame-bar #endAccept{background:linear-gradient(180deg,#f5d88f,#e4b85c);color:#1b1b1b}
+.endgame-bar .end-action[hidden]{display:none!important}
+.endgame-bar #analysisStatus,.endgame-bar #endDetail,.endgame-bar #hint{
+  position:absolute!important;width:1px!important;height:1px!important;
+  clip:rect(0,0,0,0)!important;overflow:hidden!important;white-space:nowrap!important
+}
+.action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;
+  background:#242634;border:1px solid #4c4b56;color:#d5c0b8;
+  font-size:12px;padding:6px 2px}
+.action-row .resign-control[aria-label^="もう一度"]{
+  color:#ffe0c5;border-color:#bb795b;background:#58392f;
+}
+.action-row #confirm:disabled{opacity:1;box-shadow:none;
+  background:#202633;border-color:#394251;color:#89919d}
+.action-row #confirm:disabled .button-stone{opacity:.45}
+.game-panel.is-scoring,.game-panel.is-finished{--board-reserve:302px}
+.game-panel.is-scoring .score-box,.game-panel.is-finished .score-box{margin-top:7px}
+.game-panel.is-scoring .action-row,.game-panel.is-finished .action-row{margin-top:auto}
+.game-panel.is-finished .action-row .secondary-action{flex:1}
+.game-panel.is-finished .action-row #newMatch{flex:2}
+.review-panel{display:flex;flex-direction:column;gap:5px}
+.review-tools{display:flex;flex-direction:column;gap:5px}
+.review-tools .review-scrubber{display:flex;align-items:center;gap:7px}
+.review-tools .review-scrubber>button{flex:0 0 40px;min-width:40px;
+  min-height:36px;height:36px;padding:3px;font-size:18px;border-radius:9px}
+.review-tools .review-scrubber input{flex:1;min-width:0;accent-color:var(--gold)}
+.review-direct-actions{display:flex;gap:5px}
+.review-direct-actions>button{flex:1;min-width:0;min-height:40px;height:40px;
+  border-radius:9px;font-size:11px;padding:4px 4px}
+.review-panel #reviewNotice:empty{display:none}
+.game-panel:has(.review-panel:not([hidden])){--board-reserve:380px}
+.history-share-actions{display:flex;gap:6px;margin-top:15px}
+.history-share-actions>button{flex:1;min-width:0;min-height:44px;
+  padding:7px 4px;font-size:11px;white-space:normal}
+@media(max-width:700px){
+  .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:294px}
+  .game-panel:has(.review-panel:not([hidden])){--board-reserve:369px}
+}
+@media(max-width:350px){
+  .endgame-bar .end-status{font-size:11px}
+  .endgame-bar .end-action{font-size:10px;padding:5px 6px}
+  .endgame-bar .end-buttons{gap:3px}
+  .action-row .resign-control{flex-basis:44px;width:44px;min-width:44px}
+}
