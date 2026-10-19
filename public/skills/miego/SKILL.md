@@ -12,3 +12,13 @@ To reference another point in the same game, keep `sgf` unchanged and change onl
 Users can open the URL in a second browser tab, scrub backward/forward on the board, and examine positions while chatting with their own AI. MieGO does not have an integrated LLM. Do not force a particular question or teaching style.
 
 See the authoritative implementation rules at `/ai.md` on the same MieGO origin. The SGF URL alone contains the record; do not request a separate pasted SGF body.
+
+AI-oriented handoffs may include a plain-text 9x9 board alongside the SGF URL.
+The glyphs are **● black, ○ white, ・ empty**, displayed as nine rows of nine
+intersections without coordinate headers or row numbers.
+The glyph board is supplemental: reconstruct the move history from SGF and
+report any disagreement, rather than treating glyphs as a substitute for moves,
+passes, or ko history. A forbidden-move question includes the same public SGF
+replay URL for committed moves and marks the attempted empty point with **◇**.
+That attempted illegal move is NOT part of the SGF. Never ask for or copy
+private P2P invitation URLs.

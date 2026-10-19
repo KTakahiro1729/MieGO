@@ -74,3 +74,10 @@ test("AI turn cannot dismiss a visible scoring decision and resumes after cancel
   assert.match(app,/if\(endExpanded\)return;\s*if\(result\.engine!=="katago"\)/);
   assert.match(app,/stopAiTurn\(\); \/\/ Invalidate pending AI workers/);
 });
+test("confirm button uses the original shared gold-and-opacity disabled appearance",()=>{
+  assert.match(css,/button:disabled\{opacity:\.36;cursor:default\}/);
+  assert.match(css,/\.primary\{color:#17191e;background:linear-gradient\(180deg,#f5d88f,#e4b85c\)/);
+  assert.doesNotMatch(css,/\.action-row #confirm:disabled/);
+  assert.match(html,/id="confirm" class="primary" type="button" disabled/);
+  assert.match(app,/\$\("confirm"\)\.disabled=!candidate \|\| !myTurn/);
+});

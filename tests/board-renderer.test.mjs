@@ -44,22 +44,27 @@ test("replay ignores a provisional move and paints the replay marker",()=>{
   assert.ok(calls.some(c=>c.kind==="rect"&&c.args.join(",")==="346,346,8,8"));
 });
 
-test("illegal move markers require a live human turn",()=>{
+test("forbidden points are unmarked until selected and draw a provisional stone without commits",()=>{
   const game=newGame();
   for(const p of [at(1,0),at(0,1),at(2,1),at(1,2)])game.board[p]=WHITE;
   game.history=[boardHash(game.board)];
-  let humanTurn=false,boardReview=null;
-  const {draw,calls}=mockBoard(()=>({...baseView(game),humanTurn,boardReview}));
+  let illegalCandidate=null;
+  const {draw,calls}=mockBoard(()=>({...baseView(game),illegalCandidate}));
   draw();
   assert.equal(calls.some(c=>c.kind==="arc"&&c.args[2]===9),false);
+  assert.equal(calls.some(c=>c.kind==="arc"&&c.args[2]===22&&c.args[0]===100&&c.args[1]===100),false);
   calls.length=0;
-  humanTurn=true;
+  illegalCandidate={position:at(1,1),reason:"suicide",source:game};
   draw();
-  assert.ok(calls.some(c=>c.kind==="arc"&&c.args[2]===9 && c.args[0]===100 && c.args[1]===100));
+  const stone=calls.find(c=>c.kind==="arc"&&c.args[2]===22&&c.args[0]===100&&c.args[1]===100);
+  assert.equal(stone?.alpha,.68);
+  assert.equal(calls.some(c=>c.kind==="arc"&&c.args[2]===26&&c.args[0]===100),true);
+  assert.equal(calls.some(c=>c.kind==="arc"&&c.args[2]===9),false,"no board-wide forbidden markers");
+  assert.equal(game.board[at(1,1)],0);
   calls.length=0;
-  boardReview={display:game,ownership:null};
+  illegalCandidate=null;
   draw();
-  assert.equal(calls.some(c=>c.kind==="arc"&&c.args[2]===9),false);
+  assert.equal(calls.some(c=>c.kind==="arc"&&c.args[2]===22&&c.args[0]===100&&c.args[1]===100),false);
 });
 
 test("ownership overlay uses preview-independent review values and honors assisted flag",()=>{
