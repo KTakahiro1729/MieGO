@@ -222,3 +222,50 @@ button:hover:not(:disabled){border-color:#748094}
 
 .history-back{min-height:44px}
 .history-detail #historyResume,.history-detail #historyBranch,.history-detail #historyExport{min-height:44px}
+
+/* Portrait-first single-screen game: no scrolling to reach scoring/result. */
+body{overflow:hidden}
+.app-shell{height:100dvh;min-height:0;overflow:hidden;--topbar-height:68px}
+.game-layout{height:calc(100dvh - var(--topbar-height));overflow:hidden;padding-bottom:8px}
+.game-panel{height:100%;min-height:0;--board-reserve:292px}
+.board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px);flex-shrink:0}
+.turn-and-move{display:flex;align-items:center;gap:10px;min-width:0}
+.turn-and-move .turn{min-width:0}
+.turn-and-move .move-label{font-size:11px;font-variant-numeric:tabular-nums;flex-shrink:0}
+.ownership-legend{margin-top:6px}
+.gradient{height:9px}
+.legend-labels{padding-top:3px;font-size:10px}
+.endgame-bar{display:flex;align-items:center;min-height:44px;height:44px;max-height:44px;
+  flex:none;gap:7px;margin-top:4px;color:#bfc5cd}
+.endgame-bar .end-toggle{min-height:44px;flex:0 0 auto;max-width:58%;border:1px solid #384254;
+  background:#202632;border-radius:10px;padding:7px 10px;font-size:12px;color:#e4d0a1}
+.endgame-bar #analysisStatus{flex:1;min-width:0;font-size:11px;text-align:right}
+.endgame-bar.is-expanded .end-toggle{min-width:58px;max-width:66px}
+.endgame-bar.is-expanded #analysisStatus{display:none}
+.endgame-bar .end-actions{flex:1;min-width:0;margin:0;padding:0;background:none;border:0}
+.endgame-bar .end-buttons{display:flex;gap:6px;min-width:0}
+.endgame-bar .end-action{min-height:44px;flex:1;min-width:0;padding:6px 6px;font-size:12px}
+.endgame-bar.is-scoring .end-toggle,.endgame-bar.is-finished .end-toggle{opacity:1;border-color:transparent;background:none;padding-left:0}
+.game-panel.is-scoring .ownership-legend,.game-panel.is-finished .ownership-legend{display:none}
+.game-panel.is-scoring,.game-panel.is-finished{--board-reserve:346px}
+.score-box{flex:none;margin:3px 0 2px;padding:7px 10px;border-radius:10px;min-height:0}
+.score-box strong{display:block;font-size:15px;line-height:1.2}
+.score-box p{margin:2px 0 0;font-size:11px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.score-box #scoreText{font-size:12px;line-height:1.3;margin-top:3px}
+.action-row{flex:none;margin-top:auto;padding-top:4px;padding-bottom:max(6px,env(safe-area-inset-bottom))}
+.action-row .game-actions{z-index:5}
+@media(max-width:700px){
+  .app-shell{--topbar-height:62px}
+  .game-layout{padding:0 10px 6px}
+  .board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px)}
+  .ownership-legend{margin-top:5px}
+  .endgame-bar{margin-top:3px}
+  .game-panel{--board-reserve:285px}
+  .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:337px}
+  .action-row{padding-top:3px}
+}
+@media(max-width:350px){
+  .board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px)}
+  .endgame-bar .end-toggle{font-size:11px;padding:6px 7px}
+  .endgame-bar .end-action{font-size:11px}
+}

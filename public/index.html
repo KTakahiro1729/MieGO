@@ -25,9 +25,12 @@
       </div>
     </header>
     <main class="game-layout">
-      <section class="game-panel" aria-label="囲碁対局">
+      <section id="gamePanel" class="game-panel" aria-label="囲碁対局">
         <div class="game-meta">
-          <div id="turn" class="turn" role="status" aria-live="polite">黒の番です</div>
+          <div class="turn-and-move">
+            <div id="turn" class="turn" role="status" aria-live="polite">黒の番です</div>
+            <span id="moveLabel" class="move-label">0手目</span>
+          </div>
           <div id="netStatus" class="connection-status" role="status" aria-live="polite">ローカル練習</div>
         </div>
         <div class="board-frame">
@@ -37,26 +40,23 @@
           <div class="gradient" id="gradient" aria-hidden="true"></div>
           <div class="legend-labels"><span>白寄り</span><span>中立（透明）</span><span>黒寄り</span></div>
         </div>
-        <div class="board-foot">
-          <span id="hint" aria-live="polite">交点をタップして仮置き</span>
-          <span id="moveLabel" class="move-label">0手目</span>
-        </div>
-        <div class="analysis-status end-status-row">
-          <span id="analysisStatus" role="status" aria-live="polite">地合いを準備中…</span>
+        <div id="endgameBar" class="endgame-bar" aria-label="終局と対局の状態">
           <button id="endToggle" class="end-toggle" type="button" aria-controls="endActions" aria-expanded="false">
-            <span id="endStatus" aria-live="polite">終局の目安 · 対局中</span><span aria-hidden="true">›</span>
+            <span id="endStatus" aria-live="polite">終局を相談</span><span aria-hidden="true">›</span>
           </button>
-        </div>
-        <div id="endActions" class="end-actions" hidden>
-          <p id="endDetail">終局の提案はパスではありません。</p>
-          <div class="end-buttons">
-            <button id="endPropose" class="end-action" type="button">終局を提案する</button>
-            <button id="endAccept" class="end-action primary" type="button" hidden>同意して採点へ</button>
-            <button id="endDecline" class="end-action" type="button" hidden>対局を続ける</button>
+          <span id="analysisStatus" role="status" aria-live="polite">地合いを準備中…</span>
+          <div id="endActions" class="end-actions" hidden>
+            <p id="endDetail" class="visually-hidden">終局の提案はパスではありません。</p>
+            <div class="end-buttons">
+              <button id="endPropose" class="end-action" type="button">採点へ進む</button>
+              <button id="endAccept" class="end-action primary" type="button" hidden>採点へ</button>
+              <button id="endDecline" class="end-action" type="button" hidden>対局を続ける</button>
+            </div>
           </div>
+          <span id="hint" class="visually-hidden" aria-live="polite"></span>
         </div>
         <div id="scoreBox" class="score-box hidden">
-          <strong>終局の確認</strong>
+          <strong>死石を確認</strong>
           <p id="scoreInstruction">死石をタップして指定し、双方で結果を確認してください。</p>
           <div id="scoreText"></div>
         </div>

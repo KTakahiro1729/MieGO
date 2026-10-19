@@ -79,23 +79,23 @@ function updateEndUi() {
   const key=offer?offer.from+":"+offer.atMove:null;
   if(incoming && key!==lastOfferKey)endExpanded=true;
   lastOfferKey=key;
-  const label=!playing?(game.status==="scoring"?"採点中":"対局終了"):
-    offer?(incoming?"相手から終局の提案":!room?"終局の確認":"相手の返答待ち"):
-    fallbackMode?"終局の目安 · 判定不可":
-    endgameStage==="ready" && game.moveNumber>endHintSuppressedUntil?"終局を検討できます":
-    endgameStage==="near"?"終局が近いかもしれません":"終局の目安 · 対局中";
-  $("endStatus").textContent=label;
-  $("endToggle").disabled=!playing;
   const expanded=playing && endExpanded;
+  const label=!playing?(game.status==="scoring"?"採点中":"対局終了"):
+    offer?(incoming?"終局の提案あり":!room?"採点へ":"返答待ち"):
+    endgameStage==="ready" && game.moveNumber>endHintSuppressedUntil?"終局を検討":"終局を相談";
+  $("endStatus").textContent=expanded?"閉じる":label;
+  $("endToggle").disabled=!playing;
   $("endActions").hidden=!expanded;
+  $("endgameBar").classList.toggle("is-expanded",expanded);
   $("endToggle").setAttribute("aria-expanded",String(expanded));
   $("endPropose").hidden=!!offer;
   $("endAccept").hidden=!offer || (!!room && !incoming);
   $("endDecline").hidden=!offer;
   for(const id of ["endPropose","endAccept","endDecline"])
     $(id).disabled=!!room && (!connected || color===null);
-  $("endAccept").textContent=room?"同意して採点へ":"確認して採点へ";
-  $("endDecline").textContent=incoming?"対局を続ける":"提案を取り下げる";
+  $("endPropose").textContent=room?"終局を提案":"採点へ進む";
+  $("endAccept").textContent="採点へ";
+  $("endDecline").textContent=incoming?"続ける":"取り下げる";
   $("endDetail").textContent=offer
     ? incoming?"同意すると死石の確認へ進みます。拒否して打ち続けられます。":
       !room?"採点に進むか、そのまま打ち続けるか選べます。":
@@ -382,13 +382,10 @@ function show() {
   if(!room)$("netStatus").textContent=gameMode==="ai"?"AIと対戦":"1台で打つ";
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=game.moveNumber+"手目";
-  $("hint").textContent=candidate?
-    (room?"仮置き中 · 確定すると相手に届きます":"仮置き中 · 確定すると着手します"):
-    game.status==="scoring"?"死石をタップして指定":
+  $("hint").textContent=candidate?"仮置き中。確定か取り消しを選べます":
+    game.status==="scoring"?"盤上の石をタップすると死石を指定できます":
     gameMode==="ai" && fallbackMode?"KataGoを利用できないためAI対局は停止中":
-    gameMode==="ai" && !katagoReady?"KataGoの準備ができるまで待機中":
-    isAiTurn()?"AIが着手を計算しています…":
-    "交点をタップして仮置き";
+    isAiTurn()?"AIが着手を計算しています":"";
   $("confirm").disabled=!candidate || !myTurn;
   $("cancel").disabled=!candidate;
   $("pass").disabled=!myTurn || game.status!=="playing";
@@ -398,21 +395,27 @@ function show() {
   $("openCurrentMode").textContent=room?"招待URLを表示":"AIの設定・再戦";
   $("assisted").checked=game.assisted;$("assisted").disabled=game.moveNumber>0 || (room&&seat!=="host");
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
+  $("gamePanel").classList.toggle("is-scoring",isScoring);
+  $("gamePanel").classList.toggle("is-finished",isFinished);
+  $("endgameBar").classList.toggle("is-scoring",isScoring);
+  $("endgameBar").classList.toggle("is-finished",isFinished);
   $("scoreBox").classList.toggle("hidden",!isScoring && !isFinished);
+  if(isScoring)$("analysisStatus").textContent="死石を確認";
+  if(isFinished)$("analysisStatus").textContent="";
   $("scoringActions").hidden=!isScoring;
   for(const id of ["cancel","confirm","pass"])$(id).hidden=isScoring || isFinished;
   $("actionRow").classList.toggle("finished-actions",isFinished);
-  $("scoreBox").querySelector("strong").textContent=isFinished?"対局結果":"終局の確認";
+  $("scoreBox").querySelector("strong").textContent=isFinished?"対局結果":"死石を確認";
   $("scoreInstruction").textContent=isFinished?
-    (game.result?.endsWith("+R")?"投了によって対局が終了しました。":"中国式面積計算で確定しました。"):
-    deadReview==="pending"?"KataGoが死石候補を調べています。確認まで採点は確定できません。":
-    deadReview==="loading"?"KataGoの準備完了を待っています。石をタップして手動指定もできます。":
-    deadReview==="awaiting"?"相手側で死石候補を判定しています。":
-    deadReview==="complete"?"KataGoが死石候補を仮指定しました。必要なら石をタップして修正できます。":
-    deadReview==="none"?"KataGoは死石候補を検出しませんでした。必要なら石をタップしてください。":
-    deadReview==="modified"?"死石候補を修正しました。双方で確認して採点してください。":
-    deadReview==="unavailable"?"KataGoによる死石判定ができません。石をタップして指定してください。":
-    "死石の判定を準備しています。";
+    (game.result?.endsWith("+R")?"対局終了":"中国式で採点確定"):
+    deadReview==="pending"?"死石を自動判定中…":
+    deadReview==="loading"?"KataGoを準備中。石の手動指定もできます":
+    deadReview==="awaiting"?"相手側で死石を判定中…":
+    deadReview==="complete"?"AI候補を確認。違う石はタップで修正":
+    deadReview==="none"?"死石候補なし。必要なら石をタップ":
+    deadReview==="modified"?"修正済み。点数を確認してください":
+    deadReview==="unavailable"?"AI判定不可。石をタップして指定":
+    "死石を確認しています…";
   // The scoring controls live in the existing sticky action row.
   if(isScoring){
     const score=areaScore(game);
@@ -429,12 +432,15 @@ function show() {
   if(isFinished) {
     const result=game.result;
     if(result?.endsWith("+R")) {
-      $("scoreText").textContent=(result.startsWith("B+")?"黒":"白")+"の投了勝ち";
+      $("scoreBox").querySelector("strong").textContent=(result.startsWith("B+")?"黒":"白")+"の投了勝ち";
+      $("scoreText").textContent="投了により終局";
     } else {
       const score=areaScore(game);
-      $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+
-        "目（コミ込み） · "+(result?.startsWith("B+")?"黒":result?.startsWith("W+")?"白":"引き分け")+
-        " "+Math.abs(score.difference).toFixed(1)+"目勝ち";
+      $("scoreBox").querySelector("strong").textContent=
+        (result?.startsWith("B+")?"黒":result?.startsWith("W+")?"白":"引き分け")+
+        (result?.startsWith("B+")||result?.startsWith("W+")?
+          "の"+Math.abs(score.difference).toFixed(1)+"目勝ち":"");
+      $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（コミ込み）";
     }
   }
   updateEndUi();
@@ -532,11 +538,12 @@ canvas.addEventListener("click",e=>{
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
   if(game.status!=="playing" || !isHumanTurn())return;
-  try{candidate=play(game,position);show();requestAnalysis();}catch(error){$("hint").textContent=error.message;}
+  try{candidate=play(game,position);show();requestAnalysis();}
+  catch(error){$("hint").textContent=error.message;$("analysisStatus").textContent=error.message;}
 });
 $("confirm").onclick=()=>{if(candidate){const p=candidate.moves.at(-1).position;submitMove(p);}};
 $("cancel").onclick=()=>{candidate=null;show();requestAnalysis();};
-$("pass").onclick=()=>{if(confirm("パスしますか？"))submitMove(null);};
+$("pass").onclick=()=>submitMove(null);
 $("resign").onclick=()=>{
   $("gameMenu").open=false;
   if(confirm("投了しますか？"))submitMove("resign");
@@ -592,7 +599,13 @@ $("endPropose").onclick=()=>{
   const color=myColorForEnd();
   if(!color || (room&&!connected))return;
   apply({type:"end_offer",color,number:game.moveNumber,before:boardHash(game.board)});
-  endExpanded=true;updateEndUi();
+  if(!room && game.status==="playing" && game.endProposal?.from===color) {
+    // On one device there is no remote recipient: one tap proceeds to scoring.
+    apply({type:"end_answer",color:-color,accept:true,
+      proposalFrom:color,number:game.moveNumber,before:boardHash(game.board)});
+  } else {
+    endExpanded=true;updateEndUi();
+  }
 };
 $("endAccept").onclick=()=>{
   if(game.status!=="playing" || !game.endProposal)return;
