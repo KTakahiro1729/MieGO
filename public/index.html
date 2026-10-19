@@ -13,14 +13,7 @@
     <header class="topbar">
       <div class="brand" aria-label="MieGO">Mie<span>GO</span></div>
       <div class="header-actions">
-        <label class="mode-picker" for="modePicker"><span class="visually-hidden">対局モード</span>
-          <select id="modePicker" aria-label="対局モードを選ぶ">
-            <option value="local">1台で打つ</option>
-            <option value="online">URLで対戦</option>
-            <option value="ai">AIと対戦</option>
-            <option value="history">保存した棋譜…</option>
-          </select>
-        </label>
+        <button id="newGameButton" class="secondary new-game-button" type="button" aria-haspopup="dialog" aria-controls="modePanel">新規対戦</button>
         <button id="settingsToggle" class="icon-button" type="button" aria-label="設定を開く" aria-controls="settingsPanel" aria-expanded="false">
           <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9.7 2.5-.45 2.1-1.7.7-1.8-1.16-2.6 2.6 1.16 1.8-.7 1.7-2.11.46v3.6l2.1.45.7 1.7-1.16 1.8 2.6 2.6 1.8-1.16 1.7.7.46 2.11h3.6l.45-2.1 1.7-.7 1.8 1.16 2.6-2.6-1.16-1.8.7-1.7 2.11-.46v-3.6l-2.1-.45-.7-1.7 1.16-1.8-2.6-2.6-1.8 1.16-1.7-.7-.46-2.11Z"/><circle cx="11.5" cy="12.5" r="3.2"/></svg>
         </button>
@@ -153,26 +146,47 @@
         <h3>対局と棋譜</h3>
         <button id="openHistorySettings" class="secondary full" type="button">保存した棋譜</button>
         <button id="openCurrentMode" class="secondary full" type="button" hidden>AIの設定・再戦</button>
-        <fieldset class="board-size-setting">
-          <legend>新しい対局の盤の大きさ</legend>
-          <div class="ai-color-choices board-size-choices">
-            <label><input type="radio" name="boardSize" value="9" checked><span>9路</span></label>
-            <label><input type="radio" name="boardSize" value="13"><span>13路</span></label>
-            <label><input type="radio" name="boardSize" value="19"><span>19路</span></label>
-          </div>
-          <p class="explanation">1台・AI・友人のどの対局も、次に始める対局からこの大きさになります。友人対局は招待を作る側の設定で始まります。</p>
-          <p id="boardSizeNote" class="explanation board-size-note" role="status" aria-live="polite"></p>
-        </fieldset>
-        <label id="localHandicapRow" class="handicap-select" for="localHandicap" hidden>新しい対局の置き石<select id="localHandicap"><option value="0">なし（互先）</option><option value="2">2子</option><option value="3">3子</option><option value="4">4子</option><option value="5">5子</option></select></label>
-        <button id="resetLocalGame" class="secondary full" type="button" hidden>新しい対局を始める</button>
       </section>
       <section class="settings-section">
         <h3>その他</h3><p id="ruleSummary" class="explanation">9路盤 · 中国式ルール · コミ7.5</p>
         <details class="info-disclosure"><summary>クレジット</summary><p class="explanation"><a href="https://github.com/lightvector/KataGo" target="_blank" rel="noopener noreferrer">KataGo</a> · <a href="https://github.com/Sir-Teo/web-katrain" target="_blank" rel="noopener noreferrer">Web KaTrain</a></p></details>
       </section>
     </aside>
-    <aside id="modePanel" class="settings-panel mode-panel" role="dialog" aria-modal="true" aria-label="対局の準備" hidden>
-      <div class="settings-head"><h2 id="modeTitle">対局の準備</h2><button id="closeMode" class="icon-button" type="button" aria-label="閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <aside id="modePanel" class="settings-panel mode-panel" role="dialog" aria-modal="true" aria-labelledby="modeTitle" hidden>
+      <div class="settings-head"><h2 id="modeTitle">新規対戦</h2><button id="closeMode" class="icon-button" type="button" aria-label="閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <section class="settings-section new-game-common">
+        <h3>対局の種類</h3>
+        <div class="ai-color-choices new-game-modes">
+          <label><input type="radio" name="newGameMode" value="local" checked><span>1台で打つ<small>この端末で交互に</small></span></label>
+          <label><input type="radio" name="newGameMode" value="ai"><span>AIと対戦<small>KataGo</small></span></label>
+          <label><input type="radio" name="newGameMode" value="online"><span>URLで対戦<small>友人を招待</small></span></label>
+        </div>
+        <h3 class="ai-subhead">盤の大きさ</h3>
+        <div class="ai-color-choices board-size-choices">
+          <label><input type="radio" name="boardSize" value="9" checked><span>9路</span></label>
+          <label><input type="radio" name="boardSize" value="13"><span>13路</span></label>
+          <label><input type="radio" name="boardSize" value="19"><span>19路</span></label>
+        </div>
+        <div id="handicapSetup">
+          <h3 class="ai-subhead">置き石</h3>
+          <div class="ai-color-choices handicap-choices">
+            <label><input type="radio" name="handicap" value="0" checked><span>なし</span></label>
+            <label><input type="radio" name="handicap" value="2"><span>2子</span></label>
+            <label><input type="radio" name="handicap" value="3"><span>3子</span></label>
+            <label><input type="radio" name="handicap" value="4"><span>4子</span></label>
+            <label><input type="radio" name="handicap" value="5"><span>5子</span></label>
+            <label><input type="radio" name="handicap" value="6"><span>6子</span></label>
+            <label><input type="radio" name="handicap" value="7"><span>7子</span></label>
+            <label><input type="radio" name="handicap" value="8"><span>8子</span></label>
+            <label><input type="radio" name="handicap" value="9"><span>9子</span></label>
+          </div>
+          <p id="handicapNote" class="explanation">置き石は黒が最初から星に置く石で、置き石があると白が先に打ちます。コミは0.5目で、中国式のとおり白に置き石の数だけ目数を加えます。9路盤は5子までです。</p>
+        </div>
+      </section>
+      <section id="localSetup" class="settings-section" hidden>
+        <p class="explanation">この端末で黒と白を交互に打ちます。いまの対局は「保存した棋譜」に残ります。</p>
+        <button id="startLocal" class="primary full" type="button">対局を始める</button>
+      </section>
       <section id="onlineSetup" class="settings-section" hidden>
         <h3>友人を招待</h3>
         <p id="roomInfo" class="explanation">URLを共有すると、別の端末から対局に参加できます。</p>
@@ -206,15 +220,6 @@
           <label><input type="radio" name="aiStrength" value="strong"><span>つよい<small>手加減なし</small></span></label>
         </div>
         <p class="explanation">弱い段階ほど、KataGoが好む手から外れた手をときどき打ちます。段級位の目安ではありません。</p>
-        <h3 class="ai-subhead">置き石</h3>
-        <div class="ai-color-choices handicap-choices">
-          <label><input type="radio" name="aiHandicap" value="0" checked><span>なし</span></label>
-          <label><input type="radio" name="aiHandicap" value="2"><span>2子</span></label>
-          <label><input type="radio" name="aiHandicap" value="3"><span>3子</span></label>
-          <label><input type="radio" name="aiHandicap" value="4"><span>4子</span></label>
-          <label><input type="radio" name="aiHandicap" value="5"><span>5子</span></label>
-        </div>
-        <p class="explanation">置き石は、あなた（黒）が最初から星に置く石です。置き石があるとAIが白で先に打ちます。コミは0.5目で、中国式のとおり白に置き石の数だけ目数を加えます。</p>
         <div class="mode"><div><strong>ヒントを表示</strong><p>あなたの番に、KataGoの候補手を盤上に1〜3で示します。読みを入れた最善手とは限りません。</p></div><input id="aiHints" type="checkbox" aria-label="ヒントを表示する"></div>
         <p class="explanation">打ち間違えたら、盤の下の「待った」で自分の直前の手まで戻せます。</p>
         <details class="info-disclosure ai-advanced"><summary>AIの打ち方を調整</summary>
@@ -227,6 +232,9 @@
         </details>
         <button id="startAi" class="primary full" type="button" disabled>準備中…</button>
         <p id="aiMatchStatus" class="explanation" role="status" aria-live="polite">対局を準備しています…</p>
+      </section>
+      <section class="settings-section">
+        <button id="openHistoryFromNew" class="secondary full" type="button">保存した棋譜を開く</button>
       </section>
     </aside>
     <aside id="historyPanel" class="settings-panel history-panel" role="dialog" aria-modal="true" aria-label="保存した棋譜" hidden>

@@ -4,9 +4,15 @@ import {readFileSync} from "node:fs";
 import {gameStorageKey,parseGameSnapshot,needsSwitchConfirmation} from "../public/mode-state.mjs";
 const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
-test("three playing modes and a saved-game browser use the header native select",()=>{
-  for(const value of ["local","online","ai","history"])assert.match(html,new RegExp('option value="'+value+'"'));
-  assert.match(html,/id="modePicker"/);
+test("a 新規対戦 button opens one sheet with the three modes, board size, handicap and saved games",()=>{
+  assert.match(html,/<button id="newGameButton"[^>]*>新規対戦<\/button>/);
+  assert.doesNotMatch(html,/<select id="modePicker"|<option value="history">/);
+  const sheet=html.slice(html.indexOf('<aside id="modePanel"'),html.indexOf('<aside id="historyPanel"'));
+  for(const value of ["local","ai","online"])assert.match(sheet,new RegExp('name="newGameMode" value="'+value+'"'));
+  for(const size of [9,13,19])assert.match(sheet,new RegExp('name="boardSize" value="'+size+'"'));
+  for(const stones of [0,2,3,4,5,6,7,8,9])assert.match(sheet,new RegExp('name="handicap" value="'+stones+'"'));
+  for(const id of ["startLocal","startAi","copy","openHistoryFromNew"])assert.match(sheet,new RegExp('id="'+id+'"'));
+  assert.match(app,/\$\("newGameButton"\)\.onclick=\(\)=>openPanel\(room\?"online":gameMode\)/);
 });
 test("settings is presentation-only, with credits and no board rotation",()=>{
   const [common] = html.split('<aside id="modePanel"');
@@ -16,6 +22,8 @@ test("settings is presentation-only, with credits and no board rotation",()=>{
   assert.match(common,/id="resetAppearance"/);
   assert.match(common,/クレジット/);
   assert.doesNotMatch(common,/盤面を回転|id="aiLevel"|id="aiInvasion"|id="copy"/);
+  // Board size and handicap are chosen when starting a game, not in settings.
+  assert.doesNotMatch(common,/name="boardSize"|name="handicap"|id="localHandicap"|id="resetLocalGame"/);
   assert.doesNotMatch(html,/id="aiMenu"|id="returnLocal"|id="share"/);
 });
 test("offline mode saves are independent and valid snapshots are checked",()=>{
@@ -55,16 +63,16 @@ test("a local reset creates an empty independent game while retaining display as
   assert.equal(previous.moveNumber,1);
   assert.equal(reset.moves.length,0);
 });
-test("direct game controls replace hidden action menus without losing local reset",()=>{
+test("direct game controls replace hidden action menus; new local games start from 新規対戦",()=>{
  const row=html.slice(html.indexOf('<div id="actionRow"'),html.indexOf('<section id="reviewPanel"'));
  assert.ok(row.indexOf('id="pass"')<row.indexOf('id="resign"'));
  assert.match(row,/id="newMatch"/);
  assert.match(row,/id="openHistory"/);
  assert.doesNotMatch(row,/<details|id="gameMenu"/);
- assert.match(html,/id="resetLocalGame"/);
+ assert.match(html,/id="startLocal"/);
  assert.match(html,/id="openHistorySettings"/);
  assert.match(app,/if \(room \|\| gameMode!=="local"\) return;/);
- assert.match(app,/resetLocalGame"\)\.hidden=!!room \|\| gameMode!=="local"/);
+ assert.match(app,/\$\("startLocal"\)\.onclick=startLocalGame/);
  assert.match(app,/game=freshLocalGame\(game,localHandicap,boardSize\);currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
 });
 test("settings button shows a toothed gear and is labeled",()=>{
@@ -76,7 +84,7 @@ test("settings button shows a toothed gear and is labeled",()=>{
 });
 
 test("reset discards endgame and dead-stone hints",()=>{
-  const block=app.slice(app.indexOf("function resetLocalBoard()"),app.indexOf('$("resetLocalGame").onclick'));
+  const block=app.slice(app.indexOf("function freshLocalBoard()"),app.indexOf("function startLocalGame()"));
   assert.match(block,/endgameAdvisor\.reset\(\)/);
   assert.match(block,/deadReview="idle"/);
   assert.match(block,/deadEvaluation=null/);

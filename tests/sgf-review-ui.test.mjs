@@ -26,9 +26,9 @@ test("replay does not write moves to an active live or P2P session",()=>{
   assert.match(app,/if\(boardReview\.source==="live"\)boardReview\.snapshot=game/);
   assert.match(app,/const updates=source==="live"/);
 });
-test("saved records open directly on the main board from the header picker",()=>{
-  assert.match(html,/<option value="history">保存した棋譜…<\/option>/);
-  assert.match(app,/if\(selected==="history"\)openHistoryPanel\(\)/);
+test("saved records open directly on the main board from the saved-game entries",()=>{
+  assert.match(html,/id="openHistoryFromNew"[^>]*>保存した棋譜を開く<\/button>/);
+  assert.match(app,/\$\("openHistoryFromNew"\)\.onclick=openHistoryPanel/);
   assert.match(app,/enterBoardReview\(record\.snapshot,count,"archive",record\.sgfMeta,record\)/);
   assert.doesNotMatch(html,/id="historyBoard"|id="historyStepRange"/);
   assert.match(html,/id="openHistory"/);
@@ -67,9 +67,9 @@ test("SGF exports and AI sharing share the existing single-row replay menu",()=>
  assert.doesNotMatch(html,/id="historyShareMenu"|id="historyExport"/);
 });
 
-test("saved-game picker is a repeatable command, not a persistent fourth mode",()=>{
- assert.match(app,/modePicker"\)\.value=room\?"online":gameMode/);
- assert.match(app,/if\(selected==="history"\)openHistoryPanel\(\)/);
+test("saved games are a repeatable command, not a persistent fourth mode",()=>{
+ assert.doesNotMatch(app,/modePicker/);
+ assert.match(app,/\$\("openHistory"\)\.onclick=openHistoryPanel/);
  assert.match(app,/if\(boardReview\?\.source==="url"\)clearImportedReviewUrl\(\)/);
  assert.match(app,/gamePanel"\)\.classList\.remove\("is-scoring","is-finished"\)/);
 });

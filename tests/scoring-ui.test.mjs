@@ -5,8 +5,8 @@ const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
 const worker=readFileSync(new URL("../src/katago/neural-worker.ts",import.meta.url),"utf8");
 const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 
-test("AI mode uses the main header mode selector and readiness-gated start",()=>{
-  assert.match(html,/id="modePicker"/);
+test("AI mode starts from the 新規対戦 sheet with a readiness-gated start",()=>{
+  assert.match(html,/name="newGameMode" value="ai"/);
   assert.match(app,/\$\("startAi"\)\.disabled=!katagoReady \|\| fallbackMode/);
   assert.match(app,/function leaveOnlineRoom\(\)/);
   assert.doesNotMatch(html,/id="aiMenu"/);
