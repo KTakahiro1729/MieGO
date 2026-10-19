@@ -120,3 +120,23 @@ test("counting legend shows White's area, a neutral ring and Black's area in the
   assert.match(css,/transparent 33% 67%/);
   assert.match(css,/rgba\(84,39,143,[^)]+\) 67% 100%/);
 });
+
+test("every step stays apart from the board and its neighbours on every board look",()=>{
+  // CIELAB distance between colours composited on the board's surface.
+  const lin=c=>{c/=255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4;};
+  const lab=([r,g,b])=>{const R=lin(r),G=lin(g),B=lin(b);
+    const f=t=>t>.008856?Math.cbrt(t):7.787*t+16/116;
+    const x=f((R*.4124+G*.3576+B*.1805)/.95047),y=f(R*.2126+G*.7152+B*.0722),z=f((R*.0193+G*.1192+B*.9505)/1.08883);
+    return [116*y-16,500*(x-y),200*(y-z)];};
+  const dE=(a,b)=>{const A=lab(a),B=lab(b);return Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2]);};
+  for(const name of Object.keys(PALETTES))for(const theme of THEMES){
+    const surface=BOARD_THEMES[theme].surface;
+    const on=v=>{const [r,g,b,a]=ownershipPixel(v,name,.55,theme);const k=a/255;
+      return [r,g,b].map((c,i)=>c*k+surface[i]*(1-k));};
+    const pairs=[[on(-.5),surface],[on(-1),on(-.5)],[on(.5),surface],[on(1),on(.5)],[on(-.5),on(.5)]];
+    // A grey map cannot go lighter than white on the light board or darker
+    // than black on the dark one, so it gets a lower floor.
+    const floor=name==="mono"?(theme==="wood"?18:9.5):20;
+    for(const [a,b] of pairs)assert.ok(dE(a,b)>=floor,name+"/"+theme+" step distance "+dE(a,b).toFixed(1));
+  }
+});
