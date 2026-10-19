@@ -2,7 +2,7 @@ import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, area
 import { suggestDeadStones } from "./dead-stones.mjs";
 import { EndgameAdvisor } from "./endgame.mjs";
 import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
-import { PALETTES, paletteAt, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
+import { PALETTES, ownershipPixel, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gameStorageKey, parseGameSnapshot, needsSwitchConfirmation } from "./mode-state.mjs";
 const $ = id => document.getElementById(id);
@@ -109,9 +109,9 @@ function paintOwnership(d, gap, pad) {
   if (!game.assisted || !displayedOwnership) return;
   const data = overlayContext.createImageData(SIZE,SIZE);
   for (let i=0;i<SIZE*SIZE;i++) {
-    const c=paletteAt(displayedOwnership[i],palette);
+    const [r,g,b,a]=ownershipPixel(displayedOwnership[i],palette,opacity);
     const p=i*4;
-    data.data[p]=c[0]; data.data[p+1]=c[1]; data.data[p+2]=c[2]; data.data[p+3]=Math.round(opacity*255);
+    data.data[p]=r; data.data[p+1]=g; data.data[p+2]=b; data.data[p+3]=a;
   }
   overlayContext.putImageData(data,0,0);
   ctx.save();
@@ -525,7 +525,7 @@ $("opacity").oninput=e=>{
   opacity=Number(e.target.value)/100;
   localStorage.setItem("miego-opacity",String(opacity));
   $("opacityValue").textContent=e.target.value+"%";
-  draw();
+  updateGradient();draw();
 };
 $("resetAppearance").onclick=()=>{
   palette="mono";opacity=.55;
@@ -536,7 +536,7 @@ $("resetAppearance").onclick=()=>{
   $("opacity").value="55";$("opacityValue").textContent="55%";
   updateGradient();draw();
 };
-function updateGradient(){$("gradient").style.background=paletteGradient(palette);}
+function updateGradient(){$("gradient").style.backgroundImage=paletteGradient(palette,opacity);}
 function save(){
   if (room) return;
   try {
