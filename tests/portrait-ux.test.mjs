@@ -91,7 +91,7 @@ test("solo endgame prompt names AI only in AI games",()=>{
 test("continue-style choices sit left of the advancing choice, in the bar and while scoring",()=>{
   const bar=html.slice(html.indexOf('id="endActions"'),html.indexOf('id="analysisStatus"'));
   assert.ok(bar.indexOf('id="endDecline"')<bar.indexOf('id="endAccept"'));
-  const scoring=html.slice(html.indexOf('id="scoringActions"'),html.indexOf('id="resign"'));
+  const scoring=html.slice(html.indexOf('id="scoringActions"'),html.indexOf('id="openHistory"'));
   assert.ok(scoring.indexOf('id="resume"')<scoring.indexOf('id="agree"'));
 });
 test("only a solo accept is gold; an incoming online offer gets two equal choices",()=>{

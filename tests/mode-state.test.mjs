@@ -87,7 +87,13 @@ test("a local reset creates an empty independent game while retaining display as
 });
 test("direct game controls replace hidden action menus; new local games start from 新規対戦",()=>{
  const row=html.slice(html.indexOf('<div id="actionRow"'),html.indexOf('<section id="reviewPanel"'));
- assert.ok(row.indexOf('id="pass"')<row.indexOf('id="resign"'));
+ // The primary action of each phase is the rightmost button; 投了 sits
+ // away from ここに打つ so a slip never lands on it.
+ const order=id=>row.indexOf('id="'+id+'"');
+ assert.ok(order("resign")<order("pass") && order("pass")<order("confirm"));
+ assert.ok(order("confirm")<order("copyIllegalPrompt"));
+ assert.ok(order("openHistory")<order("newMatch"));
+ assert.ok(order("newMatch")>order("confirm"),"no button follows the last primary");
  assert.match(row,/id="newMatch"/);
  assert.match(row,/id="openHistory"/);
  assert.doesNotMatch(row,/<details|id="gameMenu"/);

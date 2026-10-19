@@ -64,20 +64,21 @@
           <div id="scoreText" class="score-table" role="group"></div>
         </div>
         <div id="actionRow" class="action-row">
+          <!-- The primary action is always the rightmost button. -->
           <button id="cancel" class="secondary undo-button is-takeback" type="button" aria-label="待った" title="待った" disabled>
             <svg class="cancel-icon" aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
             <span class="takeback-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg><small>待った</small></span>
           </button>
-          <button id="confirm" class="primary" type="button" disabled><span id="confirmStone" class="button-stone" aria-hidden="true"></span>ここに打つ</button>
-          <button id="copyIllegalPrompt" class="secondary accent-outline illegal-prompt-action" type="button" aria-label="禁止手についてAIに質問する文章をコピー" title="コピーした文章を好きなAIに貼り付けて質問できます" hidden>AIへの質問をコピー</button>
+          <button id="resign" class="secondary resign-control" type="button">投了</button>
           <button id="pass" class="secondary" type="button">パス</button>
           <div id="scoringActions" class="inline-score-actions" hidden>
             <button id="resume" class="secondary" type="button">対局を再開</button>
             <button id="agree" class="primary" type="button" disabled>この計算に同意</button>
           </div>
-          <button id="resign" class="secondary resign-control" type="button">投了</button>
-          <button id="newMatch" class="primary" type="button" hidden>もう一局</button>
           <button id="openHistory" class="secondary" type="button" hidden>保存した棋譜</button>
+          <button id="confirm" class="primary" type="button" disabled><span id="confirmStone" class="button-stone" aria-hidden="true"></span>ここに打つ</button>
+          <button id="copyIllegalPrompt" class="secondary accent-outline illegal-prompt-action" type="button" aria-label="禁止手についてAIに質問する文章をコピー" title="コピーした文章を好きなAIに貼り付けて質問できます" hidden>AIへの質問をコピー</button>
+          <button id="newMatch" class="primary" type="button" hidden>もう一局</button>
         </div>
         <div id="illegalPromptFallbackPanel" class="illegal-prompt-fallback" hidden>
           <label for="illegalPromptFallback">自動コピーできませんでした。下の文章を選択してコピーしてください。</label>
