@@ -1,13 +1,10 @@
+import {postP2PJson,reconnectDelay,isTerminalTicketFailure,signalingUrl} from "./p2p-network.mjs";
+
 // Signaling and WebRTC transport. Game rules and UI belong to app.mjs.
 export function createP2PTransport({verify,onSession,onSync,onAction,onConnected,onDisconnected,onError,getSnapshot}) {
   let current=null, socket=null, peer=null, channel=null, timer=null, generation=0, attempt=0;
   let pendingIce=[],ready=false;
-  async function post(path, data) {
-    const response=await fetch(path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(data)});
-    let result;try{result=await response.json();}catch{throw Error("サーバーの応答が不正です");}
-    if(!response.ok){const err=Error(result.error||"通信に失敗しました");err.status=response.status;throw err;}
-    return result;
-  }
+  const post=postP2PJson;
   function signal(type,payload){
     if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type,payload}));
   }
@@ -65,7 +62,7 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
   }
   function schedule(epoch){
     if(epoch!==generation||!current||timer)return;
-    const ms=Math.min(30000,1000*2**Math.min(attempt++,5));
+    const ms=reconnectDelay(attempt++);
     timer=setTimeout(()=>{timer=null;void connect(epoch);},ms);
   }
   async function connect(epoch) {
@@ -75,8 +72,7 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
       const ticket=await post("/api/rooms/"+room+"/ticket",{role,session});
       if(epoch!==generation)return;
       closeRTC();
-      const scheme=location.protocol==="https:"?"wss:":"ws:";
-      const s=new WebSocket(scheme+"//"+location.host+"/api/rooms/"+room+"/ws?ticket="+encodeURIComponent(ticket.ticket));
+      const s=new WebSocket(signalingUrl(location,room,ticket.ticket));
       socket=s;
       s.onopen=()=>{if(epoch===generation)attempt=0;};
       s.onmessage=async event=>{
@@ -109,7 +105,7 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
     }catch(error){
       if(epoch!==generation)return;
       onError(error);
-      if(![401,403,404,410].includes(error.status))schedule(epoch);
+      if(!isTerminalTicketFailure(error.status))schedule(epoch);
     }
   }
   async function join({room,role,session,inviteKey}){
