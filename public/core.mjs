@@ -107,6 +107,23 @@ export function toggleDead(state, index) {
   for (const i of stones) removing ? dead.delete(i) : dead.add(i);
   return { ...state, dead: [...dead], agreed: { black: false, white: false } };
 }
+/** Apply a KataGo-based dead-stone proposal as complete connected groups.
+ * This is provisional: users may toggle the marked stones before agreement.
+ */
+export function setDeadCandidates(state, positions) {
+  if(state.status!=="scoring" || !Array.isArray(positions)) {
+    throw new Error("採点中のみ死石候補を適用できます");
+  }
+  const marked=new Set();
+  for(const index of positions) {
+    if(!Number.isInteger(index) || index<0 || index>=SIZE*SIZE || !state.board[index]) {
+      throw new Error("死石候補に不正な交点があります");
+    }
+    for(const stone of group(state.board,index).stones) marked.add(stone);
+  }
+  return {...state,dead:[...marked].sort((a,b)=>a-b),
+    agreed:{black:false,white:false}};
+}
 export function resume(state) {
   if (state.status !== "scoring") throw new Error("計算中ではありません");
   return { ...state, status: "playing", passes: 0, endProposal: null, agreed: { black: false, white: false } };
