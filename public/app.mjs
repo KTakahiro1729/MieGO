@@ -271,7 +271,10 @@ function handleAnalysis(event) {
       katagoReady=true;
       $("aiMatchStatus").textContent="KataGo準備完了。AI対局を開始できます。";
       show();
-      if(isAiTurn())requestAnalysis();
+      if(isAiTurn() || (game.status==="scoring" && deadReview==="unavailable")) {
+        if(game.status==="scoring")deadReview="idle";
+        requestAnalysis();
+      }
     } else {
       switchToFallback(result.error || "KataGo初期化に失敗しました");
     }
@@ -356,7 +359,8 @@ function show() {
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
   $("scoreBox").classList.toggle("hidden",!isScoring && !isFinished);
   $("scoreBox").querySelector("strong").textContent=isFinished?"対局結果":"終局の確認";
-  $("scoreInstruction").textContent=isFinished?"中国式面積計算で確定しました。":
+  $("scoreInstruction").textContent=isFinished?
+    (game.result?.endsWith("+R")?"投了によって対局が終了しました。":"中国式面積計算で確定しました。"):
     deadReview==="pending"?"KataGoが死石候補を調べています…":
     deadReview==="awaiting"?"相手側で死石候補を判定しています。":
     deadReview==="complete"?"KataGoが死石候補を仮指定しました。必要なら石をタップして修正できます。":
@@ -375,11 +379,15 @@ function show() {
     $("resume").disabled=room&&!connected;
   }
   if(isFinished) {
-    const score=areaScore(game);
     const result=game.result;
-    $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+
-      "目（コミ込み） · "+(result?.startsWith("B+")?"黒":result?.startsWith("W+")?"白":"引き分け")+
-      " "+Math.abs(score.difference).toFixed(1)+"目勝ち";
+    if(result?.endsWith("+R")) {
+      $("scoreText").textContent=(result.startsWith("B+")?"黒":"白")+"の投了勝ち";
+    } else {
+      const score=areaScore(game);
+      $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+
+        "目（コミ込み） · "+(result?.startsWith("B+")?"黒":result?.startsWith("W+")?"白":"引き分け")+
+        " "+Math.abs(score.difference).toFixed(1)+"目勝ち";
+    }
   }
   updateEndUi();
   draw();
@@ -434,8 +442,9 @@ function apply(action, remote=false) {
     const hadCandidate=!!candidate;
     candidate=null;save();show();
     // Evaluate once, when a play/pass or accepted offer enters scoring.
-    if(!["end_offer","end_answer","dead_auto","dead"].includes(action.type)
-       || hadCandidate || (action.type==="end_answer" && game.status==="scoring"))
+    if(["move","resume","mode"].includes(action.type) ||
+       (action.type==="end_answer" && game.status==="scoring") ||
+       (hadCandidate && game.status==="playing"))
       requestAnalysis();
     if(!remote&&room) send({type:"action",action});
   }catch(error){alert(error.message); if(remote){$("netStatus").textContent="同期エラー";channel?.close();}}
