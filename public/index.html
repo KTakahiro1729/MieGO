@@ -25,9 +25,12 @@
       </div>
     </header>
     <main class="game-layout">
-      <section class="game-panel" aria-label="囲碁対局">
+      <section id="gamePanel" class="game-panel" aria-label="囲碁対局">
         <div class="game-meta">
-          <div id="turn" class="turn" role="status" aria-live="polite">黒の番です</div>
+          <div class="turn-and-move">
+            <div id="turn" class="turn" role="status" aria-live="polite">黒の番です</div>
+            <span id="moveLabel" class="move-label">0手目</span>
+          </div>
           <div id="netStatus" class="connection-status" role="status" aria-live="polite">ローカル練習</div>
         </div>
         <div class="board-frame">
@@ -37,47 +40,47 @@
           <div class="gradient" id="gradient" aria-hidden="true"></div>
           <div class="legend-labels"><span>白寄り</span><span>中立（透明）</span><span>黒寄り</span></div>
         </div>
-        <div class="board-foot">
-          <span id="hint" aria-live="polite">交点をタップして仮置き</span>
-          <span id="moveLabel" class="move-label">0手目</span>
-        </div>
-        <div class="analysis-status end-status-row">
-          <span id="analysisStatus" role="status" aria-live="polite">地合いを準備中…</span>
+        <div id="endgameBar" class="endgame-bar" aria-label="終局と対局の状態">
           <button id="endToggle" class="end-toggle" type="button" aria-controls="endActions" aria-expanded="false">
-            <span id="endStatus" aria-live="polite">終局の目安 · 対局中</span><span aria-hidden="true">›</span>
+            <span id="endStatus" aria-live="polite">終局を相談</span><span aria-hidden="true">›</span>
           </button>
-        </div>
-        <div id="endActions" class="end-actions" hidden>
-          <p id="endDetail">終局の提案はパスではありません。</p>
-          <div class="end-buttons">
-            <button id="endPropose" class="end-action" type="button">終局を提案する</button>
-            <button id="endAccept" class="end-action primary" type="button" hidden>同意して採点へ</button>
-            <button id="endDecline" class="end-action" type="button" hidden>対局を続ける</button>
+          <span id="analysisStatus" role="status" aria-live="polite">地合いを準備中…</span>
+          <div id="endActions" class="end-actions" hidden>
+            <p id="endDetail" class="visually-hidden">終局の提案はパスではありません。</p>
+            <div class="end-buttons">
+              <button id="endPropose" class="end-action" type="button">採点へ進む</button>
+              <button id="endAccept" class="end-action primary" type="button" hidden>採点へ</button>
+              <button id="endDecline" class="end-action" type="button" hidden>対局を続ける</button>
+            </div>
           </div>
+          <span id="hint" class="visually-hidden" aria-live="polite"></span>
         </div>
-        <div class="action-row">
+        <div id="scoreBox" class="score-box hidden">
+          <strong>死石を確認</strong>
+          <p id="scoreInstruction">死石をタップして指定し、双方で結果を確認してください。</p>
+          <div id="scoreText"></div>
+        </div>
+        <div id="actionRow" class="action-row">
           <button id="cancel" class="secondary-action undo-button" type="button" aria-label="仮置きを戻す" title="仮置きを戻す" disabled>
             <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h9a7 7 0 0 1 0 14h-2"/></svg>
           </button>
           <button id="confirm" class="primary" type="button" disabled><span class="button-stone" aria-hidden="true"></span>この手を打つ</button>
           <button id="pass" class="secondary-action" type="button">パス</button>
+          <div id="scoringActions" class="score-actions inline-score-actions" hidden>
+            <button id="agree" class="primary" type="button" disabled>この計算に同意</button>
+            <button id="resume" type="button">対局を再開</button>
+          </div>
           <details id="gameMenu" class="game-actions">
             <summary aria-label="対局メニュー" title="対局メニュー"><svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
             <div class="game-action-popover" role="group" aria-label="対局操作">
-              <button id="resetLocalGame" type="button" hidden>盤面をリセット</button>
+              <button id="openHistory" type="button">保存した棋譜</button>
+              <button id="openCurrentMode" type="button" hidden>現在の対局設定</button>
+              <button id="resetLocalGame" type="button" hidden>新しい対局（盤面をリセット）</button>
               <button id="resign" class="danger-button" type="button">投了する</button>
             </div>
           </details>
         </div>
-        <div id="scoreBox" class="score-box hidden">
-          <strong>終局の確認</strong>
-          <p id="scoreInstruction">死石をタップして指定し、双方で結果を確認してください。</p>
-          <div id="scoreText"></div>
-          <div class="score-actions">
-            <button id="agree" class="primary" type="button">この計算に同意</button>
-            <button id="resume" type="button">対局を再開</button>
-          </div>
-        </div>
+        <p id="saveStatus" class="save-status" role="alert" hidden></p>
       </section>
     </main>
     <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
@@ -120,7 +123,7 @@
           <button id="nativeShare" class="outline full hidden" type="button">端末の共有メニューを開く</button>
         </div>
         <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
-        <p class="explanation">作成者のスマホで色を決定します。相手が参加すると対局できます。再接続時に本人確認は不要です。</p>
+        <p class="explanation">作成者の端末で色を決めます。相手が参加すると対局できます。再接続では原則として本人確認は不要です。</p>
       </section>
       <section id="aiSetup" class="settings-section" hidden>
         <h3>自分の色</h3>
@@ -139,6 +142,36 @@
         </details>
         <button id="startAi" class="primary full" type="button" disabled>準備中…</button>
         <p id="aiMatchStatus" class="explanation" role="status" aria-live="polite">対局を準備しています…</p>
+      </section>
+    </aside>
+    <aside id="historyPanel" class="settings-panel history-panel" role="dialog" aria-modal="true" aria-label="保存した棋譜" hidden>
+      <div class="settings-head"><h2>保存した棋譜</h2><button id="closeHistory" class="icon-button" type="button" aria-label="棋譜を閉じる">×</button></div>
+      <p class="explanation">この端末に自動保存された棋譜を確認できます。</p>
+      <div class="history-import-row">
+        <label for="historyImportFile" class="history-import-label">SGFファイルを読み込む</label>
+        <input id="historyImportFile" type="file" accept=".sgf,application/x-go-sgf,text/plain" aria-label="SGFファイルを読み込む">
+      </div>
+      <p id="historySaveNotice" class="invite-status history-notice" role="status" aria-live="polite"></p>
+      <div id="historyList" class="history-list"></div>
+      <p id="historyEmpty" class="history-empty" hidden>保存された棋譜はまだありません。</p>
+      <section id="historyDetail" class="history-detail" hidden>
+        <button id="historyBack" class="history-back" type="button">← 棋譜一覧に戻る</button>
+        <h3 id="historySelectionName">保存した局面</h3>
+        <canvas id="historyBoard" width="360" height="360" aria-label="棋譜の選択手順の盤面"></canvas>
+        <div class="replay-controls" aria-label="棋譜の手順再生">
+          <button id="historyFirst" type="button" aria-label="最初の局面へ" title="最初の局面へ">≪</button>
+          <button id="historyPrevious" type="button" aria-label="1手戻る" title="1手戻る">‹</button>
+          <span id="historyStepLabel" aria-live="polite">0 / 0</span>
+          <button id="historyNext" type="button" aria-label="1手進む" title="1手進む">›</button>
+          <button id="historyLast" type="button" aria-label="最後の局面へ" title="最後の局面へ">≫</button>
+        </div>
+        <input id="historyStepRange" class="history-step-range" type="range" min="0" max="0" step="1" value="0" aria-label="閲覧する手順">
+        <p id="historyMeta" class="explanation"></p>
+        <button id="historyResume" class="primary full" type="button" hidden>この対局の続きを打つ</button>
+        <button id="historyBranch" class="outline full" type="button">この局面から1台で検討</button>
+        <button id="historyExport" class="outline full" type="button">SGFを書き出す</button>
+        <p id="historyActionNotice" class="invite-status history-notice" role="status" aria-live="polite"></p>
+        <p id="historyReadOnlyHint" class="explanation"></p>
       </section>
     </aside>
   </div>

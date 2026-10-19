@@ -14,7 +14,7 @@ test("AI mode uses the main header mode selector and readiness-gated start",()=>
 test("automatic dead-stone inference reuses scoring panel, no new permanent UI",()=>{
   assert.match(app,/kind:"scoring"/);
   assert.match(app,/suggestDeadStones\(game,result\.ownership\)/);
-  assert.match(app,/type:"dead_auto"/);
+  assert.match(app,/scoringReviewAction\("dead_auto"/);
   assert.match(app,/deadReviewTouched/);
   assert.match(html,/id="scoreBox"/);
   assert.doesNotMatch(html,/id="autoDeadButton"/);

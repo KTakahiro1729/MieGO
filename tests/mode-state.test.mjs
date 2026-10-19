@@ -35,13 +35,11 @@ test("switch confirms only when a game or connection is active",()=>{
 });
 
 test("late P2P events cannot modify a local game after leaving a room",()=>{
-  const start=app.indexOf("c.onmessage=e=>{");
-  assert.notEqual(start,-1,"P2P data channel message handler must exist");
-  const messageHandler=app.slice(start,app.indexOf("\n  };",start));
-  // A late event must be rejected if the user left or its channel was replaced.
-  // Both operand orders of the channel inequality are equivalent.
-  assert.match(messageHandler,/if\s*\(\s*!room\s*\|\|\s*(?:channel\s*!==\s*c|c\s*!==\s*channel)\s*\)\s*return\s*;/);
+  const transport=readFileSync(new URL("../public/p2p-transport.mjs",import.meta.url),"utf8");
+  assert.match(transport,/epoch!==generation\|\|channel!==c\|\|!current/);
+  assert.match(transport,/function leave\(\)/);
   assert.match(app,/function leaveOnlineRoom\(\)/);
+  assert.match(app,/p2pTransport\?\.leave\(\)/);
 });
 
 test("a local reset creates an empty independent game while retaining display assist preference",async()=>{
@@ -58,14 +56,14 @@ test("a local reset creates an empty independent game while retaining display as
   assert.equal(reset.moves.length,0);
 });
 test("the game menu shares the action row with pass and keeps reset local-only",()=>{
-  const row=html.slice(html.indexOf('<div class="action-row">'),html.indexOf('</div>',html.indexOf('<div class="action-row">')));
+  const row=html.slice(html.indexOf('<div id="actionRow" class="action-row">'),html.indexOf('</details>',html.indexOf('id="gameMenu"'))+10);
   assert.ok(row.indexOf('id="pass"') < row.indexOf('id="gameMenu"'));
   assert.match(row,/id="resetLocalGame"/);
   assert.match(row,/id="resign"/);
   assert.match(html,/id="cancel"[^>]*aria-label="仮置きを戻す"/);
   assert.match(app,/if \(room \|\| gameMode!=="local"\) return;/);
   assert.match(app,/resetLocalGame"\)\.hidden=!!room \|\| gameMode!=="local"/);
-  assert.match(app,/game=freshLocalGame\(game\);\s*save\(\);show\(\);requestAnalysis\(\);/);
+  assert.match(app,/game=freshLocalGame\(game\);currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
 });
 test("settings button shows a toothed gear and is labeled",()=>{
   const gear=html.slice(html.indexOf('id="settingsToggle"'),html.indexOf('</button>',html.indexOf('id="settingsToggle"')));

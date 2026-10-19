@@ -176,6 +176,104 @@ button:hover:not(:disabled){border-color:#748094}
   .button-stone{width:16px;height:16px;margin-right:5px}
 }
 
+/* Saved games: a bottom sheet rather than a separate page. */
+.save-status{margin:7px 0;color:#ffcfac;font-size:12px;line-height:1.5}
+.history-panel{max-height:min(90dvh,760px)}
+.history-list{display:flex;flex-direction:column;gap:8px;margin-top:17px}
+.history-list-item{min-height:66px;width:100%;text-align:left;display:flex;align-items:center;gap:12px;background:#232a36;border:1px solid #41495b;border-radius:13px;padding:12px}
+.history-list-icon{width:38px;height:38px;display:grid;place-items:center;border-radius:9px;background:#bd9d70;color:#1a1b1e;font-size:18px;flex:none}
+.history-item-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+.history-item-name{font-size:14px;font-weight:650;color:#f3f2ed}
+.history-item-meta{font-size:11px;color:#adb5c3;overflow-wrap:anywhere;line-height:1.45}
+.history-empty{color:#b7beca;font-size:13px;padding:28px 0;text-align:center}
+.history-detail{margin-top:16px;border-top:1px solid #3e4652;padding-top:14px}
+.history-detail[hidden]{display:none}
+.history-detail h3{font-size:15px;margin:13px 0}
+.history-back{background:transparent;border:0;color:#e9cb85;padding:8px 0;font-size:13px;min-height:36px}
+#historyBoard{display:block;width:min(100%,360px);height:auto;aspect-ratio:1;margin:10px auto;border:6px solid #bc925b;border-radius:9px;background:#e5c58c;box-shadow:0 6px 20px #0006}
+.history-detail .full{width:100%;margin-top:15px}
+
+/* Scoring reuses the same bottom action row instead of adding a second bar. */
+.inline-score-actions{display:flex;flex:1 1 auto;min-width:0;gap:8px;margin:0}
+.inline-score-actions button{flex:1 1 auto;min-width:0;min-height:54px;padding:9px 6px;font-size:12px}
+.inline-score-actions #agree{flex:1.6 1 auto}
+.action-row.finished-actions{justify-content:flex-end}
+.score-box{margin:12px 0 4px}
+@media(max-width:400px){
+ .inline-score-actions{gap:6px}
+ .inline-score-actions button{font-size:11px}
+}
+
+/* Saved game replay and SGF exchange, without a new page. */
+.history-import-row{margin-top:16px}
+.history-import-label{display:block;width:100%;min-height:44px;padding:11px 14px;border-radius:12px;border:1px solid #797375;color:#f5dfad;font-size:13px;text-align:center;cursor:pointer}
+.history-import-label:focus-within{outline:2px solid #eed183;outline-offset:2px}
+#historyImportFile{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.history-import-row:has(#historyImportFile:focus-visible) .history-import-label{outline:3px solid #eed183;outline-offset:2px}
+.replay-controls{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:12px}
+.replay-controls button{display:grid;place-items:center;flex:0 0 44px;min-width:44px;min-height:44px;padding:4px;background:#222b37;color:#f1f1f2;border-radius:12px;font-size:22px;font-weight:400}
+.replay-controls #historyStepLabel{text-align:center;color:#e3e2de;font-size:12px;font-variant-numeric:tabular-nums;min-width:55px;flex:1}
+.history-step-range{display:block;width:100%;accent-color:#f0c773;margin:16px 0}
+.history-detail #historyBranch,.history-detail #historyExport{background:#272d3b;border-color:#525967;color:#f3f2ed}
+@media(max-width:390px){.replay-controls{gap:4px}.replay-controls button{flex-basis:42px;min-width:42px}.replay-controls #historyStepLabel{min-width:48px;font-size:11px}}
+
+.history-notice:not(:empty){margin:10px 0;padding:9px 11px;border:1px solid #6c5b44;border-radius:9px;background:#2e2930;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.replay-controls button:disabled{opacity:.4;cursor:default}
+
+.history-back{min-height:44px}
+.history-detail #historyResume,.history-detail #historyBranch,.history-detail #historyExport{min-height:44px}
+
+/* Portrait-first single-screen game: no scrolling to reach scoring/result. */
+body{overflow:hidden}
+.app-shell{height:100dvh;min-height:0;overflow:hidden;--topbar-height:68px}
+.game-layout{height:calc(100dvh - var(--topbar-height));overflow:hidden;padding-bottom:8px}
+.game-panel{height:100%;min-height:0;--board-reserve:292px}
+.board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px);flex-shrink:0}
+.turn-and-move{display:flex;align-items:center;gap:10px;min-width:0}
+.turn-and-move .turn{min-width:0}
+.turn-and-move .move-label{font-size:11px;font-variant-numeric:tabular-nums;flex-shrink:0}
+.ownership-legend{margin-top:6px}
+.gradient{height:9px}
+.legend-labels{padding-top:3px;font-size:10px}
+.endgame-bar{display:flex;align-items:center;min-height:44px;height:44px;max-height:44px;
+  flex:none;gap:7px;margin-top:4px;color:#bfc5cd}
+.endgame-bar .end-toggle{min-height:44px;flex:0 0 auto;max-width:58%;border:1px solid #384254;
+  background:#202632;border-radius:10px;padding:7px 10px;font-size:12px;color:#e4d0a1}
+.endgame-bar #analysisStatus{flex:1;min-width:0;font-size:11px;text-align:right}
+.endgame-bar.is-expanded .end-toggle{min-width:58px;max-width:66px}
+.endgame-bar.is-expanded #analysisStatus{display:none}
+.endgame-bar .end-actions{flex:1;min-width:0;margin:0;padding:0;background:none;border:0}
+.endgame-bar .end-buttons{display:flex;gap:6px;min-width:0}
+.endgame-bar .end-action{min-height:44px;flex:1;min-width:0;padding:6px 6px;font-size:12px}
+.endgame-bar.is-scoring .end-toggle,.endgame-bar.is-finished .end-toggle{opacity:1;border-color:transparent;background:none;padding-left:0}
+.game-panel.is-scoring .ownership-legend,.game-panel.is-finished .ownership-legend{display:none}
+.game-panel.is-scoring,.game-panel.is-finished{--board-reserve:346px}
+.score-box{flex:none;margin:3px 0 2px;padding:7px 10px;border-radius:10px;min-height:0}
+.score-box strong{display:block;font-size:15px;line-height:1.2}
+.score-box p{margin:2px 0 0;font-size:11px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.score-box #scoreText{font-size:12px;line-height:1.3;margin-top:3px}
+.action-row{flex:none;margin-top:auto;padding-top:4px;padding-bottom:max(6px,env(safe-area-inset-bottom))}
+.action-row .game-actions{z-index:5}
+@media(max-width:700px){
+  .app-shell{--topbar-height:62px}
+  .game-layout{padding:0 10px 6px}
+  .board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px)}
+  .ownership-legend{margin-top:5px}
+  .endgame-bar{margin-top:3px}
+  .game-panel{--board-reserve:285px}
+  .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:337px}
+  .action-row{padding-top:3px}
+}
+@media(max-width:350px){
+  .board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px)}
+  .endgame-bar .end-toggle{font-size:11px;padding:6px 7px}
+  .endgame-bar .end-action{font-size:11px}
+}
+
+/* Keep the final score and its actions together at the bottom on tall phones. */
+.game-panel.is-scoring .score-box,.game-panel.is-finished .score-box{margin-top:auto}
+.game-panel.is-scoring .action-row,.game-panel.is-finished .action-row{margin-top:0}
+
 /* Two-person P2P invitation: compact color selector and conditional human check. */
 .invite-side{display:flex;flex-wrap:wrap;gap:10px 16px;border:1px solid var(--border, #59636d);border-radius:8px;padding:10px 12px;margin:12px 0}
 .invite-side legend{padding:0 5px;font-size:13px}
