@@ -3,8 +3,16 @@
 export const PALETTES = Object.freeze({
   mono: [[249,247,238],[169,169,164],[27,32,38]],
   purpleGreen: [[133,75,177],[215,205,178],[37,132,91]],
-  blueRed: [[65,111,179],[224,214,194],[184,69,82]]
+  blueRed: [[65,111,179],[224,214,194],[184,69,82]],
+  // ColorBrewer diverging endpoints (BrBG, PuOr), chosen to stay distinct for
+  // common colour-vision deficiencies.
+  brownTeal: [[140,81,10],[222,212,190],[1,102,94]],
+  orangePurple: [[179,88,6],[222,212,190],[84,39,136]]
 });
+// "Hide the ownership overlay" is one of the colour-map choices, not a game setting.
+export const PALETTE_NONE = "none";
+export const isPaletteChoice = value => value === PALETTE_NONE || Object.hasOwn(PALETTES, value);
+export const showsOwnership = palette => palette !== PALETTE_NONE;
 const clamp = (v,lo,hi) => Math.min(hi,Math.max(lo,v));
 export function paletteAt(value, palette = "mono") {
   const stops = PALETTES[palette] || PALETTES.mono;

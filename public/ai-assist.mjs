@@ -1,4 +1,4 @@
-import {newGame,play} from "./core.mjs";
+import {initialGame,play} from "./core.mjs";
 import {legalAiMoves} from "./ai-opponent.mjs";
 
 /** Take back the human's latest move (and the AI reply after it) in an AI game.
@@ -12,7 +12,7 @@ export function takeBackForHuman(state, humanColor) {
   for(let i=state.moves.length-1;i>=0;i--)
     if(state.moves[i].color===humanColor){cut=i;break;}
   if(cut<0)return null;
-  let game=newGame(state.assisted);
+  let game=initialGame(state);
   for(const move of state.moves.slice(0,cut))game=play(game,move.position);
   const last=game.moves.at(-1)?.position;
   return {game,lastPosition:Number.isInteger(last)?last:null};

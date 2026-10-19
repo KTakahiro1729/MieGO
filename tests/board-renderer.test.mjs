@@ -67,19 +67,19 @@ test("forbidden points are unmarked until selected and draw a provisional stone 
   assert.equal(calls.some(c=>c.kind==="arc"&&c.args[2]===22&&c.args[0]===100&&c.args[1]===100),false);
 });
 
-test("ownership overlay uses preview-independent review values and honors assisted flag",()=>{
+test("ownership overlay uses preview-independent review values and hides with the none colour map",()=>{
   const game=newGame();
-  let assisted=true;
-  const boardReview={display:{...game,assisted:true},ownership:Array(81).fill(0)};
+  let palette="mono";
+  const boardReview={display:{...game},ownership:Array(81).fill(0)};
   boardReview.ownership[at(2,2)]=1;
   const view={...baseView(game),boardReview,displayedOwnership:Array(81).fill(-1)};
-  const {draw,calls,overlay}=mockBoard(()=>({...view,boardReview:{...boardReview,display:{...game,assisted}}}));
+  const {draw,calls,overlay}=mockBoard(()=>({...view,palette}));
   draw();
   assert.equal(calls.filter(c=>c.kind==="image").length,1);
   assert.equal(overlay.data[3],0,"review neutral point should stay transparent");
   assert.ok(overlay.data[at(2,2)*4+3]>0,"review ownership draws only its own field");
   calls.length=0;
-  assisted=false;
+  palette="none";
   draw();
   assert.equal(calls.filter(c=>c.kind==="image").length,0);
 });

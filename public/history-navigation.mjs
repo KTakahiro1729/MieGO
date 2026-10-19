@@ -29,7 +29,7 @@ export function recordSummary(record,includeKomi=false) {
 
 export function readOnlyHint(record) {
   if(record.source==="variation")return "元の棋譜とは独立して保存した検討用の変化図です。";
-  if(record.source==="sgf")return "SGFの主変化のみを読み込みました。置き石・9路盤以外には未対応。検討はMieGOの中国式・コミ7.5で新しい対局として始まります。";
+  if(record.source==="sgf")return "SGFの主変化のみを読み込みました。9路盤・星への置き石（2〜5子）以外には未対応。検討はMieGOの中国式（互先コミ7.5、置き碁はコミ0.5＋置き石数）で新しい対局として始まります。";
   if(record.mode==="online")return "友人対局は閲覧専用です。途中局面の検討は別の1台対局として開始します。";
   if(record.snapshot.status==="finished")return "終局した棋譜です。途中局面から新しい1台対局を始められます。";
   return "最後の局面から元の対局を再開するか、別の1台対局として検討できます。";
