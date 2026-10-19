@@ -192,3 +192,14 @@ button:hover:not(:disabled){border-color:#748094}
 .history-back{background:transparent;border:0;color:#e9cb85;padding:8px 0;font-size:13px;min-height:36px}
 #historyBoard{display:block;width:min(100%,360px);height:auto;aspect-ratio:1;margin:10px auto;border:6px solid #bc925b;border-radius:9px;background:#e5c58c;box-shadow:0 6px 20px #0006}
 .history-detail .full{width:100%;margin-top:15px}
+
+/* Scoring reuses the same bottom action row instead of adding a second bar. */
+.inline-score-actions{display:flex;flex:1 1 auto;min-width:0;gap:8px;margin:0}
+.inline-score-actions button{flex:1 1 auto;min-width:0;min-height:54px;padding:9px 6px;font-size:12px}
+.inline-score-actions #agree{flex:1.6 1 auto}
+.action-row.finished-actions{justify-content:flex-end}
+.score-box{margin:12px 0 4px}
+@media(max-width:400px){
+ .inline-score-actions{gap:6px}
+ .inline-score-actions button{font-size:11px}
+}
