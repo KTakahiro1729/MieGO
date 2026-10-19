@@ -8,10 +8,10 @@ import {DEFAULT_BOARD_THEME, isBoardTheme} from "./board-theme.mjs";
 // `gain` bends that side's opacity so both sides
 // stand out from that board by about the same amount (white on a light board
 // needs more, black on a dark one). Full opacity stays full colour on both sides.
-// Purple is always Black's side.
+// In the colour maps orange / green is White's side, purple / blue / pink Black's.
 const side = (rgb,weak,gain) => Object.freeze({rgb:Object.freeze(rgb),weak:Object.freeze(weak),gain});
 const ramp = (rgb,gain) => Object.freeze({rgb:Object.freeze(rgb),weak:null,gain});
-const sides = (white,black) => Object.freeze({white,black});
+const sides = (white,black,cap=1) => Object.freeze({white,black,cap});
 export const PALETTES = Object.freeze({
   // Monochrome keeps one colour per side on a smooth ramp: white and black
   // have no room for a separate leaning colour on the light and dark boards.
@@ -22,22 +22,21 @@ export const PALETTES = Object.freeze({
   }),
   // After matplotlib's diverging maps. The inner colour is not a paler
   // in-between: it shifts hue within the side, so a leaning point still says
-  // which side it leans to. PuOr's orange and purple with managua's amber
-  // and vanimo's magenta for the leaning steps.
-  // Above all, both ends must look equally far from neutral: per board, the
-  // side that stood out more is pulled towards the board (CIELAB, same hue)
-  // until each step of both sides is the same distance from it, and both
-  // sides share one gain so this holds at every opacity.
+  // which side it leans to (PuOr / PRGn ends, managua / vanimo / PiYG inner
+  // hues). Per board, chosen by measured CIELAB distance so that:
+  //  - both ends look equally far from neutral, at every opacity (one gain);
+  //  - each step stands apart from the board and from its neighbours;
+  //  - the fixed grid lines stay visible under every colour: `cap` keeps the
+  //    overlay from ever covering them completely.
   orangePurple: Object.freeze({
-    wood: sides(side([214,88,0],[255,225,40],1.5),side([150,102,145],[233,132,182],1.5)),
-    light: sides(side([215,93,18],[249,190,65],1.5),side([84,39,143],[225,100,205],1.5)),
-    dark: sides(side([206,122,50],[207,192,124],1.5),side([150,100,230],[240,120,200],1.5))
+    wood: sides(side([135,50,2],[255,235,36],2.62),side([107,74,98],[255,170,238],2.62),0.75),
+    light: sides(side([171,55,16],[255,211,35],1.28),side([38,20,81],[255,101,243],1.28),0.56),
+    dark: sides(side([182,86,0],[255,255,185],1.72),side([60,76,221],[255,65,158],1.72),0.6)
   }),
-  // PRGn's green and purple with PiYG's lime and pink for the leaning steps.
   greenPurple: Object.freeze({
-    wood: sides(side([27,120,55],[180,240,55],1.5),side([152,102,148],[235,99,149],1.5)),
-    light: sides(side([27,120,55],[171,210,93],1.5),side([128,64,140],[240,95,155],1.5)),
-    dark: sides(side([84,176,104],[170,193,122],1.5),side([160,100,220],[240,110,180],1.5))
+    wood: sides(side([22,82,10],[153,237,0],2.55),side([81,63,92],[255,41,102],2.55),0.76),
+    light: sides(side([0,81,9],[181,237,88],1.29),side([81,28,119],[255,70,136],1.29),0.57),
+    dark: sides(side([0,100,1],[255,255,181],1.68),side([31,75,212],[239,37,142],1.68),0.61)
   })
 });
 // "Hide the ownership overlay" is one of the colour-map choices, not a game setting.
@@ -58,7 +57,7 @@ export const showsOwnership = palette => palette !== PALETTE_NONE;
 // SETTLED is the same line the endgame advisor counts as "settled", so a
 // board that is nearly all strong colour is a board where scoring is offered.
 // Bands meet over a short blend so the board does not look posterized.
-export const OWNERSHIP_BANDS = Object.freeze({LEANING:.3, SETTLED:.72, BLEND:.05});
+export const OWNERSHIP_BANDS = Object.freeze({LEANING:.3, SETTLED:.72, BLEND:.1});
 // Overlay strength (before the opacity slider) of each band.
 const NEUTRAL_LEVEL = .1, LEANING_LEVEL = .6;
 const clamp = (v,lo,hi) => Math.min(hi,Math.max(lo,v));
@@ -76,6 +75,7 @@ function sideAt(value, palette, theme) {
   const {white,black} = sidesFor(palette,theme);
   return v > 0 ? black : white;
 }
+const capFor = (palette, theme) => sidesFor(palette,theme).cap;
 // The side's colour: weak below SETTLED, strong from it (one colour on a ramp).
 function mix(s, value) {
   if(!s.weak)return [...s.rgb];
@@ -99,7 +99,7 @@ export function ownershipAlpha(value, opacity = 1, gain = 1, banded = true) {
 }
 export function ownershipPixel(value, palette = DEFAULT_PALETTE, opacity = 1, theme = DEFAULT_BOARD_THEME) {
   const s = sideAt(value,palette,theme);
-  return [...mix(s,value),Math.round(255*ownershipAlpha(value,opacity,s.gain,!!s.weak))];
+  return [...mix(s,value),Math.round(255*capFor(palette,theme)*ownershipAlpha(value,opacity,s.gain,!!s.weak))];
 }
 // The legend runs from White (left) through neutral (centre) to Black (right),
 // sampled from the same function as the board so its bands line up with it.
@@ -120,8 +120,8 @@ export const countingPalette = palette => showsOwnership(palette) && Object.hasO
 export const countingOpacity = opacity => Math.max(Number.isFinite(opacity) ? clamp(opacity,0,1) : 0, COUNTING_MIN_OPACITY);
 // The counting legend: White's area | neutral (a small ring, as on the board) | Black's area.
 export function countingGradient(palette = DEFAULT_PALETTE, opacity = 1, theme = DEFAULT_BOARD_THEME) {
-  const {white,black} = sidesFor(countingPalette(palette),theme);
-  const fill = s => "rgba("+s.rgb.join(",")+","+Number(ownershipAlpha(1,countingOpacity(opacity),s.gain).toFixed(3))+")";
+  const map = countingPalette(palette), {white,black} = sidesFor(map,theme);
+  const fill = s => "rgba("+s.rgb.join(",")+","+Number((capFor(map,theme)*ownershipAlpha(1,countingOpacity(opacity),s.gain)).toFixed(3))+")";
   return "radial-gradient(circle at 50% 50%,transparent 2.4px,"+NEUTRAL_MARK+" 2.4px 3.6px,transparent 3.6px),"+
     "linear-gradient(90deg,"+fill(white)+" 0 33%,transparent 33% 67%,"+fill(black)+" 67% 100%)";
 }

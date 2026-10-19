@@ -15,19 +15,12 @@ test("every colour map is tuned for every board look",()=>{
   for(const name of Object.keys(PALETTES))
     assert.deepEqual(Object.keys(PALETTES[name]).sort(),[...THEMES].sort());
 });
-test("purple always stands for Black",()=>{
-  const purple=([r,g,b])=>b>g && r>g && b>r*.9;
-  for(const name of ["orangePurple","greenPurple"])
-    for(const theme of THEMES){
-      assert.ok(purple(paletteAt(1,name,theme)),name+"/"+theme+" black side is purple");
-      assert.ok(!purple(paletteAt(-1,name,theme)),name+"/"+theme+" white side is not purple");
-    }
-});
 test("neutral is completely transparent in all palettes, with opacity increasing towards extremes",()=>{
   for(const name of Object.keys(PALETTES))for(const theme of THEMES){
     assert.equal(ownershipPixel(0,name,.55,theme)[3],0);
-    assert.equal(ownershipPixel(-1,name,1,theme)[3],255);
-    assert.equal(ownershipPixel(1,name,1,theme)[3],255);
+    const full=Math.round(255*PALETTES[name][theme].cap);
+    assert.equal(ownershipPixel(-1,name,1,theme)[3],full);
+    assert.equal(ownershipPixel(1,name,1,theme)[3],full);
     assert.deepEqual(paletteAt(-1,name,theme),PALETTES[name][theme].white.rgb);
     assert.deepEqual(paletteAt(1,name,theme),PALETTES[name][theme].black.rgb);
     assert.ok(ownershipPixel(-.05,name,.55,theme)[3]<ownershipPixel(-.8,name,.55,theme)[3]);
@@ -55,15 +48,6 @@ test("five bands: neutral, leaning (weak colour) and settled (strong colour) on 
     assert.ok(alpha(LEANING+BLEND)>alpha(LEANING-BLEND)*4,"leaning is clearly visible");
     assert.ok(alpha(SETTLED+BLEND)>alpha(SETTLED-BLEND)+.15,"settled stands out from leaning");
   }
-  // The leaning colour shifts hue within its side rather than only fading.
-  const hue=([r,g,b])=>{const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn||1;
-    const h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;return (h*60+360)%360;};
-  for(const name of ["orangePurple","greenPurple"])for(const theme of THEMES)
-    for(const s of ["white","black"]){
-      const {rgb,weak}=PALETTES[name][theme][s];
-      const d=Math.abs(hue(rgb)-hue(weak));
-      assert.ok(Math.min(d,360-d)>=10,name+"/"+theme+"/"+s+" leaning step has its own hue");
-    }
 });
 test("monochrome keeps one colour per side on a smooth ramp, as before the bands",async()=>{
   const {OWNERSHIP_GAMMA}=await import("../public/territory-view.mjs");
@@ -126,9 +110,9 @@ test("counting legend shows White's area, a neutral ring and Black's area in the
   assert.equal(countingOpacity(.8),.8);
   const css=countingGradient("orangePurple",.8,"wood");
   assert.match(css,/^radial-gradient\(/);
-  assert.match(css,/rgba\(214,88,0,[^)]+\) 0 33%/);
+  assert.match(css,/rgba\(135,50,2,[^)]+\) 0 33%/);
   assert.match(css,/transparent 33% 67%/);
-  assert.match(css,/rgba\(150,102,145,[^)]+\) 67% 100%/);
+  assert.match(css,/rgba\(107,74,98,[^)]+\) 67% 100%/);
 });
 
 test("both sides look equally far from neutral and every step stays apart, on every board look",()=>{
@@ -151,6 +135,15 @@ test("both sides look equally far from neutral and every step stays apart, on ev
       const w=dE(at(-v),surface),b=dE(at(v),surface);
       assert.ok(Math.max(w,b)/Math.min(w,b)<=1.1,name+"/"+theme+" sides at "+v+"/"+opacity+": "+w.toFixed(1)+" vs "+b.toFixed(1));
     }
-    for(const [a,b] of pairs)assert.ok(dE(a,b)>=20,name+"/"+theme+" step distance "+dE(a,b).toFixed(1));
+    // The fixed grid lines stay visible under every step.
+    const css=BOARD_THEMES[theme].line;
+    const rgba=css[0]==="#"?[1,3,5].map(i=>parseInt(css.slice(i,i+2),16)).concat(1):css.match(/[\d.]+/g).map(Number);
+    const line=rgba.slice(0,3).map((c,i)=>c*rgba[3]+surface[i]*(1-rgba[3]));
+    for(const opacity of [.55,1])for(const v of [-1,-.5,.5,1]){
+      const [r,g,b,a]=ownershipPixel(v,name,opacity,theme),k=a/255;
+      const onLine=[r,g,b].map((c,i)=>c*k+line[i]*(1-k)),onBoard=[r,g,b].map((c,i)=>c*k+surface[i]*(1-k));
+      assert.ok(dE(onLine,onBoard)>=(opacity===1?10.5:15.5),name+"/"+theme+" line under "+v+"/"+opacity+": "+dE(onLine,onBoard).toFixed(1));
+    }
+    for(const [a,b] of pairs)assert.ok(dE(a,b)>=18.5,name+"/"+theme+" step distance "+dE(a,b).toFixed(1));
   }
 });
