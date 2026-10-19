@@ -68,3 +68,10 @@ test("SGF exports and AI sharing share the existing single-row replay menu",()=>
  assert.match(style,/\.review-menu-popover\{position:absolute/);
  assert.doesNotMatch(html,/id="historyShareMenu"|id="historyExport"/);
 });
+
+test("saved-game picker is a repeatable command, not a persistent fourth mode",()=>{
+ assert.match(app,/modePicker"\)\.value=room\?"online":gameMode/);
+ assert.match(app,/if\(selected==="history"\)openHistoryPanel\(\)/);
+ assert.match(app,/if\(boardReview\?\.source==="url"\)clearImportedReviewUrl\(\)/);
+ assert.match(app,/gamePanel"\)\.classList\.remove\("is-scoring","is-finished"\)/);
+});

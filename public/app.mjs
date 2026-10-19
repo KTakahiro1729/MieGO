@@ -847,7 +847,11 @@ function renderBoardReview() {
   $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
   $("turn").textContent="棋譜を確認中";
   $("modePicker").disabled=false;
-  $("modePicker").value=source==="live"?(room?"online":gameMode):"history";
+  $("gamePanel").classList.remove("is-scoring","is-finished");
+  $("netStatus").textContent=source==="archive"?"保存した棋譜":source==="url"?"共有棋譜":
+    gameMode==="ai"?"AIと対戦":room?"URLで対戦":"1台で打つ";
+  // "保存した棋譜…" is a repeatable command, not a fourth playing mode.
+  $("modePicker").value=room?"online":gameMode;
   $("reviewResume").hidden=!canResumeSelectedReview();
   $("reviewBack").textContent=source==="live"?"最新に戻る":"対局に戻る";
   $("actionRow").hidden=true;
@@ -979,6 +983,9 @@ function openSavedBoard(record) {
   try{
     const count=record.snapshot.moves.length;
     replaySteps(record.snapshot,count);
+    // If the previous board came from a shared SGF URL, do not leave that
+    // old URL in the address bar after opening another saved record.
+    if(boardReview?.source==="url")clearImportedReviewUrl();
     closePanels();
     enterBoardReview(record.snapshot,count,"archive",record.sgfMeta,record);
     $("moveLabel").focus();
@@ -1097,7 +1104,7 @@ function closePanels() {
   $("onlineSetup").hidden=true;
   $("aiSetup").hidden=true;
   $("settingsToggle").setAttribute("aria-expanded","false");
-  $("modePicker").value=boardReview && boardReview.source!=="live"?"history":room?"online":gameMode;
+  $("modePicker").value=room?"online":gameMode;
 }
 function closeSettings(){closePanels();$("settingsToggle").focus();}
 $("settingsToggle").onclick=()=>$("settingsPanel").hidden?openSettings():closeSettings();
@@ -1107,7 +1114,7 @@ $("settingsBackdrop").onclick=closePanels;
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("settingsBackdrop").hidden)closePanels();});
 $("modePicker").onchange=e=>{
   const selected=e.target.value;
-  e.target.value=boardReview && boardReview.source!=="live"?"history":room?"online":gameMode;
+  e.target.value=room?"online":gameMode;
   if(selected==="history")openHistoryPanel();
   else if(selected==="local")switchToLocal();
   else if(selected==="online"){
