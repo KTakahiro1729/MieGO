@@ -708,7 +708,9 @@ function setupChannel(c){
   channel=c;
   c.onopen=()=>{
     connected=true;$("netStatus").textContent="P2P接続中";
-    if(seat==="host")send({type:"snapshot",game,lastPosition});
+    if(seat==="host")send({type:"snapshot",game,lastPosition,
+      scoringReview:game.status==="scoring" &&
+        ["complete","none","modified","unavailable"].includes(deadReview)?deadReview:null});
     show();
   };
   c.onclose=()=>{if(!room)return;connected=false;$("netStatus").textContent="接続待機中";show();};
@@ -719,6 +721,11 @@ function setupChannel(c){
     if(msg.type==="snapshot"&&seat==="guest"){
       if(!msg.game||!Array.isArray(msg.game.board)||msg.game.board.length!==81)return;
       game=msg.game;lastPosition=msg.lastPosition;candidate=null;
+      deadReview=game.status==="scoring" &&
+        ["complete","none","modified","unavailable"].includes(msg.scoringReview)
+        ?msg.scoringReview:"idle";
+      deadReviewTouched=deadReview==="modified";
+      deadEvaluation=null;
       save();
       endgameAdvisor.reset();endgameStage="playing";
       endExpanded=!!game.endProposal && game.endProposal.from!==myColorForEnd();
@@ -921,7 +928,9 @@ function resumeHistoryRecord() {
     $("aiReinforcement").value=String(reinforcement);updatePersonaUi();
   }
   endgameAdvisor.reset();endgameStage="playing";endExpanded=!!game.endProposal;
-  lastOfferKey=null;deadReview="idle";deadEvaluation=null;deadReviewTouched=false;
+  lastOfferKey=null;deadReview=game.status==="scoring" &&
+    (game.dead.length || game.agreed.black || game.agreed.white)?"modified":"idle";
+  deadEvaluation=null;deadReviewTouched=deadReview==="modified";
   analysis=null;displayedOwnership=null;
   try{gameLibrary.setActive(gameMode,currentGameId);}catch(error){storageError(error);return;}
   rememberSettings();
