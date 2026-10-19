@@ -1,3 +1,5 @@
+import { resultLabel } from "./result-label.mjs";
+
 /** Presentation fields and navigation rules for saved SGF/game records. */
 export function recordName(record) {
   if(record.source==="variation")return "保存した変化図";
@@ -8,7 +10,7 @@ export function recordName(record) {
 export function recordStatus(record) {
   if(record.source==="variation")return "変化図";
   if(record.source==="sgf")return "読み込み済み";
-  return record.snapshot.status==="finished"?"終局済み":
+  return record.snapshot.status==="finished"?resultLabel(record.snapshot.result)||"終局済み":
     record.snapshot.status==="scoring"?"採点中":"対局中";
 }
 

@@ -5,22 +5,32 @@ import {at,newGame,play,boardHash} from "../public/core.mjs";
 import {resultLabel,shareLabels,shareFrameSize,buildGameAnimation,paintShareFrame,SHARE_LINKS} from "../public/share-image.mjs";
 import {OwnershipStore,encodeOwnership,decodeOwnership} from "../public/ownership-store.mjs";
 
-test("results read in Japanese",()=>{
+test("results read the same plain way everywhere",()=>{
   assert.equal(resultLabel("B+3.5"),"黒が3.5目差で勝利");
   assert.equal(resultLabel("W+12"),"白が12.0目差で勝利");
-  assert.equal(resultLabel("W+R"),"白の投了勝ち");
-  assert.equal(resultLabel("B+Resign"),"黒の投了勝ち");
+  assert.equal(resultLabel("W+R"),"黒の投了で白が勝利");
+  assert.equal(resultLabel("B+Resign"),"白の投了で黒が勝利");
+  assert.equal(resultLabel("B+T"),"白の時間切れで黒が勝利");
   assert.equal(resultLabel("0"),"引き分け");
   assert.equal(resultLabel(null),null);
   assert.equal(resultLabel("?"),null);
+  // No jargon a beginner would have to look up.
+  for(const r of ["B+3.5","W+R","B+T"])assert.doesNotMatch(resultLabel(r),/中押|目半/);
+  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+  const history=readFileSync(new URL("../public/history-navigation.mjs",import.meta.url),"utf8");
+  assert.match(app,/querySelector\("strong"\)\.textContent=resultLabel\(result\)/);
+  assert.match(history,/resultLabel\(record\.snapshot\.result\)\|\|"終局済み"/);
+  assert.doesNotMatch(app,/投了勝ち|目勝ち/);
 });
 
-test("labels name the moves, the result and the winner",()=>{
-  assert.deepEqual(shareLabels({step:42,total:60,result:"B+3.5",animated:false}),{moves:"42手目",result:"黒が3.5目差で勝利",winner:"B"});
-  assert.deepEqual(shareLabels({step:12,total:12,result:null,animated:false}),{moves:"12手目",result:"終局前",winner:null});
-  assert.deepEqual(shareLabels({step:60,total:60,result:"W+R",animated:true}),{moves:"全60手",result:"白の投了勝ち",winner:"W"});
+test("labels name the moves, rules, result and winner",()=>{
+  assert.deepEqual(shareLabels({step:42,total:60,result:"B+3.5",animated:false}),
+    {moves:"42手目",rules:"コミ7.5目",result:"黒が3.5目差で勝利",winner:"B"});
+  assert.deepEqual(shareLabels({step:12,total:12,result:null,animated:false,komi:.5,handicap:3}),
+    {moves:"12手目",rules:"3子局 · コミ0.5目",result:"対局中",winner:null});
+  assert.equal(shareLabels({step:60,total:60,result:"W+R",animated:true}).moves,"全60手");
+  assert.equal(shareLabels({step:20,total:60,result:"W+R",animated:true}).moves,"20手目まで");
   assert.equal(shareLabels({step:5,total:5,result:"0",animated:false}).winner,null,"a draw has no winner");
-  assert.equal(shareLabels({step:20,total:60,result:"W+R",animated:true}).moves,"0〜20手目");
   assert.deepEqual(shareFrameSize(800),{width:800,height:1000});
 });
 
@@ -35,27 +45,26 @@ function recordingContext() {
     measureText:t=>({width:t.length*10})};
 }
 
-test("the card is the board with the result above and legend and links below",()=>{
+test("the card reads brand and rules, result, board, legend, then links",()=>{
   assert.deepEqual(SHARE_LINKS,[["自分でプレイする","miego.fun"],["開発に参加する","github.com/KTakahiro1729/MieGO"]]);
   const ctx=recordingContext();
   paintShareFrame({width:800,getContext:()=>ctx},{width:720},
-    {moves:"42手目",result:"白が3.5目差で勝利",winner:"W",theme:"wood",legend:{palette:"mono",opacity:.55}});
-  assert.deepEqual(ctx.texts.map(t=>t.text),["MieGO","42手目","白が3.5目差で勝利","白寄り","黒寄り",
-    "miego.fun","自分でプレイする","github.com/KTakahiro1729/MieGO","開発に参加する"]);
-  assert.deepEqual(ctx.images,[[0,0,800,800]],"the board fills the card's top");
+    {moves:"42手目",rules:"コミ7.5目",result:"白が3.5目差で勝利",winner:"W",theme:"wood",legend:{palette:"mono",opacity:.55}});
+  assert.deepEqual(ctx.texts.map(t=>t.text),["MieGO","42手目 · コミ7.5目","白が3.5目差で勝利",
+    "地合いの予想","白の地","黒の地","miego.fun","自分でプレイする","github.com/KTakahiro1729/MieGO","開発に参加する"]);
+  const [[bx,by,bs]]=ctx.images;
   const at=text=>ctx.texts.find(t=>t.text===text);
-  assert.equal(at("MieGO").x,80,"text aligns with the grid's edge");
-  // The result sits in the top margin, centred together with the winner's stone.
-  const result=at("白が3.5目差で勝利"),stone=ctx.arcs.find(([,,r])=>r===14);
-  assert.ok(result.y<80 && result.font.includes("Mincho"));
-  const width=result.text.length*10;
-  assert.ok(Math.abs((stone[0]-14)+(result.x+width-(stone[0]-14))/2-400)<1,"stone and result are centred");
-  // The legend is centred just under the board.
-  assert.ok(at("白寄り").y>800 && at("白寄り").y<860);
-  assert.ok(Math.abs((at("白寄り").x+at("黒寄り").x)/2-400)<1);
-  // Each link is centred in its half, the address above its purpose.
-  assert.equal(at("miego.fun").x,240);
-  assert.equal(at("github.com/KTakahiro1729/MieGO").x,560);
+  assert.equal(at("MieGO").x,bx+bs/10,"text aligns with the grid's edge");
+  // The result is the headline between the top line and the board, centred with the winner's stone.
+  const result=at("白が3.5目差で勝利"),stone=ctx.arcs.find(([,,r])=>r===16);
+  assert.ok(result.y>at("MieGO").y && result.y<by && result.font.includes("Mincho"));
+  assert.ok(Math.abs(((stone[0]-16)+(result.x+result.text.length*10))/2-400)<1,"stone and result are centred");
+  // The legend is titled, centred and sits just under the board.
+  assert.ok(at("地合いの予想").y>by+bs && at("黒の地").y<at("miego.fun").y);
+  assert.ok(Math.abs((at("白の地").x+at("黒の地").x)/2-400)<1);
+  // Each link is centred in its half of the board's width, the address above its purpose.
+  assert.equal(at("miego.fun").x,bx+bs/4);
+  assert.equal(at("github.com/KTakahiro1729/MieGO").x,bx+bs*3/4);
   for(const [label,link] of SHARE_LINKS){
     assert.equal(at(link).x,at(label).x);
     assert.ok(at(link).y<at(label).y);
@@ -63,10 +72,10 @@ test("the card is the board with the result above and legend and links below",()
   assert.ok(ctx.texts.every(t=>t.y<1000));
   const plain=recordingContext();
   paintShareFrame({width:800,getContext:()=>plain},{width:720},
-    {moves:"1手目",result:"終局前",winner:null,theme:"dark",legend:null});
-  assert.ok(!plain.texts.some(t=>t.text==="白寄り"),"no legend without colours");
+    {moves:"1手目",result:"対局中",winner:null,theme:"dark",legend:null});
+  assert.ok(!plain.texts.some(t=>t.text==="地合いの予想"),"no legend without colours");
   assert.equal(plain.arcs.length,0,"no stone before an unfinished result");
-  assert.equal(plain.texts.find(t=>t.text==="終局前").x,400-15,"an unfinished result is centred alone");
+  assert.equal(plain.texts.find(t=>t.text==="対局中").x,400-15,"an unfinished result is centred alone");
 });
 
 test("the animation replays every move and ends on the board as drawn",async()=>{

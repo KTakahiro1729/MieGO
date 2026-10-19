@@ -17,6 +17,7 @@ import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { shareLabels, shareFrameSize, paintShareFrame, buildGameAnimation, loadShareFonts } from "./share-image.mjs";
 import { OwnershipStore } from "./ownership-store.mjs";
+import { resultLabel } from "./result-label.mjs";
 import { influence } from "./influence.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
@@ -524,15 +525,11 @@ function show() {
   }
   if(isFinished) {
     const result=game.result;
+    $("scoreBox").querySelector("strong").textContent=resultLabel(result)||"終局";
     if(result?.endsWith("+R")) {
-      $("scoreBox").querySelector("strong").textContent=(result.startsWith("B+")?"黒":"白")+"の投了勝ち";
       $("scoreText").textContent="投了により終局";
     } else {
       const score=areaScore(game);
-      $("scoreBox").querySelector("strong").textContent=
-        (result?.startsWith("B+")?"黒":result?.startsWith("W+")?"白":"引き分け")+
-        (result?.startsWith("B+")||result?.startsWith("W+")?
-          "の"+Math.abs(score.difference).toFixed(1)+"目勝ち":"");
       $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（"+compensationLabel()+"）";
     }
   }
@@ -1383,7 +1380,9 @@ function shareImageDetails(animated){
   // animation frame is coloured, a still only what the board now shows.
   const coloured=overlayOn() && (animated ||
     (boardReview ? !!boardReview.ownership : game.status==="playing" && !!displayedOwnership));
-  return {snapshot,step,gameId,labels:{...shareLabels({step,total,result,animated}),
+  return {snapshot,step,gameId,labels:{...shareLabels({step,total,result,animated,
+      komi:Number.isFinite(Number(metadata?.komi)) ? Number(metadata.komi) : komiOf(snapshot),
+      handicap:handicapOf(snapshot)}),
     theme:boardTheme,legend:coloured ? {palette,opacity} : null}};
 }
 // An animation frame: the replayed position with the ownership recorded for
