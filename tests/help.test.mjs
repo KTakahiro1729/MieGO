@@ -43,3 +43,20 @@ test("help stacks above the open sheet and Escape closes it first",()=>{
   // A local ? keeps its row height: the glyph is small and the tap area comes from ::after.
   assert.match(css,/\.help-button::after\{content:"";position:absolute;inset:-10px\}/);
 });
+
+test("a local ? opens only its own topic in a popover beside it",()=>{
+  assert.match(html,/<div id="helpPopover" class="help-popover" role="dialog"[^>]*hidden>/);
+  assert.match(app,/else openHelpPopover\(button\.dataset\.help,button\);/);
+  // The popover copies the sheet's topic, so each explanation is written once,
+  // and drops ids so the copy never duplicates an element of the sheet.
+  assert.match(app,/const source=\$\("help-"\+topic\);/);
+  assert.match(app,/copy\.querySelectorAll\("\[id\]"\)\]\)el\.removeAttribute\("id"\)/);
+  // Only the header button opens the whole sheet, with every topic closed.
+  assert.match(app,/\$\("helpToggle"\)\.onclick=\(\)=>\$\("helpPanel"\)\.hidden\?openHelp\(\):closeHelp\(\);/);
+  assert.match(app,/item\.open=false;/);
+  // Escape, a tap elsewhere and closing the sheets all dismiss it.
+  assert.match(app,/if\(!\$\("helpPopover"\)\.hidden\)\{closeHelpPopover\(\);return;\}/);
+  assert.match(app,/if\(!e\.target\.closest\?\.\("#helpPopover,\[data-help\]"\)\)closeHelpPopover\(false\);/);
+  assert.match(app,/function closePanels\(\) \{[^}]*closeHelpPopover\(false\);/);
+  assert.match(css,/\.help-popover\{position:fixed;z-index:12;/);
+});
