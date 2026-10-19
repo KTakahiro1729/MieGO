@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {at,newGame,play,boardHash} from "../public/core.mjs";
-import {resultLabel,shareCaption,shareFrameSize,buildGameAnimation} from "../public/share-image.mjs";
+import {resultLabel,shareCaption,shareFrameSize,buildGameAnimation,paintShareFrame,SHARE_LINKS} from "../public/share-image.mjs";
 import {OwnershipStore,encodeOwnership,decodeOwnership} from "../public/ownership-store.mjs";
 
 test("results read in Japanese",()=>{
@@ -20,7 +20,17 @@ test("captions name the move and the result, or that the game is unfinished",()=
   assert.equal(shareCaption({step:12,total:12,result:null,animated:false}),"12手目 · 終局前");
   assert.equal(shareCaption({step:60,total:60,result:"W+R",animated:true}),"全60手 · 白の投了勝ち");
   assert.equal(shareCaption({step:20,total:60,result:"W+R",animated:true}),"0〜20手目 · 白の投了勝ち");
-  assert.deepEqual(shareFrameSize(720),{width:720,height:828,footer:108});
+  assert.deepEqual(shareFrameSize(720),{width:720,height:900,footer:180});
+});
+
+test("the footer says where to play and where to join development",()=>{
+  assert.deepEqual(SHARE_LINKS,[["自分でプレイする：","miego.fun"],["開発に参加する：","github.com/KTakahiro1729/MieGO"]]);
+  const texts=[];
+  const ctx={drawImage(){},fillRect(){},fillText:(text,x,y)=>texts.push([text,x,y]),measureText:t=>({width:t.length*10})};
+  paintShareFrame({width:480,getContext:()=>ctx},{width:720},{caption:"42手目 · 黒の3.5目勝ち"});
+  assert.deepEqual(texts.map(t=>t[0]),["42手目 · 黒の3.5目勝ち","自分でプレイする：","miego.fun","開発に参加する：","github.com/KTakahiro1729/MieGO"]);
+  assert.equal(texts[2][1],texts[1][1]+90,"the link follows its label");
+  assert.ok(texts.every(([,,y])=>y>480 && y<600),"all text sits in the footer");
 });
 
 test("the animation replays every move and ends on the board as drawn",async()=>{
@@ -30,7 +40,7 @@ test("the animation replays every move and ends on the board as drawn",async()=>
   const fakeCanvas=(width,height)=>{
     let source=null;
     return {width,height,getContext:()=>({
-      drawImage(board){source=board;},fillRect(){},fillText(){},
+      drawImage(board){source=board;},fillRect(){},fillText(){},measureText:()=>({width:0}),
       getImageData(){
         const data=new Uint8ClampedArray(width*height*4);
         data.fill(source.shade);
@@ -40,7 +50,7 @@ test("the animation replays every move and ends on the board as drawn",async()=>
   };
   const renderBoard=state=>{rendered.push(state.moves.length);return {width:8,shade:state.moves.length*40};};
   const bytes=await buildGameAnimation({snapshot:game,step:3,size:8,renderBoard,
-    finalBoard:{width:8,shade:250},createCanvas:fakeCanvas,caption:"",url:"",pause:async()=>{}});
+    finalBoard:{width:8,shade:250},createCanvas:fakeCanvas,caption:"",pause:async()=>{}});
   assert.equal(String.fromCharCode(...bytes.slice(0,6)),"GIF89a");
   assert.deepEqual([...new Set(rendered)].sort(),[0,1,2],"each earlier move is replayed");
 });

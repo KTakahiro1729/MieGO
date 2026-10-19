@@ -1361,8 +1361,11 @@ function downloadBlob(blob,name){
 }
 // Shared images end on the board exactly as drawn (board look, ownership
 // colours, marks and labels come from the canvas itself), with a footer
-// naming the move, the result and the app's address.
-let shareImageKind="still",preparedImage=null,shareImageFailed=false,shareImageJob=0,shareProgress="";
+// naming the move, the result, where to play and where it is developed.
+// Both kinds are made when the sheet opens so each choice shows its image.
+const SHARE_KINDS=["still","animation"];
+let shareImageKind="still",shareImageJob=0;
+let shareImages={},sharePreviewUrls=[];
 let frameRenderer=null,frameState=null,frameOwnership=null;
 const ANIMATION_SIZE=480;
 // The ownership shown for each committed position, kept per saved game so
@@ -1376,7 +1379,7 @@ function shareImageDetails(animated){
   const {snapshot,metadata,step,gameId}=sharedPosition();
   const total=snapshot.moves.filter(m=>m.position!=="resign").length;
   const result=metadata?.result || (snapshot.status==="finished" ? snapshot.result : null);
-  return {snapshot,step,gameId,caption:shareCaption({step,total,result,animated}),url:location.host};
+  return {snapshot,step,gameId,caption:shareCaption({step,total,result,animated})};
 }
 // An animation frame: the replayed position with the ownership recorded for
 // it, or the replay view's quick estimate where none was recorded.
@@ -1392,24 +1395,23 @@ function renderFrameBoard(state,gameId){
   frameRenderer.draw();
   return frameRenderer.board;
 }
-async function makeShareImage(kind){
+async function makeShareImage(kind,job){
   draw();
   const animated=kind==="animation";
-  const {snapshot,step,gameId,caption,url}=shareImageDetails(animated);
+  const {snapshot,step,gameId,caption}=shareImageDetails(animated);
   if(animated){
     frameRenderer=null;
-    const job=shareImageJob;
     const bytes=await buildGameAnimation({snapshot,step,size:ANIMATION_SIZE,
-      renderBoard:state=>renderFrameBoard(state,gameId),finalBoard:canvas,createCanvas:frameCanvas,caption,url,
+      renderBoard:state=>renderFrameBoard(state,gameId),finalBoard:canvas,createCanvas:frameCanvas,caption,
       onProgress:(i,total)=>{
         if(job!==shareImageJob)throw Error("中断しました");
-        shareProgress=" "+i+"/"+total+"手";renderShareImageButton();
+        shareImages.animation={progress:i+"/"+total+"手"};renderShareImages();
       }});
     return new File([bytes],"miego-moves"+step+".gif",{type:"image/gif"});
   }
   const {width,height}=shareFrameSize(canvas.width);
   const target=frameCanvas(width,height);
-  paintShareFrame(target,canvas,{caption,url});
+  paintShareFrame(target,canvas,{caption});
   const blob=await new Promise((resolve,reject)=>
     target.toBlob(b=>b?resolve(b):reject(Error("画像を作れません")),"image/png"));
   return new File([blob],"miego-move"+step+".png",{type:"image/png"});
@@ -1418,27 +1420,46 @@ const canShareFile=file=>{
   try{return typeof navigator.share==="function" && !!navigator.canShare?.({files:[file]});}
   catch{return false;}
 };
-function renderShareImageButton(){
-  const button=$("shareImage");
-  button.disabled=!preparedImage;
-  button.textContent=preparedImage ? (canShareFile(preparedImage)?"SNSで共有":"画像を保存") :
-    shareImageFailed ? "画像を作れませんでした" : "画像を作成中…"+shareProgress;
+function renderShareImages(){
+  for(const kind of SHARE_KINDS){
+    const entry=shareImages[kind]||{},id=kind==="still"?"Still":"Animation";
+    const preview=$("share"+id+"Preview"),status=$("share"+id+"Status");
+    preview.hidden=!entry.url;
+    if(entry.url && preview.getAttribute("src")!==entry.url)preview.src=entry.url;
+    status.hidden=!!entry.url;
+    status.textContent=entry.failed?"作れませんでした":"作成中…"+(entry.progress?" "+entry.progress:"");
+  }
+  const file=shareImages[shareImageKind]?.file,button=$("shareImage");
+  button.disabled=!file;
+  button.textContent=file ? (canShareFile(file)?"SNSで共有":"画像を保存") :
+    shareImages[shareImageKind]?.failed ? "画像を作れませんでした" : "画像を作成中…";
 }
-// The image is made before the tap: sharing must start straight from the
+function clearShareImages(){
+  shareImageJob++;shareImages={};
+  sharePreviewUrls.forEach(url=>URL.revokeObjectURL(url));sharePreviewUrls=[];
+}
+// The images are made before the tap: sharing must start straight from the
 // tap, and a long game's animation takes a moment to encode.
-async function prepareShareImage(){
-  const job=++shareImageJob;
-  preparedImage=null;shareImageFailed=false;shareProgress="";renderShareImageButton();
-  try{
-    const file=await makeShareImage(shareImageKind);
-    if(job===shareImageJob)preparedImage=file;
-  }catch(error){
-    if(job!==shareImageJob)return;
-    shareImageFailed=true;$("shareNotice").textContent="画像を作れません："+error.message;
-  }finally{if(job===shareImageJob)renderShareImageButton();}
+async function prepareShareImages(){
+  clearShareImages();
+  const job=shareImageJob;
+  renderShareImages();
+  for(const kind of SHARE_KINDS){
+    try{
+      const file=await makeShareImage(kind,job);
+      if(job!==shareImageJob)return;
+      const url=URL.createObjectURL(file);sharePreviewUrls.push(url);
+      shareImages[kind]={file,url};
+    }catch(error){
+      if(job!==shareImageJob)return;
+      shareImages[kind]={failed:true};
+      $("shareNotice").textContent="画像を作れません："+error.message;
+    }
+    renderShareImages();
+  }
 }
 async function shareImage(){
-  const file=preparedImage;
+  const file=shareImages[shareImageKind]?.file;
   if(!file)return;
   if(!canShareFile(file)){
     downloadBlob(file,file.name);
@@ -1454,7 +1475,7 @@ function openSharePanel(){
   openPanel("share");
   $("shareNotice").textContent="";
   $("shareCopyFallback").hidden=true;
-  void prepareShareImage();
+  void prepareShareImages();
 }
 $("moveLabel").onclick=()=>{
   if(boardReview){leaveBoardReview();return;}
@@ -1484,7 +1505,7 @@ document.querySelectorAll('input[name="shareImageKind"]').forEach(input=>{
   input.onchange=e=>{
     if(!e.target.checked)return;
     shareImageKind=e.target.value==="animation"?"animation":"still";
-    void prepareShareImage();
+    renderShareImages();
   };
 });
 $("shareLink").onclick=()=>void copyShareUrl(false);
@@ -1553,7 +1574,7 @@ function closePanels() {
   $("settingsBackdrop").hidden=true;
   $("settingsPanel").hidden=true;
   $("sharePanel").hidden=true;
-  shareImageJob++;preparedImage=null;
+  clearShareImages();
   $("modePanel").hidden=true;
   $("historyPanel").hidden=true;
   $("onlineSetup").hidden=true;

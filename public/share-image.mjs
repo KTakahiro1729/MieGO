@@ -1,9 +1,13 @@
 import { replaySteps } from "./sgf.mjs";
 import { createGifAnimation } from "./gif-encoder.mjs";
 
-// Shared images carry a footer under the board: the move and result on the
-// first line, the app's address on the second.
-const FOOTER_RATIO = 0.15;
+// Shared images carry a footer under the board: the move and result, then
+// where to play and where the project is developed.
+const FOOTER_RATIO = 0.25;
+export const SHARE_LINKS = Object.freeze([
+  ["自分でプレイする：","miego.fun"],
+  ["開発に参加する：","github.com/KTakahiro1729/MieGO"]
+]);
 const MOVE_DELAY = 45, FIRST_DELAY = 90, LAST_DELAY = 350;
 
 const COLOR = {B:"黒",W:"白"};
@@ -31,7 +35,7 @@ export function shareFrameSize(boardSize) {
 }
 
 /** Draws the board scaled to `target`'s width, with the footer below it. */
-export function paintShareFrame(target,board,{caption,url}) {
+export function paintShareFrame(target,board,{caption}) {
   const {width,footer}=shareFrameSize(target.width);
   const ctx=target.getContext("2d");
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
@@ -41,11 +45,14 @@ export function paintShareFrame(target,board,{caption,url}) {
   const x=Math.round(width*.045);
   ctx.textBaseline="middle";ctx.textAlign="left";
   ctx.fillStyle="#f1f0ed";
-  ctx.font="700 "+Math.round(footer*.3)+"px system-ui, sans-serif";
-  ctx.fillText(caption,x,width+footer*.36,width-x*2);
-  ctx.fillStyle="#e5c47a";
-  ctx.font="500 "+Math.round(footer*.21)+"px system-ui, sans-serif";
-  ctx.fillText(url,x,width+footer*.72,width-x*2);
+  ctx.font="700 "+Math.round(footer*.2)+"px system-ui, sans-serif";
+  ctx.fillText(caption,x,width+footer*.25,width-x*2);
+  ctx.font="500 "+Math.round(footer*.125)+"px system-ui, sans-serif";
+  SHARE_LINKS.forEach(([label,link],i)=>{
+    const y=width+footer*(.58+i*.24),labelWidth=ctx.measureText(label).width;
+    ctx.fillStyle="#aeb3be";ctx.fillText(label,x,y);
+    ctx.fillStyle="#e5c47a";ctx.fillText(link,x+labelWidth,y,width-x*2-labelWidth);
+  });
 }
 
 /**
@@ -54,12 +61,12 @@ export function paintShareFrame(target,board,{caption,url}) {
  * draws a replayed position, with its ownership colours, at `size` pixels.
  * Yields to the page between frames so the UI stays responsive.
  */
-export async function buildGameAnimation({snapshot,step,size,renderBoard,finalBoard,createCanvas,caption,url,
+export async function buildGameAnimation({snapshot,step,size,renderBoard,finalBoard,createCanvas,caption,
   onProgress=()=>{},pause=()=>new Promise(resolve=>setTimeout(resolve,0))}) {
   const {width,height}=shareFrameSize(size);
   const frame=createCanvas(width,height);
   const pixels=board=>{
-    paintShareFrame(frame,board,{caption,url});
+    paintShareFrame(frame,board,{caption});
     return frame.getContext("2d").getImageData(0,0,width,height).data.slice();
   };
   const at=i=>i===step ? pixels(finalBoard) : pixels(renderBoard(replaySteps(snapshot,i)));

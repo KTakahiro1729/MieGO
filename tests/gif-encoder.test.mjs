@@ -118,6 +118,6 @@ test("the share sheet makes a still PNG or a game GIF and shares or saves it",()
   assert.match(app,/target\.toBlob\([^)]*\)[^;]*"image\/png"/);
   assert.match(app,/buildGameAnimation\(/);
   // Share where the device can take the file, otherwise save it.
-  assert.match(app,/canShareFile\(preparedImage\)\?"SNSで共有":"画像を保存"/);
+  assert.match(app,/canShareFile\(file\)\?"SNSで共有":"画像を保存"/);
   assert.match(app,/navigator\.share\(\{files:\[file\]\}\)/);
 });
