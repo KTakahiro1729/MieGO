@@ -25,5 +25,6 @@ jobs:
           node --check public/app.mjs
           node --check public/board-renderer.mjs
           node --check public/history-panel.mjs
+          node --check public/history-navigation.mjs
           node --check public/ai-opponent.mjs
           node --check public/invite.mjs
