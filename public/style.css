@@ -193,6 +193,17 @@ button:hover:not(:disabled){border-color:#748094}
 #historyBoard{display:block;width:min(100%,360px);height:auto;aspect-ratio:1;margin:10px auto;border:6px solid #bc925b;border-radius:9px;background:#e5c58c;box-shadow:0 6px 20px #0006}
 .history-detail .full{width:100%;margin-top:15px}
 
+/* Scoring reuses the same bottom action row instead of adding a second bar. */
+.inline-score-actions{display:flex;flex:1 1 auto;min-width:0;gap:8px;margin:0}
+.inline-score-actions button{flex:1 1 auto;min-width:0;min-height:54px;padding:9px 6px;font-size:12px}
+.inline-score-actions #agree{flex:1.6 1 auto}
+.action-row.finished-actions{justify-content:flex-end}
+.score-box{margin:12px 0 4px}
+@media(max-width:400px){
+ .inline-score-actions{gap:6px}
+ .inline-score-actions button{font-size:11px}
+}
+
 /* Saved game replay and SGF exchange, without a new page. */
 .history-import-row{margin-top:16px}
 .history-import-label{display:block;width:100%;min-height:44px;padding:11px 14px;border-radius:12px;border:1px solid #797375;color:#f5dfad;font-size:13px;text-align:center;cursor:pointer}
@@ -205,3 +216,6 @@ button:hover:not(:disabled){border-color:#748094}
 .history-step-range{display:block;width:100%;accent-color:#f0c773;margin:16px 0}
 .history-detail #historyBranch,.history-detail #historyExport{background:#272d3b;border-color:#525967;color:#f3f2ed}
 @media(max-width:390px){.replay-controls{gap:4px}.replay-controls button{flex-basis:42px;min-width:42px}.replay-controls #historyStepLabel{min-width:48px;font-size:11px}}
+
+.history-notice:not(:empty){margin:10px 0;padding:9px 11px;border:1px solid #6c5b44;border-radius:9px;background:#2e2930;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.replay-controls button:disabled{opacity:.4;cursor:default}

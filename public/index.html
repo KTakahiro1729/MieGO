@@ -55,31 +55,32 @@
             <button id="endDecline" class="end-action" type="button" hidden>対局を続ける</button>
           </div>
         </div>
-        <div class="action-row">
+        <div id="scoreBox" class="score-box hidden">
+          <strong>終局の確認</strong>
+          <p id="scoreInstruction">死石をタップして指定し、双方で結果を確認してください。</p>
+          <div id="scoreText"></div>
+        </div>
+        <div id="actionRow" class="action-row">
           <button id="cancel" class="secondary-action undo-button" type="button" aria-label="仮置きを戻す" title="仮置きを戻す" disabled>
             <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h9a7 7 0 0 1 0 14h-2"/></svg>
           </button>
           <button id="confirm" class="primary" type="button" disabled><span class="button-stone" aria-hidden="true"></span>この手を打つ</button>
           <button id="pass" class="secondary-action" type="button">パス</button>
+          <div id="scoringActions" class="score-actions inline-score-actions" hidden>
+            <button id="agree" class="primary" type="button" disabled>この計算に同意</button>
+            <button id="resume" type="button">対局を再開</button>
+          </div>
           <details id="gameMenu" class="game-actions">
             <summary aria-label="対局メニュー" title="対局メニュー"><svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
             <div class="game-action-popover" role="group" aria-label="対局操作">
               <button id="openHistory" type="button">保存した棋譜</button>
+              <button id="openCurrentMode" type="button" hidden>現在の対局設定</button>
               <button id="resetLocalGame" type="button" hidden>新しい対局（盤面をリセット）</button>
               <button id="resign" class="danger-button" type="button">投了する</button>
             </div>
           </details>
         </div>
         <p id="saveStatus" class="save-status" role="alert" hidden></p>
-        <div id="scoreBox" class="score-box hidden">
-          <strong>終局の確認</strong>
-          <p id="scoreInstruction">死石をタップして指定し、双方で結果を確認してください。</p>
-          <div id="scoreText"></div>
-          <div class="score-actions">
-            <button id="agree" class="primary" type="button">この計算に同意</button>
-            <button id="resume" type="button">対局を再開</button>
-          </div>
-        </div>
       </section>
     </main>
     <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
@@ -143,11 +144,12 @@
     </aside>
     <aside id="historyPanel" class="settings-panel history-panel" role="dialog" aria-modal="true" aria-label="保存した棋譜" hidden>
       <div class="settings-head"><h2>保存した棋譜</h2><button id="closeHistory" class="icon-button" type="button" aria-label="棋譜を閉じる">×</button></div>
-      <p class="explanation">確定した手をこの端末に自動保存します。端末のデータを削除すると棋譜も失われます。</p>
+      <p class="explanation">この端末に自動保存された棋譜を確認できます。</p>
       <div class="history-import-row">
         <label for="historyImportFile" class="history-import-label">SGFファイルを読み込む</label>
         <input id="historyImportFile" type="file" accept=".sgf,application/x-go-sgf,text/plain" aria-label="SGFファイルを読み込む">
       </div>
+      <p id="historySaveNotice" class="invite-status history-notice" role="status" aria-live="polite"></p>
       <div id="historyList" class="history-list"></div>
       <p id="historyEmpty" class="history-empty" hidden>保存された棋譜はまだありません。</p>
       <section id="historyDetail" class="history-detail" hidden>
@@ -168,7 +170,6 @@
         <button id="historyExport" class="outline full" type="button">SGFを書き出す</button>
         <p id="historyReadOnlyHint" class="explanation"></p>
       </section>
-      <p id="historySaveNotice" class="invite-status" role="status"></p>
     </aside>
   </div>
   <script type="module" src="/app.mjs"></script>

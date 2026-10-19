@@ -8,6 +8,7 @@ import { illegalMoveReasons, drawIllegalMoveMarker } from "./illegal-moves.mjs";
 import { needsSwitchConfirmation, freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { parseSGF, exportSGF, replaySteps, forkReview } from "./sgf.mjs";
+import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board"), ctx = canvas.getContext("2d");
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
@@ -44,6 +45,15 @@ const endgameAdvisor = new EndgameAdvisor();
 let endgameStage = "playing", endExpanded = false, analysisContext = null;
 let lastOfferKey = null, endHintSuppressedUntil = -1;
 let deadEvaluation=null, deadReview="idle", deadReviewTouched=false;
+function scoringReviewAction(type, extra={}) {
+  return {type,number:game.moveNumber,before:boardHash(game.board),
+    deadBefore:deadSignature(game.dead),...extra};
+}
+function reviewUnavailable() {
+  if(game.status!=="scoring" || deadReviewTouched ||
+     game.agreed.black || game.agreed.white)return;
+  apply(scoringReviewAction("dead_unavailable"));
+}
 const gameLibrary=new GameLibrary(localStorage);
 let currentGameId=null,currentRevision=null,historySelection=null,historyStep=0;
 try {gameLibrary.migrateLegacy();}
@@ -207,22 +217,21 @@ function requestAnalysis() {
     pending=++seq;
     analysisContext=null;
     endgameAdvisor.reset();endgameStage="playing";
-    if(deadReviewTouched || deadReview==="complete" || deadReview==="none") {
-      updateEndUi(); return;
+    if(game.agreed.black || game.agreed.white) {
+      deadReviewTouched=true;deadReview="modified";show();return;
     }
-    if(fallbackMode || !katagoReady) {
-      deadReview="unavailable";show();return;
+    if(deadReviewTouched || ["complete","none","modified","unavailable"].includes(deadReview)) {
+      show();return;
     }
-    if(room && seat!=="host") {
+    if(room && (seat!=="host" || !connected)) {
       deadReview="awaiting";show();return;
     }
-    if(room && !connected) {
-      deadReview="awaiting";show();return;
-    }
+    if(fallbackMode) {reviewUnavailable();return;}
+    if(!katagoReady) {deadReview="loading";show();return;}
     deadReview="pending";
     const id=pending;
     deadEvaluation={id,number:game.moveNumber,hash:boardHash(game.board),
-      dead:JSON.stringify(game.dead)};
+      dead:deadSignature(game.dead)};
     worker.postMessage({id,kind:"scoring",state:game});
     show();return;
   }
@@ -300,10 +309,8 @@ function handleAnalysis(event) {
       katagoReady=true;
       $("aiMatchStatus").textContent="KataGo準備完了。AI対局を開始できます。";
       show();
-      if(isAiTurn() || (game.status==="scoring" && deadReview==="unavailable")) {
-        if(game.status==="scoring")deadReview="idle";
+      if(isAiTurn() || (game.status==="scoring" && ["idle","loading"].includes(deadReview)))
         requestAnalysis();
-      }
     } else {
       switchToFallback(result.error || "KataGo初期化に失敗しました");
     }
@@ -315,18 +322,17 @@ function handleAnalysis(event) {
     deadEvaluation=null;
     if(!job || job.id!==result.id || game.status!=="scoring" ||
       game.moveNumber!==job.number || boardHash(game.board)!==job.hash ||
-      JSON.stringify(game.dead)!==job.dead || deadReviewTouched)return;
+      deadSignature(game.dead)!==job.dead || deadReviewTouched ||
+      game.agreed.black || game.agreed.white)return;
     if(result.error || result.engine!=="katago") {
-      deadReview="unavailable";show();return;
+      reviewUnavailable();return;
     }
     try {
       const positions=suggestDeadStones(game,result.ownership);
-      apply({type:"dead_auto",positions,number:game.moveNumber,before:boardHash(game.board)});
-      deadReview=positions.length?"complete":"none";
-      show();
+      apply(scoringReviewAction("dead_auto",{positions}));
     }catch(error) {
       console.error("KataGo dead-stone candidates",error);
-      deadReview="unavailable";show();
+      reviewUnavailable();
     }
     return;
   }
@@ -388,27 +394,36 @@ function show() {
   $("pass").disabled=!myTurn || game.status!=="playing";
   $("resign").disabled=!myTurn || game.status!=="playing";
   $("resetLocalGame").hidden=!!room || gameMode!=="local";
+  $("openCurrentMode").hidden=!room && gameMode!=="ai";
+  $("openCurrentMode").textContent=room?"招待URLを表示":"AIの設定・再戦";
   $("assisted").checked=game.assisted;$("assisted").disabled=game.moveNumber>0 || (room&&seat!=="host");
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
   $("scoreBox").classList.toggle("hidden",!isScoring && !isFinished);
+  $("scoringActions").hidden=!isScoring;
+  for(const id of ["cancel","confirm","pass"])$(id).hidden=isScoring || isFinished;
+  $("actionRow").classList.toggle("finished-actions",isFinished);
   $("scoreBox").querySelector("strong").textContent=isFinished?"対局結果":"終局の確認";
   $("scoreInstruction").textContent=isFinished?
     (game.result?.endsWith("+R")?"投了によって対局が終了しました。":"中国式面積計算で確定しました。"):
-    deadReview==="pending"?"KataGoが死石候補を調べています…":
+    deadReview==="pending"?"KataGoが死石候補を調べています。確認まで採点は確定できません。":
+    deadReview==="loading"?"KataGoの準備完了を待っています。石をタップして手動指定もできます。":
     deadReview==="awaiting"?"相手側で死石候補を判定しています。":
     deadReview==="complete"?"KataGoが死石候補を仮指定しました。必要なら石をタップして修正できます。":
     deadReview==="none"?"KataGoは死石候補を検出しませんでした。必要なら石をタップしてください。":
     deadReview==="modified"?"死石候補を修正しました。双方で確認して採点してください。":
     deadReview==="unavailable"?"KataGoによる死石判定ができません。石をタップして指定してください。":
     "死石の判定を準備しています。";
-  $("scoreBox").querySelector(".score-actions").hidden=isFinished;
+  // The scoring controls live in the existing sticky action row.
   if(isScoring){
     const score=areaScore(game);
     $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（コミ込み）";
-    $("agree").disabled=room&&!connected;
+    const ready=canApproveScoring(game,deadReview,room,connected);
+    $("agree").disabled=!ready;
     const agreeing=room?(seat==="guest"?"white":"black"):
       gameMode==="ai"?(humanColor===BLACK?"black":"white"):"black";
-    $("agree").textContent=game.agreed[agreeing]?"確認済み":"この計算に同意";
+    $("agree").textContent=game.agreed[agreeing]?"確認済み · 相手待ち":
+      ready?"この計算に同意":"死石判定を待っています";
+    if(game.agreed[agreeing])$("agree").disabled=true;
     $("resume").disabled=room&&!connected;
   }
   if(isFinished) {
@@ -429,11 +444,12 @@ function apply(action, remote=false) {
   // End-offer messages can race with an actual stone. Ignore stale metadata
   // without tearing down the live Go DataChannel.
   if(remote && (action?.type==="end_offer" || action?.type==="end_answer" ||
-                action?.type==="dead_auto")) {
+                action?.type==="dead_auto" || action?.type==="dead_unavailable")) {
     if(action.number!==game.moveNumber || action.before!==boardHash(game.board))return;
     if(action.type==="end_answer" && action.proposalFrom!==game.endProposal?.from)return;
   }
   try{
+    const wasScoring=game.status==="scoring";
     if(action.type==="move"){
       if(action.number!==game.moveNumber+1) throw new Error("手順が一致しません");
       if(action.before!==boardHash(game.board)) throw new Error("盤面が一致しません");
@@ -441,17 +457,30 @@ function apply(action, remote=false) {
       if(action.after!==boardHash(game.board)) throw new Error("局面の検証に失敗しました");
       lastPosition=Number.isInteger(action.position)?action.position:null;
     } else if(action.type==="dead") {
-      game=toggleDead(game,action.position);
+      if(game.status!=="scoring")return;
+      // Send the desired group state, not a toggle, to avoid double toggles
+      // when simultaneous manual edits and a delayed AI proposal cross.
+      const selected=typeof action.selected==="boolean"?action.selected:
+        !game.dead.includes(action.position);
+      if(game.dead.includes(action.position)!==selected)
+        game=toggleDead(game,action.position);
       deadReviewTouched=true;
-      deadReview="modified";
-    } else if(action.type==="dead_auto") {
-      if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
-        throw new Error("死石自動判定の局面が一致しません");
-      if(deadReviewTouched && !remote)return;
-      game=setDeadCandidates(game,action.positions);
-      deadReview=action.positions.length?"complete":"none";
+      deadReview="modified";deadEvaluation=null;
+      pending=++seq;
+    } else if(action.type==="dead_auto" || action.type==="dead_unavailable") {
+      if(!canApplyAutomatedReview(game,deadReviewTouched,action))return;
+      if(action.type==="dead_auto")game=setDeadCandidates(game,action.positions);
+      deadReview=action.type==="dead_unavailable"?"unavailable":
+        action.positions.length?"complete":"none";
     }
-    else if(action.type==="agree") game=agreeScore(game,action.color);
+    else if(action.type==="agree") {
+      // UI disables this while analysis is pending; retain an action guard.
+      if(!canApproveScoring(game,deadReview,room,connected)) {
+        if(!remote)throw new Error("死石判定が終わってから採点を確定してください");
+        return;
+      }
+      game=agreeScore(game,action.color);
+    }
     else if(action.type==="resume") game=resume(game);
     else if(action.type==="mode") game=setAssisted(game,action.value);
     else if(action.type==="end_offer") {
@@ -469,6 +498,9 @@ function apply(action, remote=false) {
     }
     else return;
     if(action.type==="move")endExpanded=false;
+    if(!wasScoring && game.status==="scoring") {
+      deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
+    }
     if(action.type==="resume" || game.status==="playing") {
       deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
     }
@@ -495,7 +527,10 @@ canvas.addEventListener("click",e=>{
     y=Math.round(((e.clientY-rect.top)/rect.height*canvas.height-canvas.height/(SIZE+1))/(canvas.height/(SIZE+1)));
   if(x<0||x>=SIZE||y<0||y>=SIZE)return;
   const position=y*SIZE+x;
-  if(game.status==="scoring"){if(room&&!connected)return;apply({type:"dead",position});return;}
+  if(game.status==="scoring"){
+    if(room&&!connected)return;
+    apply({type:"dead",position,selected:!game.dead.includes(position)});return;
+  }
   if(game.status!=="playing" || !isHumanTurn())return;
   try{candidate=play(game,position);show();requestAnalysis();}catch(error){$("hint").textContent=error.message;}
 });
@@ -538,7 +573,7 @@ document.addEventListener("keydown",e=>{
   }
 });
 $("agree").onclick=()=>{
-  if(room&&!connected)return;
+  if(!canApproveScoring(game,deadReview,room,connected))return;
   const color=room?(seat==="guest"?WHITE:BLACK):gameMode==="ai"?humanColor:BLACK;
   if(game.agreed[color===BLACK?"black":"white"])return;
   apply({type:"agree",color});
@@ -677,7 +712,9 @@ function setupChannel(c){
   channel=c;
   c.onopen=()=>{
     connected=true;$("netStatus").textContent="P2P接続中";
-    if(seat==="host")send({type:"snapshot",game,lastPosition});
+    if(seat==="host")send({type:"snapshot",game,lastPosition,
+      scoringReview:game.status==="scoring" &&
+        ["complete","none","modified","unavailable"].includes(deadReview)?deadReview:null});
     show();
   };
   c.onclose=()=>{if(!room)return;connected=false;$("netStatus").textContent="接続待機中";show();};
@@ -688,6 +725,11 @@ function setupChannel(c){
     if(msg.type==="snapshot"&&seat==="guest"){
       if(!msg.game||!Array.isArray(msg.game.board)||msg.game.board.length!==81)return;
       game=msg.game;lastPosition=msg.lastPosition;candidate=null;
+      deadReview=game.status==="scoring" &&
+        ["complete","none","modified","unavailable"].includes(msg.scoringReview)
+        ?msg.scoringReview:"idle";
+      deadReviewTouched=deadReview==="modified";
+      deadEvaluation=null;
       save();
       endgameAdvisor.reset();endgameStage="playing";
       endExpanded=!!game.endProposal && game.endProposal.from!==myColorForEnd();
@@ -820,6 +862,7 @@ function drawHistoryBoard(record) {
 function renderHistoryList() {
   historySelection=null;historyStep=0;
   $("historyDetail").hidden=true;$("historyList").hidden=false;
+  $("historyPanel").scrollTop=0;
   const list=$("historyList");list.replaceChildren();
   let records=[];
   try{records=gameLibrary.list();}catch(error){storageError(error);}
@@ -874,6 +917,7 @@ function showHistoryRecord(id) {
   historySelection=record;historyStep=record.snapshot.moves.length;
   $("historyList").hidden=true;$("historyEmpty").hidden=true;
   $("historyDetail").hidden=false;
+  $("historyPanel").scrollTop=0;
   $("historySelectionName").textContent=recordName(record);
   $("historyMeta").textContent=recordStatus(record)+" · "+record.snapshot.moveNumber+"手 · "+
     dateLabel(record.updatedAt)+(record.sgfMeta?" · コミ "+record.sgfMeta.komi:"");
@@ -889,6 +933,7 @@ function openHistoryPanel() {
   $("settingsBackdrop").hidden=false;
   $("settingsPanel").hidden=true;$("modePanel").hidden=true;
   $("historyPanel").hidden=false;
+  $("historyPanel").scrollTop=0;
   $("settingsToggle").setAttribute("aria-expanded","false");
   renderHistoryList();
   $("closeHistory").focus();
@@ -922,7 +967,9 @@ function resumeHistoryRecord() {
     $("aiReinforcement").value=String(reinforcement);updatePersonaUi();
   }
   endgameAdvisor.reset();endgameStage="playing";endExpanded=!!game.endProposal;
-  lastOfferKey=null;deadReview="idle";deadEvaluation=null;deadReviewTouched=false;
+  lastOfferKey=null;deadReview=game.status==="scoring" &&
+    (game.dead.length || game.agreed.black || game.agreed.white)?"modified":"idle";
+  deadEvaluation=null;deadReviewTouched=deadReview==="modified";
   analysis=null;displayedOwnership=null;
   try{gameLibrary.setActive(gameMode,currentGameId);}catch(error){storageError(error);return;}
   rememberSettings();
@@ -985,6 +1032,11 @@ $("historyImportFile").onchange=e=>{void importHistoryFile(e.target.files?.[0]);
 $("historyExport").onclick=exportHistorySGF;
 $("historyBranch").onclick=branchHistoryPosition;
 $("openHistory").onclick=openHistoryPanel;
+$("openCurrentMode").onclick=()=>{
+  $("gameMenu").open=false;
+  if(room)openPanel("online");
+  else if(gameMode==="ai")openPanel("ai");
+};
 $("closeHistory").onclick=()=>{closePanels();$("openHistory").focus();};
 $("historyBack").onclick=renderHistoryList;
 $("historyResume").onclick=resumeHistoryRecord;
