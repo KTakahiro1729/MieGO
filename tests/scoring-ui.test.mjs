@@ -24,3 +24,6 @@ test("scoring agreements do not restart model selection of dead stones",()=>{
   assert.match(app,/\["move","resume","mode"\]\.includes\(action\.type\)/);
   assert.match(app,/deadReview==="complete"/);
 });
+test("tapping a counting stone on empty territory is ignored instead of alerting",()=>{
+  assert.match(app,/game\.status==="scoring"\)\{\n\s*if\(room&&!connected\)return;\n(?:\s*\/\/.*\n)?\s*if\(!game\.board\[position\]\)return;/);
+});
