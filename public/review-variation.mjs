@@ -28,7 +28,7 @@ export function commitReviewStone(review,liveGame,position) {
     return {variation:review.variation,activeLine:review.activeLine,
       step:review.step+1,display:replaySteps(line,review.step+1),created:false};
   }
-  const variation={baseStep:review.variation?.baseStep??review.step,
+  const variation={baseStep:review.activeLine==="variation"?review.variation?.baseStep??review.step:review.step,
     snapshot:proposed};
   return {variation,activeLine:"variation",step:proposed.moves.length,
     display:proposed,created:true};
