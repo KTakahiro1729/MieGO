@@ -11,7 +11,7 @@ import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-stren
 import { policyHints } from "./ai-assist.mjs";
 import { takebackCut, takeBack, requestTakeback, answerTakeback } from "./takeback.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
-import { scoreBreakdown } from "./scoring-regions.mjs";
+import { scoreBreakdown, scoreRows } from "./scoring-regions.mjs";
 import { createBoardZoom } from "./board-zoom.mjs";
 import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
@@ -531,8 +531,10 @@ function show() {
     deadReview==="unavailable"?"AI判定不可。石をタップして指定":
     "死石を確認しています…";
   // The scoring controls live in the existing sticky action row.
+  $("scoreStone").className="score-stone";
+  $("scoreText").hidden=false;
   if(isScoring){
-    $("scoreText").textContent=scoreBreakdown(game);
+    renderScoreboard();
     const ready=canApproveScoring(game,deadReview,room,connected);
     $("agree").disabled=!ready;
     const agreeing=room?(myOnlineColor()===WHITE?"white":"black"):
@@ -546,14 +548,17 @@ function show() {
     const result=game.result;
     if(result?.endsWith("+R")) {
       $("scoreBox").querySelector("strong").textContent=(result.startsWith("B+")?"黒":"白")+"の投了勝ち";
-      $("scoreText").textContent="投了により終局";
+      $("scoreStone").classList.add(result.startsWith("B+")?"black":"white");
+      $("scoreText").hidden=true;
     } else {
       const score=areaScore(game);
       $("scoreBox").querySelector("strong").textContent=
         (result?.startsWith("B+")?"黒":result?.startsWith("W+")?"白":"引き分け")+
         (result?.startsWith("B+")||result?.startsWith("W+")?
           "の"+Math.abs(score.difference).toFixed(1)+"目勝ち":"");
-      $("scoreText").textContent=scoreBreakdown(game);
+      if(result?.startsWith("B+")||result?.startsWith("W+"))
+        $("scoreStone").classList.add(result.startsWith("B+")?"black":"white");
+      renderScoreboard();
     }
   }
   updateEndUi();
@@ -939,6 +944,22 @@ $("resetAppearance").onclick=()=>{
   if(!wasOn){if(boardReview)requestReviewOwnership();else requestAnalysis();}
 };
 // The legend, the colour-map swatches and the board frame follow the chosen board.
+// Two aligned rows: stone, name, what is added to the board area, total.
+function renderScoreboard(){
+  const rows=scoreRows(game);
+  const cell=(className,text)=>{
+    const span=document.createElement("span");
+    span.className=className;span.textContent=text;return span;
+  };
+  $("scoreText").replaceChildren(...["black","white"].map(color=>{
+    const row=document.createElement("div");
+    row.className="score-row"+(rows.leader===color?" leads":"");
+    row.append(cell("score-stone "+color,""),cell("score-name",color==="black"?"黒":"白"),
+      cell("score-detail",rows[color].detail),cell("score-total",String(rows[color].total)));
+    return row;
+  }));
+  $("scoreText").setAttribute("aria-label",scoreBreakdown(game).replace("\n","、"));
+}
 function isCounting(){
   return !boardReview && (game.status==="scoring" ||
     game.status==="finished" && !game.result?.endsWith("+R"));

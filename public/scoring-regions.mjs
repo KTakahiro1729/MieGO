@@ -50,3 +50,14 @@ export function scoreBreakdown(state) {
   return "黒："+score.black+"\n白："+whiteArea+"＋コミ"+komi+
     (handicap?"＋置き石補正"+handicap:"")+"＝"+score.white;
 }
+
+/** The scoreboard rows: board area, what is added to it, and the total. */
+export function scoreRows(state) {
+  const score=areaScore(state),komi=komiOf(state),handicap=handicapOf(state);
+  const whiteArea=score.white-komi-handicap;
+  return {
+    black:{area:score.black,detail:"",total:score.black},
+    white:{area:whiteArea,detail:whiteArea+"＋コミ"+komi+(handicap?"＋置き石補正"+handicap:""),total:score.white},
+    leader:score.difference>0?"black":score.difference<0?"white":null
+  };
+}

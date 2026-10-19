@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {BLACK,WHITE,newGame,at,areaScore,KOMI} from "../public/core.mjs";
-import {scoringRegions,scoreBreakdown} from "../public/scoring-regions.mjs";
+import {scoringRegions,scoreBreakdown,scoreRows} from "../public/scoring-regions.mjs";
 
 test("connected same-color area includes live stones and separated pockets joined by stones",()=>{
   const game={...newGame(),status:"scoring",board:Array(81).fill(WHITE)};
@@ -92,4 +92,14 @@ test("score breakdown shows white area and komi separately so it matches the boa
   assert.equal(scoreBreakdown(game),"黒：45\n白：36＋コミ7.5＝43.5");
   const handicap={...newGame(true,{handicap:3}),status:"scoring"};
   assert.equal(scoreBreakdown(handicap),"黒：81\n白：0＋コミ0.5＋置き石補正3＝3.5");
+});
+
+test("scoreboard rows keep the white breakdown apart from the totals and name the leader",()=>{
+  const game={...newGame(),status:"scoring",board:Array(81).fill(0)};
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++)game.board[at(x,y)]=x<5?BLACK:WHITE;
+  assert.deepEqual(scoreRows(game),{
+    black:{area:45,detail:"",total:45},
+    white:{area:36,detail:"36＋コミ7.5",total:43.5},leader:"black"});
+  const handicap={...newGame(true,{handicap:3}),status:"scoring"};
+  assert.equal(scoreRows(handicap).white.detail,"0＋コミ0.5＋置き石補正3");
 });
