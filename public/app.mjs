@@ -2,6 +2,7 @@ import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, area
 import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
 import { PALETTES, paletteAt, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
+import { gameStorageKey, parseGameSnapshot, needsSwitchConfirmation } from "./mode-state.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board"), ctx = canvas.getContext("2d");
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
@@ -216,21 +217,21 @@ function handleAnalysis(event) {
 worker.onmessage=handleAnalysis;
 function show() {
   const myTurn=isHumanTurn();
-  $("startAi").disabled=!!room || !katagoReady || fallbackMode;
+  $("modePicker").value=room ? "online" : gameMode;
+  $("startAi").disabled=!katagoReady || fallbackMode;
   $("startAi").textContent=fallbackMode?"KataGoが利用できません":
     !katagoReady?"KataGo準備中…":gameMode==="ai"?"設定して再戦":"AIと対局を始める";
-  $("returnLocal").classList.toggle("hidden",!!room || gameMode!=="ai");
-  $("aiColor").disabled=!!room;
-  $("aiLevel").disabled=!!room;
-  $("aiInvasion").disabled=!!room;
-  $("aiReinforcement").disabled=!!room;
+  $("aiColor").disabled=false;
+  $("aiLevel").disabled=false;
+  $("aiInvasion").disabled=false;
+  $("aiReinforcement").disabled=false;
   $("turn").classList.toggle("white-to-play",game.next===WHITE);
   $("turn").textContent=game.status==="finished"?"対局終了":
     game.status==="scoring"?"死石を確認":
     room?(connected?(myTurn?"あなたの番":"相手の番"):"対局相手を待っています"):
     gameMode==="ai"?(isAiTurn()?"AIの番です":"あなたの番です"):
     (game.next===BLACK?"黒の番です":"白の番です");
-  if(!room)$("netStatus").textContent=gameMode==="ai"?"対AI戦":"ローカル練習";
+  if(!room)$("netStatus").textContent=gameMode==="ai"?"AIと対戦":"1台で打つ";
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=game.moveNumber+"手目";
   $("hint").textContent=candidate?
@@ -306,13 +307,66 @@ $("agree").onclick=()=>{
 };
 $("resume").onclick=()=>apply({type:"resume"});
 $("assisted").onchange=e=>apply({type:"mode",value:e.target.checked});
-$("palette").onchange=e=>{palette=Object.hasOwn(PALETTES,e.target.value)?e.target.value:"mono";localStorage.setItem("miego-palette",palette);draw();updateGradient();};
-$("opacity").oninput=e=>{opacity=Number(e.target.value)/100;localStorage.setItem("miego-opacity",String(opacity));$("opacityValue").textContent=e.target.value+"%";draw();};
+document.querySelectorAll('input[name="palette"]').forEach(input => {
+  input.onchange = e => {
+    if (!e.target.checked) return;
+    palette=Object.hasOwn(PALETTES,e.target.value)?e.target.value:"mono";
+    localStorage.setItem("miego-palette",palette);
+    draw();updateGradient();
+  };
+});
+$("opacity").oninput=e=>{
+  opacity=Number(e.target.value)/100;
+  localStorage.setItem("miego-opacity",String(opacity));
+  $("opacityValue").textContent=e.target.value+"%";
+  draw();
+};
+$("resetAppearance").onclick=()=>{
+  palette="mono";opacity=.55;
+  localStorage.setItem("miego-palette",palette);
+  localStorage.setItem("miego-opacity","0.55");
+  const selected=document.querySelector('input[name="palette"][value="mono"]');
+  if(selected)selected.checked=true;
+  $("opacity").value="55";$("opacityValue").textContent="55%";
+  updateGradient();draw();
+};
 function updateGradient(){$("gradient").style.background=paletteGradient(palette);}
-function save(){if(!room)try{
-    localStorage.setItem("miego-local",JSON.stringify(game));
+function save(){
+  if (room) return;
+  try {
+    localStorage.setItem(gameStorageKey(gameMode),JSON.stringify(game));
+    if (gameMode==="local") localStorage.setItem("miego-local",JSON.stringify(game));
     rememberSettings();
-  }catch{}}
+  } catch {}
+}
+function savedGame(mode) {
+  const raw=localStorage.getItem(gameStorageKey(mode)) ||
+    (mode==="local" ? localStorage.getItem("miego-local") : null);
+  return parseGameSnapshot(raw) || newGame(game.assisted);
+}
+function leaveOnlineRoom() {
+  if(!room)return;
+  const oldUrl=new URL(location.href);
+  oldUrl.searchParams.delete("room");
+  room=null;roomCount=0;seat="host";connected=false;
+  try{channel?.close();}catch{}
+  try{rtc?.close();}catch{}
+  try{ws?.close();}catch{}
+  channel=null;rtc=null;ws=null;
+  history.replaceState(null,"",oldUrl.pathname+oldUrl.search+oldUrl.hash);
+  $("inviteDetails").classList.add("hidden");
+  $("inviteStatus").textContent="";
+  $("roomInfo").textContent="URLを共有すると、別の端末から対局に参加できます。";
+}
+function switchToLocal() {
+  if(gameMode==="local" && !room){closePanels();return;}
+  if(needsSwitchConfirmation(game,gameMode,"local",connected) &&
+    !confirm("現在の対局を離れて、1台で打つモードに切り替えますか？"))return;
+  if(!room)save();else leaveOnlineRoom();
+  stopAiTurn();gameMode="local";
+  game=savedGame("local");lastPosition=null;candidate=null;
+  save();closePanels();show();requestAnalysis();
+}
 function send(msg){if(channel?.readyState==="open")channel.send(JSON.stringify(msg));}
 function signal(type,payload){if(ws?.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type,payload}));}
 async function startRTC(){
@@ -322,6 +376,7 @@ async function startRTC(){
   rtc.onicecandidate=e=>{if(e.candidate)signal("ice",e.candidate.toJSON());};
   rtc.onconnectionstatechange=()=>{
     if(["failed","disconnected","closed"].includes(rtc.connectionState)){
+      if(!room)return;
       connected=false;$("netStatus").textContent="接続待機中";show();
     }
   };
@@ -338,7 +393,7 @@ function setupChannel(c){
     if(seat==="host")send({type:"snapshot",game,lastPosition});
     show();
   };
-  c.onclose=()=>{connected=false;$("netStatus").textContent="接続待機中";show();};
+  c.onclose=()=>{if(!room)return;connected=false;$("netStatus").textContent="接続待機中";show();};
   c.onmessage=e=>{
     let msg;try{msg=JSON.parse(e.data);}catch{return;}
     if(msg.type==="snapshot"&&seat==="guest"){
@@ -369,7 +424,7 @@ async function joinRoom(){
       if(msg.type==="ice"&&rtc)await rtc.addIceCandidate(msg.payload);
     }catch(err){console.error("WebRTC",err);$("netStatus").textContent="接続エラー";}
   };
-  ws.onclose=()=>{$("netStatus").textContent="ルーム切断";connected=false;show();};
+  ws.onclose=()=>{if(!room)return;$("netStatus").textContent="ルーム切断";connected=false;show();};
   $("roomInfo").textContent="招待URLを共有してください。ホストが黒、参加者が白です。";
 }
 function showInviteLink() {
@@ -377,14 +432,15 @@ function showInviteLink() {
   const link = makeInviteUrl(location.origin, room);
   $("inviteDetails").classList.remove("hidden");
   $("inviteUrl").value = link;
-  $("share").textContent = "招待リンクをコピー";
+  $("copy").textContent = "招待リンクをコピー";
   $("roomInfo").textContent = "このURLを友人に共有してください。ホストが黒番、参加者が白番です。";
   $("nativeShare").classList.toggle("hidden", typeof navigator.share !== "function");
   return link;
 }
 function ensureRoom() {
   if (room) return showInviteLink();
-  if (game.moveNumber > 0 && !confirm("現在のローカル対局を終了して、新しい友人対局を作成しますか？")) return null;
+  if (needsSwitchConfirmation(game,gameMode,"online",connected) && !confirm("現在の対局を離れて、友人対局を開始しますか？")) return null;
+  if(!room)save();
   // This room ID is purely random: the Durable Object room is created lazily by
   // the first WebSocket connection. No async fetch is required here, preserving
   // the browser's transient user activation for navigator.clipboard.writeText.
@@ -417,93 +473,100 @@ async function copyLink() {
   $("inviteStatus").textContent = copied
     ? "招待URLをコピーしました。友人に貼り付けてください。"
     : "自動コピーできませんでした。上のURLを長押ししてコピーしてください。";
-  openSettings();
+  openPanel("online");
 }
-function openSettings() {
+function openPanel(kind) {
   $("settingsBackdrop").hidden=false;
-  $("settingsPanel").hidden=false;
-  $("settingsToggle").setAttribute("aria-expanded","true");
-  $("settingsToggle").setAttribute("aria-label","設定を閉じる");
+  $("settingsPanel").hidden=kind!=="settings";
+  $("modePanel").hidden=kind==="settings";
+  $("onlineSetup").hidden=kind!=="online";
+  $("aiSetup").hidden=kind!=="ai";
+  $("modeTitle").textContent=kind==="online"?"URLで対戦":"AIと対戦";
+  $("settingsToggle").setAttribute("aria-expanded",String(kind==="settings"));
+  if(kind==="online" && room)showInviteLink();
+  const panel=kind==="settings"?$("settingsPanel"):$("modePanel");
+  panel.querySelector(".settings-head button").focus();
 }
-function closeSettings() {
+function openSettings(){openPanel("settings");}
+function closePanels() {
   $("settingsBackdrop").hidden=true;
   $("settingsPanel").hidden=true;
+  $("modePanel").hidden=true;
+  $("onlineSetup").hidden=true;
+  $("aiSetup").hidden=true;
   $("settingsToggle").setAttribute("aria-expanded","false");
-  $("settingsToggle").setAttribute("aria-label","設定を開く");
-  $("settingsToggle").focus();
+  $("modePicker").value=room?"online":gameMode;
 }
+function closeSettings(){closePanels();$("settingsToggle").focus();}
 $("settingsToggle").onclick=()=>$("settingsPanel").hidden?openSettings():closeSettings();
 $("closeSettings").onclick=closeSettings;
-$("settingsBackdrop").onclick=closeSettings;
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("settingsPanel").hidden)closeSettings();});
-$("aiMenu").onclick=()=>{
-  openSettings();
-  $("aiSettings").scrollIntoView({block:"start",behavior:"smooth"});
+$("closeMode").onclick=()=>{closePanels();$("modePicker").focus();};
+$("settingsBackdrop").onclick=closePanels;
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("settingsBackdrop").hidden)closePanels();});
+$("modePicker").onchange=e=>{
+  const selected=e.target.value;
+  e.target.value=room?"online":gameMode;
+  if(selected==="local")switchToLocal();
+  else if(selected==="online")openPanel("online");
+  else if(selected==="ai")openPanel("ai");
 };
 $("startAi").onclick=()=>{
-  if(room || !katagoReady || fallbackMode) {
-    $("aiMatchStatus").textContent="KataGoが利用できないため対AI戦は開始できません。";
+  if(!katagoReady || fallbackMode){
+    $("aiMatchStatus").textContent="AI対局を開始できません。";
     return;
   }
-  if(game.moveNumber>0 && !confirm("現在の対局を終了してAIと新しく対局しますか？"))return;
+  if(needsSwitchConfirmation(game,gameMode,"ai",connected) &&
+     !confirm("現在の対局を離れて、AIと新しい対局を始めますか？"))return;
+  if(!room)save();else leaveOnlineRoom();
   stopAiTurn();
   gameMode="ai";
   humanColor=Number($("aiColor").value)===WHITE?WHITE:BLACK;
   aiLevel=$("aiLevel").value==="gentle"?"gentle":"standard";
-  game=newGame(game.assisted);
-  lastPosition=null;candidate=null;
-  $("aiMatchStatus").textContent="対AI戦を開始しました。";
-  save();closeSettings();show();requestAnalysis();
+  game=newGame(game.assisted);lastPosition=null;candidate=null;
+  $("aiMatchStatus").textContent="対局を開始しました。";
+  save();closePanels();show();requestAnalysis();
 };
-$("returnLocal").onclick=()=>{
-  if(room || !confirm("対AI戦を終了してローカル練習に戻りますか？"))return;
-  stopAiTurn();
-  gameMode="local";game=newGame(game.assisted);
-  lastPosition=null;candidate=null;
-  save();closeSettings();show();requestAnalysis();
-};
+for (const input of document.querySelectorAll('input[name="aiSide"]')) {
+  input.onchange=e=>{if(e.target.checked)$("aiColor").value=e.target.value;};
+}
 for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]]) {
   $(id).oninput=e=>{
     const value=Math.max(0,Math.min(100,Number(e.target.value)||0));
     if(key==="invasion")invasion=value;else reinforcement=value;
     updatePersonaUi();rememberSettings();
-    $("aiMatchStatus").textContent="棋風設定を更新しました。次のAI着手から反映します。";
+    $("aiMatchStatus").textContent="次のAI着手から反映します。";
   };
 }
 $("aiLevel").onchange=e=>{aiLevel=e.target.value==="gentle"?"gentle":"standard";rememberSettings();};
-$("aiColor").onchange=e=>{humanColor=Number(e.target.value)===WHITE?WHITE:BLACK;rememberSettings();};
-$("share").onclick = copyLink;
-$("copy").onclick = copyLink;
-$("inviteUrl").onclick = e => e.currentTarget.select();
-$("nativeShare").onclick = async () => {
-  const link = ensureRoom();
-  if (!link || typeof navigator.share !== "function") return;
-  try { await navigator.share({ title: "MieGO 友人対局", url: link }); }
-  catch (error) {
-    if (error.name !== "AbortError") {
-      $("inviteStatus").textContent = "共有できませんでした。URLを選択してコピーしてください。";
-    }
-  }
+$("copy").onclick=copyLink;
+$("inviteUrl").onclick=e=>e.currentTarget.select();
+$("nativeShare").onclick=async()=>{
+  const link=ensureRoom();
+  if(!link||typeof navigator.share!=="function")return;
+  try{await navigator.share({title:"MieGO 友人対局",url:link});}
+  catch(error){if(error.name!=="AbortError")$("inviteStatus").textContent="共有できませんでした。URLを選択してコピーしてください。";}
 };
 if (room) { showInviteLink(); void joinRoom(); }
-else try{
-  const saved=JSON.parse(localStorage.getItem("miego-local")||"null");
-  if(saved?.board?.length===81&&Array.isArray(saved.moves))game=saved;
+else try {
   const settings=JSON.parse(localStorage.getItem("miego-local-settings")||"null");
-  if(settings) {
+  if(settings){
     gameMode=settings.mode==="ai"?"ai":"local";
     humanColor=settings.humanColor===WHITE?WHITE:BLACK;
     aiLevel=settings.aiLevel==="gentle"?"gentle":"standard";
     invasion=Math.max(0,Math.min(100,Number(settings.invasion??50)));
     reinforcement=Math.max(0,Math.min(100,Number(settings.reinforcement??50)));
   }
+  game=savedGame(gameMode);
 }catch{}
 $("aiColor").value=String(humanColor);
+const aiSide=document.querySelector('input[name="aiSide"][value="'+humanColor+'"]');
+if(aiSide)aiSide.checked=true;
 $("aiLevel").value=aiLevel;
 $("aiInvasion").value=String(invasion);
 $("aiReinforcement").value=String(reinforcement);
 updatePersonaUi();
-$("palette").value=palette;
+const selectedPalette=document.querySelector('input[name="palette"][value="'+palette+'"]');
+if(selectedPalette)selectedPalette.checked=true;
 $("opacity").value=String(Math.round(opacity*100));
 $("opacityValue").textContent=Math.round(opacity*100)+"%";
 updateGradient();show();requestAnalysis();
