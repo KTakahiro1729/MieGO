@@ -75,6 +75,7 @@ body.board-zoomed .board-bleed{opacity:1}
 
 .primary{color:#17191e;background:linear-gradient(180deg,#f5d88f,#e4b85c);border:1px solid #ffe1a0;box-shadow:0 2px 14px #e4b85c30;font-weight:750}
 .button-stone{display:inline-block;width:19px;height:19px;border-radius:50%;background:radial-gradient(circle at 32% 26%,#5e6268,#11161a 70%);border:1px solid #656d72;vertical-align:-4px;margin-right:8px}
+.button-stone.white{background:radial-gradient(circle at 32% 26%,#fff,#deddd6 72%);border-color:#b7b6b0}
 .score-box{background:#1b2430;border:1px solid #65615c;padding:18px;border-radius:13px;margin:12px 0 18px}
 .score-box strong{font-size:15px}
 .score-box p,.score-box #scoreText{font-size:13px;line-height:1.6;color:#c7c9ca}
@@ -323,7 +324,7 @@ body{overflow:hidden}
 }
 
 /* Forbidden points are not marked in advance; the existing endgame status displays the reason. */
-/* Match the status text to the size of "この手を打つ" in all states.
+/* Match the status text to the size of "ここに打つ" in all states.
    Neither normal status nor forbidden-move feedback uses bold styling. */
 .action-row #confirm{font-size:14px}
 .endgame-bar .end-status,.endgame-bar.has-illegal .end-status{
