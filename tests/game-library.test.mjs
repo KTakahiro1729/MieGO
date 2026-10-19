@@ -95,14 +95,15 @@ test("SGF import/replay is exposed in saved game sheet without changing live gam
  const {readFileSync}=await import("node:fs");
  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+ const historyPanel=readFileSync(new URL("../public/history-panel.mjs",import.meta.url),"utf8");
  for(const id of ["historyImportFile","historyExport","historyFirst","historyPrevious",
   "historyNext","historyLast","historyStepRange","historyBranch"]){
   assert.match(html,new RegExp('id="'+id+'"'));
  }
- assert.match(app,/source==="sgf"/);
- assert.match(app,/gameLibrary\.save\(\{mode:"local",snapshot:parsed\.snapshot,source:"sgf"/);
- assert.match(app,/forkReview\(selected\.snapshot,historyStep\)/);
- assert.match(app,/replaySteps\(record\.snapshot,historyStep\)/);
+ assert.match(historyPanel,/source==="sgf"/);
+ assert.match(historyPanel,/gameLibrary\.save\(\{mode:"local",snapshot:parsed\.snapshot,source:"sgf"/);
+ assert.match(app,/forkReview\(selected\.snapshot,historyPanel\.step\)/);
+ assert.match(historyPanel,/replaySteps\(record\.snapshot,step\)/);
 });
 
 test("AI resumption distinguishes model initialization, a pending AI move and model failure",async()=>{
@@ -119,11 +120,12 @@ test("phase-two sheet keeps scoring UX, contextual feedback, and keyboard focus"
  const h=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
  const a=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
  const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+ const historyPanel=readFileSync(new URL("../public/history-panel.mjs",import.meta.url),"utf8");
  for(const id of ["historyActionNotice","historySaveNotice","scoringActions","openCurrentMode","historyStepRange"])
    assert.match(h,new RegExp('id="'+id+'"'));
  assert.match(a,/\$\("openCurrentMode"\)\.onclick/);
- assert.match(a,/\$\("historyBack"\)\.focus\(\)/);
+ assert.match(historyPanel,/\$\("historyBack"\)\.focus\(\)/);
  assert.match(a,/\$\("gameMenu"\)\.querySelector\("summary"\)\.focus\(\)/);
- assert.match(a,/\$\("historyActionNotice"\)\.textContent="SGFを書き出しました/);
+ assert.match(historyPanel,/\$\("historyActionNotice"\)\.textContent="SGFを書き出しました/);
  assert.match(css,/\.history-back\{min-height:44px\}/);
 });
