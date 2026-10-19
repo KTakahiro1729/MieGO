@@ -37,14 +37,21 @@ export function scorePolicyCandidates(state, logits, ownership, options={}) {
   });
 }
 
+/** Ownership advice changes only the earliest time a NN pass is
+ * considered; it never forces an automatic pass.
+ */
+export function canConsiderAiPass(state,stage="playing") {
+  if(state.passes===1 && state.moveNumber>=18)return true;
+  const minimum=stage==="ready"?45:stage==="near"?52:58;
+  return state.moveNumber>=minimum;
+}
 export function choosePolicyMove(state, logits, passLogit, options={}) {
   if (state.status!=="playing") throw new Error("対局中ではありません");
-  if(state.moveNumber>=145)return null;
   const weakened=Number.isFinite(AI_STRENGTHS[options.strength]?.kyu);
   const candidates=scorePolicyCandidates(state,logits,options.ownership,
     {...options,allMoves:weakened});
   if(!candidates.length)return null;
-  const passAllowed=state.moveNumber>=58 || (state.passes===1 && state.moveNumber>=18);
+  const passAllowed=canConsiderAiPass(state,options.endgameStage);
   if(weakened)return pickWeakenedMove(candidates,passLogit,{...options,state,passAllowed});
   if(passAllowed && Number.isFinite(passLogit)){
     candidates.push({position:null,score:passLogit-0.3});

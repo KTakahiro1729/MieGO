@@ -10,6 +10,7 @@ import { parseKataGoModelV8 } from "../../vendor/web-katrain/src/engine/katago/l
 import { KataGoModelV8Tf } from "../../vendor/web-katrain/src/engine/katago/modelV8";
 import { postprocessKataGoV8 } from "../../vendor/web-katrain/src/engine/katago/evalV8";
 import { toKataGoPosition } from "./position.mjs";
+import { whiteCompensation } from "../../public/core.mjs";
 
 let model: KataGoModelV8Tf | null = null;
 let boot: Promise<void> | null = null;
@@ -53,7 +54,8 @@ async function evaluate(state: unknown) {
   const globalFeatures = new Float32Array(19);
   fillInputsV7FastForPosition({
     ...pos,
-    komi: 7.5,
+    // KataGo's NN komi input already includes the handicap bonus (selfKomi).
+    komi: whiteCompensation(state),
     rules: "chinese",
     conservativePassAndIsRoot: true,
     outSpatial: spatialFeatures,
@@ -84,7 +86,7 @@ async function evaluate(state: unknown) {
     const channels = model.policyOutChannels;
     const policy = rawPolicy.length === 81 * channels
       ? Array.from({ length: 81 }, (_, p) => rawPolicy[p * channels]) : null;
-    let black = 0, white = 7.5;
+    let black = 0, white = whiteCompensation(state);
     for (const v of ownership) { black += (1 + v) / 2; white += (1 - v) / 2; }
     return {
       engine: "katago", backend, model: "katago-small (test network)",
@@ -104,7 +106,7 @@ async function evaluateMovePolicy(state: unknown) {
   const spatialFeatures = new Float32Array(9 * 9 * 22);
   const globalFeatures = new Float32Array(19);
   fillInputsV7FastForPosition({
-    ...pos, komi: 7.5, rules: "chinese",
+    ...pos, komi: whiteCompensation(state), rules: "chinese",
     conservativePassAndIsRoot: true,
     outSpatial: spatialFeatures, outGlobal: globalFeatures
   });

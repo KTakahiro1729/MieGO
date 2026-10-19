@@ -1,4 +1,4 @@
-import { SIZE, BLACK, WHITE, neighbors, group, KOMI } from "./core.mjs";
+import { SIZE, BLACK, WHITE, neighbors, group, KOMI, whiteCompensation } from "./core.mjs";
 function influence(board) {
   const output = new Float32Array(SIZE * SIZE);
   for (let i = 0; i < board.length; i++) {
@@ -19,9 +19,9 @@ function influence(board) {
   return [...output];
 }
 self.onmessage = e => {
-  const { id, board } = e.data;
+  const { id, board, state } = e.data;
   const ownership = influence(board);
-  let black = 0, white = KOMI;
+  let black = 0, white = state ? whiteCompensation(state) : KOMI;
   for (let i = 0; i < ownership.length; i++) {
     const v = ownership[i];
     black += (1 + v) / 2;

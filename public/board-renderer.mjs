@@ -1,5 +1,5 @@
 import {SIZE, BLACK} from "./core.mjs";
-import {ownershipPixel} from "./territory-view.mjs";
+import {ownershipPixel,showsOwnership} from "./territory-view.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
 import {scoringRegions} from "./scoring-regions.mjs";
 
@@ -36,10 +36,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
 
   function paintOwnership(view, gap, pad) {
     const {game,boardReview,displayedOwnership,palette,opacity} = view;
-    const shown = boardReview?.display||game;
     const values = boardReview ? boardReview.ownership : displayedOwnership;
     if(!boardReview && game.status!=="playing")return;
-    if(!shown.assisted || !values)return;
+    if(!showsOwnership(palette) || !values)return;
 
     const image = overlayContext.createImageData(SIZE,SIZE);
     for(let i=0;i<SIZE*SIZE;i++) {

@@ -21,7 +21,8 @@ test("automatic dead-stone inference reuses scoring panel, no new permanent UI",
   assert.match(worker,/event\.data\.kind === "scoring"/);
 });
 test("scoring agreements do not restart model selection of dead stones",()=>{
-  assert.match(app,/\["move","resume","mode"\]\.includes\(action\.type\)/);
+  assert.match(app,/\["move","resume","mode","solo_scoring"\]\.includes\(action\.type\)/);
+  assert.doesNotMatch(app,/\["move","resume","mode","solo_scoring","solo_score"\]/);
   assert.match(app,/deadReview==="complete"/);
 });
 test("tapping a counting stone on empty territory is ignored instead of alerting",()=>{

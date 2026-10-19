@@ -1,10 +1,10 @@
-import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
+import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, areaScore, boardHash, handicapOf, komiOf, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
-import { EndgameAdvisor } from "./endgame.mjs";
+import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
 import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
-import { PALETTES, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
+import { isPaletteChoice, showsOwnership, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
 import { policyHints } from "./ai-assist.mjs";
@@ -64,7 +64,8 @@ function persistOnline(){
 let game = newGame(), candidate = null, illegalCandidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
 let illegalPromptCopied = false;
 const storedPalette = localStorage.getItem("miego-palette");
-let palette = Object.hasOwn(PALETTES, storedPalette) ? storedPalette : "mono";
+let palette = isPaletteChoice(storedPalette) ? storedPalette : "mono";
+const overlayOn = () => showsOwnership(palette);
 const storedOpacity = Number(localStorage.getItem("miego-opacity"));
 let opacity = Number.isFinite(storedOpacity) && storedOpacity>=0 && storedOpacity<=1 && localStorage.getItem("miego-opacity")!==null ? storedOpacity : .55;
 let connected = false;
@@ -72,6 +73,8 @@ let gameMode = room ? "online" : "local";
 let humanColor = BLACK, aiLevel = "standard", invasion = 50, reinforcement = 50;
 let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNotice = null;
 let aiSideChoice = "black";
+let aiHandicap = 0, localHandicap = 0;
+const toHandicap = value => handicapOf({handicap:Number(value)});
 let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
 let endgameStage = "playing", endExpanded = false, analysisContext = null;
@@ -140,27 +143,33 @@ function updateEndUi() {
   const incoming=!!(offer && room && color!==null && offer.from!==color);
   const localPrompt=playing && !room && endExpanded && !offer;
   const waiting=!!(offer && !incoming);
-  const near=(endgameStage==="near" || endgameStage==="ready") &&
-    game.moveNumber>endHintSuppressedUntil;
-  // Without a KataGo evaluation (loading or fallback) there is no basis for advice.
-  const advised=endgameAdvisor.previous!==null;
-  $("endStatus").textContent=!playing?"":incoming?"終局が提案されました":
+  const offline=!!room && (!connected || color===null);
+  $("endStatus").textContent=!playing?"":offline?"接続を待っています":
+    incoming?"終局が提案されました":
     waiting?"相手の返答を待っています":
-    localPrompt?"終局しますか？":
-    !advised?"":
-    near?"終局はいかがですか？":"終局はまだのようです";
+    localPrompt?"採点を始めますか？":
+    endgameHint(game,endgameAdvisor,{
+      unavailable:fallbackMode,suppressedUntil:endHintSuppressedUntil
+    });
   $("endPropose").hidden=!playing||!!offer||localPrompt;
   $("endAccept").hidden=!playing||!(incoming||localPrompt);
   $("endDecline").hidden=!playing||!(incoming||localPrompt||waiting);
-  $("endPropose").textContent="終局を提案";
-  $("endAccept").textContent="受け入れる";
+  $("endPropose").textContent=!room?"採点を始める":"終局を提案";
+  $("endAccept").textContent=!room?"採点へ進む":"受け入れる";
   $("endDecline").textContent=waiting?"取り下げる":"打ち続ける";
   for(const id of ["endPropose","endAccept","endDecline"])
-    $(id).disabled=!!room && (!connected || color===null);
+    $(id).disabled=offline;
+  // A move being computed is about to arrive; scoring waits for it instead of pausing the AI.
+  if(aiThinking)$("endPropose").disabled=true;
+  // Answering an opponent's offer is a negotiation: neither choice is emphasized.
+  $("endAccept").classList.toggle("primary",!room);
+  $("actionRow").classList.toggle("end-prompt-open",localPrompt);
   $("endDetail").textContent=incoming?"受け入れると採点に進みます。打ち続けることもできます。":
-    localPrompt?"終局を受け入れると死石の確認に進みます。":
+    localPrompt?(gameMode==="ai"?"あなたの判断で採点へ進みます。AIが終局を承認するわけではありません。":
+      "採点に進み、死石を確認します。対局の再開もできます。"):
     waiting?"相手の返答待ちです。提案は取り下げられます。":
-    "終局はいつでも提案できます。提案はパスと異なります。";
+    room?"終局はいつでも提案できます。提案はパスと異なります。":
+    "採点はいつでも始められます。パスとは別の操作です。";
   if(playing && !offer && !localPrompt && takebackNotice?.number===game.moveNumber &&
      takebackNotice.hash===boardHash(game.board))
     $("endStatus").textContent=takebackNotice.text;
@@ -184,7 +193,7 @@ function stopAiTurn() {
 function rememberSettings() {
   try {
     localStorage.setItem("miego-local-settings", JSON.stringify({
-      mode:gameMode,humanColor,aiSide:aiSideChoice,aiLevel,invasion,reinforcement,aiStrength,aiHints
+      mode:gameMode,humanColor,aiSide:aiSideChoice,aiLevel,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap
     }));
   } catch {}
 }
@@ -264,6 +273,8 @@ function requestAnalysis() {
     return;
   }
   if (isAiTurn()) {
+    // A visible human confirmation must not initiate a new AI turn.
+    if(endExpanded)return;
     if (aiThinking) return;
     if (fallbackMode) {
       analysis = null;
@@ -287,19 +298,19 @@ function requestAnalysis() {
     show();return;
   }
   pending=++seq;
-  if(!game.assisted) {
+  if(!overlayOn()) {
     analysis=null;
     if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
     transitionFrame=null; displayedOwnership=null;
-    $("analysisStatus").textContent="地合い補助オフ";
+    $("analysisStatus").textContent="地合いの表示オフ";
     draw();
     // Endgame evaluation runs independently of the ownership overlay.
     // Avoid evaluating every preview tap when the overlay is disabled.
     if(candidate || fallbackMode)return;
   }
-  const state=game.assisted?(candidate || game):game, id=pending;
+  const state=overlayOn()?(candidate || game):game, id=pending;
   analysisContext={id,number:state.moveNumber,hash:boardHash(state.board),committed:!candidate};
-  if(game.assisted)$("analysisStatus").textContent=fallbackMode?"簡易表示を更新中…":"地合いを更新中…";
+  if(overlayOn())$("analysisStatus").textContent=fallbackMode?"簡易表示を更新中…":"地合いを更新中…";
   analysisTimer=setTimeout(()=>worker.postMessage({id,state,board:state.board}),180);
 }
 function finishAiMove(result) {
@@ -307,13 +318,21 @@ function finishAiMove(result) {
   if(!job || job.id!==result.id)return;
   aiThinking=false;aiJob=null;
   if(!isAiTurn() || game.moveNumber!==job.number || boardHash(game.board)!==job.hash)return;
+  // Discard an in-flight move while the human is deciding whether to score.
+  if(endExpanded)return;
   if(result.engine!=="katago") {
     switchToFallback("KataGo以外の着手応答");
     return;
   }
   try {
+    // This is an NN evaluation of the committed position, not a preview.
+    const valid=Array.isArray(result.ownership) &&
+      result.ownership.length===SIZE*SIZE &&
+      result.ownership.every(v=>Number.isFinite(v)&&Math.abs(v)<=1.001);
+    const passStage=valid?endgameAdvisor.observe(game,result.ownership):"playing";
+    if(valid)endgameStage=passStage;
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
-      ownership:result.ownership,
+      ownership:result.ownership,endgameStage:passStage,
       invasion,reinforcement,strength:aiStrength,
       temperature:aiLevel==="gentle"?1.05:0.38
     });
@@ -381,7 +400,7 @@ function handleAnalysis(event) {
       draw();
     }
   }
-  if(!game.assisted)return;
+  if(!overlayOn())return;
   analysis=result;
   $("analysisStatus").textContent=result.engine==="katago"
     ?"地合いを表示中 · KataGoによる試験的推定"
@@ -448,7 +467,11 @@ function show() {
   $("resetLocalGame").hidden=!!room || gameMode!=="local";
   $("openCurrentMode").hidden=!room && gameMode!=="ai";
   $("openCurrentMode").textContent=room?"招待URLを表示":"AIの設定・再戦";
-  $("assisted").checked=game.assisted;$("assisted").disabled=game.moveNumber>0 || (room&&p2pRole!=="owner");
+  $("localHandicapRow").hidden=!!room || gameMode!=="local";
+  $("ownershipLegend").classList.toggle("overlay-off",!overlayOn());
+  const handicap=handicapOf(game);
+  $("ruleSummary").textContent="9路盤 · 中国式ルール · "+(handicap?
+    "置き石"+handicap+"子 · コミ"+komiOf(game)+"＋置き石補正"+handicap+"目":"コミ"+komiOf(game));
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
   $("gamePanel").classList.toggle("is-scoring",isScoring);
   $("gamePanel").classList.toggle("is-finished",isFinished);
@@ -481,7 +504,7 @@ function show() {
   // The scoring controls live in the existing sticky action row.
   if(isScoring){
     const score=areaScore(game);
-    $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（コミ込み）";
+    $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（"+compensationLabel()+"）";
     const ready=canApproveScoring(game,deadReview,room,connected);
     $("agree").disabled=!ready;
     const agreeing=room?(myOnlineColor()===WHITE?"white":"black"):
@@ -502,7 +525,7 @@ function show() {
         (result?.startsWith("B+")?"黒":result?.startsWith("W+")?"白":"引き分け")+
         (result?.startsWith("B+")||result?.startsWith("W+")?
           "の"+Math.abs(score.difference).toFixed(1)+"目勝ち":"");
-      $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（コミ込み）";
+      $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（"+compensationLabel()+"）";
     }
   }
   updateEndUi();
@@ -526,6 +549,17 @@ function apply(action, remote=false) {
       game=play(game,action.position);
       if(action.after!==boardHash(game.board)) throw new Error("局面の検証に失敗しました");
       lastPosition=Number.isInteger(action.position)?action.position:null;
+    } else if(action.type==="solo_scoring") {
+      if(room || remote || action.number!==game.moveNumber ||
+         action.before!==boardHash(game.board))
+        throw new Error("採点を開始できません");
+      stopAiTurn(); // Invalidate pending AI workers on the old position.
+      game=beginSoloScoring(game);
+      endExpanded=false;
+    } else if(action.type==="solo_score") {
+      if(room || remote || !canApproveScoring(game,deadReview,room,connected))
+        throw new Error("採点を確定できません");
+      game=finalizeSoloScore(game);
     } else if(action.type==="dead") {
       if(game.status!=="scoring")return;
       // Send the desired group state, not a toggle, to avoid double toggles
@@ -552,7 +586,7 @@ function apply(action, remote=false) {
       game=agreeScore(game,action.color);
     }
     else if(action.type==="resume") game=resume(game);
-    else if(action.type==="mode") game=setAssisted(game,action.value);
+    // "mode" (the removed per-game overlay switch) from older peers is ignored below.
     else if(action.type==="end_offer") {
       if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
         throw new Error("終局の提案時点が一致しません");
@@ -590,7 +624,7 @@ function apply(action, remote=false) {
     if(room)onlineRevision++;
     candidate=null;save();show();
     // Evaluate once, when a play/pass or accepted offer enters scoring.
-    if(["move","resume","mode"].includes(action.type) || rewound ||
+    if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
        (action.type==="end_answer" && game.status==="scoring") ||
        (hadCandidate && game.status==="playing"))
       requestAnalysis();
@@ -629,6 +663,7 @@ canvas.addEventListener("click",e=>{
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
   if(game.status!=="playing" || !isHumanTurn())return;
+  if(!room && endExpanded)endExpanded=false;
   // Occupied intersections cannot hold a provisional stone.
   if(game.board[position]!==0)return;
   const selected=inspectProvisionalMove(game,position);
@@ -750,7 +785,7 @@ function resetLocalBoard() {
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
   lastOfferKey=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  game=freshLocalGame(game);currentGameId=null;currentRevision=null;
+  game=freshLocalGame(game,localHandicap);currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
 }
 $("resetLocalGame").onclick=()=>{resetLocalBoard();closePanels();};
@@ -763,18 +798,21 @@ $("agree").onclick=()=>{
   if(!canApproveScoring(game,deadReview,room,connected))return;
   const color=room?myOnlineColor():gameMode==="ai"?humanColor:BLACK;
   if(game.agreed[color===BLACK?"black":"white"])return;
-  apply({type:"agree",color});
-  // Single-player modes require one human confirmation. No claim is made that
-  // KataGo independently approved the life-and-death judgment.
-  if(!room && game.status==="scoring")
-    apply({type:"agree",color:gameMode==="ai"?-humanColor:WHITE});
+  if(!room)apply({type:"solo_score"});
+  else apply({type:"agree",color});
 };
 $("resume").onclick=()=>apply({type:"resume"});
 $("endPropose").onclick=()=>{
   if(game.status!=="playing" || game.endProposal || game.takebackRequest)return;
   const color=myColorForEnd();
   if(!color || (room&&!connected))return;
-  if(!room){endExpanded=true;updateEndUi();return;}
+  if(!room){
+    if(aiThinking)return;
+    // The prompt replaces any provisional stone; the board is not half-committed.
+    candidate=null;illegalCandidate=null;illegalPromptCopied=false;
+    $("illegalPromptFallbackPanel").hidden=true;
+    endExpanded=true;show();requestAnalysis();return;
+  }
   apply({type:"end_offer",color,number:game.moveNumber,before:boardHash(game.board)});
 };
 function answerTakebackRequest(accept) {
@@ -788,10 +826,8 @@ $("endAccept").onclick=()=>{
   if(game.takebackRequest){answerTakebackRequest(true);return;}
   const color=myColorForEnd();
   if(!room && endExpanded && !game.endProposal){
-    apply({type:"end_offer",color,number:game.moveNumber,before:boardHash(game.board)});
-    if(game.endProposal?.from===color)
-      apply({type:"end_answer",color:-color,accept:true,
-        proposalFrom:color,number:game.moveNumber,before:boardHash(game.board)});
+    // One human decision, not a fabricated AI response.
+    apply({type:"solo_scoring",number:game.moveNumber,before:boardHash(game.board)});
     return;
   }
   if(!game.endProposal || !room || !connected || game.endProposal.from===color)return;
@@ -802,7 +838,9 @@ $("endDecline").onclick=()=>{
   if(game.status!=="playing")return;
   if(game.takebackRequest){answerTakebackRequest(false);return;}
   if(!room && endExpanded && !game.endProposal){
-    endExpanded=false;updateEndUi();return;
+    endExpanded=false;updateEndUi();
+    if(isAiTurn())requestAnalysis();
+    return;
   }
   if(!game.endProposal)return;
   const color=myColorForEnd();
@@ -810,15 +848,23 @@ $("endDecline").onclick=()=>{
   apply({type:"end_answer",color,accept:false,proposalFrom:game.endProposal.from,
     number:game.moveNumber,before:boardHash(game.board)});
 };
-$("assisted").onchange=e=>apply({type:"mode",value:e.target.checked});
+function compensationLabel() {
+  return handicapOf(game)?"コミ・置き石補正込み":"コミ込み";
+}
+// Choosing "表示しない" hides the overlay; the next colour map brings it back.
 document.querySelectorAll('input[name="palette"]').forEach(input => {
   input.onchange = e => {
     if (!e.target.checked) return;
-    palette=Object.hasOwn(PALETTES,e.target.value)?e.target.value:"mono";
-    localStorage.setItem("miego-palette",palette);
-    draw();updateGradient();
+    const wasOn=overlayOn();
+    palette=isPaletteChoice(e.target.value)?e.target.value:"mono";
+    try{localStorage.setItem("miego-palette",palette);}catch{}
+    updateGradient();show();
+    if(wasOn!==overlayOn()){
+      if(boardReview)requestReviewOwnership();else requestAnalysis();
+    }
   };
 });
+$("localHandicap").onchange=e=>{localHandicap=toHandicap(e.target.value);rememberSettings();};
 $("opacity").oninput=e=>{
   opacity=Number(e.target.value)/100;
   localStorage.setItem("miego-opacity",String(opacity));
@@ -826,13 +872,15 @@ $("opacity").oninput=e=>{
   updateGradient();draw();
 };
 $("resetAppearance").onclick=()=>{
+  const wasOn=overlayOn();
   palette="mono";opacity=.55;
   localStorage.setItem("miego-palette",palette);
   localStorage.setItem("miego-opacity","0.55");
   const selected=document.querySelector('input[name="palette"][value="mono"]');
   if(selected)selected.checked=true;
   $("opacity").value="55";$("opacityValue").textContent="55%";
-  updateGradient();draw();
+  updateGradient();show();
+  if(!wasOn){if(boardReview)requestReviewOwnership();else requestAnalysis();}
 };
 function updateGradient(){$("gradient").style.backgroundImage=paletteGradient(palette,opacity);}
 function save(){
@@ -857,7 +905,7 @@ function savedGame(mode) {
     aiStrength=normalizeStrength(record.aiStrength);
     invasion=record.invasion;reinforcement=record.reinforcement;
   }
-  return record?.snapshot||newGame(game.assisted);
+  return record?.snapshot||newGame();
 }
 function leaveOnlineRoom() {
   resetArmedButtons();
@@ -982,7 +1030,7 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  game=newGame(game.assisted);candidate=null;lastPosition=null;
+  game=newGame();candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
@@ -1127,7 +1175,7 @@ function requestReviewOwnership() {
   if(!boardReview)return;
   boardReview.ownership=null;
   boardReview.analysisId=++reviewSequence;
-  if(!boardReview.display.assisted){draw();return;}
+  if(!overlayOn()){draw();return;}
   if(!reviewWorker){
     reviewWorker=new Worker("/analysis-worker.mjs",{type:"module"});
     reviewWorker.onmessage=e=>{
@@ -1400,14 +1448,16 @@ $("startAi").onclick=()=>{
   clearBoardReview();
   stopAiTurn();
   gameMode="ai";
-  // Same choices and the same random draw as a friend invitation.
-  try{humanColor=selectColor(aiSideChoice);}
+  aiHandicap=toHandicap(document.querySelector('input[name="aiHandicap"]:checked')?.value);
+  // Handicap stones always belong to the human, who therefore plays Black.
+  // Otherwise: the same choices and the same random draw as a friend invitation.
+  try{humanColor=aiHandicap?BLACK:selectColor(aiSideChoice);}
   catch(error){$("aiMatchStatus").textContent=error.message;return;}
   aiLevel=$("aiLevel").value==="gentle"?"gentle":"standard";
   aiStrength=normalizeStrength(document.querySelector('input[name="aiStrength"]:checked')?.value,
     DEFAULT_AI_STRENGTH);
   hints=null;takebackNotice=null;
-  game=newGame(game.assisted);currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
+  game=newGame(true,{handicap:aiHandicap});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   $("aiMatchStatus").textContent="対局を開始しました。あなたは"+colorLabel(humanColor)+"です。";
   save();closePanels();show();requestAnalysis();
@@ -1422,6 +1472,27 @@ for (const input of document.querySelectorAll('input[name="aiSide"]')) {
     if(!e.target.checked)return;
     aiSideChoice=SIDE_CHOICES.includes(e.target.value)?e.target.value:"black";
     rememberSettings();
+  };
+}
+function syncHandicapUi() {
+  const choice=document.querySelector('input[name="aiHandicap"][value="'+aiHandicap+'"]');
+  if(choice)choice.checked=true;
+  $("localHandicap").value=String(localHandicap);
+  // With handicap the human is Black; the saved side preference returns afterwards.
+  for(const input of document.querySelectorAll('input[name="aiSide"]'))
+    input.disabled=!!aiHandicap && input.value!=="black";
+  if(aiHandicap){
+    const black=document.querySelector('input[name="aiSide"][value="black"]');
+    if(black)black.checked=true;
+  }else syncSideUi();
+}
+for(const input of document.querySelectorAll('input[name="aiHandicap"]')) {
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    aiHandicap=toHandicap(e.target.value);
+    syncHandicapUi();rememberSettings();
+    $("aiMatchStatus").textContent=aiHandicap?
+      "置き石"+aiHandicap+"子で次の対局を始めます（あなたは黒）。":"互先で次の対局を始めます。";
   };
 }
 for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]]) {
@@ -1494,6 +1565,7 @@ else try {
       humanColor===WHITE?"white":"black";
     aiLevel=settings.aiLevel==="gentle"?"gentle":"standard";
     aiStrength=normalizeStrength(settings.aiStrength,DEFAULT_AI_STRENGTH);
+    aiHandicap=toHandicap(settings.aiHandicap);localHandicap=toHandicap(settings.localHandicap);
     aiHints=settings.aiHints===true;
     invasion=Math.max(0,Math.min(100,Number(settings.invasion??50)));
     reinforcement=Math.max(0,Math.min(100,Number(settings.reinforcement??50)));
@@ -1504,7 +1576,7 @@ syncSideUi();
 $("aiLevel").value=aiLevel;
 $("aiInvasion").value=String(invasion);
 $("aiReinforcement").value=String(reinforcement);
-updatePersonaUi();syncStrengthUi();
+updatePersonaUi();syncStrengthUi();syncHandicapUi();
 const selectedPalette=document.querySelector('input[name="palette"][value="'+palette+'"]');
 if(selectedPalette)selectedPalette.checked=true;
 $("opacity").value=String(Math.round(opacity*100));

@@ -1,4 +1,4 @@
-import { BLACK, WHITE, SIZE, KOMI, newGame, play, resume, boardHash } from "./core.mjs";
+import { BLACK, WHITE, SIZE, HANDICAP_POINTS, MAX_HANDICAP, newGame, initialGame, handicapOf, komiOf, play, resume, boardHash } from "./core.mjs";
 
 const MAX_TEXT=512*1024, MAX_NODES=5000, MAX_DEPTH=40, MAX_STEPS=2000;
 const esc=value=>String(value??"").replace(/\\/g,"\\\\").replace(/\]/g,"\\]");
@@ -70,10 +70,21 @@ export function parseSGF(text) {
   if(first(root,"GM")!==null && first(root,"GM")!=="1")throw Error("囲碁以外のSGFは読み込めません。");
   if(first(root,"SZ")!=="9")throw Error("9路盤のSGF（SZ[9]）だけに対応しています。");
   if(first(root,"FF")!==null && first(root,"FF")!=="4")throw Error("SGF形式FF[4]にのみ対応しています。");
-  for(const node of nodes)
+  // Handicap is accepted only as MieGO's fixed star-point placement in the root.
+  for(const node of nodes.slice(1))
     if(["AB","AW","AE","PL","HA"].some(prop=>prop in node))
-      throw Error("置き石・盤面編集を含むSGFには対応していません。");
-  let state=newGame(),seen=0;
+      throw Error("途中の盤面編集を含むSGFには対応していません。");
+  if(["AW","AE"].some(prop=>prop in root))throw Error("白石の配置・盤面編集を含むSGFには対応していません。");
+  const placed=(root.AB||[]).map(decodeMove);
+  const handicap=placed.length;
+  if(handicap===1 || handicap>MAX_HANDICAP ||
+     (first(root,"HA")!==null && Number(first(root,"HA"))!==handicap) ||
+     placed.some(p=>!HANDICAP_POINTS.slice(0,handicap).includes(p)) ||
+     new Set(placed).size!==handicap)
+    throw Error("MieGOの置き石の配置（2〜"+MAX_HANDICAP+"子・星）以外のSGFには対応していません。");
+  if(first(root,"PL")!==null && first(root,"PL")!==(handicap?"W":"B"))
+    throw Error("SGFの手番指定（PL）に対応していません。");
+  let state=newGame(true,{handicap}),seen=0;
   for(const node of nodes){
     if(("B" in node)&&("W" in node))throw Error("同じ節点に白黒両方の着手があります。");
     const key="B" in node?"B":"W" in node?"W":null;
@@ -89,7 +100,7 @@ export function parseSGF(text) {
   }
   const result=first(root,"RE");
   const metadata={
-    komi:first(root,"KM")??String(KOMI),
+    komi:first(root,"KM")??String(komiOf(state)),
     rules:first(root,"RU")??"Chinese",
     result:result||null,
     blackName:first(root,"PB")||null,
@@ -109,7 +120,7 @@ export function replaySteps(game,through=game.moves.length){
   if(!game || !Array.isArray(game.moves))throw Error("棋譜の手順がありません。");
   if(!Number.isInteger(through)||through<0||through>game.moves.length)
     throw Error("指定された手順がありません。");
-  let state=newGame(game.assisted!==false);
+  let state=initialGame(game);
   for(let i=0;i<through;i++){
     const {color,position}=game.moves[i];
     if(color!==state.next)throw Error((i+1)+"手目の手番が一致しません。");
@@ -141,7 +152,10 @@ export function exportSGF(record) {
   const moves=snapshot.moves.filter(m=>m.position!=="resign").map(m=>
     ";"+(m.color===BLACK?"B":"W")+"["+coord(m.position)+"]").join("");
   const result=meta.result||snapshot.result;
-  return "(;GM[1]FF[4]CA[UTF-8]SZ[9]KM["+esc(meta.komi??KOMI)+"]RU["+
-    esc(meta.rules??"Chinese")+"]"+label("PB",meta.blackName)+
+  const handicap=handicapOf(snapshot);
+  const setup=handicap?"HA["+handicap+"]AB"+HANDICAP_POINTS.slice(0,handicap)
+    .map(p=>"["+coord(p)+"]").join(""):"";
+  return "(;GM[1]FF[4]CA[UTF-8]SZ[9]KM["+esc(meta.komi??komiOf(snapshot))+"]RU["+
+    esc(meta.rules??"Chinese")+"]"+setup+label("PB",meta.blackName)+
     label("PW",meta.whiteName)+label("RE",result)+moves+")";
 }
