@@ -36,7 +36,20 @@
           <span id="hint" aria-live="polite">交点をタップして仮置き</span>
           <span id="moveLabel" class="move-label">0手目</span>
         </div>
-        <p id="analysisStatus" class="analysis-status" role="status" aria-live="polite">地合いを準備中…</p>
+        <div class="analysis-status end-status-row">
+          <span id="analysisStatus" role="status" aria-live="polite">地合いを準備中…</span>
+          <button id="endToggle" class="end-toggle" type="button" aria-controls="endActions" aria-expanded="false">
+            <span id="endStatus" aria-live="polite">終局の目安 · 対局中</span><span aria-hidden="true">›</span>
+          </button>
+        </div>
+        <div id="endActions" class="end-actions" hidden>
+          <p id="endDetail">終局の提案はパスではありません。</p>
+          <div class="end-buttons">
+            <button id="endPropose" class="end-action" type="button">終局を提案する</button>
+            <button id="endAccept" class="end-action primary" type="button" hidden>同意して採点へ</button>
+            <button id="endDecline" class="end-action" type="button" hidden>対局を続ける</button>
+          </div>
+        </div>
         <div class="action-row">
           <button id="cancel" class="secondary-action" type="button" disabled>戻す</button>
           <button id="confirm" class="primary" type="button" disabled><span class="button-stone" aria-hidden="true"></span>この手を打つ</button>
