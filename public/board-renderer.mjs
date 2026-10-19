@@ -115,15 +115,15 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       if(!Number.isInteger(index))continue;
       const x=pad+(index%SIZE)*gap,y=pad+Math.floor(index/SIZE)*gap;
       const label=String(region.count);
-      const width=label.length*fontSize*.68+10,height=fontSize+9;
+      // No box: a halo in the opposite colour keeps the bare number legible
+      // on stones, territory markers and the board alike.
       ctx.save();
-      ctx.fillStyle=region.color===BLACK?"#172327":"#fcf8ed";
-      ctx.fillRect(x-width/2,y-height/2,width,height);
-      ctx.strokeStyle=region.color===BLACK?"#d7b77a":"#655b4b";
-      ctx.lineWidth=1.5;ctx.strokeRect(x-width/2,y-height/2,width,height);
-      ctx.fillStyle=region.color===BLACK?"#fffaed":"#20282b";
       ctx.font="700 "+fontSize+"px system-ui, sans-serif";
       ctx.textAlign="center";ctx.textBaseline="middle";
+      ctx.lineJoin="round";ctx.lineWidth=Math.max(3,fontSize*.22);
+      ctx.strokeStyle=region.color===BLACK?"#141b1e":"#fdfaf0";
+      ctx.strokeText(label,x,y+1);
+      ctx.fillStyle=region.color===BLACK?"#fffaed":"#20282b";
       ctx.fillText(label,x,y+1);ctx.restore();
     }
   }
