@@ -4,7 +4,7 @@ import {recordThumbnailSvg} from "./board-thumbnail.mjs";
 
 // The library sheet is a file picker and saved-game list. All board/replay
 // controls live on the main board; it never creates a second playing surface.
-export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{}}) {
+export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},getBoardTheme=()=>undefined}) {
   function renderHistoryList() {
     const list=$("historyList");list.replaceChildren();
     let records=[];
@@ -14,7 +14,7 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{}})
       const item=document.createElement("button");
       item.type="button";item.className="history-list-item";
       const thumb=document.createElement("span");thumb.className="history-thumb";
-      try{thumb.innerHTML=recordThumbnailSvg(record);}catch{}
+      try{thumb.innerHTML=recordThumbnailSvg(record,getBoardTheme());}catch{}
       const icon=document.createElement("span");icon.className="history-list-icon";
       icon.textContent=recordIcon(record);
       thumb.append(icon);
