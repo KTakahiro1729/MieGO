@@ -104,3 +104,12 @@ test("SGF import/replay is exposed in saved game sheet without changing live gam
  assert.match(app,/forkReview\(selected\.snapshot,historyStep\)/);
  assert.match(app,/replaySteps\(record\.snapshot,historyStep\)/);
 });
+
+test("AI resumption distinguishes model initialization, a pending AI move and model failure",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+ assert.match(app,/!katagoReady\?"AIを準備中/);
+ assert.match(app,/KataGoの準備ができるまで待機中/);
+ assert.match(app,/AI対局を停止しました/);
+ assert.match(app,/gameMode=record.mode;game=JSON\.parse\(JSON\.stringify\(record\.snapshot\)\)/);
+});

@@ -370,7 +370,8 @@ function show() {
   $("turn").textContent=game.status==="finished"?"対局終了":
     game.status==="scoring"?"死石を確認":
     room?(connected?(myTurn?"あなたの番":"相手の番"):"対局相手を待っています"):
-    gameMode==="ai"?(isAiTurn()?"AIの番です":"あなたの番です"):
+    gameMode==="ai"?(fallbackMode?"AI対局を停止しました":!katagoReady?"AIを準備中…":
+      isAiTurn()?"AIの番です":"あなたの番です"):
     (game.next===BLACK?"黒の番です":"白の番です");
   if(!room)$("netStatus").textContent=gameMode==="ai"?"AIと対戦":"1台で打つ";
   $("netStatus").classList.toggle("online",connected);
@@ -378,7 +379,9 @@ function show() {
   $("hint").textContent=candidate?
     (room?"仮置き中 · 確定すると相手に届きます":"仮置き中 · 確定すると着手します"):
     game.status==="scoring"?"死石をタップして指定":
-    isAiTurn()?(fallbackMode?"KataGo利用不可。対AI戦は停止中":"AIが着手を計算しています…"):
+    gameMode==="ai" && fallbackMode?"KataGoを利用できないためAI対局は停止中":
+    gameMode==="ai" && !katagoReady?"KataGoの準備ができるまで待機中":
+    isAiTurn()?"AIが着手を計算しています…":
     "交点をタップして仮置き";
   $("confirm").disabled=!candidate || !myTurn;
   $("cancel").disabled=!candidate;
@@ -856,6 +859,7 @@ function updateHistoryPosition() {
     $("historySaveNotice").textContent="";
   } catch(error) {
     $("historyBranch").disabled=true;
+    $("historyResume").hidden=true;
     $("historySaveNotice").textContent="棋譜を再生できません："+error.message;
   }
 }
