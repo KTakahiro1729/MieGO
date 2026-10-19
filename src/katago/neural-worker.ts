@@ -104,17 +104,25 @@ async function evaluateMovePolicy(state: unknown) {
   });
   const spatial = tf.tensor4d(spatialFeatures, [1, 9, 9, 22]);
   const global = tf.tensor2d(globalFeatures, [1, 19]);
-  let output: ReturnType<KataGoModelV8Tf["forwardPolicyValue"]> | undefined;
+  let output: ReturnType<KataGoModelV8Tf["forward"]> | undefined;
   try {
-    output = model.forwardPolicyValue(spatial, global);
-    const [raw, pass] = await Promise.all([output.policy.data(), output.policyPass.data()]);
+    output = model.forward(spatial, global);
+    const [raw, pass, rawOwnership] = await Promise.all([
+      output.policy.data(), output.policyPass.data(), output.ownership.data()
+    ]);
     const channels = model.policyOutChannels;
     if (raw.length !== 81 * channels || !pass.length)
       throw new Error("KataGo returned an unexpected policy shape");
     const policy = Array.from({ length:81 }, (_, p) => raw[p * channels]);
     if (!policy.every(Number.isFinite) || !Number.isFinite(pass[0]))
       throw new Error("KataGo policy logits are not finite");
-    return { kind:"move", engine:"katago", backend, policy, passLogit:pass[0] };
+    // Same sign convention as MieGO: +1 Black controls, -1 White controls.
+    const sign = pos.currentPlayer === "black" ? 1 : -1;
+    const scale = model.postProcessParams.outputScaleMultiplier;
+    const ownership = Array.from(rawOwnership, v => Math.tanh(v * scale) * sign);
+    if (ownership.length !== 81 || !ownership.every(Number.isFinite))
+      throw new Error("KataGo ownership output is invalid");
+    return { kind:"move", engine:"katago", backend, policy, passLogit:pass[0], ownership };
   } finally {
     spatial.dispose(); global.dispose();
     if (output) for (const t of Object.values(output)) t.dispose();

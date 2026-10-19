@@ -1,27 +1,111 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0d1719"><title>MieGO — 地合いを見ながら囲碁</title><link rel="stylesheet" href="/style.css"></head>
-<body><div id="app">
-<header><div class="brand"><span class="mark">●<i>○</i></span><div><strong>MieGO</strong><small>地合いを見ながら、囲碁を。</small></div></div><div class="header-right"><span id="netStatus" class="pill">ローカル練習</span><button id="share" class="outline">対局URLを作る</button></div></header>
-<main><section class="main-panel"><div class="panel-top"><div><div class="eyebrow">9 × 9 · 中国式ルール · コミ 7.5</div><h1>対局盤</h1></div><div class="turn" id="turn"></div></div>
-<div class="board-frame"><canvas id="board" width="720" height="720" aria-label="9路盤"></canvas></div>
-<div class="board-foot"><span id="moveLabel">0手目</span><span id="hint">交点をタップして仮置き</span></div>
-<div class="action-row"><button id="confirm" class="primary" disabled>この手を確定</button><button id="cancel" disabled>仮置きを戻す</button><button id="pass">パス</button><button id="resign">投了</button></div>
-<div id="scoreBox" class="score-box hidden"><strong>終局の確認</strong><p id="scoreInstruction">死石をタップして指定してください。双方が確認すると面積計算で勝敗を決定します。</p><div id="scoreText"></div><div class="action-row"><button id="agree" class="primary">この計算に同意</button><button id="resume">対局を再開</button></div></div>
-</section>
-<aside class="side-panel"><div class="side-head"><span class="eyebrow">POSITION ANALYSIS</span><h2>地合いの見通し</h2><p>各交点の黒・白への帰属傾向を色で表示します。</p></div>
-<div class="analysis-card"><div class="stat-row"><span>黒寄りの交点数（参考）</span><strong id="blackEstimate">—</strong></div><div class="stat-row"><span>白寄りの交点数（コミ込み・参考）</span><strong id="whiteEstimate">—</strong></div><div class="stat-row"><span>予測目数差</span><strong id="leadEstimate">—</strong></div><div class="stat-row"><span>黒の予測勝率</span><strong id="winEstimate">—</strong></div><div id="analysisStatus" class="note">分析準備中</div></div>
-<div class="controls"><label for="palette">カラーマップ</label><select id="palette"><option value="blueRed">青・赤</option><option value="purpleGreen">紫・緑</option><option value="gray">グレースケール</option></select><div class="legend"><span>白寄り</span><span>中立</span><span>黒寄り</span></div><div class="gradient" id="gradient"></div><label for="opacity">表示の濃さ <span id="opacityValue">55%</span></label><input id="opacity" type="range" min="0" max="100" value="55"></div>
-<div class="mode"><div><strong>AI補助モード</strong><p>対局開始後は変更できません。</p></div><label class="switch"><input type="checkbox" id="assisted" checked><span></span></label></div>
-<div class="notice"><strong>KataGoの試験的ニューラル評価</strong><p>学習済みの小型KataGoテストモデルをブラウザ内で実行します。MCTS探索なしの単一局面評価で、棋力・目数・生死の精度は保証しません。モデル読み込みに失敗したときだけ簡易影響モデルに切り替え、画面に明示します。</p></div>
-<section class="ai-card" aria-label="AI対局">
-<strong>AIと対局</strong>
-<p>KataGoの着手方針で9路盤を対局します（探索なし・小型テストモデル）。</p>
-<div class="ai-options"><label for="aiColor">自分の色</label><select id="aiColor"><option value="1">黒（先手）</option><option value="-1">白（後手）</option></select>
-<label for="aiLevel">着手のばらつき</label><select id="aiLevel"><option value="standard">標準</option><option value="gentle">大きめ（やさしめ）</option></select></div>
-<button id="startAi" class="primary full" type="button">AIと対局を始める</button>
-<button id="returnLocal" class="outline full hidden" type="button">ローカル練習に戻る</button>
-<p id="aiMatchStatus" class="note" role="status" aria-live="polite">自分の色とAIの着手のばらつきを選択できます。</p>
-<p class="note">KataGoが利用できない環境では対AI戦を開始できません。MCTS探索・棋力保証はありません。</p>
-</section>
-<div class="room-card"><strong>友人と対局</strong><p id="roomInfo">URLを共有するとP2Pで対局できます。ルーム作成者が黒番です。</p><button id="copy" class="outline full">招待リンクをコピー</button><div id="inviteDetails" class="invite-details hidden"><label for="inviteUrl">招待URL（タップすると選択できます）</label><input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="招待URL"><button id="nativeShare" class="outline full hidden">端末の共有メニューを開く</button></div><p id="inviteStatus" role="status" aria-live="polite" class="invite-status"></p><p class="note">WebRTCの接続に失敗する環境ではTURN設定が必要です。</p></div>
-</aside></main><footer>MieGO · Browser-first Go</footer></div><script type="module" src="/app.mjs"></script></body></html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e1119">
+  <title>MieGO — 地合いを感じながら囲碁</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="MieGO">Mie<span>GO</span></div>
+      <div class="header-actions">
+        <button id="aiMenu" class="invite-button ai-menu-button" type="button">AIと対局</button>
+        <button id="share" class="invite-button" type="button">友人を招待</button>
+        <button id="settingsToggle" class="icon-button" type="button" aria-label="設定を開く" aria-controls="settingsPanel" aria-expanded="false">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.86 1.86-.06-.06A1.7 1.7 0 0 0 16 18.4l-.15.05V21h-3.7v-2.55L12 18.4a1.7 1.7 0 0 0-1.88.34l-.06.06-1.86-1.86.06-.06A1.7 1.7 0 0 0 8.6 15l-.05-.15H6V11.2h2.55L8.6 11a1.7 1.7 0 0 0-.34-1.88L8.2 9.06 10.06 7.2l.06.06A1.7 1.7 0 0 0 12 7.6l.15-.05V5h3.7v2.55L16 7.6a1.7 1.7 0 0 0 1.88-.34l.06-.06L19.8 9.06l-.06.06A1.7 1.7 0 0 0 19.4 11l.05.2H22v3.65h-2.55z" transform="translate(-2 -1)"/></svg>
+        </button>
+      </div>
+    </header>
+    <main class="game-layout">
+      <section class="game-panel" aria-label="囲碁対局">
+        <div class="game-meta">
+          <div id="turn" class="turn" role="status" aria-live="polite">黒の番です</div>
+          <div id="netStatus" class="connection-status" role="status" aria-live="polite">ローカル練習</div>
+        </div>
+        <div class="board-frame">
+          <canvas id="board" width="720" height="720" aria-label="9路盤。交点を選ぶと石を仮置きできます。"></canvas>
+        </div>
+        <div class="ownership-legend" aria-label="地合いの色の凡例">
+          <div class="gradient" id="gradient" aria-hidden="true"></div>
+          <div class="legend-labels"><span>白寄り</span><span>中立</span><span>黒寄り</span></div>
+        </div>
+        <div class="board-foot">
+          <span id="hint" aria-live="polite">交点をタップして仮置き</span>
+          <span id="moveLabel" class="move-label">0手目</span>
+        </div>
+        <p id="analysisStatus" class="analysis-status" role="status" aria-live="polite">地合いを準備中…</p>
+        <div class="action-row">
+          <button id="cancel" class="secondary-action" type="button" disabled>戻す</button>
+          <button id="confirm" class="primary" type="button" disabled><span class="button-stone" aria-hidden="true"></span>この手を打つ</button>
+          <button id="pass" class="secondary-action" type="button">パス</button>
+        </div>
+        <div id="scoreBox" class="score-box hidden">
+          <strong>終局の確認</strong>
+          <p id="scoreInstruction">死石をタップして指定し、双方で結果を確認してください。</p>
+          <div id="scoreText"></div>
+          <div class="score-actions">
+            <button id="agree" class="primary" type="button">この計算に同意</button>
+            <button id="resume" type="button">対局を再開</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
+    <aside id="settingsPanel" class="settings-panel" aria-label="表示と対局の設定" hidden>
+      <div class="settings-head"><h2>設定</h2><button id="closeSettings" class="icon-button" type="button" aria-label="設定を閉じる">×</button></div>
+      <section class="settings-section">
+        <h3>地合いの表示</h3>
+        <label for="palette">カラーマップ</label>
+        <select id="palette">
+          <option value="mono" selected>白〜黒（標準）</option>
+          <option value="purpleGreen">紫〜緑</option>
+          <option value="blueRed">青〜赤</option>
+        </select>
+        <label for="opacity">色の濃さ <span id="opacityValue">55%</span></label>
+        <input id="opacity" type="range" min="0" max="100" value="55">
+        <div class="mode"><div><strong>地合い補助</strong><p>対局が始まると変更できません。</p></div><input id="assisted" type="checkbox" checked aria-label="地合い補助を使用する"></div>
+        <p class="explanation">色は石の配置から推定した所有傾向です。勝率や確定した地を示すものではありません。</p>
+      </section>
+      <section id="aiSettings" class="settings-section ai-settings">
+        <h3>AIと対局</h3>
+        <p class="explanation">KataGoの着手方針を使います。侵入と補強の好みはそれぞれ独立です。</p>
+        <label for="aiColor">自分の色</label>
+        <select id="aiColor"><option value="1">黒（先手）</option><option value="-1">白（後手）</option></select>
+        <label for="aiLevel">着手のばらつき（棋力とは別）</label>
+        <select id="aiLevel"><option value="standard">標準</option><option value="gentle">大きめ</option></select>
+        <label for="aiInvasion">侵入度 <span id="aiInvasionValue" class="setting-value">50%</span></label>
+        <input id="aiInvasion" type="range" min="0" max="100" step="5" value="50">
+        <p class="explanation">相手の地になりそうな場所への打ち込みをどの程度好むか。</p>
+        <label for="aiReinforcement">補強度 <span id="aiReinforcementValue" class="setting-value">50%</span></label>
+        <input id="aiReinforcement" type="range" min="0" max="100" step="5" value="50">
+        <p class="explanation">弱い自石を守る、未確定の自分の地を固める手をどの程度好むか。</p>
+        <button id="startAi" class="primary full" type="button" disabled>KataGoを準備中…</button>
+        <button id="returnLocal" class="outline full hidden" type="button">AI対局を終了する</button>
+        <p id="aiMatchStatus" class="explanation" role="status" aria-live="polite">KataGoモデルの準備を確認しています…</p>
+        <p class="explanation">100%は好みが強い設定です。棋力や生存確率を意味しません。KataGoが使えない場合は対AI戦を開始できません。</p>
+      </section>
+      <section class="settings-section room-card">
+        <h3>友人と対局</h3>
+        <p id="roomInfo">招待URLでP2P対局できます。ルーム作成者が黒番です。</p>
+        <button id="copy" class="outline full" type="button">招待リンクをコピー</button>
+        <div id="inviteDetails" class="invite-details hidden">
+          <label for="inviteUrl">招待URL</label>
+          <input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="招待URL">
+          <button id="nativeShare" class="outline full hidden" type="button">端末の共有メニューを開く</button>
+        </div>
+        <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
+      </section>
+      <section class="settings-section">
+        <h3>その他</h3>
+        <p class="explanation">9路盤 · 中国式ルール · コミ7.5</p>
+        <button id="resign" class="danger-button" type="button">投了する</button>
+        <p class="explanation">地合いの表示はKataGo利用不可時に簡易影響モデルへ切り替わりますが、対AI戦は停止します。</p>
+      </section>
+    </aside>
+  </div>
+  <script type="module" src="/app.mjs"></script>
+</body>
+</html>

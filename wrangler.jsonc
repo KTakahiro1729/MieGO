@@ -13,5 +13,10 @@
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["GameRoom"] }
-  ]
+  ],
+  "previews": {
+    "durable_objects": {
+      "bindings": [{ "name": "ROOMS", "class_name": "GameRoom" }]
+    }
+  }
 }
