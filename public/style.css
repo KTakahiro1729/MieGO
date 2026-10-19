@@ -369,10 +369,12 @@ body{overflow:hidden}
 }
 
 /* Forbidden points are not marked in advance; the existing endgame status displays the reason. */
-.endgame-bar.has-illegal .end-status{color:#f0c882}
-.action-row .illegal-prompt-action{flex:1 1 auto;min-width:0;padding:9px 5px;border-color:#8d7142;color:#f2d8a0;white-space:normal;line-height:1.25}
+.endgame-bar.has-illegal .end-status{color:#f0c882;font-size:clamp(16px,4.8vw,19px);font-weight:750;line-height:1.25;white-space:normal}
+.endgame-bar.has-illegal .end-buttons{display:none}
+@media(max-width:350px){.endgame-bar.has-illegal .end-status{font-size:16px}}
+.action-row .illegal-prompt-action{flex:1 1 auto;min-width:0;padding:9px 5px;border-color:#8d7142;color:#f2d8a0;font-size:14px;font-weight:700;white-space:normal;line-height:1.25}
 .illegal-prompt-fallback{position:fixed;z-index:12;left:12px;right:12px;bottom:calc(75px + env(safe-area-inset-bottom));max-width:540px;margin:auto;max-height:45dvh;overflow:auto;background:#252b37;border:1px solid #967d50;box-shadow:0 10px 40px #000b;border-radius:12px;padding:13px}
 .illegal-prompt-fallback label{display:block;font-size:12px;line-height:1.5;margin-bottom:8px}
 .illegal-prompt-fallback textarea{box-sizing:border-box;width:100%;min-height:135px;color:#eee5d4;background:#141924;border:1px solid #666a73;border-radius:8px;padding:10px;font-size:12px}
 .illegal-prompt-fallback button{margin-top:8px;min-height:40px;padding:8px 16px}
-@media(max-width:430px){.action-row .illegal-prompt-action{font-size:11px}}
+@media(max-width:430px){.action-row .illegal-prompt-action{font-size:13px}}
