@@ -1,6 +1,6 @@
 import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash } from "./core.mjs";
 import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
-import { choosePolicyMove, chooseFallbackMove } from "./ai-opponent.mjs";
+import { choosePolicyMove } from "./ai-opponent.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board"), ctx = canvas.getContext("2d");
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
@@ -8,13 +8,16 @@ let fallbackMode = false;
 function switchToFallback(reason) {
   if (fallbackMode) return;
   fallbackMode = true;
+  katagoReady = false;
   aiThinking = false;
   aiJob = null;
+  $("aiMatchStatus").textContent = "KataGoが利用できないため、対AI戦を開始・続行できません。";
   console.warn("KataGo unavailable; switching to transparent approximation:", reason);
   worker.terminate();
   worker = new Worker("/analysis-worker.mjs", { type: "module" });
   worker.onmessage = handleAnalysis;
   worker.onerror = e => { $("analysisStatus").textContent = "解析を利用できません"; console.error(e); };
+  show();
   requestAnalysis();
 }
 worker.onerror = e => switchToFallback(e.message || "worker startup error");
@@ -26,6 +29,7 @@ let gameMode = room ? "online" : "local";
 let humanColor = BLACK;
 let aiLevel = "standard";
 let aiThinking = false, aiJob = null, aiMoveTimer = null;
+let katagoReady = false;
 const isAiTurn = () => !room && gameMode === "ai" &&
   game.status === "playing" && game.next === -humanColor;
 const isHumanTurn = () => !room
@@ -80,6 +84,15 @@ let analysisTimer = null;
 function requestAnalysis() {
   clearTimeout(analysisTimer);
   if (isAiTurn()) {
+    if (fallbackMode || !katagoReady) {
+      aiThinking = false;
+      aiJob = null;
+      analysis = null;
+      $("analysisStatus").textContent = "KataGo利用不可：対AI戦は続行できません";
+      $("aiMatchStatus").textContent = "KataGoが利用できないため、対AI戦を続行できません。";
+      show();
+      return;
+    }
     if (aiThinking) return;
     analysis = null;
     draw();
@@ -88,15 +101,9 @@ function requestAnalysis() {
     pending = id;
     aiThinking = true;
     aiJob = { id, board: boardHash(game.board), number:game.moveNumber };
-    $("analysisStatus").textContent = fallbackMode
-      ? "簡易AIが着手を選択中…（KataGoが利用できません）"
-      : "KataGoが着手を計算中…";
+    $("analysisStatus").textContent = "KataGoが着手を計算中…";
     $("aiMatchStatus").textContent = $("analysisStatus").textContent;
-    if (fallbackMode) {
-      aiMoveTimer = setTimeout(() => finishAiMove({id,kind:"move",engine:"fallback"}), 240);
-    } else {
-      worker.postMessage({id,kind:"move",state:game});
-    }
+    worker.postMessage({id,kind:"move",state:game});
     show();
     return;
   }
@@ -121,24 +128,34 @@ function finishAiMove(result) {
   aiJob = null;
   if (!isAiTurn() || game.moveNumber !== job.number || boardHash(game.board) !== job.board) return;
   try {
-    const nextMove = result.engine === "fallback"
-      ? chooseFallbackMove(game)
-      : choosePolicyMove(game,result.policy,result.passLogit,{
-          temperature: aiLevel === "gentle" ? 1.05 : 0.38
-        });
-    $("aiMatchStatus").textContent = result.engine === "fallback"
-      ? "KataGoが利用できないため、簡易AIが対局中です。"
-      : "KataGoのニューラル着手方針で対局中（MCTS探索なし）。";
+    if (result.engine !== "katago") throw new Error("KataGoの応答ではありません");
+    const nextMove = choosePolicyMove(game,result.policy,result.passLogit,{
+      temperature: aiLevel === "gentle" ? 1.05 : 0.38
+    });
+    $("aiMatchStatus").textContent = "KataGoのニューラル着手方針で対局中（MCTS探索なし）。";
     submitMove(nextMove,true);
   } catch (error) {
     console.error("AI move",error);
-    if (!fallbackMode) { switchToFallback(error.message); return; }
-    $("aiMatchStatus").textContent = "AIの着手に失敗しました。ローカル練習に戻すか、再戦してください。";
+    switchToFallback(error.message);
+    $("aiMatchStatus").textContent = "AIの着手に失敗しました。KataGoが復旧するまで対AI戦はできません。";
     show();
   }
 }
 function handleAnalysis(e) {
   const result = e.data;
+  if (result.kind === "availability") {
+    if (fallbackMode) return;
+    if (result.available) {
+      katagoReady = true;
+      $("aiMatchStatus").textContent = gameMode === "ai"
+        ? "KataGo対局の準備ができました。"
+        : "KataGo準備完了。AI対局を開始できます。";
+      show();
+    } else {
+      switchToFallback(result.error || "KataGo初期化に失敗しました");
+    }
+    return;
+  }
   if (result.id !== pending) return;
   if (result.kind === "move") {
     if (result.error) { switchToFallback(result.error); return; }
@@ -166,13 +183,15 @@ function show() {
   $("hint").textContent=candidate?"仮置き中 · 確定するまで相手に送られません":game.status==="scoring"?"死石をタップして指定":"交点をタップして仮置き";
   const myTurn = isHumanTurn();
   $("netStatus").textContent = !room ? (gameMode === "ai" ? "AI対局" : "ローカル練習") : $("netStatus").textContent;
-  $("startAi").disabled = !!room;
+  $("startAi").disabled = !!room || !katagoReady || fallbackMode;
   $("returnLocal").classList.toggle("hidden", gameMode !== "ai" || !!room);
-  $("startAi").textContent = gameMode === "ai" ? "設定してAIと再戦" : "AIと対局を始める";
+  $("startAi").textContent = fallbackMode ? "KataGo利用不可" : !katagoReady
+    ? "KataGoを準備中…" : gameMode === "ai" ? "設定してAIと再戦" : "AIと対局を始める";
   $("scoreInstruction").textContent = gameMode === "ai"
     ? "AIは死石判定を行いません。死石を自分で指定して確認すると、AI側も同意し、中国式面積計算で終局します。"
     : "死石をタップして指定してください。双方が確認すると面積計算で勝敗を決定します。";
-  if (gameMode !== "ai" && !room) $("aiMatchStatus").textContent = "自分の色とAIの着手のばらつきを選択できます。";
+  if (gameMode !== "ai" && !room && !fallbackMode && !katagoReady)
+    $("aiMatchStatus").textContent = "KataGoモデルを読み込んでいます…";
 
   $("confirm").disabled=!candidate || !myTurn;
   $("cancel").disabled=!candidate;
@@ -181,7 +200,7 @@ function show() {
   $("assisted").checked=game.assisted;$("assisted").disabled=game.moveNumber>0 || (room&&seat!=="host");
   if (isAiTurn()) {
     $("turn").textContent += "（AI）";
-    $("hint").textContent = "AIの着手を計算しています…";
+    $("hint").textContent = fallbackMode ? "KataGo利用不可。AI対局を続行できません。" : "AIの着手を計算しています…";
   }
 
   $("scoreBox").classList.toggle("hidden",game.status!=="scoring");
@@ -358,7 +377,10 @@ async function copyLink() {
     : "自動コピーできませんでした。上のURLを長押ししてコピーしてください。";
 }
 $("startAi").onclick = () => {
-  if (room) return;
+  if (room || !katagoReady || fallbackMode) {
+    $("aiMatchStatus").textContent = "KataGoの準備ができていないため、対AI戦を開始できません。";
+    return;
+  }
   if (game.moveNumber > 0 && !confirm("現在の対局を終了してAIと新しく対局しますか？")) return;
   stopAiTask();
   gameMode = "ai";

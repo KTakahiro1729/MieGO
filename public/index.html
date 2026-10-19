@@ -21,7 +21,7 @@
 <button id="startAi" class="primary full" type="button">AIと対局を始める</button>
 <button id="returnLocal" class="outline full hidden" type="button">ローカル練習に戻る</button>
 <p id="aiMatchStatus" class="note" role="status" aria-live="polite">自分の色とAIの着手のばらつきを選択できます。</p>
-<p class="note">KataGoを利用できない場合は簡易AIに切り替え、その旨を表示します。難易度は棋力保証ではありません。</p>
+<p class="note">KataGoが利用できない環境では対AI戦を開始できません。MCTS探索・棋力保証はありません。</p>
 </section>
 <div class="room-card"><strong>友人と対局</strong><p id="roomInfo">URLを共有するとP2Pで対局できます。ルーム作成者が黒番です。</p><button id="copy" class="outline full">招待リンクをコピー</button><div id="inviteDetails" class="invite-details hidden"><label for="inviteUrl">招待URL（タップすると選択できます）</label><input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="招待URL"><button id="nativeShare" class="outline full hidden">端末の共有メニューを開く</button></div><p id="inviteStatus" role="status" aria-live="polite" class="invite-status"></p><p class="note">WebRTCの接続に失敗する環境ではTURN設定が必要です。</p></div>
 </aside></main><footer>MieGO · Browser-first Go</footer></div><script type="module" src="/app.mjs"></script></body></html>

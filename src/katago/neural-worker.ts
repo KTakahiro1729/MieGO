@@ -147,3 +147,13 @@ self.onmessage = event => {
   newest = { id: event.data.id, state: event.data.state, kind: event.data.kind === "move" ? "move" : "analyze" };
   void drain();
 };
+
+
+// Notify the UI separately from analysis/move requests. This ensures that
+// AI matches cannot start until the actual network model has initialized.
+void prepare().then(() => {
+  self.postMessage({ kind: "availability", available: true, backend });
+}).catch(error => {
+  self.postMessage({ kind: "availability", available: false,
+    error: error instanceof Error ? error.message : String(error) });
+});
