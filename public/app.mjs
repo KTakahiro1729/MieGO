@@ -681,11 +681,15 @@ function leaveOnlineRoom() {
 }
 function switchToLocal() {
   $("gameMenu").open=false;
-  if(gameMode==="local" && !room){closePanels();return;}
+  if(gameMode==="local" && !room){
+    if(boardReview)leaveBoardReview();
+    closePanels();return;
+  }
   if(room && connected &&
     !confirm("友人との対局から離れて、1台で打つモードに切り替えますか？"))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
+  clearBoardReview();
   stopAiTurn();gameMode="local";
   game=savedGame("local");candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=!!game.endProposal;
@@ -783,6 +787,7 @@ async function beginOnlineRoom(){
   room=created.room;p2pRole="owner";seat="host";ownerColor=color;
   onlineSession=created.ownerSession;inviteKey=created.ownerKey;
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;
+  clearBoardReview();
   gameMode="online";stopAiTurn();
   game=newGame(game.assisted);candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
@@ -974,7 +979,7 @@ function openSavedBoard(record) {
   // game remains untouched until the user explicitly resumes or forks.
   try{
     const count=record.snapshot.moves.length;
-    const display=replaySteps(record.snapshot,count);
+    replaySteps(record.snapshot,count);
     closePanels();
     enterBoardReview(record.snapshot,count,"archive",record.sgfMeta,record);
     $("moveLabel").focus();
@@ -1101,8 +1106,13 @@ $("modePicker").onchange=e=>{
   e.target.value=boardReview && boardReview.source!=="live"?"history":room?"online":gameMode;
   if(selected==="history")openHistoryPanel();
   else if(selected==="local")switchToLocal();
-  else if(selected==="online")openPanel("online");
-  else if(selected==="ai")openPanel("ai");
+  else if(selected==="online"){
+    if(boardReview && room){leaveBoardReview();closePanels();}
+    else openPanel("online");
+  } else if(selected==="ai"){
+    if(boardReview && !room && gameMode==="ai"){leaveBoardReview();closePanels();}
+    else openPanel("ai");
+  }
 };
 $("startAi").onclick=()=>{
   if(!katagoReady || fallbackMode){
@@ -1113,6 +1123,7 @@ $("startAi").onclick=()=>{
      !confirm("友人との対局から離れて、AIと新しい対局を始めますか？"))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
+  clearBoardReview();
   stopAiTurn();
   gameMode="ai";
   humanColor=Number($("aiColor").value)===WHITE?WHITE:BLACK;
