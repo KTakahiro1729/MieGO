@@ -33,7 +33,7 @@ let katagoReady = false;
 const isAiTurn = () => !room && gameMode === "ai" &&
   game.status === "playing" && game.next === -humanColor;
 const isHumanTurn = () => !room
-  ? (gameMode !== "ai" || game.next === humanColor)
+  ? (gameMode !== "ai" || (katagoReady && !fallbackMode && game.next === humanColor))
   : (connected && (seat === "host" ? game.next === BLACK : game.next === WHITE));
 function stopAiTask() {
   clearTimeout(aiMoveTimer);

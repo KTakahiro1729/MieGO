@@ -55,3 +55,5 @@ npm run dev
 ```
 
 追加のライセンス・由来情報: `vendor/web-katrain/NOTICE.md` と `vendor/web-katrain/LICENSE`。
+
+AIの性格の設計案: [docs/AI_PERSONALITIES.md](docs/AI_PERSONALITIES.md)
