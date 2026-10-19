@@ -45,7 +45,7 @@ test("shared URLs open in review and do not replace active local saved positions
 test("AI copy is only a description of the link format, not separate SGF or a question prompt",()=>{
   const handoff=source("sgf-link.mjs");
   assert.match(handoff,/makeAiHandoff\(reviewUrl\)/);
-  assert.match(handoff,/新しいSGF/);
+  assert.match(handoff,/SGFの着手列を合法な手順に編集/);
   assert.doesNotMatch(handoff,/SGF本文：|次の一手を教えて|私は囲碁の初心者です/);
   assert.match(html,/id="reviewAiLink"/);
   assert.match(html,/id="historyAiLink"/);
