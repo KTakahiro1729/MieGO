@@ -54,3 +54,20 @@ test("endgame advisor requires settled ownership across multiple real moves", ()
     assert.notEqual(status,"ready");
   }
 });
+
+test("stable, settled territory reaches soft advice only after repeated evaluations", () => {
+  const advisor=new EndgameAdvisor();
+  const board=Array(81).fill(0);
+  for(let i=0;i<27;i++)board[i]=BLACK;
+  for(let i=54;i<81;i++)board[i]=WHITE;
+  const score=Array(81).fill(1);
+  let g={...newGame(),board,moveNumber:45};
+  assert.equal(advisor.observe(g,score),"near");
+  g={...g,moveNumber:46};
+  assert.equal(advisor.observe(g,score),"near");
+  g={...g,moveNumber:47};
+  assert.equal(advisor.observe(g,score),"ready");
+  // One sizable ownership shift revokes the ready suggestion.
+  g={...g,moveNumber:48};
+  assert.equal(advisor.observe(g,Array(81).fill(-1)),"near");
+});
