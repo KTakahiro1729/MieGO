@@ -16,9 +16,9 @@ test("endgame choices share exactly one fixed-height horizontal strip",()=>{
   assert.equal(html.split('id="endgameBar"').length-1,1);
   assert.match(css,/\.endgame-bar\{height:48px;min-height:48px;max-height:48px/);
   assert.match(css,/\.endgame-bar \.end-status\{flex:1/);
-  assert.match(app,/near\?"終局はいかがですか？":"終局はまだのようです"/);
-  assert.match(app,/\$\("endPropose"\)\.textContent="終局を提案"/);
-  assert.match(app,/\$\("endAccept"\)\.textContent="受け入れる"/);
+  assert.match(app,/endgameHint\(game,endgameAdvisor/);
+  assert.match(app,/gameMode==="ai"\?"採点を始める":"終局を提案"/);
+  assert.match(app,/\$\("endAccept"\)\.textContent=!room\?"採点へ進む":"受け入れる"/);
 });
 test("final score is above sticky actions and visible in a compact score area",()=>{
   assert.ok(html.indexOf('id="scoreBox"')<html.indexOf('id="actionRow"'));
@@ -37,8 +37,10 @@ test("pass is immediate; solo endgame uses in-bar accept/continue, not a dialog"
   assert.doesNotMatch(app,/confirm\("パスしますか？"\)/);
   assert.match(app,/if\(!room\)\{endExpanded=true;updateEndUi\(\);return;\}/);
   assert.match(app,/if\(!room && endExpanded && !game\.endProposal\)/);
-  assert.match(app,/type:"end_answer",color:-color,accept:true/);
-  assert.match(app,/endExpanded=false;updateEndUi\(\);return;/);
+  assert.match(app,/type:"solo_scoring",number:game\.moveNumber/);
+  assert.doesNotMatch(app,/type:"end_answer",color:-color,accept:true/);
+  assert.match(app,/endExpanded=false;updateEndUi\(\);/);
+  assert.match(app,/if\(isAiTurn\(\)\)requestAnalysis\(\)/);
 });
 test("autosaved everyday navigation has no blocking browser confirmation",()=>{
   assert.doesNotMatch(app,/confirm\("パスしますか？"\)/);
@@ -58,4 +60,17 @@ test("finished view exposes next match and history without hidden menus",()=>{
   assert.match(html,/id="openHistory"/);
   assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished/);
   assert.match(app,/\$\("openHistory"\)\.hidden=!isFinished/);
+});
+
+test("AI scoring uses human-only confirmation, and remote scoring retains two-player consent",()=>{
+  assert.match(app,/if\(!room\)apply\(\{type:"solo_score"\}\)/);
+  assert.match(app,/else apply\(\{type:"agree",color\}\)/);
+  assert.match(app,/game=finalizeSoloScore\(game\)/);
+  assert.match(app,/game=beginSoloScoring\(game\)/);
+  assert.doesNotMatch(app,/apply\(\{type:"agree",color:gameMode==="ai"\?/);
+});
+test("AI turn cannot dismiss a visible scoring decision and resumes after cancel",()=>{
+  assert.match(app,/if\(endExpanded\)return;\s*if \(aiThinking\) return;/);
+  assert.match(app,/if\(endExpanded\)return;\s*if\(result\.engine!=="katago"\)/);
+  assert.match(app,/stopAiTurn\(\); \/\/ Invalidate pending AI workers/);
 });
