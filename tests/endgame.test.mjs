@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, play, proposeEnd, answerEndProposal, BLACK, WHITE, at } from "../public/core.mjs";
-import { EndgameAdvisor } from "../public/endgame.mjs";
+import { newGame, play, proposeEnd, answerEndProposal, beginSoloScoring, finalizeSoloScore, agreeScore, BLACK, WHITE, at } from "../public/core.mjs";
+import { EndgameAdvisor, endgameHint } from "../public/endgame.mjs";
 
 test("end offer consumes no turn, move number or passes", () => {
   const start=newGame();
@@ -79,4 +79,37 @@ test("simultaneous opposite offers converge deterministically without passes",()
   assert.equal(blackFirst.endProposal.from,BLACK);
   assert.equal(whiteFirst.endProposal.from,BLACK);
   assert.equal(whiteFirst.moveNumber,0);
+});
+
+test("AI/solo scoring begins only by human command, without a forged AI offer",()=>{
+  const original=newGame(),staged=beginSoloScoring(original);
+  assert.equal(staged.status,"scoring");
+  assert.equal(staged.endProposal,null);
+  assert.deepEqual(staged.agreed,{black:false,white:false});
+  assert.equal(staged.moveNumber,original.moveNumber);
+  assert.throws(()=>beginSoloScoring(staged),/対局中/);
+  const finished=finalizeSoloScore(staged);
+  assert.equal(finished.status,"finished");
+  assert.equal(finished.result,"W+7.5");
+  assert.deepEqual(finished.agreed,{black:false,white:false});
+  assert.throws(()=>finalizeSoloScore(original),/採点中/);
+});
+test("solo score uses same rules and points as two-player score acceptance",()=>{
+  let two=beginSoloScoring(play(newGame(),at(4,4)));
+  const solo=finalizeSoloScore(two);
+  two=agreeScore(agreeScore(two,BLACK),WHITE);
+  assert.equal(solo.result,two.result);
+  assert.deepEqual(solo.agreed,{black:false,white:false});
+  assert.deepEqual(two.agreed,{black:true,white:true});
+});
+test("advice with no valid NN estimate is not reported as 'not near endgame'",()=>{
+  const g=newGame(),advisor=new EndgameAdvisor();
+  assert.equal(endgameHint(g,advisor),"終局の目安を確認中");
+  assert.equal(endgameHint(g,advisor,{unavailable:true}),"終局の目安を判定できません");
+  advisor.observe(g,Array(81).fill(0));
+  assert.equal(endgameHint(g,advisor),"終局はまだのようです");
+  assert.equal(endgameHint({...g,moveNumber:5},advisor),"終局の目安を更新中");
+  advisor.stage="near";
+  assert.equal(endgameHint(g,advisor),"終局はいかがですか？");
+  assert.equal(endgameHint(g,advisor,{suppressedUntil:3}),"終局はまだのようです");
 });

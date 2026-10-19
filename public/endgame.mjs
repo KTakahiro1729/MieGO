@@ -4,6 +4,14 @@ import { group, SIZE } from "./core.mjs";
  * Evaluations must be from committed positions (never sandbox/preview moves).
  * Stable ownership is only a necessary hint, not a life-and-death proof.
  */
+/** No KataGo evaluation is not the same thing as 'far from endgame'. */
+export function endgameHint(state,advisor,{unavailable=false,suppressedUntil=-1}={}) {
+  if(unavailable)return "終局の目安を判定できません";
+  if(!advisor.previous)return "終局の目安を確認中";
+  if(state.moveNumber-advisor.previous.move>3)return "終局の目安を更新中";
+  return (advisor.stage==="near"||advisor.stage==="ready") &&
+    state.moveNumber>suppressedUntil?"終局はいかがですか？":"終局はまだのようです";
+}
 export class EndgameAdvisor {
   constructor() { this.reset(); }
   reset() {

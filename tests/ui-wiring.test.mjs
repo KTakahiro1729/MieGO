@@ -27,6 +27,8 @@ test("game errors use the inline notice, never a blocking alert",()=>{
   assert.doesNotMatch(app,/\balert\(error/);
   assert.match(css,/\.save-status\{position:fixed/);
 });
-test("endgame advice is blank until KataGo has evaluated a position",()=>{
-  assert.match(app,/!advised\?"":/);
+test("endgame advice never claims 'not yet' until KataGo has evaluated a position",()=>{
+  // endgameHint reports 確認中／判定できません instead (see tests/endgame.test.mjs).
+  assert.match(app,/endgameHint\(game,endgameAdvisor,\{\s*unavailable:fallbackMode/);
+  assert.doesNotMatch(app,/near\?"終局はいかがですか？":"終局はまだのようです"/);
 });

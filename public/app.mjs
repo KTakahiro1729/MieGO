@@ -1,6 +1,6 @@
-import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, boardHash, handicapOf, komiOf, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
+import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, areaScore, boardHash, handicapOf, komiOf, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
-import { EndgameAdvisor } from "./endgame.mjs";
+import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
 import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
@@ -126,27 +126,33 @@ function updateEndUi() {
   const incoming=!!(offer && room && color!==null && offer.from!==color);
   const localPrompt=playing && !room && endExpanded && !offer;
   const waiting=!!(offer && !incoming);
-  const near=(endgameStage==="near" || endgameStage==="ready") &&
-    game.moveNumber>endHintSuppressedUntil;
-  // Without a KataGo evaluation (loading or fallback) there is no basis for advice.
-  const advised=endgameAdvisor.previous!==null;
-  $("endStatus").textContent=!playing?"":incoming?"終局が提案されました":
+  const offline=!!room && (!connected || color===null);
+  $("endStatus").textContent=!playing?"":offline?"接続を待っています":
+    incoming?"終局が提案されました":
     waiting?"相手の返答を待っています":
-    localPrompt?"終局しますか？":
-    !advised?"":
-    near?"終局はいかがですか？":"終局はまだのようです";
+    localPrompt?"採点を始めますか？":
+    endgameHint(game,endgameAdvisor,{
+      unavailable:fallbackMode,suppressedUntil:endHintSuppressedUntil
+    });
   $("endPropose").hidden=!playing||!!offer||localPrompt;
   $("endAccept").hidden=!playing||!(incoming||localPrompt);
   $("endDecline").hidden=!playing||!(incoming||localPrompt||waiting);
-  $("endPropose").textContent="終局を提案";
-  $("endAccept").textContent="受け入れる";
+  $("endPropose").textContent=!room?"採点を始める":"終局を提案";
+  $("endAccept").textContent=!room?"採点へ進む":"受け入れる";
   $("endDecline").textContent=waiting?"取り下げる":"打ち続ける";
   for(const id of ["endPropose","endAccept","endDecline"])
-    $(id).disabled=!!room && (!connected || color===null);
+    $(id).disabled=offline;
+  // A move being computed is about to arrive; scoring waits for it instead of pausing the AI.
+  if(aiThinking)$("endPropose").disabled=true;
+  // Answering an opponent's offer is a negotiation: neither choice is emphasized.
+  $("endAccept").classList.toggle("primary",!room);
+  $("actionRow").classList.toggle("end-prompt-open",localPrompt);
   $("endDetail").textContent=incoming?"受け入れると採点に進みます。打ち続けることもできます。":
-    localPrompt?"終局を受け入れると死石の確認に進みます。":
+    localPrompt?(gameMode==="ai"?"あなたの判断で採点へ進みます。AIが終局を承認するわけではありません。":
+      "採点に進み、死石を確認します。対局の再開もできます。"):
     waiting?"相手の返答待ちです。提案は取り下げられます。":
-    "終局はいつでも提案できます。提案はパスと異なります。";
+    room?"終局はいつでも提案できます。提案はパスと異なります。":
+    "採点はいつでも始められます。パスとは別の操作です。";
   // The stable left-hand status slot doubles as a rule explanation for illegal previews.
   if(playing && illegalCandidate){
     $("endStatus").textContent=illegalCandidate.reason===ILLEGAL_KO?
@@ -247,6 +253,8 @@ function requestAnalysis() {
     return;
   }
   if (isAiTurn()) {
+    // A visible human confirmation must not initiate a new AI turn.
+    if(endExpanded)return;
     if (aiThinking) return;
     if (fallbackMode) {
       analysis = null;
@@ -290,13 +298,21 @@ function finishAiMove(result) {
   if(!job || job.id!==result.id)return;
   aiThinking=false;aiJob=null;
   if(!isAiTurn() || game.moveNumber!==job.number || boardHash(game.board)!==job.hash)return;
+  // Discard an in-flight move while the human is deciding whether to score.
+  if(endExpanded)return;
   if(result.engine!=="katago") {
     switchToFallback("KataGo以外の着手応答");
     return;
   }
   try {
+    // This is an NN evaluation of the committed position, not a preview.
+    const valid=Array.isArray(result.ownership) &&
+      result.ownership.length===SIZE*SIZE &&
+      result.ownership.every(v=>Number.isFinite(v)&&Math.abs(v)<=1.001);
+    const passStage=valid?endgameAdvisor.observe(game,result.ownership):"playing";
+    if(valid)endgameStage=passStage;
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
-      ownership:result.ownership,
+      ownership:result.ownership,endgameStage:passStage,
       invasion,reinforcement,strength:aiStrength,
       temperature:aiLevel==="gentle"?1.05:0.38
     });
@@ -509,6 +525,17 @@ function apply(action, remote=false) {
       game=play(game,action.position);
       if(action.after!==boardHash(game.board)) throw new Error("局面の検証に失敗しました");
       lastPosition=Number.isInteger(action.position)?action.position:null;
+    } else if(action.type==="solo_scoring") {
+      if(room || remote || action.number!==game.moveNumber ||
+         action.before!==boardHash(game.board))
+        throw new Error("採点を開始できません");
+      stopAiTurn(); // Invalidate pending AI workers on the old position.
+      game=beginSoloScoring(game);
+      endExpanded=false;
+    } else if(action.type==="solo_score") {
+      if(room || remote || !canApproveScoring(game,deadReview,room,connected))
+        throw new Error("採点を確定できません");
+      game=finalizeSoloScore(game);
     } else if(action.type==="dead") {
       if(game.status!=="scoring")return;
       // Send the desired group state, not a toggle, to avoid double toggles
@@ -561,7 +588,7 @@ function apply(action, remote=false) {
     if(room)onlineRevision++;
     candidate=null;save();show();
     // Evaluate once, when a play/pass or accepted offer enters scoring.
-    if(["move","resume","mode"].includes(action.type) ||
+    if(["move","resume","mode","solo_scoring"].includes(action.type) ||
        (action.type==="end_answer" && game.status==="scoring") ||
        (hadCandidate && game.status==="playing"))
       requestAnalysis();
@@ -600,6 +627,7 @@ canvas.addEventListener("click",e=>{
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
   if(game.status!=="playing" || !isHumanTurn())return;
+  if(!room && endExpanded)endExpanded=false;
   // Occupied intersections cannot hold a provisional stone.
   if(game.board[position]!==0)return;
   const selected=inspectProvisionalMove(game,position);
@@ -750,28 +778,29 @@ $("agree").onclick=()=>{
   if(!canApproveScoring(game,deadReview,room,connected))return;
   const color=room?myOnlineColor():gameMode==="ai"?humanColor:BLACK;
   if(game.agreed[color===BLACK?"black":"white"])return;
-  apply({type:"agree",color});
-  // Single-player modes require one human confirmation. No claim is made that
-  // KataGo independently approved the life-and-death judgment.
-  if(!room && game.status==="scoring")
-    apply({type:"agree",color:gameMode==="ai"?-humanColor:WHITE});
+  if(!room)apply({type:"solo_score"});
+  else apply({type:"agree",color});
 };
 $("resume").onclick=()=>apply({type:"resume"});
 $("endPropose").onclick=()=>{
   if(game.status!=="playing" || game.endProposal)return;
   const color=myColorForEnd();
   if(!color || (room&&!connected))return;
-  if(!room){endExpanded=true;updateEndUi();return;}
+  if(!room){
+    if(aiThinking)return;
+    // The prompt replaces any provisional stone; the board is not half-committed.
+    candidate=null;illegalCandidate=null;illegalPromptCopied=false;
+    $("illegalPromptFallbackPanel").hidden=true;
+    endExpanded=true;show();requestAnalysis();return;
+  }
   apply({type:"end_offer",color,number:game.moveNumber,before:boardHash(game.board)});
 };
 $("endAccept").onclick=()=>{
   if(game.status!=="playing")return;
   const color=myColorForEnd();
   if(!room && endExpanded && !game.endProposal){
-    apply({type:"end_offer",color,number:game.moveNumber,before:boardHash(game.board)});
-    if(game.endProposal?.from===color)
-      apply({type:"end_answer",color:-color,accept:true,
-        proposalFrom:color,number:game.moveNumber,before:boardHash(game.board)});
+    // One human decision, not a fabricated AI response.
+    apply({type:"solo_scoring",number:game.moveNumber,before:boardHash(game.board)});
     return;
   }
   if(!game.endProposal || !room || !connected || game.endProposal.from===color)return;
@@ -781,7 +810,9 @@ $("endAccept").onclick=()=>{
 $("endDecline").onclick=()=>{
   if(game.status!=="playing")return;
   if(!room && endExpanded && !game.endProposal){
-    endExpanded=false;updateEndUi();return;
+    endExpanded=false;updateEndUi();
+    if(isAiTurn())requestAnalysis();
+    return;
   }
   if(!game.endProposal)return;
   const color=myColorForEnd();
