@@ -1,0 +1,51 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const get=name=>readFileSync(new URL("../public/"+name,import.meta.url),"utf8");
+const html=get("index.html"),app=get("app.mjs"),css=get("style.css");
+
+test("buttons draw colours from the four shared kinds, not per-button overrides",()=>{
+  for(const kind of [".secondary{",".accent-outline{",".danger-armed{"])assert.ok(css.includes(kind),kind);
+  assert.doesNotMatch(css,/(^|[^\w-])\.outline\{/m);
+  assert.doesNotMatch(css,/#(reviewAiLink|endAccept|reviewConfirm)[^{]*\{[^}]*background/);
+  assert.doesNotMatch(css,/\.review-confirm\{[^}]*background/);
+  assert.doesNotMatch(css,/\.resign-control[^{]*\{[^}]*(background|color)/);
+  assert.doesNotMatch(html,/class="([^"]*\s)?outline[\s"]/);
+});
+
+test("the armed resign button is marked by a class, not by its aria-label text",()=>{
+  assert.match(app,/\$\("resign"\)\.classList\.add\("danger-armed"\)/);
+  assert.match(app,/\$\("resign"\)\.classList\.remove\("danger-armed"\)/);
+  assert.doesNotMatch(css,/aria-label\^=/);
+});
+
+test("the action, scoring and replay rows share one height token",()=>{
+  assert.match(css,/--action-h:55px/);
+  assert.match(css,/@media\(max-width:700px\)\{:root\{--action-h:54px\}\}/);
+  assert.match(css,/\.action-row button\{white-space:nowrap;min-height:var\(--action-h\)\}/);
+  assert.match(css,/\.review-navigation>button,\.review-navigation>\.review-menu>summary\{height:var\(--action-h\)/);
+  assert.match(css,/\.review-play-actions button\{[^}]*height:var\(--action-h\)/);
+  assert.match(css,/@media\(max-width:700px\)\{\.action-row,\.review-panel\{padding-top:3px\}\}/);
+  assert.doesNotMatch(css,/min-height:(3\d|4[0-3])px/);
+});
+
+test("the same action has the same name and glyph wherever it appears",()=>{
+  // Discarding a provisional stone: × with the same label in play and in replay.
+  assert.match(html,/id="reviewCancel"[^>]*aria-label="仮置きを戻す"[^>]*><svg[^>]*><path d="M6 6l12 12M18 6 6 18"\/><\/svg>/);
+  assert.match(app,/const cancelLabel=provisional\?"仮置きを戻す"/);
+  // Both entries to the saved-game sheet carry the sheet's own title.
+  assert.match(html,/id="openHistory"[^>]*>保存した棋譜<\/button>/);
+  assert.match(html,/id="openHistorySettings"[^>]*>保存した棋譜<\/button>/);
+  assert.match(html,/id="reviewExport" type="button">SGFを保存<\/button>/);
+  // Sheet close buttons draw the same SVG × rather than a text glyph.
+  assert.doesNotMatch(html,/>×<\/button>/);
+  assert.doesNotMatch(html,/>[‹›≪≫]<\/button>|>•••<\/summary>/);
+});
+
+test("each control row keeps continue-left, advance-right with at most one gold button",()=>{
+  const row=html.slice(html.indexOf('id="reviewPlayActions"'),html.indexOf('id="reviewBack"'));
+  assert.ok(row.indexOf('id="reviewCancel"')<row.indexOf('id="reviewConfirm"'));
+  assert.match(row,/id="reviewConfirm" class="review-confirm primary"/);
+  const menu=html.slice(html.indexOf('class="review-menu-popover"'),html.indexOf('id="reviewNotice"'));
+  assert.doesNotMatch(menu,/primary/);
+});

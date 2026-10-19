@@ -94,8 +94,8 @@ test("continue-style choices sit left of the advancing choice, in the bar and wh
 });
 test("only a solo accept is gold; an incoming online offer gets two equal choices",()=>{
   assert.match(app,/\$\("endAccept"\)\.classList\.toggle\("primary",!room\)/);
-  assert.match(css,/\.endgame-bar #endAccept\.primary\{background:linear-gradient/);
-  assert.doesNotMatch(css,/\.endgame-bar #endAccept\{background/);
+  // Gold comes from the shared .primary class alone, never a per-button colour.
+  assert.doesNotMatch(css,/#endAccept[^{]*\{[^}]*background/);
 });
 test("solo prompt hides the second gold button without shifting the action row",()=>{
   assert.match(app,/\$\("actionRow"\)\.classList\.toggle\("end-prompt-open",localPrompt\)/);
