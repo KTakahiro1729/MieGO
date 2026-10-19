@@ -145,8 +145,8 @@ body.board-zoomed .board-bleed{opacity:1}
 .info-disclosure{margin-top:12px;border-top:1px solid #3b4050;padding-top:13px}
 .info-disclosure summary{cursor:pointer;min-height:44px;padding:11px 0;box-sizing:border-box;font-size:13px;color:#d6dae3}
 .info-disclosure .explanation{margin:6px 0 12px}
-.mode-panel .settings-head{margin-bottom:15px}
-.mode-panel .settings-section{border:0;padding-top:8px}
+
+.mode-panel .settings-section{border:0;padding:0}
 .mode-panel .settings-section[hidden]{display:none}
 .ai-color-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .ai-color-choices label{margin:0;cursor:pointer;position:relative}
@@ -161,9 +161,9 @@ body.board-zoomed .board-bleed{opacity:1}
 .new-game-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .new-game-modes label{margin:0;cursor:pointer;position:relative}
 .new-game-modes input{position:absolute;opacity:0}
-.new-game-modes label>span,.new-game-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;min-height:76px;
-  padding:10px 6px;border:1px solid #505766;border-radius:var(--radius);background:#252c38;color:#f1f2f2;font:inherit;cursor:pointer;box-sizing:border-box}
-.new-game-modes strong,.new-game-tile strong{font-size:14px}
+.new-game-modes label>span{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px;
+  padding:8px 10px;border:1px solid #505766;border-radius:var(--radius);background:#252c38;color:#f1f2f2;font:inherit;cursor:pointer;box-sizing:border-box}
+.new-game-modes strong{font-size:14px}
 .new-game-modes input:checked+span{border-color:#efcb81;background:#38342d}
 .new-game-modes input:checked+span .mode-icon,.new-game-modes input:checked+span strong{color:#f8ddac}
 .new-game-modes input:focus-visible+span{outline:3px solid #f2c875;outline-offset:2px}
@@ -178,7 +178,7 @@ body.board-zoomed .board-bleed{opacity:1}
 .setup-label{margin:0;font-size:13px;color:#d6dae3;white-space:nowrap}
 .setup-rows .ai-color-choices span{padding:10px 4px}
 /* Board size reads at a glance: denser grid lines for larger boards. */
-.board-size-choices span{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px}
+.board-size-choices span{display:flex;align-items:center;justify-content:center;gap:6px}
 .size-icon{color:#9aa1ad}
 .board-size-choices input:checked+span .size-icon{color:#f8ddac}
 .new-game-advanced .advanced-row{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
@@ -196,7 +196,13 @@ body.board-zoomed .board-bleed{opacity:1}
 .step-ticks span:last-child small{left:auto;right:-10px;transform:none}
 .step-ticks span.is-current small{color:#f8ddac}
 .step-note{margin-top:2px;min-height:1.7em}
-.mode-panel #localSetup,.mode-panel #onlineSetup,.mode-panel #aiSetup{padding-top:14px}
+/* The sheet should fit one phone screen: tight section spacing, no empty status lines. */
+.mode-panel .settings-head{margin-bottom:12px}
+.mode-panel #localSetup,.mode-panel #onlineSetup,.mode-panel #aiSetup{padding:0}
+.mode-panel .settings-section .primary.full{margin-top:12px}
+.mode-panel .new-game-advanced{margin-top:10px;padding-top:0}
+.mode-panel .explanation:empty,.mode-panel .invite-status:empty{display:none}
+.mode-panel .history-setup{padding-top:12px}
 .side-choices{grid-template-columns:repeat(3,1fr)}
 /* One button, two meanings: × discards a provisional stone, the labelled arrow is 待った. */
 .undo-button .takeback-icon{display:none;flex-direction:column;align-items:center;gap:1px;line-height:1}

@@ -983,7 +983,7 @@ function leaveOnlineRoom() {
   history.replaceState(null,"",oldUrl.pathname+oldUrl.search);
   $("inviteDetails").classList.add("hidden");
   $("inviteStatus").textContent="";
-  $("roomInfo").textContent="URLを共有すると、別の端末から対局に参加できます。";
+  $("roomInfo").textContent="";
 }
 /** Resume the unfinished saved game of another offline mode (1台 or AI). */
 function resumeModeGame(mode) {

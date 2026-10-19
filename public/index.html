@@ -170,9 +170,9 @@
         <div class="setup-rows">
           <div class="setup-row"><span class="setup-label">盤</span>
             <div class="ai-color-choices board-size-choices">
-              <label><input type="radio" name="boardSize" value="9" checked><span><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 7.00H22M7.00 2V22M2 12.00H22M12.00 2V22M2 17.00H22M17.00 2V22M2 22.00H22M22.00 2V22"/></svg>9路</span></label>
-              <label><input type="radio" name="boardSize" value="13"><span><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 5.33H22M5.33 2V22M2 8.67H22M8.67 2V22M2 12.00H22M12.00 2V22M2 15.33H22M15.33 2V22M2 18.67H22M18.67 2V22M2 22.00H22M22.00 2V22"/></svg>13路</span></label>
-              <label><input type="radio" name="boardSize" value="19"><span><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 4.22H22M4.22 2V22M2 6.44H22M6.44 2V22M2 8.67H22M8.67 2V22M2 10.89H22M10.89 2V22M2 13.11H22M13.11 2V22M2 15.33H22M15.33 2V22M2 17.56H22M17.56 2V22M2 19.78H22M19.78 2V22M2 22.00H22M22.00 2V22"/></svg>19路</span></label>
+              <label><input type="radio" name="boardSize" value="9" checked><span><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 7.00H22M7.00 2V22M2 12.00H22M12.00 2V22M2 17.00H22M17.00 2V22M2 22.00H22M22.00 2V22"/></svg>9路</span></label>
+              <label><input type="radio" name="boardSize" value="13"><span><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 5.33H22M5.33 2V22M2 8.67H22M8.67 2V22M2 12.00H22M12.00 2V22M2 15.33H22M15.33 2V22M2 18.67H22M18.67 2V22M2 22.00H22M22.00 2V22"/></svg>13路</span></label>
+              <label><input type="radio" name="boardSize" value="19"><span><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 4.22H22M4.22 2V22M2 6.44H22M6.44 2V22M2 8.67H22M8.67 2V22M2 10.89H22M10.89 2V22M2 13.11H22M13.11 2V22M2 15.33H22M15.33 2V22M2 17.56H22M17.56 2V22M2 19.78H22M19.78 2V22M2 22.00H22M22.00 2V22"/></svg>19路</span></label>
             </div>
           </div>
           <div id="aiSideRow" class="setup-row" hidden><span class="setup-label">自分の石</span>
@@ -218,7 +218,6 @@
       </section>
       <section id="localSetup" class="settings-section" hidden>
         <button id="startLocal" class="primary full" type="button">対局を始める</button>
-        <p class="explanation">いまの対局は「履歴」に残ります。</p>
       </section>
       <section id="onlineSetup" class="settings-section" hidden>
         <div id="p2pVerify" hidden><p>新しい対局の作成・初回参加には本人確認が必要です。</p><div id="p2pTurnstile"></div></div>
@@ -228,12 +227,11 @@
           <button id="nativeShare" class="secondary full hidden" type="button">端末の共有メニューを開く</button>
         </div>
         <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
-        <p id="roomInfo" class="explanation">URLを共有すると、別の端末から対局に参加できます。</p>
-        <p class="explanation">作成者の端末で色を決めます。相手が参加すると対局できます。再接続では原則として本人確認は不要です。</p>
+        <p id="roomInfo" class="explanation"></p>
       </section>
       <section id="aiSetup" class="settings-section" hidden>
         <button id="startAi" class="primary full" type="button" disabled>準備中…</button>
-        <p id="aiMatchStatus" class="explanation" role="status" aria-live="polite">対局を準備しています…</p>
+        <p id="aiMatchStatus" class="visually-hidden" role="status" aria-live="polite">対局を準備しています…</p>
       </section>
       <section id="historySetup" class="settings-section history-setup" hidden>
         <p class="explanation">棋譜を選ぶと大きな碁盤に表示します。</p>
