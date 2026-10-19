@@ -57,3 +57,11 @@ test("labels and hints retain the display distinctions for saved records",()=>{
   assert.match(readOnlyHint(local),/元の対局を再開/);
   assert.equal(dateLabel("invalid-date"),"日時不明");
 });
+
+test("a saved variation is labelled separately and cannot resume as the real match",()=>{
+ const sample={source:"variation",mode:"local",snapshot:{moves:[{color:1,position:40}],moveNumber:1,status:"playing"},updatedAt:"2026-10-19T00:00:00Z"};
+ assert.equal(recordName(sample),"保存した変化図");
+ assert.equal(recordIcon(sample),"↪");
+ assert.equal(recordStatus(sample),"変化図");
+ assert.equal(navigationState(sample,1).resumable,false);
+});

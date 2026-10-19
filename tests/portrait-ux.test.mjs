@@ -59,3 +59,11 @@ test("finished view exposes next match and history without hidden menus",()=>{
   assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished/);
   assert.match(app,/\$\("openHistory"\)\.hidden=!isFinished/);
 });
+
+test("confirm button uses the original shared gold-and-opacity disabled appearance",()=>{
+  assert.match(css,/button:disabled\{opacity:\.36;cursor:default\}/);
+  assert.match(css,/\.primary\{color:#17191e;background:linear-gradient\(180deg,#f5d88f,#e4b85c\)/);
+  assert.doesNotMatch(css,/\.action-row #confirm:disabled/);
+  assert.match(html,/id="confirm" class="primary" type="button" disabled/);
+  assert.match(app,/\$\("confirm"\)\.disabled=!candidate \|\| !myTurn/);
+});

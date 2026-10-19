@@ -102,7 +102,7 @@ test("SGF import and saved games open on the common board without touching the c
  assert.match(historyPanel,/gameLibrary\.save\(\{mode:"local",snapshot:parsed\.snapshot,source:"sgf"/);
  assert.match(historyPanel,/onSelect\(record\)/);
  assert.match(app,/enterBoardReview\(record\.snapshot,count,"archive",record\.sgfMeta,record\)/);
- assert.match(app,/forkReview\(boardReview\.snapshot,boardReview\.step\)/);
+ assert.match(app,/forkReview\(activeReviewSnapshot\(boardReview,game\),boardReview\.step\)/);
  assert.doesNotMatch(html,/id="historyBoard"|id="historyDetail"|id="historyStepRange"/);
 });
 
@@ -126,4 +126,15 @@ test("unified history sheet preserves scoring and keyboard-friendly selection",a
  assert.match(historyPanel,/\$\("closeHistory"\)\.focus\(\)/);
  assert.match(a,/\$\("modePicker"\)\.focus\(\)/);
  assert.match(a,/\$\("reviewNotice"\)\.textContent="SGFを書き出しました/);
+});
+
+test("variation snapshots stay independently archived and never become resumable active games",()=>{
+ const {lib}=setup();
+ const source=play(newGame(),40);
+ const old=lib.save({mode:"local",snapshot:source});
+ lib.setActive("local",old.id);
+ const variation=lib.save({mode:"local",snapshot:play(source,50),source:"variation"});
+ assert.equal(variation.source,"variation");
+ assert.equal(lib.load(variation.id).snapshot.moveNumber,2);
+ assert.equal(lib.active("local").id,old.id);
 });
