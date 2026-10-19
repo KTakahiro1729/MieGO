@@ -55,15 +55,17 @@ test("a local reset creates an empty independent game while retaining display as
   assert.equal(previous.moveNumber,1);
   assert.equal(reset.moves.length,0);
 });
-test("the game menu shares the action row with pass and keeps reset local-only",()=>{
-  const row=html.slice(html.indexOf('<div id="actionRow" class="action-row">'),html.indexOf('</details>',html.indexOf('id="gameMenu"'))+10);
-  assert.ok(row.indexOf('id="pass"') < row.indexOf('id="gameMenu"'));
-  assert.match(row,/id="resetLocalGame"/);
-  assert.match(row,/id="resign"/);
-  assert.match(html,/id="cancel"[^>]*aria-label="仮置きを戻す"/);
-  assert.match(app,/if \(room \|\| gameMode!=="local"\) return;/);
-  assert.match(app,/resetLocalGame"\)\.hidden=!!room \|\| gameMode!=="local"/);
-  assert.match(app,/game=freshLocalGame\(game\);currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
+test("direct game controls replace hidden action menus without losing local reset",()=>{
+ const row=html.slice(html.indexOf('<div id="actionRow"'),html.indexOf('<section id="reviewPanel"'));
+ assert.ok(row.indexOf('id="pass"')<row.indexOf('id="resign"'));
+ assert.match(row,/id="newMatch"/);
+ assert.match(row,/id="openHistory"/);
+ assert.doesNotMatch(row,/<details|id="gameMenu"/);
+ assert.match(html,/id="resetLocalGame"/);
+ assert.match(html,/id="openHistorySettings"/);
+ assert.match(app,/if \(room \|\| gameMode!=="local"\) return;/);
+ assert.match(app,/resetLocalGame"\)\.hidden=!!room \|\| gameMode!=="local"/);
+ assert.match(app,/game=freshLocalGame\(game\);currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
 });
 test("settings button shows a toothed gear and is labeled",()=>{
   const gear=html.slice(html.indexOf('id="settingsToggle"'),html.indexOf('</button>',html.indexOf('id="settingsToggle"')));
