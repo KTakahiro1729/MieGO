@@ -23,7 +23,9 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
     peer=null;
   }
   async function startRTC(epoch) {
-    closeRTC();
+    // ICE can arrive before an offer. Preserve candidates for the first guest offer.
+    const earlyIce=current?.role==="guest"&&!peer?pendingIce.slice():[];
+    closeRTC();pendingIce=earlyIce;
     if(epoch!==generation||!current)return;
     const rtc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.cloudflare.com:3478"}]});
     peer=rtc;
