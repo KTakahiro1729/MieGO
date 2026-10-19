@@ -893,10 +893,10 @@ function renderBoardReview() {
   $("reviewPrevious").disabled=step===0;
   $("reviewNext").disabled=step>=count;
   $("reviewLast").disabled=step>=count;
-  $("reviewBack").textContent=source==="url"?"閲覧を閉じる":"現在に戻る";
+  $("reviewBack").textContent=source==="url"?"閉じる":"戻る";
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
-  $("reviewNewMoves").textContent=updates>0?"対局が"+updates+"手進みました。現在に戻ると最新局面を表示します。":"";
+  $("reviewNewMoves").textContent=updates>0?"新着 +"+updates:"";
   $("moveLabel").textContent=step+" / "+count+"手";
   $("moveLabel").setAttribute("aria-label","棋譜再生を終了する");
   $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
@@ -935,6 +935,7 @@ function enterBoardReview(snapshot,step,source="live",metadata=null) {
     openedAt:game.moveNumber,analysisId:0};
   $("reviewNotice").textContent="";
   $("reviewCopyFallback").hidden=true;
+  $("reviewMenu").open=false;
   show();requestReviewOwnership();
 }
 function setBoardReviewStep(step) {
@@ -954,15 +955,18 @@ function leaveBoardReview() {
   if(!boardReview)return;
   const wasUrl=boardReview.source==="url";
   boardReview=null;reviewSequence++;
-  if(wasUrl){
-    // Stop reopening the imported replay on refresh after the user closes it.
-    const url=new URL(location.href);
-    url.searchParams.delete("sgf");url.searchParams.delete("move");
-    history.replaceState(null,"",url.pathname+url.search+url.hash);
-  }
+  if(wasUrl)clearImportedReviewUrl();
   $("reviewCopyFallback").hidden=true;
+  $("reviewMenu").open=false;
+  $("moveLabel").setAttribute("aria-label","棋譜を再生する");
   show();requestAnalysis();
   $("moveLabel").focus();
+}
+function clearImportedReviewUrl() {
+  const url=new URL(location.href);
+  if(!url.searchParams.has("sgf"))return;
+  url.searchParams.delete("sgf");url.searchParams.delete("move");
+  history.replaceState(null,"",url.pathname+url.search+url.hash);
 }
 function forkBoardReview() {
   if(!boardReview)return;
@@ -980,7 +984,9 @@ function forkBoardReview() {
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
   lastOfferKey=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
+  clearImportedReviewUrl();
   boardReview=null;reviewSequence++;
+  $("reviewMenu").open=false;
   save();show();requestAnalysis();
 }
 async function copyReviewText(text,statusId,fallbackId) {
@@ -1020,6 +1026,24 @@ $("moveLabel").onclick=()=>{
   try{enterBoardReview(game,game.moves.length,"live");}
   catch(error){$("saveStatus").hidden=false;$("saveStatus").textContent="棋譜を再生できません："+error.message;}
 };
+$("reviewStepToggle").onclick=()=>{
+  const menu=$("reviewMenu");
+  menu.open=!menu.open;
+  if(menu.open)$("reviewStepRange").focus();
+};
+$("reviewMenu").addEventListener("toggle",()=>{
+  if(!$("reviewMenu").open)$("reviewCopyFallback").hidden=true;
+});
+document.addEventListener("pointerdown",e=>{
+  const menu=$("reviewMenu");
+  if(menu.open && !menu.contains(e.target) && e.target!==$("reviewStepToggle"))menu.open=false;
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape" && $("reviewMenu").open){
+    $("reviewMenu").open=false;
+    $("reviewStepToggle").focus();
+  }
+});
 $("reviewFirst").onclick=()=>setBoardReviewStep(0);
 $("reviewPrevious").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step-1);
 $("reviewNext").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
@@ -1029,6 +1053,18 @@ $("reviewBack").onclick=leaveBoardReview;
 $("reviewBranch").onclick=forkBoardReview;
 $("reviewLink").onclick=()=>void shareBoardReview(false);
 $("reviewAiLink").onclick=()=>void shareBoardReview(true);
+$("historyBoard").addEventListener("click",()=>{
+  if(!historySelection)return;
+  try{
+    const record=historySelection;
+    const step=historyStep;
+    closePanels();
+    enterBoardReview(record.snapshot,step,"archive",record.sgfMeta);
+  }catch(error){$("historyActionNotice").textContent="盤面を開けません："+error.message;}
+});
+$("historyBoard").addEventListener("keydown",e=>{
+  if(e.key==="Enter"||e.key===" "){e.preventDefault();$("historyBoard").click();}
+});
 $("historyLink").onclick=()=>void shareHistoryReview(false);
 $("historyAiLink").onclick=()=>void shareHistoryReview(true);
 function recordName(record) {

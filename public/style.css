@@ -309,3 +309,6 @@ body{overflow:hidden}
 @media(max-width:360px){.review-navigation{gap:4px}.review-navigation>.review-back{flex-basis:52px;font-size:11px}.review-navigation>button:not(.review-step-toggle):not(.review-back),.review-menu{flex-basis:44px}}
 #historyCopyFallback{display:block;width:100%;min-height:58px;margin:8px 0;background:#202836;color:#f0f0ed;border:1px solid #6b7588;border-radius:9px;padding:8px;font-size:12px}
 #historyCopyFallback[hidden]{display:none}
+
+#historyBoard[role="button"]{cursor:pointer}
+#historyBoard:focus-visible{outline:3px solid #f0c773;outline-offset:2px}
