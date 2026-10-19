@@ -1075,6 +1075,11 @@ function resumeSelectedReview(){
   clearBoardReview();rememberSettings();
   closePanels();show();requestAnalysis();
 }
+$("openCurrentMode").onclick=()=>{
+  $("gameMenu").open=false;
+  if(room)openPanel("online");
+  else if(gameMode==="ai")openPanel("ai");
+};
 $("reviewResume").onclick=resumeSelectedReview;
 $("reviewExport").onclick=exportReviewSGF;
 $("historyImportFile").onchange=e=>{void importHistoryFile(e.target.files?.[0]);};

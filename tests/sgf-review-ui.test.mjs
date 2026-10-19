@@ -51,7 +51,7 @@ test("AI copy is only a description of the link format, not separate SGF or a qu
   assert.match(handoff,/SGFの着手列を合法な手順に編集/);
   assert.doesNotMatch(handoff,/SGF本文：|次の一手を教えて|私は囲碁の初心者です/);
   assert.match(html,/id="reviewAiLink"/);
-  assert.match(html,/id="historyAiLink"/);
+  assert.doesNotMatch(html,/id="historyAiLink"/);
 });
 
 test("replay entry does not make the existing game header taller",()=>{
