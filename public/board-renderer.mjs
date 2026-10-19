@@ -136,6 +136,32 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     }
   }
 
+  // Optional KataGo policy hints for beginners: numbered rings on empty points.
+  function paintHints(view,display,gap,pad) {
+    const hints=view.hints;
+    if(!Array.isArray(hints))return;
+    hints.forEach(({position},rank)=>{
+      if(!Number.isInteger(position) || display.board[position])return;
+      const x=pad+(position%SIZE)*gap, y=pad+Math.floor(position/SIZE)*gap;
+      const r=gap*.3;
+      ctx.save();
+      ctx.globalAlpha=rank===0?.95:.75;
+      ctx.beginPath();
+      ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fillStyle="#2f7d6dcc";
+      ctx.fill();
+      ctx.lineWidth=2;
+      ctx.strokeStyle="#e9fff8";
+      ctx.stroke();
+      ctx.fillStyle="#fff";
+      ctx.font="bold "+Math.round(gap*.34)+"px system-ui,sans-serif";
+      ctx.textAlign="center";
+      ctx.textBaseline="middle";
+      ctx.fillText(String(rank+1),x,y+1);
+      ctx.restore();
+    });
+  }
+
   function draw() {
     const view=getView();
     const {game,boardReview}=view;
@@ -146,6 +172,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     paintStarPoints(gap,pad);
     paintStones(view,display,gap,pad);
     paintLastMove(view,display,gap,pad);
+    if(!boardReview)paintHints(view,display,gap,pad);
   }
   return {draw};
 }

@@ -173,8 +173,18 @@
           <label><input type="radio" name="aiSide" value="-1"><span>○ 白で打つ</span></label>
         </div>
         <select id="aiColor" hidden><option value="1">黒</option><option value="-1">白</option></select>
+        <h3 class="ai-subhead">AIの強さ</h3>
+        <div class="ai-color-choices ai-strength-choices">
+          <label><input type="radio" name="aiStrength" value="beginner"><span>はじめて<small>囲碁を覚えたて</small></span></label>
+          <label><input type="radio" name="aiStrength" value="easy" checked><span>やさしい<small>ルールに慣れた</small></span></label>
+          <label><input type="radio" name="aiStrength" value="normal"><span>ふつう<small>少し手ごたえ</small></span></label>
+          <label><input type="radio" name="aiStrength" value="strong"><span>つよい<small>手加減なし</small></span></label>
+        </div>
+        <p class="explanation">弱い段階ほど、KataGoが好む手から外れた手をときどき打ちます。段級位の目安ではありません。</p>
+        <div class="mode"><div><strong>ヒントを表示</strong><p>あなたの番に、KataGoの候補手を盤上に1〜3で示します。読みを入れた最善手とは限りません。</p></div><input id="aiHints" type="checkbox" aria-label="ヒントを表示する"></div>
+        <p class="explanation">打ち間違えたら、盤の下の↶を2回押すと<strong>待った</strong>（自分の直前の手まで戻す）ができます。</p>
         <details class="info-disclosure ai-advanced"><summary>AIの打ち方を調整</summary>
-          <label for="aiLevel">着手のばらつき（棋力とは別）</label>
+          <label for="aiLevel">着手のばらつき（「つよい」のみ・棋力とは別）</label>
           <select id="aiLevel"><option value="standard">標準</option><option value="gentle">大きめ</option></select>
           <label for="aiInvasion">侵入度 <span id="aiInvasionValue" class="setting-value">50%</span></label>
           <input id="aiInvasion" type="range" min="0" max="100" step="5" value="50">

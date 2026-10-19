@@ -1,4 +1,5 @@
 import { parseGameSnapshot } from "./mode-state.mjs";
+import {normalizeStrength} from "./ai-strength.mjs";
 
 const PREFIX="miego:game:v1:";
 const ACTIVE="miego:active:v1:";
@@ -41,7 +42,7 @@ export class GameLibrary {
     this.storage.setItem(ACTIVE+mode,id);
   }
   save({id=null,mode,snapshot,roomId=null,lastPosition=null,humanColor=1,aiLevel="standard",
-        invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null},expectedRevision=null) {
+        aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null},expectedRevision=null) {
     if(!MODES.has(mode))throw Error("無効な対局モード");
     if(!parseGameSnapshot(JSON.stringify(snapshot)))throw Error("棋譜データが不正です");
     if(mode==="online" && !ROOM_RE.test(roomId||""))throw Error("不正なルームID");
@@ -60,6 +61,8 @@ export class GameLibrary {
       lastPosition:Number.isInteger(lastPosition)?lastPosition:null,
       humanColor:humanColor===-1?-1:1,
       aiLevel:aiLevel==="gentle"?"gentle":"standard",
+      // Records written before strength levels existed played at full policy.
+      aiStrength:normalizeStrength(aiStrength),
       invasion:Number.isFinite(invasion)?invasion:50,
       reinforcement:Number.isFinite(reinforcement)?reinforcement:50,
       seat:mode==="online"?(seat==="guest"?"guest":seat==="host"?"host":null):null,
