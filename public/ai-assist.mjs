@@ -5,7 +5,7 @@ import {legalAiMoves} from "./ai-opponent.mjs";
  * without reading, so it is a suggestion, not a guaranteed best move.
  */
 export function policyHints(state, logits, count=3) {
-  if(!Array.isArray(logits) || logits.length!==81)return [];
+  if(!Array.isArray(logits) || logits.length!==state.board.length)return [];
   const legal=legalAiMoves(state).filter(p=>Number.isFinite(logits[p]));
   if(!legal.length)return [];
   const top=Math.max(...legal.map(p=>logits[p]));

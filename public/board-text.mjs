@@ -1,12 +1,13 @@
-import { SIZE, BLACK, WHITE } from "./core.mjs";
+import { BLACK, WHITE, isBoardSize } from "./core.mjs";
 
-// A coordinate-free 9x9 diagram used by all AI handoffs.
+// A coordinate-free diagram (9x9, 13x13 or 19x19) used by all AI handoffs.
 const GLYPHS={ [BLACK]:"●",[WHITE]:"○",0:"・" };
-export const AI_BOARD_LEGEND="●=黒、○=白、・=空点。上の行から下の行へ9路ずつ表示します。";
+export const AI_BOARD_LEGEND="●=黒、○=白、・=空点。上の行から下の行へ1行ずつ表示します。";
 export const AI_SELECTED_POINT="◇=打とうとした空点";
 
 export function formatBoardForAi(board,{selectedPosition=null}={}) {
-  if(!Array.isArray(board)||board.length!==SIZE*SIZE ||
+  const SIZE=Math.sqrt(board?.length);
+  if(!Array.isArray(board)||!isBoardSize(SIZE) ||
      !board.every(n=>n===BLACK||n===WHITE||n===0))throw Error("盤面データが不正です");
   if(selectedPosition!==null && (!Number.isInteger(selectedPosition) ||
      selectedPosition<0 || selectedPosition>=SIZE*SIZE || board[selectedPosition]!==0))

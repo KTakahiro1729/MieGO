@@ -153,6 +153,16 @@
         <h3>対局と棋譜</h3>
         <button id="openHistorySettings" class="outline full" type="button">保存した棋譜</button>
         <button id="openCurrentMode" class="outline full" type="button" hidden>AIの設定・再戦</button>
+        <fieldset class="board-size-setting">
+          <legend>新しい対局の盤の大きさ</legend>
+          <div class="ai-color-choices board-size-choices">
+            <label><input type="radio" name="boardSize" value="9" checked><span>9路</span></label>
+            <label><input type="radio" name="boardSize" value="13"><span>13路</span></label>
+            <label><input type="radio" name="boardSize" value="19"><span>19路</span></label>
+          </div>
+          <p class="explanation">1台・AI・友人のどの対局も、次に始める対局からこの大きさになります。友人対局は招待を作る側の設定で始まります。</p>
+          <p id="boardSizeNote" class="explanation board-size-note" role="status" aria-live="polite"></p>
+        </fieldset>
         <label id="localHandicapRow" class="handicap-select" for="localHandicap" hidden>新しい対局の置き石<select id="localHandicap"><option value="0">なし（互先）</option><option value="2">2子</option><option value="3">3子</option><option value="4">4子</option><option value="5">5子</option></select></label>
         <button id="resetLocalGame" class="outline full" type="button" hidden>新しい対局を始める</button>
       </section>

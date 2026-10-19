@@ -1,7 +1,7 @@
-import { newGame } from "./core.mjs";
+import { newGame, SIZE } from "./core.mjs";
 
-export function freshLocalGame(previous, handicap = 0) {
-  return newGame(previous?.assisted !== false, { handicap });
+export function freshLocalGame(previous, handicap = 0, size = SIZE) {
+  return newGame(previous?.assisted !== false, { handicap, size });
 }
 
 export function gameStorageKey(mode) {
@@ -13,7 +13,7 @@ export function parseGameSnapshot(raw) {
   if(!raw)return null;
   try {
     const value=JSON.parse(raw);
-    return value && Array.isArray(value.board) && value.board.length===81 &&
+    return value && Array.isArray(value.board) && [81,169,361].includes(value.board.length) &&
       value.board.every(x=>x===-1||x===0||x===1) &&
       Array.isArray(value.moves) && Number.isSafeInteger(value.moveNumber) &&
       value.moveNumber>=0 && (value.next===1||value.next===-1) ? value : null;

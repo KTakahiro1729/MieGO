@@ -38,3 +38,14 @@ test("conflicting moves or equal-revision scoring changes are not silently overw
   assert.equal(reconcileGame(first,1,second,2).kind,"conflict");
   assert.equal(reconcileGame(first,1,{...first,passes:1},1).kind,"conflict");
 });
+
+test("before the first move the inviter's board size wins over a guest's default board", () => {
+  const host = newGame(true, { size: 19 }), guest = newGame();
+  assert.equal(reconcileGame(host, 0, guest, 0, { localIsOwner: true }).kind, "send");
+  const adopted = reconcileGame(guest, 0, host, 0, { localIsOwner: false });
+  assert.equal(adopted.kind, "adopt");
+  assert.equal(adopted.game.board.length, 361);
+  // Once play has started, a size mismatch is a real conflict.
+  const played = play(host, 0);
+  assert.equal(reconcileGame(played, 1, guest, 1, { localIsOwner: true }).kind, "conflict");
+});

@@ -1,4 +1,4 @@
-import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, areaScore, boardHash, handicapOf, komiOf, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
+import { BLACK, WHITE, BOARD_SIZES, sizeOf, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, areaScore, boardHash, handicapOf, komiOf, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
@@ -76,6 +76,10 @@ let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNot
 let aiSideChoice = "black";
 let aiHandicap = 0, localHandicap = 0;
 const toHandicap = value => handicapOf({handicap:Number(value)});
+// The board size for the next new game in any mode; a running game keeps its own.
+let boardSize = 9;
+const toBoardSize = value => BOARD_SIZES.includes(Number(value)) ? Number(value) : 9;
+const shownSize = () => sizeOf((boardReview?.display||game).board);
 let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
 let endgameStage = "playing", endExpanded = false, analysisContext = null;
@@ -194,7 +198,7 @@ function stopAiTurn() {
 function rememberSettings() {
   try {
     localStorage.setItem("miego-local-settings", JSON.stringify({
-      mode:gameMode,humanColor,aiSide:aiSideChoice,aiLevel,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap
+      mode:gameMode,humanColor,aiSide:aiSideChoice,aiLevel,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap,boardSize
     }));
   } catch {}
 }
@@ -206,7 +210,7 @@ function updatePersonaUi() {
 let displayedOwnership = null, transitionFrame = null;
 const boardZoom=createBoardZoom({
   frame:$("boardFrame"),canvas,bleed:$("boardBleed"),resetButton:$("boardZoomReset"),
-  hint:$("pinchHint"),getSize:()=>SIZE,redraw:()=>draw()
+  hint:$("pinchHint"),getSize:shownSize,redraw:()=>draw()
 });
 const boardRenderer = createBoardRenderer({
   canvas,
@@ -333,7 +337,7 @@ function finishAiMove(result) {
   try {
     // This is an NN evaluation of the committed position, not a preview.
     const valid=Array.isArray(result.ownership) &&
-      result.ownership.length===SIZE*SIZE &&
+      result.ownership.length===game.board.length &&
       result.ownership.every(v=>Number.isFinite(v)&&Math.abs(v)<=1.001);
     const passStage=valid?endgameAdvisor.observe(game,result.ownership):"playing";
     if(valid)endgameStage=passStage;
@@ -390,7 +394,7 @@ function handleAnalysis(event) {
     return;
   }
   if(result.error) { switchToFallback(result.error);return; }
-  if(!Array.isArray(result.ownership) || result.ownership.length!==81) {
+  if(!Array.isArray(result.ownership) || result.ownership.length!==game.board.length) {
     switchToFallback("Invalid ownership output");return;
   }
   if(game.status!=="playing")return;
@@ -475,8 +479,10 @@ function show() {
   $("openCurrentMode").textContent=room?"招待URLを表示":"AIの設定・再戦";
   $("localHandicapRow").hidden=!!room || gameMode!=="local";
   $("ownershipLegend").classList.toggle("overlay-off",!overlayOn());
-  const handicap=handicapOf(game);
-  $("ruleSummary").textContent="9路盤 · 中国式ルール · "+(handicap?
+  const handicap=handicapOf(game),size=sizeOf(game.board);
+  canvas.setAttribute("aria-label",shownSize()+"路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。");
+  syncBoardSizeUi();
+  $("ruleSummary").textContent=size+"路盤 · 中国式ルール · "+(handicap?
     "置き石"+handicap+"子 · コミ"+komiOf(game)+"＋置き石補正"+handicap+"目":"コミ"+komiOf(game));
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
   $("gamePanel").classList.toggle("is-scoring",isScoring);
@@ -649,6 +655,7 @@ function submitMove(position,fromAi=false){
   apply({type:"move",position,number:game.moveNumber+1,before,after:boardHash(next.board)},false,fromAi);
 }
 canvas.addEventListener("click",e=>{
+  const SIZE=shownSize();
   const rect=canvas.getBoundingClientRect(),x=Math.round(((e.clientX-rect.left)/rect.width*canvas.width-canvas.width/(SIZE+1))/(canvas.width/(SIZE+1))),
     y=Math.round(((e.clientY-rect.top)/rect.height*canvas.height-canvas.height/(SIZE+1))/(canvas.height/(SIZE+1)));
   // A click that ends a pan or pinch is navigation, not a stone placement.
@@ -796,7 +803,7 @@ function resetLocalBoard() {
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
   lastOfferKey=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  game=freshLocalGame(game,localHandicap);currentGameId=null;currentRevision=null;
+  game=freshLocalGame(game,localHandicap,boardSize);currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
 }
 $("resetLocalGame").onclick=()=>{resetLocalBoard();closePanels();};
@@ -876,6 +883,23 @@ document.querySelectorAll('input[name="palette"]').forEach(input => {
   };
 });
 $("localHandicap").onchange=e=>{localHandicap=toHandicap(e.target.value);rememberSettings();};
+function syncBoardSizeUi() {
+  const choice=document.querySelector('input[name="boardSize"][value="'+boardSize+'"]');
+  if(choice)choice.checked=true;
+  const current=sizeOf(game.board);
+  $("boardSizeNote").textContent=current===boardSize?"":
+    "いまの対局は"+current+"路盤のままです。"+boardSize+"路盤は次の新しい対局から使います。";
+}
+for(const input of document.querySelectorAll('input[name="boardSize"]')) {
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    boardSize=toBoardSize(e.target.value);rememberSettings();
+    // An untouched local board switches at once; a started game is never altered.
+    if(!room && gameMode==="local" && !boardReview && game.moveNumber===0 &&
+       sizeOf(game.board)!==boardSize)resetLocalBoard();
+    syncBoardSizeUi();
+  };
+}
 $("opacity").oninput=e=>{
   opacity=Number(e.target.value)/100;
   localStorage.setItem("miego-opacity",String(opacity));
@@ -916,7 +940,7 @@ function savedGame(mode) {
     aiStrength=normalizeStrength(record.aiStrength);
     invasion=record.invasion;reinforcement=record.reinforcement;
   }
-  return record?.snapshot||newGame();
+  return record?.snapshot||newGame(true,{size:boardSize});
 }
 function leaveOnlineRoom() {
   resetArmedButtons();
@@ -968,7 +992,8 @@ async function verifyP2P(){
   });
 }
 function onPeerSync(message){
-  const result=reconcileGame(game,onlineRevision,message.game,message.revision);
+  const result=reconcileGame(game,onlineRevision,message.game,message.revision,
+    {localIsOwner:p2pRole==="owner"});
   if(result.kind==="conflict"||result.kind==="invalid"){
     connected=false;$("netStatus").textContent="局面が一致しません。自動上書きを停止しました";
     show();return false;
@@ -1041,7 +1066,7 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  game=newGame();candidate=null;lastPosition=null;
+  game=newGame(true,{size:boardSize});candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
@@ -1191,7 +1216,7 @@ function requestReviewOwnership() {
     reviewWorker=new Worker("/analysis-worker.mjs",{type:"module"});
     reviewWorker.onmessage=e=>{
       if(!boardReview || e.data.id!==boardReview.analysisId ||
-         !Array.isArray(e.data.ownership) || e.data.ownership.length!==SIZE*SIZE)return;
+         !Array.isArray(e.data.ownership) || e.data.ownership.length!==boardReview.display.board.length)return;
       boardReview.ownership=e.data.ownership;
       draw();
     };
@@ -1468,7 +1493,7 @@ $("startAi").onclick=()=>{
   aiStrength=normalizeStrength(document.querySelector('input[name="aiStrength"]:checked')?.value,
     DEFAULT_AI_STRENGTH);
   hints=null;takebackNotice=null;
-  game=newGame(true,{handicap:aiHandicap});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
+  game=newGame(true,{handicap:aiHandicap,size:boardSize});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   $("aiMatchStatus").textContent="対局を開始しました。あなたは"+colorLabel(humanColor)+"です。";
   save();closePanels();show();requestAnalysis();
@@ -1577,6 +1602,7 @@ else try {
     aiLevel=settings.aiLevel==="gentle"?"gentle":"standard";
     aiStrength=normalizeStrength(settings.aiStrength,DEFAULT_AI_STRENGTH);
     aiHandicap=toHandicap(settings.aiHandicap);localHandicap=toHandicap(settings.localHandicap);
+    boardSize=toBoardSize(settings.boardSize);
     aiHints=settings.aiHints===true;
     invasion=Math.max(0,Math.min(100,Number(settings.invasion??50)));
     reinforcement=Math.max(0,Math.min(100,Number(settings.reinforcement??50)));
@@ -1587,7 +1613,7 @@ syncSideUi();
 $("aiLevel").value=aiLevel;
 $("aiInvasion").value=String(invasion);
 $("aiReinforcement").value=String(reinforcement);
-updatePersonaUi();syncStrengthUi();syncHandicapUi();
+updatePersonaUi();syncStrengthUi();syncHandicapUi();syncBoardSizeUi();
 const selectedPalette=document.querySelector('input[name="palette"][value="'+palette+'"]');
 if(selectedPalette)selectedPalette.checked=true;
 $("opacity").value=String(Math.round(opacity*100));

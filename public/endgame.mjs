@@ -1,4 +1,4 @@
-import { group, SIZE } from "./core.mjs";
+import { group } from "./core.mjs";
 
 /** Non-authoritative endgame advice for 9x9 Chinese rules.
  * Evaluations must be from committed positions (never sandbox/preview moves).
@@ -21,7 +21,7 @@ export class EndgameAdvisor {
   }
   observe(state, ownership) {
     if (state.status !== "playing") { this.reset(); return this.stage; }
-    if (!Array.isArray(ownership) || ownership.length !== SIZE*SIZE ||
+    if (!Array.isArray(ownership) || ownership.length !== state.board.length ||
       ownership.some(x => !Number.isFinite(x) || Math.abs(x)>1.001)) {
       return this.stage;
     }

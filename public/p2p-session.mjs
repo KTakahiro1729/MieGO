@@ -45,12 +45,17 @@ function sameMoves(a,b) {
   const longer = shorter === a ? b : a;
   return shorter.moves.every((move,i) => JSON.stringify(move) === JSON.stringify(longer.moves[i]));
 }
-export function reconcileGame(localGame, localRevision, incomingGame, incomingRevision) {
+export function reconcileGame(localGame, localRevision, incomingGame, incomingRevision, {localIsOwner=false}={}) {
   if (!Number.isInteger(incomingRevision) || incomingRevision < 0 ||
       !Number.isInteger(localRevision) || localRevision < 0)
     return {kind:"invalid"};
   const incoming = parseGameSnapshot(JSON.stringify(incomingGame));
   if (!incoming) return {kind:"conflict"};
+  // A guest that has not received the match yet holds a default empty board;
+  // before the first move the inviter's board size decides the game.
+  if (localRevision === 0 && incomingRevision === 0 && !localGame.moves.length &&
+      !incoming.moves.length && localGame.board.length !== incoming.board.length)
+    return localIsOwner ? {kind:"send"} : {kind:"adopt",game:incoming,revision:0};
   // An accepted 待った shortens the move list. The side that applied more
   // takebacks and has the newer revision holds the agreed line.
   const localTakebacks = localGame.takebacks || 0, incomingTakebacks = incoming.takebacks || 0;

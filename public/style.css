@@ -158,6 +158,12 @@ body.board-zoomed .board-bleed{opacity:1}
 .ai-color-choices input:disabled+span{opacity:.4;cursor:not-allowed}
 .handicap-choices{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
 .handicap-choices span{padding:12px 2px}
+.board-size-setting{border:0;padding:0;margin:14px 0 4px;min-width:0}
+.board-size-setting legend{padding:0;margin-bottom:8px;font-size:13px;color:#d6dae3}
+.board-size-choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.board-size-choices span{padding:11px 4px}
+.board-size-note:empty{display:none}
+.board-size-note{color:#f5dfad}
 .handicap-select{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:12px 0}
 .handicap-select[hidden]{display:none}
 .ai-strength-choices span{padding:11px 6px}

@@ -25,3 +25,15 @@ test("rejects mismatched history/invalid stones before neural feature extraction
   assert.throws(() => toKataGoPosition({board:[],moves:[],next:1}));
   assert.throws(() => fromBoardHash("010"));
 });
+test("13x13 and 19x19 positions keep their size and coordinates", () => {
+  for (const size of [13, 19]) {
+    const g = play(play(newGame(true, { size }), at(size - 1, 0, size)), null);
+    const a = toKataGoPosition(g);
+    assert.equal(a.size, size);
+    assert.equal(a.board.length, size);
+    assert.equal(a.board[0][size - 1], "black");
+    assert.equal(a.previousBoard[0][size - 1], "black");
+    assert.deepEqual(a.moveHistory[0], { x: size - 1, y: 0, player: "black" });
+  }
+  assert.throws(() => toKataGoPosition({ board: Array(100).fill(0), moves: [], next: 1 }));
+});

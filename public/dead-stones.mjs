@@ -1,4 +1,4 @@
-import { group, SIZE, BLACK, WHITE } from "./core.mjs";
+import { group, BLACK, WHITE } from "./core.mjs";
 
 /** Conservatively propose dead *groups* from KataGo NN ownership.
  * These are not proven dead stones, and are never accepted as final without
@@ -6,8 +6,7 @@ import { group, SIZE, BLACK, WHITE } from "./core.mjs";
  */
 export function suggestDeadStones(state, ownership) {
   if(state.status!=="scoring" || !Array.isArray(state.board) ||
-      state.board.length!==SIZE*SIZE || !Array.isArray(ownership) ||
-      ownership.length!==SIZE*SIZE ||
+      !Array.isArray(ownership) || ownership.length!==state.board.length ||
       ownership.some(v=>!Number.isFinite(v) || Math.abs(v)>1.001)) {
     throw new Error("死石自動判定の入力が不正です");
   }
