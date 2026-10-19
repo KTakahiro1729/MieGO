@@ -323,6 +323,12 @@ function show() {
   draw();
 }
 function apply(action, remote=false) {
+  // End-offer messages can race with an actual stone. Ignore stale metadata
+  // without tearing down the live Go DataChannel.
+  if(remote && (action?.type==="end_offer" || action?.type==="end_answer")) {
+    if(action.number!==game.moveNumber || action.before!==boardHash(game.board))return;
+    if(action.type==="end_answer" && action.proposalFrom!==game.endProposal?.from)return;
+  }
   try{
     if(action.type==="move"){
       if(action.number!==game.moveNumber+1) throw new Error("手順が一致しません");
@@ -340,7 +346,8 @@ function apply(action, remote=false) {
       game=proposeEnd(game,action.color);
       if(remote)endExpanded=true;
     } else if(action.type==="end_answer") {
-      if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
+      if(action.number!==game.moveNumber || action.before!==boardHash(game.board) ||
+         action.proposalFrom!==game.endProposal?.from)
         throw new Error("終局の返答時点が一致しません");
       game=answerEndProposal(game,action.color,Boolean(action.accept));
       if(!action.accept)endHintSuppressedUntil=game.moveNumber+4;
@@ -348,8 +355,9 @@ function apply(action, remote=false) {
     }
     else return;
     if(action.type==="move")endExpanded=false;
+    const hadCandidate=!!candidate;
     candidate=null;save();show();
-    if(!["end_offer","end_answer"].includes(action.type))requestAnalysis();
+    if(!["end_offer","end_answer"].includes(action.type) || hadCandidate)requestAnalysis();
     if(!remote&&room) send({type:"action",action});
   }catch(error){alert(error.message); if(remote){$("netStatus").textContent="同期エラー";channel?.close();}}
 }
@@ -402,6 +410,7 @@ $("endAccept").onclick=()=>{
   // adjudication or fictitious consecutive passes are inserted in the record.
   const responder=room?color:-game.endProposal.from;
   apply({type:"end_answer",color:responder,accept:true,
+    proposalFrom:game.endProposal.from,
     number:game.moveNumber,before:boardHash(game.board)});
 };
 $("endDecline").onclick=()=>{
@@ -409,6 +418,7 @@ $("endDecline").onclick=()=>{
   const color=myColorForEnd();
   if(!color || (room&&!connected))return;
   apply({type:"end_answer",color,accept:false,
+    proposalFrom:game.endProposal.from,
     number:game.moveNumber,before:boardHash(game.board)});
 };
 $("assisted").onchange=e=>apply({type:"mode",value:e.target.checked});

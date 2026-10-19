@@ -71,3 +71,12 @@ test("stable, settled territory reaches soft advice only after repeated evaluati
   g={...g,moveNumber:48};
   assert.equal(advisor.observe(g,Array(81).fill(-1)),"near");
 });
+
+test("simultaneous opposite offers converge deterministically without passes",()=>{
+  const initial=newGame();
+  const blackFirst=proposeEnd(proposeEnd(initial,BLACK),WHITE);
+  const whiteFirst=proposeEnd(proposeEnd(initial,WHITE),BLACK);
+  assert.equal(blackFirst.endProposal.from,BLACK);
+  assert.equal(whiteFirst.endProposal.from,BLACK);
+  assert.equal(whiteFirst.moveNumber,0);
+});

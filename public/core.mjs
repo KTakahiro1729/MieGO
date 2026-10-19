@@ -80,7 +80,11 @@ export function proposeEnd(state, color) {
   if (state.status !== "playing" || ![BLACK, WHITE].includes(color)) {
     throw new Error("対局中のみ終局を提案できます");
   }
-  if (state.endProposal) throw new Error("既に終局の提案があります");
+  if (state.endProposal) {
+    // Simultaneous proposals are deterministic across the two peers: Black
+    // wins the tie, and the other offer is ignored (not a rule preference).
+    if (state.endProposal.from === color || color === WHITE) return state;
+  }
   return { ...state, endProposal: { from: color, atMove: state.moveNumber } };
 }
 export function answerEndProposal(state, color, accept) {
