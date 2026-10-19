@@ -304,8 +304,12 @@ body{overflow:hidden}
 #reviewNotice{margin:0;color:#efca90;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
 #reviewNotice:empty{display:none}
 #reviewCopyFallback{width:100%;max-height:110px;min-height:50px;background:#17202e;border:1px solid #6b7588;color:#f4f4ee;padding:6px;border-radius:8px;font-size:12px}
-.history-share-actions{display:flex;gap:6px;align-items:stretch;margin-top:9px}
-.history-share-actions button{flex:1;min-width:0;min-height:44px;font-size:12px;padding:9px 7px;border-radius:10px}
+.history-share-menu{position:relative;margin-top:15px}
+.history-share-menu>summary{min-height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid #525967;border-radius:12px;background:#272d3b;color:#f3f2ed;font-size:12px;font-weight:650;list-style:none}
+.history-share-menu>summary::-webkit-details-marker{display:none}
+.history-share-menu>summary:focus-visible,.review-menu>summary:focus-visible{outline:3px solid #f2c875;outline-offset:2px}
+.history-share-popover{position:absolute;bottom:calc(100% + 7px);right:0;z-index:5;background:#242c3a;width:min(300px,100%);border:1px solid #606879;border-radius:12px;padding:9px;box-shadow:0 12px 24px #0009;display:flex;flex-direction:column;gap:7px}
+.history-share-popover>button{width:100%;min-height:44px;font-size:12px;padding:8px;border-radius:10px}
 #historyAiLink{color:#161a20;background:#e4bf72;border-color:#f4d992}
 @media(max-width:360px){.review-navigation{gap:4px}.review-navigation>.review-back{flex-basis:52px;font-size:11px}.review-navigation>button:not(.review-step-toggle):not(.review-back),.review-menu{flex-basis:44px}}
 #historyCopyFallback{display:block;width:100%;min-height:58px;margin:8px 0;background:#202836;color:#f0f0ed;border:1px solid #6b7588;border-radius:9px;padding:8px;font-size:12px}

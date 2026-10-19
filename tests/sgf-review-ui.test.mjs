@@ -55,3 +55,15 @@ test("replay entry does not make the existing game header taller",()=>{
  assert.match(style,/\.move-history-toggle\{[^}]*min-height:26px/);
  assert.match(style,/\.move-history-toggle::before\{[^}]*inset:-9px 0/);
 });
+
+test("saved history share replaces SGF export button height instead of adding another row",()=>{
+ const begin=html.indexOf('id="historyShareMenu"');
+ const end=html.indexOf('id="historyActionNotice"',begin);
+ const fragment=html.slice(begin,end);
+ assert.match(fragment,/id="historyExport"/);
+ assert.match(fragment,/id="historyLink"/);
+ assert.match(fragment,/id="historyAiLink"/);
+ assert.match(style,/\.history-share-popover\{position:absolute/);
+ assert.match(style,/\.history-share-menu>summary\{min-height:44px/);
+ assert.doesNotMatch(html,/class="history-share-actions"/);
+});

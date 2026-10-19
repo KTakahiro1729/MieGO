@@ -196,8 +196,14 @@
         <p id="historyMeta" class="explanation"></p>
         <button id="historyResume" class="primary full" type="button" hidden>この対局の続きを打つ</button>
         <button id="historyBranch" class="outline full" type="button">この局面から1台で検討</button>
-        <button id="historyExport" class="outline full" type="button">SGFを書き出す</button>
-        <div class="history-share-actions"><button id="historyLink" type="button">この手数のURLをコピー</button><button id="historyAiLink" type="button">AI向けにコピー</button></div>
+        <details id="historyShareMenu" class="history-share-menu">
+          <summary>共有・書き出し</summary>
+          <div class="history-share-popover" role="group" aria-label="棋譜共有">
+            <button id="historyExport" type="button">SGFを書き出す</button>
+            <button id="historyLink" type="button">この手数のURLをコピー</button>
+            <button id="historyAiLink" type="button">AI向けにコピー</button>
+          </div>
+        </details>
         <p id="historyActionNotice" class="invite-status history-notice" role="status" aria-live="polite"></p>
         <textarea id="historyCopyFallback" readonly hidden aria-label="コピーできなかった内容を手動でコピー"></textarea>
         <p id="historyReadOnlyHint" class="explanation"></p>
