@@ -1,4 +1,6 @@
-import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash } from "./core.mjs";
+import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
+import { suggestDeadStones } from "./dead-stones.mjs";
+import { EndgameAdvisor } from "./endgame.mjs";
 import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
 import { PALETTES, ownershipPixel, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
@@ -10,6 +12,7 @@ let fallbackMode = false;
 function switchToFallback(reason) {
   if (fallbackMode) return;
   fallbackMode = true;
+  endgameAdvisor.reset();endgameStage="playing";
   katagoReady = false;
   aiThinking = false;
   aiJob = null;
@@ -34,12 +37,54 @@ let connected = false, roomCount = 0;
 let gameMode = room ? "online" : "local";
 let humanColor = BLACK, aiLevel = "standard", invasion = 50, reinforcement = 50;
 let katagoReady = false, aiThinking = false, aiJob = null;
+const endgameAdvisor = new EndgameAdvisor();
+let endgameStage = "playing", endExpanded = false, analysisContext = null;
+let lastOfferKey = null, endHintSuppressedUntil = -1;
+let deadEvaluation=null, deadReview="idle", deadReviewTouched=false;
+function myColorForEnd() {
+  if(room)return seat==="host"?BLACK:seat==="guest"?WHITE:null;
+  return gameMode==="ai"?humanColor:BLACK;
+}
+function updateEndUi() {
+  const playing=game.status==="playing";
+  const offer=playing?game.endProposal:null;
+  const color=myColorForEnd();
+  const incoming=!!(offer && room && color!==null && offer.from!==color);
+  const key=offer?offer.from+":"+offer.atMove:null;
+  if(incoming && key!==lastOfferKey)endExpanded=true;
+  lastOfferKey=key;
+  const label=!playing?(game.status==="scoring"?"採点中":"対局終了"):
+    offer?(incoming?"相手から終局の提案":!room?"終局の確認":"相手の返答待ち"):
+    fallbackMode?"終局の目安 · 判定不可":
+    endgameStage==="ready" && game.moveNumber>endHintSuppressedUntil?"終局を検討できます":
+    endgameStage==="near"?"終局が近いかもしれません":"終局の目安 · 対局中";
+  $("endStatus").textContent=label;
+  $("endToggle").disabled=!playing;
+  const expanded=playing && endExpanded;
+  $("endActions").hidden=!expanded;
+  $("endToggle").setAttribute("aria-expanded",String(expanded));
+  $("endPropose").hidden=!!offer;
+  $("endAccept").hidden=!offer || (!!room && !incoming);
+  $("endDecline").hidden=!offer;
+  for(const id of ["endPropose","endAccept","endDecline"])
+    $(id).disabled=!!room && (!connected || color===null);
+  $("endAccept").textContent=room?"同意して採点へ":"確認して採点へ";
+  $("endDecline").textContent=incoming?"対局を続ける":"提案を取り下げる";
+  $("endDetail").textContent=offer
+    ? incoming?"同意すると死石の確認へ進みます。拒否して打ち続けられます。":
+      !room?"採点に進むか、そのまま打ち続けるか選べます。":
+      "相手の返答を待っています。提案中でも着手できます。"
+    : "終局の提案はパスではありません。相手の同意までは対局を続けられます。";
+}
+
+
 const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" && game.next === -humanColor;
 const isHumanTurn = () => room
   ? (connected && (seat === "host" ? game.next === BLACK : game.next === WHITE))
   : (gameMode !== "ai" || (katagoReady && !fallbackMode && game.next === humanColor));
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
+  analysisContext=null;deadEvaluation=null;
   pending = ++seq;
   clearTimeout(analysisTimer);
 }
@@ -128,6 +173,36 @@ function draw() {
 let analysisTimer = null;
 function requestAnalysis() {
   clearTimeout(analysisTimer);
+  analysisContext=null;
+  if(game.status==="scoring") {
+    pending=++seq;
+    analysisContext=null;
+    endgameAdvisor.reset();endgameStage="playing";
+    if(deadReviewTouched || deadReview==="complete" || deadReview==="none") {
+      updateEndUi(); return;
+    }
+    if(fallbackMode || !katagoReady) {
+      deadReview="unavailable";show();return;
+    }
+    if(room && seat!=="host") {
+      deadReview="awaiting";show();return;
+    }
+    if(room && !connected) {
+      deadReview="awaiting";show();return;
+    }
+    deadReview="pending";
+    const id=pending;
+    deadEvaluation={id,number:game.moveNumber,hash:boardHash(game.board),
+      dead:JSON.stringify(game.dead)};
+    worker.postMessage({id,kind:"scoring",state:game});
+    show();return;
+  }
+  if(game.status!=="playing") {
+    pending=++seq;
+    endgameAdvisor.reset();endgameStage="playing";
+    updateEndUi();
+    return;
+  }
   if (isAiTurn()) {
     if (aiThinking) return;
     if (fallbackMode) {
@@ -157,10 +232,14 @@ function requestAnalysis() {
     if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
     transitionFrame=null; displayedOwnership=null;
     $("analysisStatus").textContent="地合い補助オフ";
-    draw();return;
+    draw();
+    // Endgame evaluation runs independently of the ownership overlay.
+    // Avoid evaluating every preview tap when the overlay is disabled.
+    if(candidate || fallbackMode)return;
   }
-  const state=candidate || game, id=pending;
-  $("analysisStatus").textContent=fallbackMode?"簡易表示を更新中…":"地合いを更新中…";
+  const state=game.assisted?(candidate || game):game, id=pending;
+  analysisContext={id,number:state.moveNumber,hash:boardHash(state.board),committed:!candidate};
+  if(game.assisted)$("analysisStatus").textContent=fallbackMode?"簡易表示を更新中…":"地合いを更新中…";
   analysisTimer=setTimeout(()=>worker.postMessage({id,state,board:state.board}),180);
 }
 function finishAiMove(result) {
@@ -192,13 +271,36 @@ function handleAnalysis(event) {
       katagoReady=true;
       $("aiMatchStatus").textContent="KataGo準備完了。AI対局を開始できます。";
       show();
-      if(isAiTurn())requestAnalysis();
+      if(isAiTurn() || (game.status==="scoring" && deadReview==="unavailable")) {
+        if(game.status==="scoring")deadReview="idle";
+        requestAnalysis();
+      }
     } else {
       switchToFallback(result.error || "KataGo初期化に失敗しました");
     }
     return;
   }
   if(result.id!==pending)return;
+  if(result.kind==="scoring") {
+    const job=deadEvaluation;
+    deadEvaluation=null;
+    if(!job || job.id!==result.id || game.status!=="scoring" ||
+      game.moveNumber!==job.number || boardHash(game.board)!==job.hash ||
+      JSON.stringify(game.dead)!==job.dead || deadReviewTouched)return;
+    if(result.error || result.engine!=="katago") {
+      deadReview="unavailable";show();return;
+    }
+    try {
+      const positions=suggestDeadStones(game,result.ownership);
+      apply({type:"dead_auto",positions,number:game.moveNumber,before:boardHash(game.board)});
+      deadReview=positions.length?"complete":"none";
+      show();
+    }catch(error) {
+      console.error("KataGo dead-stone candidates",error);
+      deadReview="unavailable";show();
+    }
+    return;
+  }
   if(result.kind==="move") {
     if(result.error) { switchToFallback(result.error);return; }
     finishAiMove(result);
@@ -208,6 +310,16 @@ function handleAnalysis(event) {
   if(!Array.isArray(result.ownership) || result.ownership.length!==81) {
     switchToFallback("Invalid ownership output");return;
   }
+  if(game.status!=="playing")return;
+  const context=analysisContext;
+  // Sandbox positions and stale asynchronous results must never generate advice.
+  if(context?.id===result.id && context.committed && !candidate &&
+    context.number===game.moveNumber && context.hash===boardHash(game.board) &&
+    result.engine==="katago") {
+    endgameStage=endgameAdvisor.observe(game,result.ownership);
+    updateEndUi();
+  }
+  if(!game.assisted)return;
   analysis=result;
   $("analysisStatus").textContent=result.engine==="katago"
     ?"地合いを表示中 · KataGoによる試験的推定"
@@ -244,11 +356,20 @@ function show() {
   $("pass").disabled=!myTurn || game.status!=="playing";
   $("resign").disabled=!myTurn || game.status!=="playing";
   $("assisted").checked=game.assisted;$("assisted").disabled=game.moveNumber>0 || (room&&seat!=="host");
-  $("scoreBox").classList.toggle("hidden",game.status!=="scoring");
-  $("scoreInstruction").textContent=gameMode==="ai"
-    ?"死石を人間が指定して採点します。AI独自の生死判定・異議申し立ては行いません。"
-    :"死石をタップして指定し、双方で結果を確認してください。";
-  if(game.status==="scoring"){
+  const isScoring=game.status==="scoring",isFinished=game.status==="finished";
+  $("scoreBox").classList.toggle("hidden",!isScoring && !isFinished);
+  $("scoreBox").querySelector("strong").textContent=isFinished?"対局結果":"終局の確認";
+  $("scoreInstruction").textContent=isFinished?
+    (game.result?.endsWith("+R")?"投了によって対局が終了しました。":"中国式面積計算で確定しました。"):
+    deadReview==="pending"?"KataGoが死石候補を調べています…":
+    deadReview==="awaiting"?"相手側で死石候補を判定しています。":
+    deadReview==="complete"?"KataGoが死石候補を仮指定しました。必要なら石をタップして修正できます。":
+    deadReview==="none"?"KataGoは死石候補を検出しませんでした。必要なら石をタップしてください。":
+    deadReview==="modified"?"死石候補を修正しました。双方で確認して採点してください。":
+    deadReview==="unavailable"?"KataGoによる死石判定ができません。石をタップして指定してください。":
+    "死石の判定を準備しています。";
+  $("scoreBox").querySelector(".score-actions").hidden=isFinished;
+  if(isScoring){
     const score=areaScore(game);
     $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（コミ込み）";
     $("agree").disabled=room&&!connected;
@@ -257,9 +378,28 @@ function show() {
     $("agree").textContent=game.agreed[agreeing]?"確認済み":"この計算に同意";
     $("resume").disabled=room&&!connected;
   }
+  if(isFinished) {
+    const result=game.result;
+    if(result?.endsWith("+R")) {
+      $("scoreText").textContent=(result.startsWith("B+")?"黒":"白")+"の投了勝ち";
+    } else {
+      const score=areaScore(game);
+      $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+
+        "目（コミ込み） · "+(result?.startsWith("B+")?"黒":result?.startsWith("W+")?"白":"引き分け")+
+        " "+Math.abs(score.difference).toFixed(1)+"目勝ち";
+    }
+  }
+  updateEndUi();
   draw();
 }
 function apply(action, remote=false) {
+  // End-offer messages can race with an actual stone. Ignore stale metadata
+  // without tearing down the live Go DataChannel.
+  if(remote && (action?.type==="end_offer" || action?.type==="end_answer" ||
+                action?.type==="dead_auto")) {
+    if(action.number!==game.moveNumber || action.before!==boardHash(game.board))return;
+    if(action.type==="end_answer" && action.proposalFrom!==game.endProposal?.from)return;
+  }
   try{
     if(action.type==="move"){
       if(action.number!==game.moveNumber+1) throw new Error("手順が一致しません");
@@ -267,12 +407,45 @@ function apply(action, remote=false) {
       game=play(game,action.position);
       if(action.after!==boardHash(game.board)) throw new Error("局面の検証に失敗しました");
       lastPosition=Number.isInteger(action.position)?action.position:null;
-    } else if(action.type==="dead") game=toggleDead(game,action.position);
+    } else if(action.type==="dead") {
+      game=toggleDead(game,action.position);
+      deadReviewTouched=true;
+      deadReview="modified";
+    } else if(action.type==="dead_auto") {
+      if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
+        throw new Error("死石自動判定の局面が一致しません");
+      if(deadReviewTouched && !remote)return;
+      game=setDeadCandidates(game,action.positions);
+      deadReview=action.positions.length?"complete":"none";
+    }
     else if(action.type==="agree") game=agreeScore(game,action.color);
     else if(action.type==="resume") game=resume(game);
     else if(action.type==="mode") game=setAssisted(game,action.value);
+    else if(action.type==="end_offer") {
+      if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
+        throw new Error("終局の提案時点が一致しません");
+      game=proposeEnd(game,action.color);
+      if(remote)endExpanded=true;
+    } else if(action.type==="end_answer") {
+      if(action.number!==game.moveNumber || action.before!==boardHash(game.board) ||
+         action.proposalFrom!==game.endProposal?.from)
+        throw new Error("終局の返答時点が一致しません");
+      game=answerEndProposal(game,action.color,Boolean(action.accept));
+      if(!action.accept)endHintSuppressedUntil=game.moveNumber+4;
+      endExpanded=false;
+    }
     else return;
-    candidate=null;save();show();requestAnalysis();
+    if(action.type==="move")endExpanded=false;
+    if(action.type==="resume" || game.status==="playing") {
+      deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
+    }
+    const hadCandidate=!!candidate;
+    candidate=null;save();show();
+    // Evaluate once, when a play/pass or accepted offer enters scoring.
+    if(["move","resume","mode"].includes(action.type) ||
+       (action.type==="end_answer" && game.status==="scoring") ||
+       (hadCandidate && game.status==="playing"))
+      requestAnalysis();
     if(!remote&&room) send({type:"action",action});
   }catch(error){alert(error.message); if(remote){$("netStatus").textContent="同期エラー";channel?.close();}}
 }
@@ -302,10 +475,43 @@ $("agree").onclick=()=>{
   const color=room?(seat==="guest"?WHITE:BLACK):gameMode==="ai"?humanColor:BLACK;
   if(game.agreed[color===BLACK?"black":"white"])return;
   apply({type:"agree",color});
-  // Human adjudicates life and death; the AI does not claim to verify it.
-  if(gameMode==="ai" && game.status==="scoring")apply({type:"agree",color:-humanColor});
+  // Single-player modes require one human confirmation. No claim is made that
+  // KataGo independently approved the life-and-death judgment.
+  if(!room && game.status==="scoring")
+    apply({type:"agree",color:gameMode==="ai"?-humanColor:WHITE});
 };
 $("resume").onclick=()=>apply({type:"resume"});
+$("endToggle").onclick=()=>{
+  if(game.status!=="playing")return;
+  endExpanded=!endExpanded;updateEndUi();
+};
+$("endPropose").onclick=()=>{
+  if(game.status!=="playing" || game.endProposal)return;
+  const color=myColorForEnd();
+  if(!color || (room&&!connected))return;
+  apply({type:"end_offer",color,number:game.moveNumber,before:boardHash(game.board)});
+  endExpanded=true;updateEndUi();
+};
+$("endAccept").onclick=()=>{
+  if(game.status!=="playing" || !game.endProposal)return;
+  const color=myColorForEnd();
+  if(room && (color===null || !connected || game.endProposal.from===color))return;
+  // Solo/AI players perform the confirmation themselves; no AI dead-stone
+  // adjudication or fictitious consecutive passes are inserted in the record.
+  const responder=room?color:-game.endProposal.from;
+  apply({type:"end_answer",color:responder,accept:true,
+    proposalFrom:game.endProposal.from,
+    number:game.moveNumber,before:boardHash(game.board)});
+};
+$("endDecline").onclick=()=>{
+  if(game.status!=="playing" || !game.endProposal)return;
+  const color=myColorForEnd();
+  if(!color || (room&&!connected))return;
+  apply({type:"end_answer",color,accept:false,
+    proposalFrom:game.endProposal.from,
+    number:game.moveNumber,before:boardHash(game.board)});
+};
+
 $("assisted").onchange=e=>apply({type:"mode",value:e.target.checked});
 document.querySelectorAll('input[name="palette"]').forEach(input => {
   input.onchange = e => {
@@ -365,6 +571,7 @@ function switchToLocal() {
   if(!room)save();else leaveOnlineRoom();
   stopAiTurn();gameMode="local";
   game=savedGame("local");lastPosition=null;candidate=null;
+  endgameAdvisor.reset();endgameStage="playing";endExpanded=!!game.endProposal;
   save();closePanels();show();requestAnalysis();
 }
 function send(msg){if(channel?.readyState==="open")channel.send(JSON.stringify(msg));}
@@ -400,7 +607,10 @@ function setupChannel(c){
     let msg;try{msg=JSON.parse(e.data);}catch{return;}
     if(msg.type==="snapshot"&&seat==="guest"){
       if(!msg.game||!Array.isArray(msg.game.board)||msg.game.board.length!==81)return;
-      game=msg.game;lastPosition=msg.lastPosition;candidate=null;show();requestAnalysis();
+      game=msg.game;lastPosition=msg.lastPosition;candidate=null;
+      endgameAdvisor.reset();endgameStage="playing";
+      endExpanded=!!game.endProposal && game.endProposal.from!==myColorForEnd();
+      show();requestAnalysis();
     }
     if(msg.type==="action")apply(msg.action,true);
   };
@@ -452,6 +662,7 @@ function ensureRoom() {
   const link = makeInviteUrl(location.origin, room);
   history.replaceState(null, "", new URL(link));
   game = newGame(game.assisted);
+  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   candidate = null;
   showInviteLink();
   void joinRoom();
@@ -525,6 +736,7 @@ $("startAi").onclick=()=>{
   humanColor=Number($("aiColor").value)===WHITE?WHITE:BLACK;
   aiLevel=$("aiLevel").value==="gentle"?"gentle":"standard";
   game=newGame(game.assisted);lastPosition=null;candidate=null;
+  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   $("aiMatchStatus").textContent="対局を開始しました。";
   save();closePanels();show();requestAnalysis();
 };
@@ -558,7 +770,7 @@ else try {
     invasion=Math.max(0,Math.min(100,Number(settings.invasion??50)));
     reinforcement=Math.max(0,Math.min(100,Number(settings.reinforcement??50)));
   }
-  game=savedGame(gameMode);
+  game=savedGame(gameMode);endExpanded=!!game.endProposal;
 }catch{}
 $("aiColor").value=String(humanColor);
 const aiSide=document.querySelector('input[name="aiSide"][value="'+humanColor+'"]');
