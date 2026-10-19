@@ -4,12 +4,17 @@
   font-synthesis:none;
   background:#0d1018;color:#f0f1f2;
   --muted:#98a0ad;--surface:#171c27;--edge:#323a49;--gold:#f0c773;
+  /* Button tokens: every control row and sheet draws from these. */
+  --btn-bg:#1c202b;--btn-edge:#343a47;--btn-text:#f1f2f2;
+  --accent-edge:#8a704c;--accent-text:#f2d9a5;
+  --danger-bg:#58392f;--danger-edge:#bb795b;--danger-text:#ffe0c5;
+  --control-h:44px;--action-h:55px;--radius:13px;--radius-sm:10px;
 }
 *{box-sizing:border-box}
 html{min-height:100%;background:#0d1018}
 body{margin:0;min-height:100vh;min-height:100dvh;background:radial-gradient(ellipse at 50% -22%,#20263a 0%,#0d1018 65%)}
 button,input,select{font:inherit}
-button{min-height:44px;border-radius:15px;border:1px solid var(--edge);background:#222735;color:#f1f2f2;padding:10px 16px;cursor:pointer;font-weight:600}
+button{min-height:var(--control-h);border-radius:var(--radius);border:1px solid var(--btn-edge);background:var(--btn-bg);color:var(--btn-text);padding:10px 16px;cursor:pointer;font-weight:600}
 button:disabled{opacity:.36;cursor:default}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #f2c875;outline-offset:2px}
 button:hover:not(:disabled){border-color:#748094}
@@ -41,8 +46,8 @@ button:hover:not(:disabled){border-color:#748094}
 .board-bleed{position:fixed;inset:0;width:100vw;height:100dvh;z-index:0;pointer-events:none;filter:blur(3px) brightness(.55) saturate(1.1);opacity:0;transition:opacity .25s}
 body.board-zoomed .board-bleed{opacity:1}
 .board-frame.is-zoomed{background:transparent;border-color:var(--gold);box-shadow:0 0 0 1px #f0c77366,0 0 22px #f0c77333}
-.board-zoom-reset{position:absolute;top:12px;right:12px;min-height:34px;padding:5px 11px;border-radius:999px;font-size:12px;color:#f5dfad;background:#171c27cc;border:1px solid #f0c77388;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-shadow:0 4px 14px #0007}
-.board-zoom-reset::before{content:"";position:absolute;inset:-6px}
+/* A plain .secondary button (shared colours and 44px height) floating over the board. */
+.board-zoom-reset{position:absolute;top:12px;right:12px;padding:8px 14px;font-size:13px;box-shadow:0 4px 14px #0007}
 
 /* One-time, non-blocking pinch-out hint over the board. */
 .pinch-hint{position:absolute;inset:0;pointer-events:none;display:grid;place-items:center;border-radius:14px}
@@ -65,17 +70,11 @@ body.board-zoomed .board-bleed{opacity:1}
 
 .move-label{color:var(--muted);white-space:nowrap;font-size:11px}
 
-.action-row{display:flex;gap:9px;align-items:stretch;margin:4px -2px 0;padding:10px 2px max(12px,env(safe-area-inset-bottom));position:sticky;bottom:0;z-index:3;background:linear-gradient(180deg,#0d101800,#0d1018 12%)}
-.action-row button{white-space:nowrap;min-height:55px}
-.action-row .secondary-action{flex:1;font-size:14px;padding:9px 10px;background:#1c202b;border-color:#343a47}
-.action-row .primary{flex:2.2;min-width:0}
 .primary{color:#17191e;background:linear-gradient(180deg,#f5d88f,#e4b85c);border:1px solid #ffe1a0;box-shadow:0 2px 14px #e4b85c30;font-weight:750}
 .button-stone{display:inline-block;width:19px;height:19px;border-radius:50%;background:radial-gradient(circle at 32% 26%,#5e6268,#11161a 70%);border:1px solid #656d72;vertical-align:-4px;margin-right:8px}
 .score-box{background:#1b2430;border:1px solid #65615c;padding:18px;border-radius:13px;margin:12px 0 18px}
 .score-box strong{font-size:15px}
 .score-box p,.score-box #scoreText{font-size:13px;line-height:1.6;color:#c7c9ca}
-.score-actions{display:flex;gap:8px;margin-top:12px}
-.score-actions button{flex:1;font-size:12px}
 .settings-backdrop{position:fixed;inset:0;background:#0008;z-index:9}
 .settings-panel{position:fixed;z-index:10;right:max(14px,calc((100vw - 1100px)/2));top:78px;width:min(390px,calc(100vw - 28px));max-height:calc(100dvh - 95px);overflow-y:auto;overscroll-behavior:contain;padding:22px;background:#181e2a;border:1px solid #414757;border-radius:19px;box-shadow:0 20px 70px #000a}
 .settings-head{display:flex;align-items:center;justify-content:space-between;margin:-6px 0 10px}
@@ -91,7 +90,6 @@ body.board-zoomed .board-bleed{opacity:1}
 .mode input{min-width:23px;min-height:23px;accent-color:#e9c677}
 .explanation{font-size:12px;line-height:1.7;color:#aeb3be;margin:12px 0 0}
 
-.outline{background:transparent;border:1px solid #6b6b71}
 .invite-details{display:flex;flex-direction:column;gap:6px;margin-top:12px}
 .invite-details.hidden{display:none}
 .invite-details input{user-select:text;-webkit-user-select:text}
@@ -106,13 +104,9 @@ body.board-zoomed .board-bleed{opacity:1}
  .board-frame{padding:4px;border-radius:10px;width:min(100%,calc(100dvh - 265px))}
  #board{border-radius:6px}
  .ownership-legend{margin-top:14px;width:92%}
- .action-row{margin-top:0}
- .action-row button{min-height:54px}
  .settings-panel{left:0;right:0;bottom:0;top:auto;width:100%;max-height:min(84dvh,740px);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom))}
 }
 @media(max-width:350px){
- .action-row{gap:6px}
- .action-row button{font-size:12px}
  .turn{font-size:15px}
  .board-frame{width:min(100%,calc(100dvh - 254px))}
 }
@@ -143,7 +137,7 @@ body.board-zoomed .board-bleed{opacity:1}
 .swatch.blue{background:linear-gradient(90deg,rgba(65,111,179,.55),rgba(65,111,179,0) 50%,rgba(184,69,82,0) 50%,rgba(184,69,82,.55) 100%),#e5c58c}
 .range-labels{display:flex;justify-content:space-between;color:#b0b6c2;font-size:11px}
 .info-disclosure{margin-top:12px;border-top:1px solid #3b4050;padding-top:13px}
-.info-disclosure summary{cursor:pointer;min-height:35px;font-size:13px;color:#d6dae3}
+.info-disclosure summary{cursor:pointer;min-height:44px;padding:11px 0;box-sizing:border-box;font-size:13px;color:#d6dae3}
 .info-disclosure .explanation{margin:6px 0 12px}
 .mode-panel .settings-head{margin-bottom:15px}
 .mode-panel .settings-section{border:0;padding-top:8px}
@@ -183,25 +177,10 @@ body.board-zoomed .board-bleed{opacity:1}
 
 #analysisStatus{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.end-buttons{display:flex;gap:8px}
-.end-action{flex:1;min-height:39px;font-size:12px;padding:7px 10px}
 @media(max-width:430px){
   #analysisStatus{font-size:10px}}
 
-/* One row: undo, confirm, pass, contextual game menu. */
-.action-row{gap:8px;align-items:center}
-.action-row .undo-button{flex:0 0 48px;min-width:48px;width:48px;padding:0;display:grid;place-items:center}
-.action-row .primary{flex:1 1 auto;min-width:0;padding:9px 6px}
-.action-row #pass{flex:0 0 60px;min-width:60px;width:60px;padding:9px 5px}
-
-@media(max-width:400px){
-  .action-row{gap:6px}
-  .action-row .undo-button{flex-basis:44px;width:44px;min-width:44px}
-  .action-row #pass{flex-basis:51px;width:51px;min-width:51px;font-size:12px}
-  
-  .action-row .primary{font-size:12px}
-  .button-stone{width:16px;height:16px;margin-right:5px}
-}
+@media(max-width:400px){.button-stone{width:16px;height:16px;margin-right:5px}}
 
 /* Saved games: a bottom sheet rather than a separate page. */
 .save-status{margin:7px 0;color:#ffcfac;font-size:12px;line-height:1.5}
@@ -217,20 +196,11 @@ body.board-zoomed .board-bleed{opacity:1}
 .history-item-meta{font-size:11px;color:#adb5c3;overflow-wrap:anywhere;line-height:1.45}
 .history-empty{color:#b7beca;font-size:13px;padding:28px 0;text-align:center}
 
-/* Scoring reuses the same bottom action row instead of adding a second bar. */
-.inline-score-actions{display:flex;flex:1 1 auto;min-width:0;gap:8px;margin:0}
-.inline-score-actions button{flex:1 1 auto;min-width:0;min-height:54px;padding:9px 6px;font-size:12px}
-.inline-score-actions #agree{flex:1.6 1 auto}
-.action-row.finished-actions{justify-content:flex-end}
 .score-box{margin:12px 0 4px}
-@media(max-width:400px){
- .inline-score-actions{gap:6px}
- .inline-score-actions button{font-size:11px}
-}
 
 /* Saved game replay and SGF exchange, without a new page. */
 .history-import-row{margin-top:16px}
-.history-import-label{display:block;width:100%;min-height:44px;padding:11px 14px;border-radius:12px;border:1px solid #797375;color:#f5dfad;font-size:13px;text-align:center;cursor:pointer}
+.history-import-label{display:block;width:100%;min-height:var(--control-h);padding:11px 14px;font-size:13px;text-align:center;cursor:pointer}
 .history-import-label:focus-within{outline:2px solid #eed183;outline-offset:2px}
 #historyImportFile{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
 .history-import-row:has(#historyImportFile:focus-visible) .history-import-label{outline:3px solid #eed183;outline-offset:2px}
@@ -249,13 +219,9 @@ body{overflow:hidden}
 .ownership-legend{margin-top:6px}
 .gradient{height:9px}
 .legend-labels{padding-top:3px;font-size:10px}
-.endgame-bar{display:flex;align-items:center;min-height:44px;height:44px;max-height:44px;
-  flex:none;gap:7px;margin-top:4px;color:#bfc5cd}
 
 .endgame-bar #analysisStatus{flex:1;min-width:0;font-size:11px;text-align:right}
 
-.endgame-bar .end-buttons{display:flex;gap:6px;min-width:0}
-.endgame-bar .end-action{min-height:44px;flex:1;min-width:0;padding:6px 6px;font-size:12px}
 
 .game-panel.is-scoring .ownership-legend,.game-panel.is-finished .ownership-legend{display:none}
 .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:346px}
@@ -263,26 +229,21 @@ body{overflow:hidden}
 .score-box strong{display:block;font-size:15px;line-height:1.2}
 .score-box p{margin:2px 0 0;font-size:11px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .score-box #scoreText{font-size:12px;line-height:1.3;margin-top:3px}
-.action-row{flex:none;margin-top:auto;padding-top:4px;padding-bottom:max(6px,env(safe-area-inset-bottom))}
 
 @media(max-width:700px){
   .app-shell{--topbar-height:62px}
   .game-layout{padding:0 10px 6px}
   .board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px)}
   .ownership-legend{margin-top:5px}
-  .endgame-bar{margin-top:3px}
   .game-panel{--board-reserve:285px}
   .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:337px}
-  .action-row{padding-top:3px}
 }
 @media(max-width:350px){
   .board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px)}
-  .endgame-bar .end-action{font-size:11px}
 }
 
 /* Keep the final score and its actions together at the bottom on tall phones. */
 .game-panel.is-scoring .score-box,.game-panel.is-finished .score-box{margin-top:auto}
-.game-panel.is-scoring .action-row,.game-panel.is-finished .action-row{margin-top:0}
 
 /* Two-person P2P invitation: compact color selector and conditional human check. */
 #p2pVerify{margin:12px 0}
@@ -292,104 +253,28 @@ body{overflow:hidden}
 .move-history-toggle{position:relative;border:1px solid #525666;border-radius:9px;background:#212733;min-height:26px;height:26px;padding:2px 7px;color:#ead194;font-size:11px;line-height:20px}
 .move-history-toggle::before{content:"";position:absolute;inset:-9px 0}
 .move-history-toggle:hover{border-color:var(--gold)}
-.review-panel{margin:4px -2px 0;padding:10px 2px max(12px,env(safe-area-inset-bottom));position:sticky;bottom:0;z-index:4;background:linear-gradient(180deg,#0d101800,#0d1018 12%)}
-.review-navigation{display:flex;align-items:stretch;gap:7px;position:relative}
-.review-navigation>button,.review-menu>summary{height:55px;min-height:55px;border-radius:13px;background:#1c202b;border:1px solid #343a47;display:flex;align-items:center;justify-content:center;padding:7px;font-size:23px}
-.review-navigation>button:not(.review-step-toggle):not(.review-back){flex:0 0 44px}
-.review-navigation>.review-step-toggle{flex:1;min-width:0;flex-direction:column;gap:2px;color:#eac981;font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
-.review-navigation>.review-back{flex:0 0 62px;font-size:12px;color:#f2d9a5;border-color:#8a704c}
-.review-menu{position:relative;flex:0 0 44px;min-width:0}
-.review-menu>summary{cursor:pointer;list-style:none;font-size:17px;color:#e2e5ea}
-.review-menu>summary::-webkit-details-marker{display:none}
-.review-menu-popover{position:absolute;right:0;bottom:calc(100% + 7px);width:min(300px,calc(100vw - 32px));background:#202735;border:1px solid #596274;border-radius:14px;padding:10px;box-shadow:0 14px 35px #000b;display:flex;flex-direction:column;gap:7px}
-.review-menu-popover>button{width:100%;min-height:44px;font-size:12px;border-radius:10px;padding:7px}
-.review-menu-popover #reviewAiLink{background:#e7c47c;color:#161a20}
-.review-scrubber{display:flex;gap:8px;align-items:center}
-.review-scrubber>button{flex:0 0 44px;height:44px;padding:4px;font-size:22px;border-radius:10px}
 #reviewStepRange{flex:1;min-width:0;accent-color:var(--gold)}
-.review-new-moves{font-size:10px;color:#efc47b}
 #reviewNotice{margin:0;color:#efca90;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
 #reviewNotice:empty{display:none}
 #reviewCopyFallback{width:100%;max-height:110px;min-height:50px;background:#17202e;border:1px solid #6b7588;color:#f4f4ee;padding:6px;border-radius:8px;font-size:12px}
 
-.review-menu>summary:focus-visible{outline:3px solid #f2c875;outline-offset:2px}
 
-@media(max-width:360px){.review-navigation{gap:4px}.review-navigation>.review-back{flex-basis:52px;font-size:11px}.review-navigation>button:not(.review-step-toggle):not(.review-back),.review-menu{flex-basis:44px}}
-
-/* Stable player-facing state row: description left, action buttons right. */
-.endgame-bar{height:48px;min-height:48px;max-height:48px;gap:6px;justify-content:space-between}
-.endgame-bar .end-status{flex:1 1 auto;min-width:0;font-size:12px;
-  color:#e2d7c3;font-weight:550;line-height:1.3}
-.endgame-bar .end-buttons{display:flex;align-items:center;justify-content:flex-end;
-  flex:0 0 auto;min-width:0;gap:5px}
-.endgame-bar .end-action{flex:0 0 auto;min-height:44px;height:44px;
-  font-size:12px;font-weight:650;padding:5px 10px}
-.endgame-bar #endAccept.primary{background:linear-gradient(180deg,#f5d88f,#e4b85c);color:#1b1b1b}
 /* While the solo scoring prompt is open, keep the move button's slot but not a second gold button. */
 .action-row.end-prompt-open #confirm{visibility:hidden}
-.endgame-bar .end-action[hidden]{display:none!important}
 .endgame-bar #analysisStatus,.endgame-bar #endDetail,.endgame-bar #hint{
   position:absolute!important;width:1px!important;height:1px!important;
   clip:rect(0,0,0,0)!important;overflow:hidden!important;white-space:nowrap!important
 }
-.action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;
-  background:#242634;border:1px solid #4c4b56;color:#d5c0b8;
-  font-size:12px;padding:6px 2px}
-.action-row .resign-control[aria-label^="もう一度"]{
-  color:#ffe0c5;border-color:#bb795b;background:#58392f;
-}
 .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:302px}
 .game-panel.is-scoring .score-box,.game-panel.is-finished .score-box{margin-top:7px}
-.game-panel.is-scoring .action-row,.game-panel.is-finished .action-row{margin-top:auto}
-.game-panel.is-finished .action-row .secondary-action{flex:1}
-.game-panel.is-finished .action-row #newMatch{flex:2}
-.review-panel{display:flex;flex-direction:column;gap:5px}
-
-.review-panel #reviewNotice:empty{display:none}
 .game-panel:has(.review-panel:not([hidden])){--board-reserve:380px}
 @media(max-width:700px){
   .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:294px}
   .game-panel:has(.review-panel:not([hidden])){--board-reserve:369px}
 }
-@media(max-width:350px){
-  .endgame-bar .end-status{font-size:11px}
-  .endgame-bar .end-action{font-size:10px;padding:5px 6px}
-  .endgame-bar .end-buttons{gap:3px}
-  .action-row .resign-control{flex-basis:44px;width:44px;min-width:44px}
-}
 
-/* Replay and analysis share precisely the existing 55px action row. */
-.review-panel{display:block;flex:none;margin-top:auto;padding:4px 2px max(6px,env(safe-area-inset-bottom))}
-.review-panel[hidden]{display:none}
-.review-navigation{gap:7px;align-items:stretch}
-.review-navigation>button,.review-navigation>.review-menu>summary{height:55px;min-height:55px;border-radius:13px;background:#1c202b;border:1px solid #343a47}
-.review-navigation>button:not(.review-step-toggle):not(.review-back){flex:0 0 44px}
-.review-navigation>.review-step-toggle{flex:1;min-width:0}
-.review-navigation>.review-back{flex:0 0 62px;white-space:nowrap}
-.review-navigation>.review-menu{position:relative;flex:0 0 44px;min-width:44px}
-.review-navigation>.review-menu>summary{height:55px;display:grid;place-items:center;cursor:pointer;list-style:none;color:#e5e5ed}
-.review-navigation>.review-menu>summary::-webkit-details-marker{display:none}
-.review-navigation>.review-menu>summary:focus-visible{outline:3px solid #e8c075;outline-offset:2px}
-.review-navigation>.review-menu .review-menu-popover{position:absolute;bottom:calc(100% + 8px);right:0;width:min(300px,calc(100vw - 24px));max-height:min(70dvh,440px);overflow-y:auto;z-index:12;padding:9px;background:#242c39;border:1px solid #626c80;border-radius:13px;box-shadow:0 14px 36px #000c;display:flex;flex-direction:column;gap:7px}
-.review-menu-popover>button{min-height:44px;flex:none;width:100%;padding:8px;border-radius:10px;font-size:12px}
-.review-menu-popover>button[hidden]{display:none}
-.review-navigation .review-play-actions{display:flex;flex:1;gap:7px;min-width:0;align-items:stretch}
-.review-navigation .review-play-actions[hidden]{display:none}
-.review-play-actions button{min-width:0;height:55px;padding:7px 6px;white-space:nowrap;font-size:12px;border-radius:13px}
-.review-play-actions .review-cancel{flex:0 0 68px;background:#252b35;border:1px solid #4f5a68}
-.review-play-actions .review-confirm{flex:1;font-weight:700;background:#e1bd73;color:#171b22}
 .review-feedback{position:absolute;bottom:calc(100% + 4px);left:4px;right:4px;margin:0 auto;padding:5px 10px;width:max-content;max-width:calc(100% - 8px);border-radius:9px;background:#272e3e;border:1px solid #645842;color:#efd398;font-size:12px;line-height:1.5;z-index:5}
 .review-feedback[hidden]{display:none}
-.review-new-moves{font-size:10px}
-#reviewNotice:empty{display:none}
-@media(max-width:360px){
- .review-navigation{gap:4px}
- .review-navigation>.review-menu{flex-basis:42px;min-width:42px}
- .review-navigation>button:not(.review-step-toggle):not(.review-back){flex-basis:42px}
- .review-navigation>.review-back{flex-basis:54px;font-size:11px}
- .review-play-actions .review-cancel{flex-basis:58px;font-size:11px}
- .review-play-actions .review-confirm{font-size:11px}
-}
 
 /* A variation never reserves more height than the regular playing controls. */
 .game-panel:has(.review-panel:not([hidden])){--board-reserve:292px}
@@ -405,12 +290,10 @@ body{overflow:hidden}
   font-size:14px;font-weight:400;line-height:1.3;color:#e2d7c3;white-space:normal
 }
 .endgame-bar.has-illegal .end-buttons{display:none}
-.action-row .illegal-prompt-action{flex:1 1 auto;min-width:0;padding:9px 5px;border-color:#8d7142;color:#f2d8a0;font-size:14px;font-weight:700;white-space:normal;line-height:1.25}
 .illegal-prompt-fallback{position:fixed;z-index:12;left:12px;right:12px;bottom:calc(75px + env(safe-area-inset-bottom));max-width:540px;margin:auto;max-height:45dvh;overflow:auto;background:#252b37;border:1px solid #967d50;box-shadow:0 10px 40px #000b;border-radius:12px;padding:13px}
 .illegal-prompt-fallback label{display:block;font-size:12px;line-height:1.5;margin-bottom:8px}
 .illegal-prompt-fallback textarea{box-sizing:border-box;width:100%;min-height:135px;color:#eee5d4;background:#141924;border:1px solid #666a73;border-radius:8px;padding:10px;font-size:12px}
-.illegal-prompt-fallback button{margin-top:8px;min-height:40px;padding:8px 16px}
-@media(max-width:430px){.action-row .illegal-prompt-action{font-size:13px}}
+.illegal-prompt-fallback button{margin-top:8px;padding:8px 16px}
 
 /* Notices float under the header: the game panel is height-locked, so an
    in-flow message below the action row would be clipped out of view. */
@@ -421,5 +304,87 @@ body{overflow:hidden}
 
 /* Status and controls sit together within thumb reach; spare height goes under the board. */
 .game-panel .endgame-bar{margin-top:auto}
-.game-panel .action-row,.game-panel.is-scoring .action-row,.game-panel.is-finished .action-row{margin-top:4px}
 .game-panel.is-scoring .score-box,.game-panel.is-finished .score-box{margin-top:auto}
+
+/* Buttons: four kinds only.
+   .primary         the one advancing, reversible action of a row (gold)
+   .secondary       everything else; plain <button> already looks like this
+   .accent-outline  a secondary that leaves the current view or explains (gold edge)
+   .danger-armed    an irreversible action waiting for its second tap
+   .icon-button is the transparent header/sheet glyph; .move-history-toggle is a status chip. */
+.secondary{background:var(--btn-bg);border:1px solid var(--btn-edge);color:var(--btn-text);border-radius:var(--radius)}
+.accent-outline{border-color:var(--accent-edge);color:var(--accent-text)}
+.danger-armed{background:var(--danger-bg);border-color:var(--danger-edge);color:var(--danger-text)}
+@media(max-width:700px){:root{--action-h:54px}}
+
+/* Bottom action row: undo, confirm, pass, resign — or scoring, or the finished pair. */
+.action-row{display:flex;gap:8px;align-items:center;flex:none;margin:4px -2px 0;
+  padding:4px 2px max(6px,env(safe-area-inset-bottom));position:sticky;bottom:0;z-index:3;
+  background:linear-gradient(180deg,#0d101800,#0d1018 12%)}
+.action-row button{white-space:nowrap;min-height:var(--action-h)}
+.action-row .secondary{font-size:14px;padding:9px 10px}
+.action-row .primary{flex:1 1 auto;min-width:0;padding:9px 6px;font-size:14px}
+.action-row .undo-button{flex:0 0 48px;min-width:48px;width:48px;padding:0;display:grid;place-items:center}
+.action-row #pass{flex:0 0 60px;min-width:60px;width:60px;padding:9px 5px}
+.action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;font-size:12px;padding:6px 2px}
+.action-row .illegal-prompt-action{flex:1 1 auto;min-width:0;padding:9px 5px;font-size:14px;font-weight:700;white-space:normal;line-height:1.25}
+.action-row.finished-actions{justify-content:flex-end}
+.game-panel.is-finished .action-row .secondary{flex:1}
+.game-panel.is-finished .action-row #newMatch{flex:2}
+.inline-score-actions{display:flex;flex:1 1 auto;min-width:0;gap:8px;margin:0}
+.action-row .inline-score-actions button{flex:1 1 auto;min-width:0;padding:9px 6px;font-size:12px}
+.inline-score-actions #agree{flex:1.6 1 auto}
+
+/* Status row above it: description left, answer buttons right. */
+.endgame-bar{height:48px;min-height:48px;max-height:48px;display:flex;align-items:center;flex:none;
+  gap:6px;justify-content:space-between;color:#bfc5cd}
+.game-panel .endgame-bar{margin-top:auto}
+.endgame-bar .end-status{flex:1 1 auto;min-width:0}
+.endgame-bar .end-buttons{display:flex;align-items:center;justify-content:flex-end;flex:0 0 auto;min-width:0;gap:5px}
+.endgame-bar .end-action{flex:0 0 auto;min-height:var(--control-h);height:var(--control-h);font-size:12px;font-weight:650;padding:5px 10px}
+.endgame-bar .end-action[hidden]{display:none!important}
+
+/* Replay row: replaces the action row at the same height. */
+.review-panel{display:block;flex:none;margin:auto -2px 0;padding:4px 2px max(6px,env(safe-area-inset-bottom));
+  position:sticky;bottom:0;z-index:4;background:linear-gradient(180deg,#0d101800,#0d1018 12%)}
+.review-panel[hidden]{display:none}
+.review-navigation{display:flex;align-items:stretch;gap:7px;position:relative}
+.review-navigation>button,.review-navigation>.review-menu>summary{height:var(--action-h);min-height:var(--action-h);
+  display:flex;align-items:center;justify-content:center;padding:7px}
+.review-navigation>button:not(.review-step-toggle):not(.review-back){flex:0 0 44px}
+.review-navigation>.review-step-toggle{flex:1;min-width:0;flex-direction:column;gap:2px;color:#eac981;font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.review-navigation>.review-back{flex:0 0 62px;font-size:12px;white-space:nowrap}
+.review-navigation>.review-menu{position:relative;flex:0 0 44px;min-width:44px}
+.review-navigation>.review-menu>summary{cursor:pointer;list-style:none}
+.review-navigation>.review-menu>summary::-webkit-details-marker{display:none}
+.review-navigation>.review-menu>summary:focus-visible{outline:3px solid #f2c875;outline-offset:2px}
+.review-navigation>.review-menu .review-menu-popover{position:absolute;bottom:calc(100% + 8px);right:0;width:min(300px,calc(100vw - 24px));max-height:min(70dvh,440px);overflow-y:auto;z-index:12;padding:9px;background:#242c39;border:1px solid #626c80;border-radius:var(--radius);box-shadow:0 14px 36px #000c;display:flex;flex-direction:column;gap:7px}
+.review-menu-popover>button{min-height:44px;flex:none;width:100%;padding:8px;border-radius:var(--radius-sm);font-size:12px}
+.review-menu-popover>button[hidden]{display:none}
+.review-scrubber{display:flex;gap:8px;align-items:center}
+.review-scrubber>button{flex:0 0 44px;height:44px;padding:4px;display:grid;place-items:center;border-radius:var(--radius-sm)}
+.review-new-moves{font-size:10px;color:#efc47b}
+.review-navigation .review-play-actions{display:flex;flex:1;gap:7px;min-width:0;align-items:stretch}
+.review-navigation .review-play-actions[hidden]{display:none}
+.review-play-actions button{min-width:0;height:var(--action-h);padding:7px 6px;white-space:nowrap;font-size:12px}
+.review-play-actions .review-cancel{flex:0 0 48px;display:grid;place-items:center;padding:0}
+.review-play-actions .review-confirm{flex:1;font-size:14px}
+
+@media(max-width:400px){
+  .action-row,.inline-score-actions{gap:6px}
+  .action-row .undo-button,.review-play-actions .review-cancel{flex-basis:44px;width:44px;min-width:44px}
+  .action-row #pass{flex-basis:51px;width:51px;min-width:51px;font-size:12px}
+}
+@media(max-width:700px){.action-row,.review-panel{padding-top:3px}}
+@media(max-width:430px){.action-row .illegal-prompt-action{font-size:13px}}
+@media(max-width:360px){
+  .review-navigation{gap:4px}
+  .review-navigation>.review-menu{flex-basis:42px;min-width:42px}
+  .review-navigation>button:not(.review-step-toggle):not(.review-back){flex-basis:42px}
+  .review-navigation>.review-back{flex-basis:54px;font-size:11px}
+}
+@media(max-width:350px){
+  .endgame-bar .end-action{font-size:10px;padding:5px 6px}
+  .endgame-bar .end-buttons{gap:3px}
+  .action-row .resign-control{flex-basis:44px;width:44px;min-width:44px}
+}

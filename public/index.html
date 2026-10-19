@@ -39,7 +39,7 @@
           <div class="board-viewport">
             <canvas id="board" width="720" height="720" aria-label="9路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。"></canvas>
           </div>
-          <button id="boardZoomReset" class="board-zoom-reset" type="button" hidden>全体を表示</button>
+          <button id="boardZoomReset" class="board-zoom-reset secondary" type="button" hidden>全体を表示</button>
           <div id="pinchHint" class="pinch-hint" role="status" hidden>
             <span class="pinch-finger pinch-finger-a" aria-hidden="true"></span>
             <span class="pinch-finger pinch-finger-b" aria-hidden="true"></span>
@@ -53,8 +53,8 @@
         <div id="endgameBar" class="endgame-bar" aria-label="終局の相談">
           <span id="endStatus" class="end-status" role="status" aria-live="polite">終局はまだのようです</span>
           <div id="endActions" class="end-buttons">
-            <button id="endPropose" class="end-action" type="button">終局を提案</button>
-            <button id="endDecline" class="end-action" type="button" hidden>打ち続ける</button>
+            <button id="endPropose" class="secondary end-action" type="button">終局を提案</button>
+            <button id="endDecline" class="secondary end-action" type="button" hidden>打ち続ける</button>
             <button id="endAccept" class="end-action primary" type="button" hidden>受け入れる</button>
           </div>
           <span id="analysisStatus" class="visually-hidden" role="status" aria-live="polite"></span>
@@ -67,48 +67,48 @@
           <div id="scoreText"></div>
         </div>
         <div id="actionRow" class="action-row">
-          <button id="cancel" class="secondary-action undo-button is-takeback" type="button" aria-label="待った" title="待った" disabled>
+          <button id="cancel" class="secondary undo-button is-takeback" type="button" aria-label="待った" title="待った" disabled>
             <svg class="cancel-icon" aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
             <span class="takeback-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg><small>待った</small></span>
           </button>
           <button id="confirm" class="primary" type="button" disabled><span class="button-stone" aria-hidden="true"></span>この手を打つ</button>
-          <button id="copyIllegalPrompt" class="secondary-action illegal-prompt-action" type="button" aria-label="禁止手についてAIに質問する文章をコピー" title="コピーした文章を好きなAIに貼り付けて質問できます" hidden>AIへの質問をコピー</button>
-          <button id="pass" class="secondary-action" type="button">パス</button>
-          <div id="scoringActions" class="score-actions inline-score-actions" hidden>
-            <button id="resume" type="button">対局を再開</button>
+          <button id="copyIllegalPrompt" class="secondary accent-outline illegal-prompt-action" type="button" aria-label="禁止手についてAIに質問する文章をコピー" title="コピーした文章を好きなAIに貼り付けて質問できます" hidden>AIへの質問をコピー</button>
+          <button id="pass" class="secondary" type="button">パス</button>
+          <div id="scoringActions" class="inline-score-actions" hidden>
+            <button id="resume" class="secondary" type="button">対局を再開</button>
             <button id="agree" class="primary" type="button" disabled>この計算に同意</button>
           </div>
-          <button id="resign" class="resign-control" type="button">投了</button>
+          <button id="resign" class="secondary resign-control" type="button">投了</button>
           <button id="newMatch" class="primary" type="button" hidden>もう一局</button>
-          <button id="openHistory" class="secondary-action" type="button" hidden>棋譜を見る</button>
+          <button id="openHistory" class="secondary" type="button" hidden>保存した棋譜</button>
         </div>
         <div id="illegalPromptFallbackPanel" class="illegal-prompt-fallback" hidden>
           <label for="illegalPromptFallback">自動コピーできませんでした。下の文章を選択してコピーしてください。</label>
           <textarea id="illegalPromptFallback" readonly rows="7" spellcheck="false"></textarea>
-          <button id="closeIllegalPromptFallback" type="button">閉じる</button>
+          <button id="closeIllegalPromptFallback" class="secondary" type="button">閉じる</button>
         </div>
         <section id="reviewPanel" class="review-panel" aria-label="棋譜を再生" hidden>
           <strong id="reviewTitle" class="visually-hidden">棋譜を確認中</strong>
           <p id="reviewFeedback" class="review-feedback" role="status" aria-live="polite" hidden></p>
           <div class="review-navigation">
-            <button id="reviewPrevious" type="button" aria-label="1手戻る" title="1手戻る">‹</button>
-            <button id="reviewStepToggle" class="review-step-toggle" type="button" aria-label="再生する手数を選ぶ">
+            <button id="reviewPrevious" class="secondary" type="button" aria-label="1手戻る" title="1手戻る"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
+            <button id="reviewStepToggle" class="secondary review-step-toggle" type="button" aria-label="再生する手数を選ぶ">
               <span id="reviewStepText" aria-live="polite">0 / 0手</span>
               <span id="reviewNewMoves" class="review-new-moves" role="status" aria-live="polite" hidden></span>
             </button>
-            <button id="reviewNext" type="button" aria-label="1手進む" title="1手進む">›</button>
+            <button id="reviewNext" class="secondary" type="button" aria-label="1手進む" title="1手進む"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
             <div id="reviewPlayActions" class="review-play-actions" hidden>
-              <button id="reviewCancel" class="review-cancel" type="button">取り消す</button>
+              <button id="reviewCancel" class="secondary review-cancel" type="button" aria-label="仮置きを戻す" title="仮置きを戻す"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
               <button id="reviewConfirm" class="review-confirm primary" type="button">この手を打つ</button>
             </div>
-            <button id="reviewBack" class="review-back" type="button">戻る</button>
+            <button id="reviewBack" class="secondary accent-outline review-back" type="button">戻る</button>
             <details id="reviewMenu" class="review-menu">
-              <summary aria-label="棋譜の操作と共有">•••</summary>
+              <summary class="secondary" aria-label="棋譜の操作と共有"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
               <div class="review-menu-popover" role="group" aria-label="棋譜の操作と共有">
                 <div class="review-scrubber">
-                  <button id="reviewFirst" type="button" aria-label="最初の局面">≪</button>
+                  <button id="reviewFirst" type="button" aria-label="最初の局面"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 5-7 7 7 7M19 5l-7 7 7 7"/></svg></button>
                   <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="表示する手数">
-                  <button id="reviewLast" type="button" aria-label="最後の局面">≫</button>
+                  <button id="reviewLast" type="button" aria-label="最後の局面"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 5 7 7-7 7M12 5l7 7-7 7"/></svg></button>
                 </div>
                 <button id="reviewOriginal" type="button" hidden>元の棋譜を見る</button>
                 <button id="reviewVariation" type="button" hidden>変化図を見る</button>
@@ -118,7 +118,7 @@
                 <button id="reviewAiLink" type="button">AI向けにコピー</button>
                 <button id="reviewResume" type="button" hidden>対局の続き</button>
                 <button id="reviewBranch" type="button">ここから1台で打つ</button>
-                <button id="reviewExport" type="button">SGF保存</button>
+                <button id="reviewExport" type="button">SGFを保存</button>
                 <p id="reviewNotice" role="status" aria-live="polite"></p>
                 <textarea id="reviewCopyFallback" readonly hidden aria-label="手動コピー用の文字列"></textarea>
               </div>
@@ -130,7 +130,7 @@
     </main>
     <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
     <aside id="settingsPanel" class="settings-panel" role="dialog" aria-modal="true" aria-label="表示設定" hidden>
-      <div class="settings-head"><h2>設定</h2><button id="closeSettings" class="icon-button" type="button" aria-label="設定を閉じる">×</button></div>
+      <div class="settings-head"><h2>設定</h2><button id="closeSettings" class="icon-button" type="button" aria-label="設定を閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <section class="settings-section">
         <h3>地合いの見え方</h3>
         <fieldset class="palette-choices">
@@ -147,12 +147,12 @@
         <div class="range-labels"><span>薄い</span><span>濃い</span></div>
         <span id="opacityValue" class="visually-hidden" aria-live="polite">55%</span>
         <details class="info-disclosure"><summary>地合いの表示について</summary><p class="explanation">色は黒寄り・白寄りの傾向を示し、中立では碁盤がそのまま見えます。確定した地や勝率ではありません。「表示しない」を選ぶと色を消し、対局中でもいつでも切り替えられます。</p></details>
-        <button id="resetAppearance" class="outline full" type="button">表示を初期状態に戻す</button>
+        <button id="resetAppearance" class="secondary full" type="button">表示を初期状態に戻す</button>
       </section>
       <section class="settings-section" aria-label="対局と棋譜の操作">
         <h3>対局と棋譜</h3>
-        <button id="openHistorySettings" class="outline full" type="button">保存した棋譜</button>
-        <button id="openCurrentMode" class="outline full" type="button" hidden>AIの設定・再戦</button>
+        <button id="openHistorySettings" class="secondary full" type="button">保存した棋譜</button>
+        <button id="openCurrentMode" class="secondary full" type="button" hidden>AIの設定・再戦</button>
         <fieldset class="board-size-setting">
           <legend>新しい対局の盤の大きさ</legend>
           <div class="ai-color-choices board-size-choices">
@@ -164,7 +164,7 @@
           <p id="boardSizeNote" class="explanation board-size-note" role="status" aria-live="polite"></p>
         </fieldset>
         <label id="localHandicapRow" class="handicap-select" for="localHandicap" hidden>新しい対局の置き石<select id="localHandicap"><option value="0">なし（互先）</option><option value="2">2子</option><option value="3">3子</option><option value="4">4子</option><option value="5">5子</option></select></label>
-        <button id="resetLocalGame" class="outline full" type="button" hidden>新しい対局を始める</button>
+        <button id="resetLocalGame" class="secondary full" type="button" hidden>新しい対局を始める</button>
       </section>
       <section class="settings-section">
         <h3>その他</h3><p id="ruleSummary" class="explanation">9路盤 · 中国式ルール · コミ7.5</p>
@@ -172,7 +172,7 @@
       </section>
     </aside>
     <aside id="modePanel" class="settings-panel mode-panel" role="dialog" aria-modal="true" aria-label="対局の準備" hidden>
-      <div class="settings-head"><h2 id="modeTitle">対局の準備</h2><button id="closeMode" class="icon-button" type="button" aria-label="閉じる">×</button></div>
+      <div class="settings-head"><h2 id="modeTitle">対局の準備</h2><button id="closeMode" class="icon-button" type="button" aria-label="閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <section id="onlineSetup" class="settings-section" hidden>
         <h3>友人を招待</h3>
         <p id="roomInfo" class="explanation">URLを共有すると、別の端末から対局に参加できます。</p>
@@ -186,7 +186,7 @@
         <button id="copy" class="primary full" type="button">招待リンクを準備する</button>
         <div id="inviteDetails" class="invite-details hidden">
           <label for="inviteUrl">招待URL</label><input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="招待URL">
-          <button id="nativeShare" class="outline full hidden" type="button">端末の共有メニューを開く</button>
+          <button id="nativeShare" class="secondary full hidden" type="button">端末の共有メニューを開く</button>
         </div>
         <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
         <p class="explanation">作成者の端末で色を決めます。相手が参加すると対局できます。再接続では原則として本人確認は不要です。</p>
@@ -230,10 +230,10 @@
       </section>
     </aside>
     <aside id="historyPanel" class="settings-panel history-panel" role="dialog" aria-modal="true" aria-label="保存した棋譜" hidden>
-      <div class="settings-head"><h2>保存した棋譜</h2><button id="closeHistory" class="icon-button" type="button" aria-label="棋譜を閉じる">×</button></div>
+      <div class="settings-head"><h2>保存した棋譜</h2><button id="closeHistory" class="icon-button" type="button" aria-label="棋譜を閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <p class="explanation">棋譜を選ぶと大きな碁盤に表示します。</p>
       <div class="history-import-row">
-        <label for="historyImportFile" class="history-import-label">SGFファイルを読み込む</label>
+        <label for="historyImportFile" class="secondary accent-outline history-import-label">SGFファイルを読み込む</label>
         <input id="historyImportFile" type="file" accept=".sgf,application/x-go-sgf,text/plain" aria-label="SGFファイルを読み込む">
       </div>
       <p id="historySaveNotice" class="invite-status history-notice" role="status" aria-live="polite"></p>

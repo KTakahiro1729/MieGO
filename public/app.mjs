@@ -751,6 +751,7 @@ function resetResignButton() {
   resignArmed=false;
   $("resign").textContent="投了";
   $("resign").setAttribute("aria-label","投了する。確認のため二度押し");
+  $("resign").classList.remove("danger-armed");
 }
 $("resign").onclick=()=>{
   if(!resignArmed){
@@ -758,6 +759,7 @@ $("resign").onclick=()=>{
     // Name the action: a bare "確定" reads like the adjacent move confirmation.
     $("resign").textContent="投了？";
     $("resign").setAttribute("aria-label","もう一度押すと投了します");
+    $("resign").classList.add("danger-armed");
     return;
   }
   resetResignButton();submitMove("resign");
