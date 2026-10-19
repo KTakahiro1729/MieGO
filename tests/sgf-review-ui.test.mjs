@@ -4,21 +4,16 @@ import {readFileSync} from "node:fs";
 
 const source=name=>readFileSync(new URL("../public/"+name,import.meta.url),"utf8");
 const html=source("index.html"),app=source("app.mjs"),renderer=source("board-renderer.mjs"),style=source("style.css");
-test("main board reuses one control row for move replay without scroll-inducing additions",()=>{
+test("main board replay controls and sharing are directly visible",()=>{
   const review=html.slice(html.indexOf('<section id="reviewPanel"'),html.indexOf('<p id="saveStatus"'));
-  assert.match(review,/class="review-navigation"/);
-  assert.match(review,/id="reviewPrevious"/);
-  assert.match(review,/id="reviewNext"/);
-  assert.match(review,/id="reviewBack"/);
-  assert.match(review,/id="reviewMenu"/);
-  assert.ok(review.indexOf('id="reviewStepRange"')>review.indexOf('class="review-menu-popover"'));
-  assert.ok(review.indexOf('id="reviewLink"')>review.indexOf('class="review-menu-popover"'));
-  assert.ok(review.indexOf('id="reviewAiLink"')>review.indexOf('class="review-menu-popover"'));
+  for(const id of ["reviewPrevious","reviewNext","reviewBack","reviewFirst","reviewLast",
+    "reviewStepRange","reviewLink","reviewAiLink","reviewBranch"])assert.match(review,new RegExp('id="'+id+'"'));
+  assert.match(review,/class="review-direct-actions"/);
+  assert.doesNotMatch(review,/<details|review-menu-popover/);
   assert.match(app,/\$\("actionRow"\)\.hidden=true/);
   assert.match(app,/\$\("reviewPanel"\)\.hidden=true/);
-  assert.match(style,/\.review-menu-popover\{position:absolute/);
+  assert.match(style,/\.review-tools\{display:flex/);
   assert.match(style,/\.review-panel\{[^}]*position:sticky/);
-  assert.doesNotMatch(review,/class="review-explanation"|class="review-share"/);
 });
 test("replay does not write moves to an active live or P2P session",()=>{
   assert.match(renderer,/const display=boardReview\?\.display\|\|game/);
@@ -56,14 +51,13 @@ test("replay entry does not make the existing game header taller",()=>{
  assert.match(style,/\.move-history-toggle::before\{[^}]*inset:-9px 0/);
 });
 
-test("saved history share replaces SGF export button height instead of adding another row",()=>{
- const begin=html.indexOf('id="historyShareMenu"');
- const end=html.indexOf('id="historyActionNotice"',begin);
- const fragment=html.slice(begin,end);
- assert.match(fragment,/id="historyExport"/);
- assert.match(fragment,/id="historyLink"/);
- assert.match(fragment,/id="historyAiLink"/);
- assert.match(style,/\.history-share-popover\{position:absolute/);
- assert.match(style,/\.history-share-menu>summary\{min-height:44px/);
- assert.doesNotMatch(html,/class="history-share-actions"/);
+test("saved history offers direct copy and export controls",()=>{
+  const begin=html.indexOf('id="historyShareMenu"');
+  const end=html.indexOf('id="historyActionNotice"',begin);
+  const fragment=html.slice(begin,end);
+  for(const id of ["historyExport","historyLink","historyAiLink"])
+    assert.match(fragment,new RegExp('id="'+id+'"'));
+  assert.match(html,/class="history-share-actions"/);
+  assert.doesNotMatch(fragment,/<summary|history-share-popover/);
+  assert.match(style,/\.history-share-actions\{display:flex/);
 });

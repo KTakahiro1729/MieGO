@@ -125,7 +125,7 @@ test("phase-two sheet keeps scoring UX, contextual feedback, and keyboard focus"
    assert.match(h,new RegExp('id="'+id+'"'));
  assert.match(a,/\$\("openCurrentMode"\)\.onclick/);
  assert.match(historyPanel,/\$\("historyBack"\)\.focus\(\)/);
- assert.match(a,/\$\("gameMenu"\)\.querySelector\("summary"\)\.focus\(\)/);
+ assert.match(a,/\$\("moveLabel"\)\.focus\(\)/);
  assert.match(historyPanel,/\$\("historyActionNotice"\)\.textContent="SGFを書き出しました/);
  assert.match(css,/\.history-back\{min-height:44px\}/);
 });

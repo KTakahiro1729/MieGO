@@ -41,3 +41,28 @@ test("neutral regions do not create artificial stones or region labels",()=>{
   assert.equal(scoringRegions(game).regions.length,0);
   assert.ok(scoringRegions(game).filled.every(c=>c===0));
 });
+
+import {createBoardRenderer} from "../public/board-renderer.mjs";
+test("renderer paints one area label per connected region only for scored games",()=>{
+  const game={...newGame(),status:"scoring",board:Array(81).fill(WHITE)};
+  for(let y=3;y<=5;y++)for(let x=2;x<=6;x++)game.board[at(x,y)]=BLACK;
+  game.board[at(3,4)]=0;game.board[at(5,4)]=0;
+  const labels=[];
+  const ctx={
+    save(){},restore(){},clearRect(){},fillRect(){},strokeRect(){},beginPath(){},moveTo(){},
+    lineTo(){},arc(){},fill(){},stroke(){},setLineDash(){},fillText(t){labels.push(t);},
+    createRadialGradient(){return {addColorStop(){}}}
+  };
+  const canvas={width:720,getContext:()=>ctx};
+  const renderer=createBoardRenderer({canvas,
+    getView:()=>({game,boardReview:null,candidate:null,lastPosition:null,
+      displayedOwnership:null,palette:"mono",opacity:.55,humanTurn:false}),
+    createOverlayCanvas:()=>({getContext:()=>({})})
+  });
+  renderer.draw();
+  assert.deepEqual(labels.sort(),["15目","66目"].sort());
+  game.status="playing";labels.length=0;renderer.draw();
+  assert.equal(labels.length,0);
+  game.status="finished";game.result="W+R";labels.length=0;renderer.draw();
+  assert.equal(labels.length,0,"resignation has no invented area score");
+});

@@ -8,14 +8,17 @@ test("move counter is above board, not in the endgame strip",()=>{
   assert.ok(html.indexOf('id="moveLabel"')<html.indexOf('id="board"'));
   const strip=html.slice(html.indexOf('id="endgameBar"'),html.indexOf('id="scoreBox"'));
   assert.doesNotMatch(strip,/id="moveLabel"|交点をタップして仮置き/);
-  assert.match(strip,/id="endToggle"/);
+  assert.match(strip,/id="endStatus"/);
+  assert.match(strip,/id="endPropose"/);
   assert.match(strip,/id="endActions"/);
 });
 test("endgame choices share exactly one fixed-height horizontal strip",()=>{
   assert.equal(html.split('id="endgameBar"').length-1,1);
-  assert.match(css,/\.endgame-bar\{display:flex;align-items:center;min-height:44px;height:44px/);
-  assert.match(css,/\.endgame-bar \.end-actions\{flex:1/);
-  assert.match(app,/\$\("endgameBar"\)\.classList\.toggle\("is-expanded",expanded\)/);
+  assert.match(css,/\.endgame-bar\{height:48px;min-height:48px;max-height:48px/);
+  assert.match(css,/\.endgame-bar \.end-status\{flex:1/);
+  assert.match(app,/near\?"終局はいかがですか？":"終局はまだのようです"/);
+  assert.match(app,/\$\("endPropose"\)\.textContent="終局を提案"/);
+  assert.match(app,/\$\("endAccept"\)\.textContent="受け入れる"/);
 });
 test("final score is above sticky actions and visible in a compact score area",()=>{
   assert.ok(html.indexOf('id="scoreBox"')<html.indexOf('id="actionRow"'));
@@ -29,22 +32,30 @@ test("game screen viewport never scrolls and board responds to available height"
   assert.match(css,/\.game-layout\{height:calc\(100dvh - var\(--topbar-height\)\);overflow:hidden/);
   assert.match(css,/calc\(100dvh - var\(--board-reserve\) - env\(safe-area-inset-bottom\)\)/);
 });
-test("frequent pass and solo endgame do not open redundant confirmation screens",()=>{
+test("pass is immediate; solo endgame uses in-bar accept/continue, not a dialog",()=>{
   assert.match(app,/\$\("pass"\)\.onclick=\(\)=>submitMove\(null\);/);
   assert.doesNotMatch(app,/confirm\("パスしますか？"\)/);
-  assert.match(app,/if\(!room && game\.status==="playing" && game\.endProposal\?\.from===color\)/);
+  assert.match(app,/if\(!room\)\{endExpanded=true;updateEndUi\(\);return;\}/);
+  assert.match(app,/if\(!room && endExpanded && !game\.endProposal\)/);
   assert.match(app,/type:"end_answer",color:-color,accept:true/);
+  assert.match(app,/endExpanded=false;updateEndUi\(\);return;/);
 });
-
 test("autosaved everyday navigation has no blocking browser confirmation",()=>{
   assert.doesNotMatch(app,/confirm\("パスしますか？"\)/);
   assert.doesNotMatch(app,/confirm\("新しい対局を始めますか？/);
   assert.doesNotMatch(app,/confirm\("現在の対局を離れて、友人対局を開始しますか？/);
   assert.match(app,/if\(room && connected &&/);
 });
-test("resignation requires two taps in the same game menu, not a browser dialog",()=>{
+test("resignation is a visible button with inline two-tap safety",()=>{
+  assert.doesNotMatch(html,/id="gameMenu"/);
   assert.doesNotMatch(app,/confirm\("投了しますか？"\)/);
-  assert.match(app,/\$\("resign"\)\.textContent="もう一度押すと投了"/);
+  assert.match(app,/\$\("resign"\)\.textContent="確定"/);
   assert.match(app,/if\(!resignArmed\)/);
-  assert.match(app,/if\(!\$\("gameMenu"\)\.open\)resetResignButton\(\)/);
+  assert.match(app,/resignArmed && e\.target!==\$\("resign"\)/);
+});
+test("finished view exposes next match and history without hidden menus",()=>{
+  assert.match(html,/id="newMatch"/);
+  assert.match(html,/id="openHistory"/);
+  assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished/);
+  assert.match(app,/\$\("openHistory"\)\.hidden=!isFinished/);
 });
