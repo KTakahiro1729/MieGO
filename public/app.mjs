@@ -111,22 +111,24 @@ function updateEndUi() {
   const waiting=!!(offer && !incoming);
   $("endStatus").textContent=!playing?"":incoming?"終局が提案されました":
     waiting?"相手の返答を待っています":
-    localPrompt?(gameMode==="ai"?"採点を始めますか？":"終局しますか？"):
+    localPrompt?"採点を始めますか？":
     endgameHint(game,endgameAdvisor,{
       unavailable:fallbackMode,suppressedUntil:endHintSuppressedUntil
     });
   $("endPropose").hidden=!playing||!!offer||localPrompt;
   $("endAccept").hidden=!playing||!(incoming||localPrompt);
   $("endDecline").hidden=!playing||!(incoming||localPrompt||waiting);
-  $("endPropose").textContent=!room&&gameMode==="ai"?"採点を始める":"終局を提案";
+  $("endPropose").textContent=!room?"採点を始める":"終局を提案";
   $("endAccept").textContent=!room?"採点へ進む":"受け入れる";
   $("endDecline").textContent=waiting?"取り下げる":"打ち続ける";
   for(const id of ["endPropose","endAccept","endDecline"])
     $(id).disabled=!!room && (!connected || color===null);
   $("endDetail").textContent=incoming?"受け入れると採点に進みます。打ち続けることもできます。":
-    localPrompt?"あなたの判断で採点へ進みます。AIが終局を承認するわけではありません。":
+    localPrompt?(gameMode==="ai"?"あなたの判断で採点へ進みます。AIが終局を承認するわけではありません。":
+      "採点に進み、死石を確認します。対局の再開もできます。"):
     waiting?"相手の返答待ちです。提案は取り下げられます。":
-    "終局はいつでも提案できます。提案はパスと異なります。";
+    room?"終局はいつでも提案できます。提案はパスと異なります。":
+    "採点はいつでも始められます。パスとは別の操作です。";
   // The stable left-hand status slot doubles as a rule explanation for illegal previews.
   if(playing && illegalCandidate){
     $("endStatus").textContent=illegalCandidate.reason===ILLEGAL_KO?
@@ -379,6 +381,7 @@ function show() {
     game.status==="scoring"?"盤上の石をタップすると死石を指定できます":
     gameMode==="ai" && fallbackMode?"KataGoを利用できないためAI対局は停止中":
     gameMode==="ai" && !katagoReady?"KataGoの準備ができるまで待機中":
+    isAiTurn()&&endExpanded?"採点するか確認中のため、AIは待機しています":
     isAiTurn()?"AIが着手を計算しています":"";
   const blocked=!!illegalCandidate;
   $("confirm").disabled=!candidate || !myTurn || blocked;
@@ -680,7 +683,16 @@ $("endPropose").onclick=()=>{
   if(game.status!=="playing" || game.endProposal)return;
   const color=myColorForEnd();
   if(!color || (room&&!connected))return;
-  if(!room){endExpanded=true;updateEndUi();return;}
+  if(!room){
+    endExpanded=true;
+    // Pause the AI explicitly instead of computing a move that will be discarded.
+    if(isAiTurn()){
+      stopAiTurn();
+      $("analysisStatus").textContent="採点するか確認中";
+      $("aiMatchStatus").textContent="採点するか確認中のため、AIは待機しています。";
+    }
+    show();return;
+  }
   apply({type:"end_offer",color,number:game.moveNumber,before:boardHash(game.board)});
 };
 $("endAccept").onclick=()=>{

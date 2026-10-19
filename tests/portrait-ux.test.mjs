@@ -17,7 +17,8 @@ test("endgame choices share exactly one fixed-height horizontal strip",()=>{
   assert.match(css,/\.endgame-bar\{height:48px;min-height:48px;max-height:48px/);
   assert.match(css,/\.endgame-bar \.end-status\{flex:1/);
   assert.match(app,/endgameHint\(game,endgameAdvisor/);
-  assert.match(app,/gameMode==="ai"\?"採点を始める":"終局を提案"/);
+  assert.match(app,/\$\("endPropose"\)\.textContent=!room\?"採点を始める":"終局を提案"/);
+  assert.doesNotMatch(app,/"終局しますか？"/);
   assert.match(app,/\$\("endAccept"\)\.textContent=!room\?"採点へ進む":"受け入れる"/);
 });
 test("final score is above sticky actions and visible in a compact score area",()=>{
@@ -35,7 +36,7 @@ test("game screen viewport never scrolls and board responds to available height"
 test("pass is immediate; solo endgame uses in-bar accept/continue, not a dialog",()=>{
   assert.match(app,/\$\("pass"\)\.onclick=\(\)=>submitMove\(null\);/);
   assert.doesNotMatch(app,/confirm\("パスしますか？"\)/);
-  assert.match(app,/if\(!room\)\{endExpanded=true;updateEndUi\(\);return;\}/);
+  assert.match(app,/if\(!room\)\{\s*endExpanded=true;/);
   assert.match(app,/if\(!room && endExpanded && !game\.endProposal\)/);
   assert.match(app,/type:"solo_scoring",number:game\.moveNumber/);
   assert.doesNotMatch(app,/type:"end_answer",color:-color,accept:true/);
@@ -80,4 +81,9 @@ test("confirm button uses the original shared gold-and-opacity disabled appearan
   assert.doesNotMatch(css,/\.action-row #confirm:disabled/);
   assert.match(html,/id="confirm" class="primary" type="button" disabled/);
   assert.match(app,/\$\("confirm"\)\.disabled=!candidate \|\| !myTurn/);
+});
+test("solo endgame prompt names AI only in AI games and shows the AI as paused",()=>{
+  assert.match(app,/localPrompt\?\(gameMode==="ai"\?"あなたの判断で採点へ進みます。AIが終局を承認するわけではありません。":\s*"採点に進み、死石を確認します。対局の再開もできます。"\)/);
+  assert.match(app,/isAiTurn\(\)&&endExpanded\?"採点するか確認中のため、AIは待機しています":\s*isAiTurn\(\)\?"AIが着手を計算しています"/);
+  assert.match(app,/endExpanded=true;[\s\S]{0,120}if\(isAiTurn\(\)\)\{\s*stopAiTurn\(\);/);
 });
