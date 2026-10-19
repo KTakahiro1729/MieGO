@@ -77,8 +77,9 @@ test("ownership overlay uses preview-independent review values and hides with th
   const {draw,calls,overlay}=mockBoard(()=>({...view,palette}));
   draw();
   assert.equal(calls.filter(c=>c.kind==="image").length,1);
-  assert.equal(overlay.data[3],0,"review neutral point should stay transparent");
-  assert.ok(overlay.data[at(2,2)*4+3]>0,"review ownership draws only its own field");
+  const alphaAt=(x,y)=>overlay.data[((y+1)*11+x+1)*4+3];
+  assert.equal(alphaAt(0,0),0,"review neutral point should stay transparent");
+  assert.ok(alphaAt(2,2)>0,"review ownership draws only its own field");
   calls.length=0;
   palette="none";
   draw();
@@ -94,10 +95,28 @@ test("board looks change the board fill and the overlay colours, unknown looks f
   const {draw,overlay}=mockBoard(()=>({...view,boardTheme}));
   for(boardTheme of ["wood","light","dark","bogus"]){
     draw();
-    fills.push(overlay.data.slice(0,4).join(","));
+    fills.push(overlay.data.slice(12*4,12*4+4).join(","));
   }
   assert.equal(new Set(fills.slice(0,3)).size,3,"each look tunes the black side");
   assert.equal(fills[3],fills[0]);
+});
+
+test("the estimate fades out past the outer lines instead of ending in a hard edge",()=>{
+  const game=newGame();
+  const view={...baseView(game),displayedOwnership:Array(81).fill(1)};
+  const {draw,calls,overlay}=mockBoard(()=>view);
+  draw();
+  const image=calls.find(c=>c.kind==="image");
+  const gap=500/10;
+  assert.deepEqual(image.args.slice(1),[gap/2-gap,gap/2-gap,gap*11,gap*11]);
+  assert.equal(image.smoothing,true);
+  for(let i=0;i<11;i++){
+    assert.equal(overlay.data[i*4+3],0,"top ring is transparent");
+    assert.equal(overlay.data[(10*11+i)*4+3],0,"bottom ring is transparent");
+    assert.equal(overlay.data[(i*11)*4+3],0,"left ring is transparent");
+    assert.equal(overlay.data[(i*11+10)*4+3],0,"right ring is transparent");
+  }
+  assert.ok(overlay.data[(11+1)*4+3]>0,"the corner point itself is coloured");
 });
 
 test("counting paints flat cells in the chosen colour map and rings neutral points",()=>{
