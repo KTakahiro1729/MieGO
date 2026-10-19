@@ -4,8 +4,8 @@ import {readFileSync} from "node:fs";
 import {gameStorageKey,parseGameSnapshot,needsSwitchConfirmation} from "../public/mode-state.mjs";
 const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
-test("three modes use the header native select",()=>{
-  for(const value of ["local","online","ai"])assert.match(html,new RegExp('option value="'+value+'"'));
+test("three playing modes and a saved-game browser use the header native select",()=>{
+  for(const value of ["local","online","ai","history"])assert.match(html,new RegExp('option value="'+value+'"'));
   assert.match(html,/id="modePicker"/);
 });
 test("settings is presentation-only, with credits and no board rotation",()=>{
