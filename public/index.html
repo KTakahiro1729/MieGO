@@ -47,7 +47,7 @@
         </div>
         <div id="ownershipLegend" class="ownership-legend" aria-label="地合いの推定の色の凡例">
           <div class="gradient" id="gradient" aria-hidden="true"></div>
-          <div class="legend-labels"><span>白の地</span><span>黒の地</span></div>
+          <div class="legend-labels"><span id="legendWhite">白の地</span><span id="legendNeutral" hidden>中立</span><span id="legendBlack">黒の地</span></div>
         </div>
         <div id="endgameBar" class="endgame-bar" aria-label="終局の相談">
           <span id="endStatus" class="end-status" role="status" aria-live="polite">終局はまだのようです</span>
@@ -62,25 +62,26 @@
           <span id="hint" class="visually-hidden" aria-live="polite"></span>
         </div>
         <div id="scoreBox" class="score-box hidden">
-          <div class="score-head"><strong>死石を確認</strong><button class="help-button" type="button" data-help="scoring" aria-label="死石の確認のヘルプ" title="死石の確認のヘルプ"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></div>
+          <div class="score-head"><span id="scoreStone" class="score-stone" aria-hidden="true"></span><strong>死石を確認</strong><button class="help-button" type="button" data-help="scoring" aria-label="死石の確認のヘルプ" title="死石の確認のヘルプ"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></div>
           <p id="scoreInstruction">死石をタップして指定し、双方で結果を確認してください。</p>
-          <div id="scoreText"></div>
+          <div id="scoreText" class="score-table" role="group"></div>
         </div>
         <div id="actionRow" class="action-row">
+          <!-- The primary action is always the rightmost button. -->
           <button id="cancel" class="secondary undo-button is-takeback" type="button" aria-label="待った" title="待った" disabled>
             <svg class="cancel-icon" aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
             <span class="takeback-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg><small>待った</small></span>
           </button>
-          <button id="confirm" class="primary" type="button" disabled><span id="confirmStone" class="button-stone" aria-hidden="true"></span>ここに打つ</button>
-          <button id="copyIllegalPrompt" class="secondary accent-outline illegal-prompt-action" type="button" aria-label="禁止手についてAIに質問する文章をコピー" title="コピーした文章を好きなAIに貼り付けて質問できます" hidden>AIへの質問をコピー</button>
+          <button id="resign" class="secondary resign-control" type="button">投了</button>
           <button id="pass" class="secondary" type="button">パス</button>
           <div id="scoringActions" class="inline-score-actions" hidden>
             <button id="resume" class="secondary" type="button">対局を再開</button>
             <button id="agree" class="primary" type="button" disabled>この計算に同意</button>
           </div>
-          <button id="resign" class="secondary resign-control" type="button">投了</button>
-          <button id="newMatch" class="primary" type="button" hidden>もう一局</button>
           <button id="openHistory" class="secondary" type="button" hidden>保存した棋譜</button>
+          <button id="confirm" class="primary" type="button" disabled><span id="confirmStone" class="button-stone" aria-hidden="true"></span>ここに打つ</button>
+          <button id="copyIllegalPrompt" class="secondary accent-outline illegal-prompt-action" type="button" aria-label="禁止手についてAIに質問する文章をコピー" title="コピーした文章を好きなAIに貼り付けて質問できます" hidden>AIへの質問をコピー</button>
+          <button id="newMatch" class="primary" type="button" hidden>もう一局</button>
         </div>
         <div id="illegalPromptFallbackPanel" class="illegal-prompt-fallback" hidden>
           <label for="illegalPromptFallback">自動でコピーできませんでした。下の文章を選択してコピーしてください。</label>
@@ -300,6 +301,7 @@
           <ul class="help-list">
             <li>死石の候補は自動で選ばれます。違っていたら石をタップして直します。</li>
             <li>数字は石と地の合計です。</li>
+            <li>色は対局中の地合いと同じ配色で、確定した地を示します。小さな輪は、どちらの地でもない「中立」の点です。</li>
             <li>納得したら「この計算に同意」で確定します。対友人は2人とも同意すると確定します。</li>
           </ul>
         </details>

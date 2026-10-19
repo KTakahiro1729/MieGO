@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {BLACK,WHITE,newGame,at,areaScore,KOMI} from "../public/core.mjs";
-import {scoringRegions} from "../public/scoring-regions.mjs";
+import {scoringRegions,scoreBreakdown,scoreRows} from "../public/scoring-regions.mjs";
 
 test("connected same-color area includes live stones and separated pockets joined by stones",()=>{
   const game={...newGame(),status:"scoring",board:Array(81).fill(WHITE)};
@@ -43,24 +43,25 @@ test("neutral regions do not create artificial stones or region labels",()=>{
 });
 
 import {createBoardRenderer} from "../public/board-renderer.mjs";
+const overlayContext={createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData(){}};
 test("renderer paints one area label per connected region only for scored games",()=>{
   const game={...newGame(),status:"scoring",board:Array(81).fill(WHITE)};
   for(let y=3;y<=5;y++)for(let x=2;x<=6;x++)game.board[at(x,y)]=BLACK;
   game.board[at(3,4)]=0;game.board[at(5,4)]=0;
   const labels=[];
   const ctx={
-    save(){},restore(){},clearRect(){},fillRect(){},strokeRect(){},beginPath(){},moveTo(){},
+    save(){},restore(){},clearRect(){},fillRect(){},beginPath(){},moveTo(){},
     lineTo(){},arc(){},fill(){},stroke(){},setLineDash(){},fillText(t){labels.push(t);},
-    createRadialGradient(){return {addColorStop(){}}}
+    createRadialGradient(){return {addColorStop(){}}},drawImage(){}
   };
   const canvas={width:720,getContext:()=>ctx};
   const renderer=createBoardRenderer({canvas,
     getView:()=>({game,boardReview:null,candidate:null,lastPosition:null,
       displayedOwnership:null,palette:"mono",opacity:.55,humanTurn:false}),
-    createOverlayCanvas:()=>({getContext:()=>({})})
+    createOverlayCanvas:()=>({getContext:()=>overlayContext})
   });
   renderer.draw();
-  assert.deepEqual(labels.sort(),["15目","66目"].sort());
+  assert.deepEqual(labels.sort(),["15","66"].sort());
   game.status="playing";labels.length=0;renderer.draw();
   assert.equal(labels.length,0);
   game.status="finished";game.result="W+R";labels.length=0;renderer.draw();
@@ -71,7 +72,7 @@ test("scoring overlay is never drawn in active game replay",()=>{
   const state={...newGame(),status:"scoring",board:Array(81).fill(WHITE)};
   const labels=[];
   const ctx={
-    save(){},restore(){},clearRect(){},fillRect(){},strokeRect(){},beginPath(){},
+    save(){},restore(){},clearRect(){},fillRect(){},beginPath(){},
     moveTo(){},lineTo(){},arc(){},fill(){},stroke(){},setLineDash(){},
     fillText(text){labels.push(text);},createRadialGradient(){return {addColorStop(){}};}
   };
@@ -79,8 +80,26 @@ test("scoring overlay is never drawn in active game replay",()=>{
     canvas:{width:720,getContext:()=>ctx},
     getView:()=>({game:state,boardReview:{display:newGame(),ownership:null},
       candidate:null,lastPosition:null,displayedOwnership:null,palette:"mono",opacity:.55,humanTurn:false}),
-    createOverlayCanvas:()=>({getContext:()=>({})})
+    createOverlayCanvas:()=>({getContext:()=>overlayContext})
   });
   renderer.draw();
   assert.equal(labels.length,0);
+});
+
+test("score breakdown shows white area and komi separately so it matches the board labels",()=>{
+  const game={...newGame(),status:"scoring",board:Array(81).fill(0)};
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++)game.board[at(x,y)]=x<5?BLACK:WHITE;
+  assert.equal(scoreBreakdown(game),"黒：45\n白：36＋コミ7.5＝43.5");
+  const handicap={...newGame(true,{handicap:3}),status:"scoring"};
+  assert.equal(scoreBreakdown(handicap),"黒：81\n白：0＋コミ0.5＋置き石補正3＝3.5");
+});
+
+test("scoreboard rows keep the white breakdown apart from the totals and name the leader",()=>{
+  const game={...newGame(),status:"scoring",board:Array(81).fill(0)};
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++)game.board[at(x,y)]=x<5?BLACK:WHITE;
+  assert.deepEqual(scoreRows(game),{
+    black:{area:45,detail:"",total:45},
+    white:{area:36,detail:"36＋コミ7.5",total:43.5},leader:"black"});
+  const handicap={...newGame(true,{handicap:3}),status:"scoring"};
+  assert.equal(scoreRows(handicap).white.detail,"0＋コミ0.5＋置き石補正3");
 });

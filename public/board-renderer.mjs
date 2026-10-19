@@ -1,5 +1,5 @@
-import {SIZE as DEFAULT_SIZE, BLACK, sizeOf, starPoints} from "./core.mjs";
-import {ownershipPixel,showsOwnership} from "./territory-view.mjs";
+import {SIZE as DEFAULT_SIZE, BLACK, WHITE, sizeOf, starPoints} from "./core.mjs";
+import {ownershipPixel,showsOwnership,countingPalette,countingOpacity,NEUTRAL_MARK} from "./territory-view.mjs";
 import {boardTheme} from "./board-theme.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
 import {scoringRegions} from "./scoring-regions.mjs";
@@ -45,7 +45,12 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     if(!boardReview && game.status!=="playing")return;
     // An estimate for another board size (e.g. just after switching) is skipped.
     if(!showsOwnership(palette) || !values || values.length!==SIZE*SIZE)return;
+    paintOverlay(values,palette,opacity,themeName,gap,pad,true);
+  }
 
+  // One pixel per intersection, scaled up: smoothed for the estimate,
+  // hard-edged cells for the count.
+  function paintOverlay(values,palette,opacity,themeName,gap,pad,smooth) {
     const image = overlayContext.createImageData(SIZE,SIZE);
     for(let i=0;i<SIZE*SIZE;i++) {
       const [r,g,b,a] = ownershipPixel(values[i],palette,opacity,themeName);
@@ -57,8 +62,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     }
     overlayContext.putImageData(image,0,0);
     ctx.save();
-    ctx.imageSmoothingEnabled=true;
-    ctx.imageSmoothingQuality="high";
+    ctx.imageSmoothingEnabled=smooth;
+    if(smooth)ctx.imageSmoothingQuality="high";
     ctx.drawImage(overlayCanvas,pad-gap/2,pad-gap/2,gap*SIZE,gap*SIZE);
     ctx.restore();
   }
@@ -93,37 +98,40 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     ctx.restore();
   }
 
-  function paintCountingStones(game,score,gap,pad,finalized){
+  function paintCountingArea(view,score,gap,pad){
+    const values=score.owned.map(owner=>owner===BLACK?1:owner===WHITE?-1:0);
+    paintOverlay(values,countingPalette(view.palette),countingOpacity(view.opacity),
+      view.boardTheme,gap,pad,false);
+  }
+
+  // Empty points that count for neither side get a small ring (not a dot,
+  // which would read as a star point).
+  function paintNeutralPoints(game,score,gap,pad){
     const dead=new Set(game.dead||[]);
-    for(let i=0;i<score.filled.length;i++){
-      const color=score.filled[i];
-      if(!color || (game.board[i] && !(finalized && dead.has(i))))continue;
-      const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
-      ctx.save();
-      ctx.beginPath();ctx.arc(x,y,gap*.35,0,Math.PI*2);
-      ctx.fillStyle=color===BLACK?"rgba(19,26,29,.59)":"rgba(253,251,240,.82)";
-      ctx.fill();ctx.setLineDash([3,3]);
-      ctx.strokeStyle=color===BLACK?"#394342":"#918b7c";
-      ctx.lineWidth=1.7;ctx.stroke();ctx.restore();
+    ctx.save();
+    ctx.strokeStyle=NEUTRAL_MARK;ctx.lineWidth=Math.max(1.5,gap*.035);
+    for(let i=0;i<score.owned.length;i++){
+      if(score.owned[i] || (game.board[i] && !dead.has(i)))continue;
+      ctx.beginPath();
+      ctx.arc(pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap,gap*.13,0,Math.PI*2);
+      ctx.stroke();
     }
+    ctx.restore();
   }
 
   function paintRegionLabels(regions,gap,pad){
-    const fontSize=Math.max(20,Math.round(gap*.3));
+    const fontSize=Math.max(18,Math.round(gap*.36));
     for(const region of regions){
       const index=region.position;
       if(!Number.isInteger(index))continue;
       const x=pad+(index%SIZE)*gap,y=pad+Math.floor(index/SIZE)*gap;
-      const label=region.count+"目";
-      const width=label.length*fontSize*.68+10,height=fontSize+9;
+      const label=String(region.count);
+      // The label always sits on a stone or marker of the region's colour,
+      // so plain text in the opposite tone is legible without a box or halo.
       ctx.save();
-      ctx.fillStyle=region.color===BLACK?"#172327":"#fcf8ed";
-      ctx.fillRect(x-width/2,y-height/2,width,height);
-      ctx.strokeStyle=region.color===BLACK?"#d7b77a":"#655b4b";
-      ctx.lineWidth=1.5;ctx.strokeRect(x-width/2,y-height/2,width,height);
-      ctx.fillStyle=region.color===BLACK?"#fffaed":"#20282b";
-      ctx.font="700 "+fontSize+"px system-ui, sans-serif";
+      ctx.font="600 "+fontSize+"px Inter, system-ui, -apple-system, sans-serif";
       ctx.textAlign="center";ctx.textBaseline="middle";
+      ctx.fillStyle=region.color===BLACK?"#f6efdc":"#2a2f31";
       ctx.fillText(label,x,y+1);ctx.restore();
     }
   }
@@ -218,8 +226,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const scoredFinished=game.status==="finished" && !game.result?.endsWith("+R");
     const scoring=!boardReview && (game.status==="scoring" || scoredFinished)?
       scoringRegions(game):null;
-    if(scoring)paintCountingStones(game,scoring,gap,pad,scoredFinished);
+    if(scoring)paintCountingArea(view,scoring,gap,pad);
     paintStarPoints(theme,gap,pad);
+    if(scoring)paintNeutralPoints(game,scoring,gap,pad);
     paintStones(theme,view,display,gap,pad);
     if(scoring)paintRegionLabels(scoring.regions,gap,pad);
     paintLastMove(view,display,gap,pad);

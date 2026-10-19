@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PALETTES,paletteAt,ownershipAlpha,ownershipPixel,paletteGradient,interpolateOwnership,normalizePalette } from "../public/territory-view.mjs";
+import { countingGradient,countingPalette,countingOpacity,PALETTES,paletteAt,ownershipAlpha,ownershipPixel,paletteGradient,interpolateOwnership,normalizePalette } from "../public/territory-view.mjs";
 import { BOARD_THEMES } from "../public/board-theme.mjs";
 
 const THEMES=Object.keys(BOARD_THEMES);
@@ -75,4 +75,16 @@ test("four colour-map choices include hiding the overlay; old choices migrate",a
   assert.equal((html.match(/name="palette"/g)||[]).length,4);
   for(const theme of THEMES)assert.match(html,new RegExp(`name="boardTheme" value="${theme}"`));
   assert.doesNotMatch(html,/id="assisted"/);
+});
+
+test("counting legend shows White's area, a neutral ring and Black's area in the chosen map",()=>{
+  assert.equal(countingPalette("none"),"mono");
+  assert.equal(countingPalette("greenPurple"),"greenPurple");
+  assert.equal(countingOpacity(.1),.5);
+  assert.equal(countingOpacity(.8),.8);
+  const css=countingGradient("orangePurple",.8,"wood");
+  assert.match(css,/^radial-gradient\(/);
+  assert.match(css,/rgba\(230,97,1,[^)]+\) 0 33%/);
+  assert.match(css,/transparent 33% 67%/);
+  assert.match(css,/rgba\(94,60,153,[^)]+\) 67% 100%/);
 });

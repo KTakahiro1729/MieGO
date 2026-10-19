@@ -76,9 +76,9 @@ body.board-zoomed .board-bleed{opacity:1}
 .primary{color:#17191e;background:linear-gradient(180deg,#f5d88f,#e4b85c);border:1px solid #ffe1a0;box-shadow:0 2px 14px #e4b85c30;font-weight:750}
 .button-stone{display:inline-block;width:19px;height:19px;border-radius:50%;background:radial-gradient(circle at 32% 26%,#5e6268,#11161a 70%);border:1px solid #656d72;vertical-align:-4px;margin-right:8px}
 .button-stone.white{background:radial-gradient(circle at 32% 26%,#fff,#deddd6 72%);border-color:#b7b6b0}
-.score-box{background:#1b2430;border:1px solid #65615c;padding:18px;border-radius:13px;margin:12px 0 18px}
+.score-box{background:var(--surface);border:1px solid var(--edge);padding:16px;border-radius:var(--radius);margin:12px 0 18px}
 .score-box strong{font-size:15px}
-.score-box p,.score-box #scoreText{font-size:13px;line-height:1.6;color:#c7c9ca}
+.score-box p{font-size:13px;line-height:1.6;color:var(--muted)}
 .settings-backdrop{position:fixed;inset:0;background:#0008;z-index:9}
 .settings-panel{position:fixed;z-index:10;right:max(14px,calc((100vw - 1100px)/2));top:78px;width:min(390px,calc(100vw - 28px));max-height:calc(100dvh - 95px);overflow-y:auto;overscroll-behavior:contain;padding:22px;background:#181e2a;border:1px solid #414757;border-radius:19px;box-shadow:0 20px 70px #000a}
 .settings-head{display:flex;align-items:center;justify-content:space-between;margin:-6px 0 10px}
@@ -264,12 +264,10 @@ body{overflow:hidden}
 .endgame-bar #analysisStatus{flex:1;min-width:0;font-size:11px;text-align:right}
 
 
-.game-panel.is-scoring .ownership-legend,.game-panel.is-finished .ownership-legend{display:none}
 .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:346px}
-.score-box{flex:none;margin:3px 0 2px;padding:7px 10px;border-radius:10px;min-height:0}
-.score-box strong{display:block;font-size:15px;line-height:1.2}
+.score-box{flex:none;margin:3px 0 2px;padding:9px 12px 10px;min-height:0}
+.score-box strong{display:block;font-size:15px;line-height:1.25}
 .score-box p{margin:2px 0 0;font-size:11px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.score-box #scoreText{font-size:12px;line-height:1.3;margin-top:3px}
 
 @media(max-width:700px){
   .app-shell{--topbar-height:62px}
@@ -477,3 +475,18 @@ body{overflow:hidden}
 .help-popover-head .icon-button{margin-right:-10px}
 .help-popover-body .help-list{margin-top:0}
 .help-popover-body .explanation{margin:0 0 12px}
+
+/* Scoreboard: totals right-aligned in one column; the leader is bright. */
+.score-head .score-stone{display:none}
+.score-head .score-stone.black,.score-head .score-stone.white{display:inline-block;margin-right:7px}
+.game-panel.is-finished .score-box strong{font-size:17px;color:var(--gold)}
+.score-table{display:grid;gap:3px;margin-top:8px;padding-top:8px;border-top:1px solid var(--edge)}
+.score-table[hidden]{display:none}
+.score-row{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:7px;color:var(--muted)}
+.score-stone{width:13px;height:13px;border-radius:50%;flex:none}
+.score-stone.black{background:radial-gradient(circle at 35% 30%,#59606a,#101317 70%);box-shadow:0 0 0 1px #5b6270}
+.score-stone.white{background:radial-gradient(circle at 35% 30%,#fff,#d9d6cc 75%);box-shadow:0 0 0 1px #8c887d}
+.score-name{font-size:13px;font-weight:600;color:#d5d8dd}
+.score-detail{font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.score-total{font-size:17px;font-weight:650;font-variant-numeric:tabular-nums;color:#d5d8dd;text-align:right}
+.score-row.leads .score-total{color:#fff;font-weight:750}

@@ -1,4 +1,4 @@
-import {BLACK,WHITE,areaScore,neighbors,isBoardSize,sizeOf} from "./core.mjs";
+import {BLACK,WHITE,areaScore,neighbors,isBoardSize,sizeOf,komiOf,handicapOf} from "./core.mjs";
 
 /** Area-scoring overlay: connected same-color groups AFTER adding owned
  * empty points as provisional stones. Labels count live stones AND area.
@@ -39,4 +39,25 @@ export function scoringRegions(state) {
       territory:territory.length,position,positions});
   }
   return {filled,regions,owned};
+}
+
+/** One line that adds up: the white total is shown as its board area plus
+ * komi (and the handicap compensation), so it matches the board labels.
+ */
+export function scoreBreakdown(state) {
+  const score=areaScore(state),komi=komiOf(state),handicap=handicapOf(state);
+  const whiteArea=score.white-komi-handicap;
+  return "黒："+score.black+"\n白："+whiteArea+"＋コミ"+komi+
+    (handicap?"＋置き石補正"+handicap:"")+"＝"+score.white;
+}
+
+/** The scoreboard rows: board area, what is added to it, and the total. */
+export function scoreRows(state) {
+  const score=areaScore(state),komi=komiOf(state),handicap=handicapOf(state);
+  const whiteArea=score.white-komi-handicap;
+  return {
+    black:{area:score.black,detail:"",total:score.black},
+    white:{area:whiteArea,detail:whiteArea+"＋コミ"+komi+(handicap?"＋置き石補正"+handicap:""),total:score.white},
+    leader:score.difference>0?"black":score.difference<0?"white":null
+  };
 }

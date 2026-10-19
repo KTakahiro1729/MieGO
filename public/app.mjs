@@ -1,16 +1,17 @@
-import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, areaScore, boardHash, handicapOf, komiOf, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
+import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, boardHash, handicapOf, komiOf, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
 import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
-import { isPaletteChoice, normalizePalette, showsOwnership, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
+import { isPaletteChoice, normalizePalette, showsOwnership, paletteGradient, countingGradient, interpolateOwnership } from "./territory-view.mjs";
 import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss } from "./board-theme.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
 import { policyHints } from "./ai-assist.mjs";
 import { takebackCut, takeBack, requestTakeback, answerTakeback } from "./takeback.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
+import { scoreBreakdown, scoreRows } from "./scoring-regions.mjs";
 import { createBoardZoom } from "./board-zoom.mjs";
 import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
@@ -18,7 +19,7 @@ import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { shareLabels, shareFrameSize, paintShareFrame, buildGameAnimation, loadShareFonts } from "./share-image.mjs";
 import { OwnershipStore } from "./ownership-store.mjs";
-import { resultLabel } from "./result-label.mjs";
+import { resultLabel, resultWinner } from "./result-label.mjs";
 import { influence } from "./influence.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
@@ -502,7 +503,7 @@ function show() {
   $("resign").disabled=!myTurn || game.status!=="playing";
   $("openCurrentMode").hidden=!room && gameMode!=="ai";
   $("openCurrentMode").textContent=room?"招待URLを表示":"AIの設定・再戦";
-  $("ownershipLegend").classList.toggle("overlay-off",!overlayOn());
+  updateGradient();
   const handicap=handicapOf(game),size=sizeOf(game.board);
   canvas.setAttribute("aria-label",shownSize()+"路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。");
   $("ruleSummary").textContent=size+"路盤 · 中国式ルール · "+(handicap?
@@ -537,9 +538,10 @@ function show() {
     deadReview==="unavailable"?"AI判定不可。石をタップして指定":
     "死石を確認しています…";
   // The scoring controls live in the existing sticky action row.
+  $("scoreStone").className="score-stone";
+  $("scoreText").hidden=false;
   if(isScoring){
-    const score=areaScore(game);
-    $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（"+compensationLabel()+"）";
+    renderScoreboard();
     const ready=canApproveScoring(game,deadReview,room,connected);
     $("agree").disabled=!ready;
     const agreeing=room?(myOnlineColor()===WHITE?"white":"black"):
@@ -552,11 +554,12 @@ function show() {
   if(isFinished) {
     const result=game.result;
     $("scoreBox").querySelector("strong").textContent=resultLabel(result)||"終局";
+    const winner=resultWinner(result);
+    if(winner)$("scoreStone").classList.add(winner==="B"?"black":"white");
     if(result?.endsWith("+R")) {
-      $("scoreText").textContent="投了により終局";
+      $("scoreText").hidden=true;
     } else {
-      const score=areaScore(game);
-      $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（"+compensationLabel()+"）";
+      renderScoreboard();
     }
   }
   updateEndUi();
@@ -916,9 +919,6 @@ $("endDecline").onclick=()=>{
   apply({type:"end_answer",color,accept:false,proposalFrom:game.endProposal.from,
     number:game.moveNumber,before:boardHash(game.board)});
 };
-function compensationLabel() {
-  return handicapOf(game)?"コミ・置き石補正込み":"コミ込み";
-}
 // Choosing "表示しない" hides the overlay; the next colour map brings it back.
 document.querySelectorAll('input[name="palette"]').forEach(input => {
   input.onchange = e => {
@@ -961,10 +961,36 @@ $("resetAppearance").onclick=()=>{
   if(!wasOn){if(boardReview)requestReviewOwnership();else requestAnalysis();}
 };
 // The legend, the colour-map swatches and the board frame follow the chosen board.
+// Two aligned rows: stone, name, what is added to the board area, total.
+function renderScoreboard(){
+  const rows=scoreRows(game);
+  const cell=(className,text)=>{
+    const span=document.createElement("span");
+    span.className=className;span.textContent=text;return span;
+  };
+  $("scoreText").replaceChildren(...["black","white"].map(color=>{
+    const row=document.createElement("div");
+    row.className="score-row"+(rows.leader===color?" leads":"");
+    row.append(cell("score-stone "+color,""),cell("score-name",color==="black"?"黒":"白"),
+      cell("score-detail",rows[color].detail),cell("score-total",String(rows[color].total)));
+    return row;
+  }));
+  $("scoreText").setAttribute("aria-label",scoreBreakdown(game).replace("\n","、"));
+}
+function isCounting(){
+  return !boardReview && (game.status==="scoring" ||
+    game.status==="finished" && !game.result?.endsWith("+R"));
+}
 function updateGradient(){
   const surface=surfaceCss(boardTheme);
   $("gradient").style.backgroundColor=surface;
-  $("gradient").style.backgroundImage=paletteGradient(palette,opacity,boardTheme);
+  // While counting, the same legend explains the flat area colours instead.
+  const counting=isCounting();
+  $("gradient").style.backgroundImage=counting?countingGradient(palette,opacity,boardTheme):
+    paletteGradient(palette,opacity,boardTheme);
+  $("legendNeutral").hidden=!counting;
+  $("ownershipLegend").classList.toggle("overlay-off",!counting && !overlayOn() ||
+    game.status==="finished" && !counting);
   document.querySelectorAll(".swatch[data-palette]").forEach(swatch=>{
     const name=swatch.dataset.palette;
     swatch.style.backgroundColor=surface;

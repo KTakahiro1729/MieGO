@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {at,boardHash,newGame,play,WHITE} from "../public/core.mjs";
 import {createBoardRenderer} from "../public/board-renderer.mjs";
+import {ownershipPixel,countingOpacity} from "../public/territory-view.mjs";
 
 function mockBoard(getView) {
   const calls=[];
@@ -15,8 +16,8 @@ function mockBoard(getView) {
     setLineDash(){},
     fillRect(...args){calls.push({kind:"rect",args,alpha});},
     arc(...args){calls.push({kind:"arc",args,alpha});},
-    fill(){},createRadialGradient(){return {addColorStop(){}};},
-    drawImage(...args){calls.push({kind:"image",args});}
+    fill(){},fillText(){},createRadialGradient(){return {addColorStop(){}};},
+    drawImage(...args){calls.push({kind:"image",args,smoothing:this.imageSmoothingEnabled});}
   };
   const overlay={data:null,createImageData(w,h){return {data:new Uint8ClampedArray(w*h*4)};},
     putImageData(image){this.data=image.data.slice();}};
@@ -97,4 +98,26 @@ test("board looks change the board fill and the overlay colours, unknown looks f
   }
   assert.equal(new Set(fills.slice(0,3)).size,3,"each look tunes the black side");
   assert.equal(fills[3],fills[0]);
+});
+
+test("counting paints flat cells in the chosen colour map and rings neutral points",()=>{
+  // Black owns the left five columns, White the right three; column 5 is neutral.
+  const game={...newGame(),status:"scoring",board:Array(81).fill(0)};
+  for(let y=0;y<9;y++){game.board[at(4,y)]=1;game.board[at(6,y)]=WHITE;}
+  const view={...baseView(game),palette:"orangePurple",opacity:.2,boardTheme:"wood"};
+  const {draw,calls,overlay}=mockBoard(()=>view);
+  draw();
+  const pixel=i=>[...overlay.data.slice(i*4,i*4+4)];
+  const black=ownershipPixel(1,"orangePurple",countingOpacity(.2),"wood");
+  const white=ownershipPixel(-1,"orangePurple",countingOpacity(.2),"wood");
+  assert.deepEqual(pixel(at(0,0)),black);
+  assert.deepEqual(pixel(at(8,0)),white);
+  assert.equal(pixel(at(5,0))[3],0,"neutral points stay uncoloured");
+  const image=calls.find(c=>c.kind==="image");
+  assert.equal(image.smoothing,false,"counted areas have hard edges");
+  const rings=calls.filter(c=>c.kind==="arc" && Math.abs(c.args[2]-500/10*.13)<1e-9);
+  assert.equal(rings.length,9,"one ring per neutral point");
+  // Counting is never hidden: the none colour map falls back to the default.
+  view.palette="none";draw();
+  assert.deepEqual(pixel(at(0,0)),ownershipPixel(1,"mono",countingOpacity(.2),"wood"));
 });

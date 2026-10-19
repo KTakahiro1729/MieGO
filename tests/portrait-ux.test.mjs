@@ -24,7 +24,9 @@ test("endgame choices share exactly one fixed-height horizontal strip",()=>{
 test("final score is above sticky actions and visible in a compact score area",()=>{
   assert.ok(html.indexOf('id="scoreBox"')<html.indexOf('id="actionRow"'));
   assert.match(css,/\.game-panel\.is-scoring,\.game-panel\.is-finished\{--board-reserve:337px\}/);
-  assert.match(css,/\.game-panel\.is-scoring \.ownership-legend,\.game-panel\.is-finished \.ownership-legend\{display:none\}/);
+  // The legend stays while counting and explains the counted areas.
+  assert.doesNotMatch(css,/\.is-scoring \.ownership-legend[^}]*display:none/);
+  assert.match(app,/\$\("legendNeutral"\)\.hidden=!counting/);
   assert.match(app,/\$\("scoreBox"\)\.querySelector\("strong"\)\.textContent=/);
   assert.match(app,/\$\("gamePanel"\)\.classList\.toggle\("is-finished",isFinished\)/);
 });
@@ -89,7 +91,7 @@ test("solo endgame prompt names AI only in AI games",()=>{
 test("continue-style choices sit left of the advancing choice, in the bar and while scoring",()=>{
   const bar=html.slice(html.indexOf('id="endActions"'),html.indexOf('id="analysisStatus"'));
   assert.ok(bar.indexOf('id="endDecline"')<bar.indexOf('id="endAccept"'));
-  const scoring=html.slice(html.indexOf('id="scoringActions"'),html.indexOf('id="resign"'));
+  const scoring=html.slice(html.indexOf('id="scoringActions"'),html.indexOf('id="openHistory"'));
   assert.ok(scoring.indexOf('id="resume"')<scoring.indexOf('id="agree"'));
 });
 test("only a solo accept is gold; an incoming online offer gets two equal choices",()=>{
