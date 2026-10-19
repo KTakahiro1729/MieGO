@@ -13,6 +13,8 @@ export function endgameHint(state,advisor,{unavailable=false,suppressedUntil=-1}
   return (advisor.stage==="near"||advisor.stage==="ready") &&
     state.moveNumber>suppressedUntil?"終局はいかがですか？":"終局はまだのようです";
 }
+/** Board area relative to 9x9: the unit for move-count thresholds. */
+export const boardScale = points => Number.isFinite(points) && points>0 ? points/81 : 1;
 export class EndgameAdvisor {
   constructor() { this.reset(); }
   reset() {
@@ -33,13 +35,19 @@ export class EndgameAdvisor {
     for (let i=0;i<state.board.length;i++) {
       if (state.board[i]) occupied++; else free.push(i);
     }
-    let dangerous=false;
+    // A group in atari is an open fight. For the stable ("ready") check only,
+    // a group the estimate shows wholly in the opponent's settled colour is a
+    // dead group waiting to be removed at scoring, not a reason to keep
+    // playing; the repeated, unchanged estimates guard against a live fight.
+    let atari=false,fight=false;
     const visited=new Set();
     for(let i=0;i<state.board.length;i++){
       if(!state.board[i] || visited.has(i))continue;
       const g=group(state.board,i);
       for(const j of g.stones)visited.add(j);
-      if(g.liberties.size<=1){dangerous=true;break;}
+      if(g.liberties.size>1)continue;
+      atari=true;
+      if(![...g.stones].every(j=>state.board[j]*ownership[j]<=-OWNERSHIP_BANDS.SETTLED))fight=true;
     }
     const settled = free.length
       ? free.filter(i=>Math.abs(ownership[i])>=OWNERSHIP_BANDS.SETTLED).length/free.length : 1;
@@ -49,11 +57,13 @@ export class EndgameAdvisor {
         ? free.reduce((s,i)=>s+Math.abs(ownership[i]-this.previous.ownership[i]),0)/free.length
         : 0;
     }
-    const stable = state.moveNumber>=45 && occupied>=24 &&
-      free.length>0 && settled>=.8 && change<=.09 && !dangerous;
+    // Move and stone counts were tuned on 9x9; larger boards scale them by area.
+    const scale = boardScale(state.board.length);
+    const stable = state.moveNumber>=45*scale && occupied>=24*scale &&
+      free.length>0 && settled>=.8 && change<=.09 && !fight;
     this.streak = stable ? this.streak+1 : 0;
     this.stage = this.streak>=2 ? "ready"
-      : state.moveNumber>=30 && settled>=.65 && !dangerous ? "near" : "playing";
+      : state.moveNumber>=30*scale && settled>=.65 && !atari ? "near" : "playing";
     this.previous={move:state.moveNumber,ownership:[...ownership]};
     return this.stage;
   }

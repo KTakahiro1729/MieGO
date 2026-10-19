@@ -2,37 +2,42 @@ import {DEFAULT_BOARD_THEME, isBoardTheme} from "./board-theme.mjs";
 
 // Values are ownership tendencies (-1 white, +1 black), not win probabilities.
 // A neutral ownership value (0) is fully transparent: the board is visible.
-// Each colour map has two colours per side and per board look, so the scale
-// has five steps: strong White, weak White, neutral, weak Black, strong Black.
-// A point's colour slides from the side's weak colour (near neutral) to its
-// strong colour (|v| = 1). `gain` bends that side's opacity so both sides
+// The colour maps have two colours per side and per board look, so the scale
+// has five steps: strong White, leaning White, neutral, leaning Black, strong
+// Black (see OWNERSHIP_BANDS). Monochrome is a ramp of one colour per side.
+// `gain` bends that side's opacity so both sides
 // stand out from that board by about the same amount (white on a light board
 // needs more, black on a dark one). Full opacity stays full colour on both sides.
 // Purple is always Black's side.
 const side = (rgb,weak,gain) => Object.freeze({rgb:Object.freeze(rgb),weak:Object.freeze(weak),gain});
+const ramp = (rgb,gain) => Object.freeze({rgb:Object.freeze(rgb),weak:null,gain});
 const sides = (white,black) => Object.freeze({white,black});
 export const PALETTES = Object.freeze({
+  // Monochrome keeps one colour per side on a smooth ramp: white and black
+  // have no room for a separate leaning colour on the light and dark boards.
   mono: Object.freeze({
-    wood: sides(side([246,249,255],[191,195,205],4.5),side([22,26,34],[43,47,57],1)),
-    light: sides(side([255,255,255],[222,234,255],3.2),side([16,20,28],[58,63,76],.75)),
-    dark: sides(side([240,248,255],[178,196,224],.6),side([0,2,8],[13,17,27],2.5))
+    wood: sides(ramp([246,249,255],3),ramp([22,26,34],.65)),
+    light: sides(ramp([255,255,255],2.5),ramp([16,20,28],.7)),
+    dark: sides(ramp([240,248,255],.5),ramp([0,2,8],2.6))
   }),
   // After matplotlib's diverging maps. The inner colour is not a paler
   // in-between: it shifts hue within the side, so a leaning point still says
   // which side it leans to. PuOr's orange and purple with managua's amber
-  // and vanimo's magenta for the leaning steps. Leaning colours and gains
-  // are tuned per board so every step stays apart (CIELAB distance) from
-  // the board and from its neighbours at the default strength.
+  // and vanimo's magenta for the leaning steps.
+  // Above all, both ends must look equally far from neutral: per board, the
+  // side that stood out more is pulled towards the board (CIELAB, same hue)
+  // until each step of both sides is the same distance from it, and both
+  // sides share one gain so this holds at every opacity.
   orangePurple: Object.freeze({
-    wood: sides(side([214,88,0],[255,225,40],2),side([84,39,143],[230,95,200],1.2)),
-    light: sides(side([214,88,0],[255,190,30],1.5),side([84,39,143],[225,100,205],1.4)),
-    dark: sides(side([245,140,40],[255,235,140],1),side([150,100,230],[240,120,200],2.2))
+    wood: sides(side([214,88,0],[255,225,40],1.5),side([150,102,145],[233,132,182],1.5)),
+    light: sides(side([215,93,18],[249,190,65],1.5),side([84,39,143],[225,100,205],1.5)),
+    dark: sides(side([206,122,50],[207,192,124],1.5),side([150,100,230],[240,120,200],1.5))
   }),
   // PRGn's green and purple with PiYG's lime and pink for the leaning steps.
   greenPurple: Object.freeze({
-    wood: sides(side([27,120,55],[180,240,55],1.6),side([118,42,131],[235,80,150],1.2)),
-    light: sides(side([27,120,55],[160,215,50],1.6),side([118,42,131],[240,95,155],1.35)),
-    dark: sides(side([90,200,110],[215,245,140],1),side([160,100,220],[240,110,180],2.2))
+    wood: sides(side([27,120,55],[180,240,55],1.5),side([152,102,148],[235,99,149],1.5)),
+    light: sides(side([27,120,55],[171,210,93],1.5),side([128,64,140],[240,95,155],1.5)),
+    dark: sides(side([84,176,104],[170,193,122],1.5),side([160,100,220],[240,110,180],1.5))
   })
 });
 // "Hide the ownership overlay" is one of the colour-map choices, not a game setting.
@@ -46,7 +51,7 @@ export function normalizePalette(value) {
   return isPaletteChoice(value) ? value : DEFAULT_PALETTE;
 }
 export const showsOwnership = palette => palette !== PALETTE_NONE;
-// The five colours are bands with a meaning, not a smooth ramp:
+// The colour maps' five colours are bands with a meaning, not a smooth ramp:
 //   |v| <  LEANING  neutral, almost no colour;
 //   |v| >= LEANING  the side's weak colour: leaning that way, not decided;
 //   |v| >= SETTLED  the side's strong colour: as good as decided.
@@ -71,26 +76,30 @@ function sideAt(value, palette, theme) {
   const {white,black} = sidesFor(palette,theme);
   return v > 0 ? black : white;
 }
-// The side's colour: weak below SETTLED, strong from it.
+// The side's colour: weak below SETTLED, strong from it (one colour on a ramp).
 function mix(s, value) {
+  if(!s.weak)return [...s.rgb];
   const t = smoothstep(OWNERSHIP_BANDS.SETTLED,strength(value));
   return s.rgb.map((c,i)=>Math.round(s.weak[i]+(c-s.weak[i])*t));
 }
 export function paletteAt(value, palette = DEFAULT_PALETTE, theme = DEFAULT_BOARD_THEME) {
   return mix(sideAt(value,palette,theme),value);
 }
-export function ownershipAlpha(value, opacity = 1, gain = 1) {
+// A ramp's opacity follows |v|^(1/1.33) so leanings near neutral are still visible.
+export const OWNERSHIP_GAMMA = 1.33;
+export function ownershipAlpha(value, opacity = 1, gain = 1, banded = true) {
   const a=strength(value);
   const max=Number.isFinite(opacity)?clamp(opacity,0,1):0;
+  const g=Number.isFinite(gain)&&gain>0?gain:1;
+  if(!banded)return clamp(1-(1-a**(1/OWNERSHIP_GAMMA)*max)**g,0,1);
   const neutral=NEUTRAL_LEVEL*Math.min(a/(OWNERSHIP_BANDS.LEANING-OWNERSHIP_BANDS.BLEND),1);
   const leaning=neutral+(LEANING_LEVEL-neutral)*smoothstep(OWNERSHIP_BANDS.LEANING,a);
   const level=leaning+(1-leaning)*smoothstep(OWNERSHIP_BANDS.SETTLED,a);
-  const g=Number.isFinite(gain)&&gain>0?gain:1;
   return clamp(1-(1-level*max)**g,0,1);
 }
 export function ownershipPixel(value, palette = DEFAULT_PALETTE, opacity = 1, theme = DEFAULT_BOARD_THEME) {
   const s = sideAt(value,palette,theme);
-  return [...mix(s,value),Math.round(255*ownershipAlpha(value,opacity,s.gain))];
+  return [...mix(s,value),Math.round(255*ownershipAlpha(value,opacity,s.gain,!!s.weak))];
 }
 // The legend runs from White (left) through neutral (centre) to Black (right),
 // sampled from the same function as the board so its bands line up with it.

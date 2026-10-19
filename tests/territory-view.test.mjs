@@ -41,7 +41,7 @@ test("neutral is completely transparent in all palettes, with opacity increasing
 test("five bands: neutral, leaning (weak colour) and settled (strong colour) on each side",async()=>{
   const {OWNERSHIP_BANDS}=await import("../public/territory-view.mjs");
   const {LEANING,SETTLED,BLEND}=OWNERSHIP_BANDS;
-  for(const name of Object.keys(PALETTES))for(const theme of THEMES){
+  for(const name of ["orangePurple","greenPurple"])for(const theme of THEMES){
     const {white,black}=PALETTES[name][theme];
     assert.notDeepEqual(white.weak,white.rgb,name+"/"+theme+" white has an inner colour");
     assert.notDeepEqual(black.weak,black.rgb,name+"/"+theme+" black has an inner colour");
@@ -64,6 +64,16 @@ test("five bands: neutral, leaning (weak colour) and settled (strong colour) on 
       const d=Math.abs(hue(rgb)-hue(weak));
       assert.ok(Math.min(d,360-d)>=10,name+"/"+theme+"/"+s+" leaning step has its own hue");
     }
+});
+test("monochrome keeps one colour per side on a smooth ramp, as before the bands",async()=>{
+  const {OWNERSHIP_GAMMA}=await import("../public/territory-view.mjs");
+  for(const theme of THEMES){
+    const {white,black}=PALETTES.mono[theme];
+    for(const v of [.1,.4,.6,.9])assert.deepEqual(paletteAt(v,"mono",theme),black.rgb);
+    assert.deepEqual(paletteAt(-.5,"mono",theme),white.rgb);
+    const expected=Math.round(255*(1-(1-.5**(1/OWNERSHIP_GAMMA)*.55)**black.gain));
+    assert.equal(ownershipPixel(.5,"mono",.55,theme)[3],expected);
+  }
 });
 test("the endgame advisor counts as settled exactly what is drawn in the strong colour",async()=>{
   const {readFileSync}=await import("node:fs");
@@ -118,10 +128,10 @@ test("counting legend shows White's area, a neutral ring and Black's area in the
   assert.match(css,/^radial-gradient\(/);
   assert.match(css,/rgba\(214,88,0,[^)]+\) 0 33%/);
   assert.match(css,/transparent 33% 67%/);
-  assert.match(css,/rgba\(84,39,143,[^)]+\) 67% 100%/);
+  assert.match(css,/rgba\(150,102,145,[^)]+\) 67% 100%/);
 });
 
-test("every step stays apart from the board and its neighbours on every board look",()=>{
+test("both sides look equally far from neutral and every step stays apart, on every board look",()=>{
   // CIELAB distance between colours composited on the board's surface.
   const lin=c=>{c/=255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4;};
   const lab=([r,g,b])=>{const R=lin(r),G=lin(g),B=lin(b);
@@ -129,14 +139,18 @@ test("every step stays apart from the board and its neighbours on every board lo
     const x=f((R*.4124+G*.3576+B*.1805)/.95047),y=f(R*.2126+G*.7152+B*.0722),z=f((R*.0193+G*.1192+B*.9505)/1.08883);
     return [116*y-16,500*(x-y),200*(y-z)];};
   const dE=(a,b)=>{const A=lab(a),B=lab(b);return Math.hypot(A[0]-B[0],A[1]-B[1],A[2]-B[2]);};
-  for(const name of Object.keys(PALETTES))for(const theme of THEMES){
+  for(const name of ["orangePurple","greenPurple"])for(const theme of THEMES){
     const surface=BOARD_THEMES[theme].surface;
     const on=v=>{const [r,g,b,a]=ownershipPixel(v,name,.55,theme);const k=a/255;
       return [r,g,b].map((c,i)=>c*k+surface[i]*(1-k));};
     const pairs=[[on(-.5),surface],[on(-1),on(-.5)],[on(.5),surface],[on(1),on(.5)],[on(-.5),on(.5)]];
-    // A grey map cannot go lighter than white on the light board or darker
-    // than black on the dark one, so it gets a lower floor.
-    const floor=name==="mono"?(theme==="wood"?18:9.5):20;
-    for(const [a,b] of pairs)assert.ok(dE(a,b)>=floor,name+"/"+theme+" step distance "+dE(a,b).toFixed(1));
+    // Both ends look equally far from neutral, at every opacity.
+    for(const opacity of [.3,.55,.8,1])for(const v of [.4,.6,.8,1]){
+      const at=x=>{const [r,g,b,a]=ownershipPixel(x,name,opacity,theme);const k=a/255;
+        return [r,g,b].map((c,i)=>c*k+surface[i]*(1-k));};
+      const w=dE(at(-v),surface),b=dE(at(v),surface);
+      assert.ok(Math.max(w,b)/Math.min(w,b)<=1.1,name+"/"+theme+" sides at "+v+"/"+opacity+": "+w.toFixed(1)+" vs "+b.toFixed(1));
+    }
+    for(const [a,b] of pairs)assert.ok(dE(a,b)>=20,name+"/"+theme+" step distance "+dE(a,b).toFixed(1));
   }
 });
