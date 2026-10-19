@@ -62,7 +62,7 @@ test("sharing lives in one sheet beside settings, not in the replay menu",()=>{
  assert.ok(header.indexOf('id="settingsToggle"')<header.indexOf('id="shareToggle"'),"share sits right of settings");
  assert.match(header,/id="shareToggle"[^>]*aria-label="共有を開く"[^>]*aria-controls="sharePanel"/);
  const sheet=html.slice(html.indexOf('<aside id="sharePanel"'),html.indexOf('<aside id="modePanel"'));
- for(const id of ["shareGif","shareImage","shareLink","shareAiLink","shareSgf","shareInvite","shareNotice","shareCopyFallback"])
+ for(const id of ["shareImage","shareLink","shareAiLink","shareSgf","shareNotice","shareCopyFallback"])
    assert.match(sheet,new RegExp('id="'+id+'"'));
  const review=html.slice(html.indexOf('id="reviewMenu"'),html.indexOf('id="reviewNotice"'));
  assert.doesNotMatch(review,/id="share|SGFを保存|URLをコピー|AI向け|GIF/);
@@ -70,11 +70,17 @@ test("sharing lives in one sheet beside settings, not in the replay menu",()=>{
  const settings=html.slice(html.indexOf('<aside id="settingsPanel"'),html.indexOf('<aside id="sharePanel"'));
  assert.doesNotMatch(settings,/GIF/);
  // Only the AI copy needs words: what to do with the copied text.
- assert.equal(sheet.match(/class="explanation"/g)?.length,1,"only the AI note");
- assert.match(sheet,/id="shareAiLink"[^>]*>AI向けにコピー<\/button>\s*<p class="explanation">この盤面をAIに相談したい時に使ってください。/);
+ // Explanations live inside their buttons; the sheet has no loose notes.
+ assert.doesNotMatch(sheet,/class="explanation"/);
+ assert.match(sheet,/id="shareAiLink"[^>]*><span>AI向けにコピー<\/span><small>この盤面をAIに相談したい時に使ってください。今の盤面とMieGOの使い方を説明した文章をクリップボードにコピーします<\/small><\/button>/);
+ assert.match(sheet,/id="shareSgf"[^>]*><span>SGFを保存<\/span><small>[^<]+<\/small><\/button>/);
+ // Still image or game animation side by side, then one share-or-save button.
+ assert.match(sheet,/class="ai-color-choices share-kind-choices"[\s\S]*value="still" checked><span>静止画[\s\S]*value="animation"><span>棋譜アニメ[\s\S]*id="shareImage"/);
  // Outside replay the sheet shares the live game as it stands.
- assert.match(app,/if\(boardReview\)return variationForSharing\(boardReview,game\);/);
- assert.match(app,/\$\("shareInviteSection"\)\.hidden=!room/);
+ assert.match(app,/if\(boardReview\)return \{\.\.\.variationForSharing\(boardReview,game\)/);
+ assert.match(app,/return \{snapshot:game,metadata:null,/);
+ // Inviting a friend stays in the match setup, not in sharing.
+ assert.doesNotMatch(sheet,/shareInvite|招待/);
  assert.match(style,/\.review-menu-popover>button\{min-height:44px/);
  assert.doesNotMatch(html,/id="historyShareMenu"|id="historyExport"/);
 });

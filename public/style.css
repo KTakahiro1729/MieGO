@@ -230,6 +230,8 @@ body{overflow:hidden}
 #reviewStepRange{flex:1;min-width:0;accent-color:var(--gold)}
 #reviewNotice{margin:0;color:#efca90;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
 #reviewNotice:empty{display:none}
+.share-panel .described{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left}
+.share-panel .described small{font-size:11px;font-weight:400;line-height:1.55;color:#aeb3be}
 #shareCopyFallback{margin-top:8px;width:100%;max-height:110px;min-height:50px;background:#17202e;border:1px solid #6b7588;color:#f4f4ee;padding:6px;border-radius:8px;font-size:12px}
 
 

@@ -15,7 +15,9 @@ import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
-import { encodeGif } from "./gif-encoder.mjs";
+import { shareCaption, shareFrameSize, paintShareFrame, buildGameAnimation } from "./share-image.mjs";
+import { OwnershipStore } from "./ownership-store.mjs";
+import { influence } from "./influence.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
@@ -333,7 +335,7 @@ function finishAiMove(result) {
       result.ownership.length===SIZE*SIZE &&
       result.ownership.every(v=>Number.isFinite(v)&&Math.abs(v)<=1.001);
     const passStage=valid?endgameAdvisor.observe(game,result.ownership):"playing";
-    if(valid)endgameStage=passStage;
+    if(valid){endgameStage=passStage;rememberOwnership(game.board,result.ownership);}
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
       ownership:result.ownership,endgameStage:passStage,
       invasion,reinforcement,strength:aiStrength,
@@ -392,6 +394,9 @@ function handleAnalysis(event) {
   }
   if(game.status!=="playing")return;
   const context=analysisContext;
+  if(context?.id===result.id && context.committed && !candidate &&
+    context.number===game.moveNumber && context.hash===boardHash(game.board))
+    rememberOwnership(game.board,result.ownership);
   // Sandbox positions and stale asynchronous results must never generate advice.
   if(context?.id===result.id && context.committed && !candidate &&
     context.number===game.moveNumber && context.hash===boardHash(game.board) &&
@@ -1300,8 +1305,10 @@ async function copyReviewText(text,statusId,fallbackId) {
 // Everything in the share sheet works on the displayed board: the replayed
 // line and step while replaying, otherwise the live game as it stands.
 function sharedPosition() {
-  if(boardReview)return variationForSharing(boardReview,game);
-  return {snapshot:game,metadata:null,step:game.moves.filter(m=>m.position!=="resign").length};
+  if(boardReview)return {...variationForSharing(boardReview,game),
+    gameId:boardReview.source==="live" ? currentGameId : boardReview.record?.id ?? null};
+  return {snapshot:game,metadata:null,step:game.moves.filter(m=>m.position!=="resign").length,
+    gameId:currentGameId};
 }
 function sharedUrl() {
   const {snapshot,metadata,step}=sharedPosition();
@@ -1352,37 +1359,102 @@ function downloadBlob(blob,name){
   document.body.append(link);link.click();link.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-// The board exactly as drawn: board look, ownership colours, replay
-// position, marks and labels all come from the canvas itself.
-function boardGifFile(){
+// Shared images end on the board exactly as drawn (board look, ownership
+// colours, marks and labels come from the canvas itself), with a footer
+// naming the move, the result and the app's address.
+let shareImageKind="still",preparedImage=null,shareImageFailed=false,shareImageJob=0,shareProgress="";
+let frameRenderer=null,frameState=null,frameOwnership=null;
+const ANIMATION_SIZE=480;
+// The ownership shown for each committed position, kept per saved game so
+// every frame of a shared animation carries the colours seen while playing.
+const ownershipStore=new OwnershipStore(localStorage);
+function rememberOwnership(board,values){
+  try{ownershipStore.remember(currentGameId,board,values);}catch(error){console.warn("Ownership not kept",error);}
+}
+const frameCanvas=(width,height)=>Object.assign(document.createElement("canvas"),{width,height});
+function shareImageDetails(animated){
+  const {snapshot,metadata,step,gameId}=sharedPosition();
+  const total=snapshot.moves.filter(m=>m.position!=="resign").length;
+  const result=metadata?.result || (snapshot.status==="finished" ? snapshot.result : null);
+  return {snapshot,step,gameId,caption:shareCaption({step,total,result,animated}),url:location.host};
+}
+// An animation frame: the replayed position with the ownership recorded for
+// it, or the replay view's quick estimate where none was recorded.
+function renderFrameBoard(state,gameId){
+  if(!frameRenderer){
+    const board=frameCanvas(ANIMATION_SIZE,ANIMATION_SIZE);
+    frameRenderer={board,...createBoardRenderer({canvas:board,getView:()=>({game:frameState,
+      boardReview:{display:frameState,ownership:frameOwnership},candidate:null,illegalCandidate:null,
+      lastPosition:null,displayedOwnership:null,palette,opacity,boardTheme,hints:null})})};
+  }
+  frameState=state;
+  frameOwnership=overlayOn() ? ownershipStore.recall(gameId,state.board) ?? influence(state.board) : null;
+  frameRenderer.draw();
+  return frameRenderer.board;
+}
+async function makeShareImage(kind){
   draw();
-  const image=canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height);
-  const step=boardReview?boardReview.step:game.moves.length;
-  return new File([encodeGif(image)],"miego-move"+step+".gif",{type:"image/gif"});
+  const animated=kind==="animation";
+  const {snapshot,step,gameId,caption,url}=shareImageDetails(animated);
+  if(animated){
+    frameRenderer=null;
+    const job=shareImageJob;
+    const bytes=await buildGameAnimation({snapshot,step,size:ANIMATION_SIZE,
+      renderBoard:state=>renderFrameBoard(state,gameId),finalBoard:canvas,createCanvas:frameCanvas,caption,url,
+      onProgress:(i,total)=>{
+        if(job!==shareImageJob)throw Error("中断しました");
+        shareProgress=" "+i+"/"+total+"手";renderShareImageButton();
+      }});
+    return new File([bytes],"miego-moves"+step+".gif",{type:"image/gif"});
+  }
+  const {width,height}=shareFrameSize(canvas.width);
+  const target=frameCanvas(width,height);
+  paintShareFrame(target,canvas,{caption,url});
+  const blob=await new Promise((resolve,reject)=>
+    target.toBlob(b=>b?resolve(b):reject(Error("画像を作れません")),"image/png"));
+  return new File([blob],"miego-move"+step+".png",{type:"image/png"});
 }
-function exportBoardGif(){
-  try{
-    const file=boardGifFile();
-    downloadBlob(file,file.name);
-    $("shareNotice").textContent="盤面をGIFで書き出しました。";
-  }catch(error){$("shareNotice").textContent="GIFを書き出せません："+error.message;}
+const canShareFile=file=>{
+  try{return typeof navigator.share==="function" && !!navigator.canShare?.({files:[file]});}
+  catch{return false;}
+};
+function renderShareImageButton(){
+  const button=$("shareImage");
+  button.disabled=!preparedImage;
+  button.textContent=preparedImage ? (canShareFile(preparedImage)?"SNSで共有":"画像を保存") :
+    shareImageFailed ? "画像を作れませんでした" : "画像を作成中…"+shareProgress;
 }
-const canShareImage=()=>typeof navigator.share==="function" &&
-  !!navigator.canShare?.({files:[new File([""],"miego.gif",{type:"image/gif"})]});
-async function shareBoardImage(){
+// The image is made before the tap: sharing must start straight from the
+// tap, and a long game's animation takes a moment to encode.
+async function prepareShareImage(){
+  const job=++shareImageJob;
+  preparedImage=null;shareImageFailed=false;shareProgress="";renderShareImageButton();
   try{
-    await navigator.share({title:"MieGO",files:[boardGifFile()]});
-    $("shareNotice").textContent="";
+    const file=await makeShareImage(shareImageKind);
+    if(job===shareImageJob)preparedImage=file;
   }catch(error){
+    if(job!==shareImageJob)return;
+    shareImageFailed=true;$("shareNotice").textContent="画像を作れません："+error.message;
+  }finally{if(job===shareImageJob)renderShareImageButton();}
+}
+async function shareImage(){
+  const file=preparedImage;
+  if(!file)return;
+  if(!canShareFile(file)){
+    downloadBlob(file,file.name);
+    $("shareNotice").textContent="画像を保存しました。";
+    return;
+  }
+  try{await navigator.share({files:[file]});$("shareNotice").textContent="";}
+  catch(error){
     if(error?.name!=="AbortError")$("shareNotice").textContent="画像を共有できません："+error.message;
   }
 }
 function openSharePanel(){
   openPanel("share");
-  $("shareImage").hidden=!canShareImage();
-  $("shareInviteSection").hidden=!room;
   $("shareNotice").textContent="";
   $("shareCopyFallback").hidden=true;
+  void prepareShareImage();
 }
 $("moveLabel").onclick=()=>{
   if(boardReview){leaveBoardReview();return;}
@@ -1407,12 +1479,17 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && $("reviewMenu").open)$("reviewMenu").open=false;
 });
 $("reviewBranch").onclick=forkBoardReview;
-$("shareGif").onclick=exportBoardGif;
-$("shareImage").onclick=()=>void shareBoardImage();
+$("shareImage").onclick=()=>void shareImage();
+document.querySelectorAll('input[name="shareImageKind"]').forEach(input=>{
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    shareImageKind=e.target.value==="animation"?"animation":"still";
+    void prepareShareImage();
+  };
+});
 $("shareLink").onclick=()=>void copyShareUrl(false);
 $("shareAiLink").onclick=()=>void copyShareUrl(true);
 $("shareSgf").onclick=exportSharedSGF;
-$("shareInvite").onclick=()=>openPanel("online");
 function resumeSelectedReview(){
   if(!canResumeSelectedReview())return;
   const selected=boardReview.record;
@@ -1476,6 +1553,7 @@ function closePanels() {
   $("settingsBackdrop").hidden=true;
   $("settingsPanel").hidden=true;
   $("sharePanel").hidden=true;
+  shareImageJob++;preparedImage=null;
   $("modePanel").hidden=true;
   $("historyPanel").hidden=true;
   $("onlineSetup").hidden=true;

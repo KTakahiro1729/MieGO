@@ -36,7 +36,7 @@ test("the same action has the same name and glyph wherever it appears",()=>{
   // Both entries to the saved-game sheet carry the sheet's own title.
   assert.match(html,/id="openHistory"[^>]*>保存した棋譜<\/button>/);
   assert.match(html,/id="openHistorySettings"[^>]*>保存した棋譜<\/button>/);
-  assert.match(html,/id="shareSgf" class="secondary full" type="button">SGFを保存<\/button>/);
+  assert.match(html,/id="shareSgf" class="secondary full described" type="button"><span>SGFを保存<\/span>/);
   // Sheet close buttons draw the same SVG × rather than a text glyph.
   assert.doesNotMatch(html,/>×<\/button>/);
   assert.doesNotMatch(html,/>[‹›≪≫]<\/button>|>•••<\/summary>/);

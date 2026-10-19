@@ -159,19 +159,17 @@
       <div class="settings-head"><h2>共有</h2><button id="closeShare" class="icon-button" type="button" aria-label="共有を閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <section class="settings-section">
         <h3>画像</h3>
-        <button id="shareGif" class="secondary full" type="button">盤面をGIFで保存</button>
-        <button id="shareImage" class="secondary full" type="button" hidden>画像を端末で共有</button>
+        <div class="ai-color-choices share-kind-choices" role="radiogroup" aria-label="画像の種類">
+          <label><input type="radio" name="shareImageKind" value="still" checked><span>静止画</span></label>
+          <label><input type="radio" name="shareImageKind" value="animation"><span>棋譜アニメ</span></label>
+        </div>
+        <button id="shareImage" class="secondary full" type="button" disabled>画像を作成中…</button>
       </section>
       <section class="settings-section">
         <h3>棋譜</h3>
         <button id="shareLink" class="secondary full" type="button">この局面のURLをコピー</button>
-        <button id="shareAiLink" class="secondary full" type="button">AI向けにコピー</button>
-        <p class="explanation">この盤面をAIに相談したい時に使ってください。今の盤面とMieGOの使い方を説明した文章をクリップボードにコピーします</p>
-        <button id="shareSgf" class="secondary full" type="button">SGFを保存</button>
-      </section>
-      <section id="shareInviteSection" class="settings-section" hidden>
-        <h3>対局</h3>
-        <button id="shareInvite" class="secondary full" type="button">友人を招待するリンク</button>
+        <button id="shareAiLink" class="secondary full described" type="button"><span>AI向けにコピー</span><small>この盤面をAIに相談したい時に使ってください。今の盤面とMieGOの使い方を説明した文章をクリップボードにコピーします</small></button>
+        <button id="shareSgf" class="secondary full described" type="button"><span>SGFを保存</span><small>囲碁の棋譜の標準形式です。ほかの囲碁ソフトで開いたり、MieGOの「保存した棋譜」から読み込み直したりできます</small></button>
       </section>
       <p id="shareNotice" class="invite-status" role="status" aria-live="polite"></p>
       <textarea id="shareCopyFallback" readonly hidden aria-label="手動コピー用の文字列"></textarea>
