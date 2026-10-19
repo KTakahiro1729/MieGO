@@ -1,3 +1,9 @@
+import { newGame } from "./core.mjs";
+
+export function freshLocalGame(previous) {
+  return newGame(previous?.assisted !== false);
+}
+
 export function gameStorageKey(mode) {
   if(mode==="local")return "miego-game-local";
   if(mode==="ai")return "miego-game-ai";

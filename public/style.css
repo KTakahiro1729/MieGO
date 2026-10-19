@@ -136,3 +136,25 @@ button:hover:not(:disabled){border-color:#748094}
 .ai-advanced label{display:flex;justify-content:space-between;gap:12px;margin-top:12px}
 .ai-advanced input[type=range]{width:100%}
 @media(max-width:700px){.header-actions{gap:6px}.mode-picker select{max-width:145px;padding:8px 5px;font-size:12px}}
+
+/* One row: undo, confirm, pass, contextual game menu. */
+.action-row{gap:8px;align-items:center}
+.action-row .undo-button{flex:0 0 48px;min-width:48px;width:48px;padding:0;display:grid;place-items:center}
+.action-row .primary{flex:1 1 auto;min-width:0;padding:9px 6px}
+.action-row #pass{flex:0 0 60px;min-width:60px;width:60px;padding:9px 5px}
+.action-row .game-actions{position:relative;flex:0 0 48px;width:48px;max-width:none;margin:0;z-index:5}
+.action-row .game-actions > summary{width:48px;height:55px;min-height:55px;display:grid;place-items:center;cursor:pointer;list-style:none;background:#1c202b;border:1px solid #343a47;border-radius:15px;color:#e1e3e9;padding:0}
+.action-row .game-actions > summary::-webkit-details-marker{display:none}
+.action-row .game-actions > summary:focus-visible{outline:3px solid #f2c875;outline-offset:2px}
+.action-row .game-action-popover{position:absolute;bottom:calc(100% + 10px);right:0;width:196px;max-width:calc(100vw - 24px);padding:8px;border-radius:14px;background:#232a37;border:1px solid #4b5566;box-shadow:0 12px 32px #000b;display:flex;flex-direction:column;gap:6px}
+.action-row .game-action-popover button{width:100%;min-height:44px;font-size:13px;text-align:left;padding:10px 12px;white-space:normal}
+.action-row .game-action-popover button[hidden]{display:none}
+@media(max-width:400px){
+  .action-row{gap:6px}
+  .action-row .undo-button{flex-basis:44px;width:44px;min-width:44px}
+  .action-row #pass{flex-basis:51px;width:51px;min-width:51px;font-size:12px}
+  .action-row .game-actions{flex-basis:44px;width:44px}
+  .action-row .game-actions > summary{width:44px;height:54px;min-height:54px}
+  .action-row .primary{font-size:12px}
+  .button-stone{width:16px;height:16px;margin-right:5px}
+}

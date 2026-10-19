@@ -2,7 +2,7 @@ import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, area
 import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
 import { PALETTES, ownershipPixel, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
-import { gameStorageKey, parseGameSnapshot, needsSwitchConfirmation } from "./mode-state.mjs";
+import { gameStorageKey, parseGameSnapshot, needsSwitchConfirmation, freshLocalGame } from "./mode-state.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board"), ctx = canvas.getContext("2d");
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
@@ -243,6 +243,7 @@ function show() {
   $("cancel").disabled=!candidate;
   $("pass").disabled=!myTurn || game.status!=="playing";
   $("resign").disabled=!myTurn || game.status!=="playing";
+  $("resetLocalGame").hidden=!!room || gameMode!=="local";
   $("assisted").checked=game.assisted;$("assisted").disabled=game.moveNumber>0 || (room&&seat!=="host");
   $("scoreBox").classList.toggle("hidden",game.status!=="scoring");
   $("scoreInstruction").textContent=gameMode==="ai"
@@ -296,7 +297,35 @@ canvas.addEventListener("click",e=>{
 $("confirm").onclick=()=>{if(candidate){const p=candidate.moves.at(-1).position;submitMove(p);}};
 $("cancel").onclick=()=>{candidate=null;show();requestAnalysis();};
 $("pass").onclick=()=>{if(confirm("パスしますか？"))submitMove(null);};
-$("resign").onclick=()=>{if(confirm("投了しますか？"))submitMove("resign");};
+$("resign").onclick=()=>{
+  $("gameMenu").open=false;
+  if(confirm("投了しますか？"))submitMove("resign");
+};
+function resetLocalBoard() {
+  if (room || gameMode!=="local") return;
+  // Clear only the local session; AI and room games are not affected.
+  if ((game.moveNumber>0 || candidate!==null || game.status!=="playing") &&
+      !confirm("1台で打つ盤面を最初からやり直しますか？ 今の棋譜は上書きされます。")) return;
+  $("gameMenu").open=false;
+  if(analysisTimer!==null)clearTimeout(analysisTimer);
+  pending=++seq; // Ignore analysis results from the previous position.
+  if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
+  transitionFrame=null;displayedOwnership=null;analysis=null;
+  candidate=null;lastPosition=null;
+  game=freshLocalGame(game);
+  save();show();requestAnalysis();
+}
+$("resetLocalGame").onclick=resetLocalBoard;
+document.addEventListener("pointerdown",e=>{
+  const menu=$("gameMenu");
+  if(menu.open && !menu.contains(e.target))menu.open=false;
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape" && $("gameMenu").open){
+    $("gameMenu").open=false;
+    $("gameMenu").querySelector("summary").focus();
+  }
+});
 $("agree").onclick=()=>{
   if(room&&!connected)return;
   const color=room?(seat==="guest"?WHITE:BLACK):gameMode==="ai"?humanColor:BLACK;
@@ -345,6 +374,7 @@ function savedGame(mode) {
   return parseGameSnapshot(raw) || newGame(game.assisted);
 }
 function leaveOnlineRoom() {
+  $("gameMenu").open=false;
   if(!room)return;
   const oldUrl=new URL(location.href);
   oldUrl.searchParams.delete("room");
@@ -359,6 +389,7 @@ function leaveOnlineRoom() {
   $("roomInfo").textContent="URLを共有すると、別の端末から対局に参加できます。";
 }
 function switchToLocal() {
+  $("gameMenu").open=false;
   if(gameMode==="local" && !room){closePanels();return;}
   if(needsSwitchConfirmation(game,gameMode,"local",connected) &&
     !confirm("現在の対局を離れて、1台で打つモードに切り替えますか？"))return;
@@ -491,6 +522,7 @@ function openPanel(kind) {
 }
 function openSettings(){openPanel("settings");}
 function closePanels() {
+  $("gameMenu").open=false;
   $("settingsBackdrop").hidden=true;
   $("settingsPanel").hidden=true;
   $("modePanel").hidden=true;
