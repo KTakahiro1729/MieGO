@@ -1,4 +1,5 @@
-import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash, proposeEnd, answerEndProposal } from "./core.mjs";
+import { SIZE, BLACK, WHITE, newGame, play, toggleDead, resume, agreeScore, areaScore, setAssisted, boardHash, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
+import { suggestDeadStones } from "./dead-stones.mjs";
 import { EndgameAdvisor } from "./endgame.mjs";
 import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
 import { PALETTES, paletteAt, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
@@ -39,6 +40,7 @@ let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
 let endgameStage = "playing", endExpanded = false, analysisContext = null;
 let lastOfferKey = null, endHintSuppressedUntil = -1;
+let deadEvaluation=null, deadReview="idle", deadReviewTouched=false;
 function myColorForEnd() {
   if(room)return seat==="host"?BLACK:seat==="guest"?WHITE:null;
   return gameMode==="ai"?humanColor:BLACK;
@@ -82,7 +84,7 @@ const isHumanTurn = () => room
   : (gameMode !== "ai" || (katagoReady && !fallbackMode && game.next === humanColor));
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
-  analysisContext=null;
+  analysisContext=null;deadEvaluation=null;
   pending = ++seq;
   clearTimeout(analysisTimer);
 }
@@ -172,6 +174,29 @@ let analysisTimer = null;
 function requestAnalysis() {
   clearTimeout(analysisTimer);
   analysisContext=null;
+  if(game.status==="scoring") {
+    pending=++seq;
+    analysisContext=null;
+    endgameAdvisor.reset();endgameStage="playing";
+    if(deadReviewTouched || deadReview==="complete" || deadReview==="none") {
+      updateEndUi(); return;
+    }
+    if(fallbackMode || !katagoReady) {
+      deadReview="unavailable";show();return;
+    }
+    if(room && seat!=="host") {
+      deadReview="awaiting";show();return;
+    }
+    if(room && !connected) {
+      deadReview="awaiting";show();return;
+    }
+    deadReview="pending";
+    const id=pending;
+    deadEvaluation={id,number:game.moveNumber,hash:boardHash(game.board),
+      dead:JSON.stringify(game.dead)};
+    worker.postMessage({id,kind:"scoring",state:game});
+    show();return;
+  }
   if(game.status!=="playing") {
     pending=++seq;
     endgameAdvisor.reset();endgameStage="playing";
@@ -253,6 +278,26 @@ function handleAnalysis(event) {
     return;
   }
   if(result.id!==pending)return;
+  if(result.kind==="scoring") {
+    const job=deadEvaluation;
+    deadEvaluation=null;
+    if(!job || job.id!==result.id || game.status!=="scoring" ||
+      game.moveNumber!==job.number || boardHash(game.board)!==job.hash ||
+      JSON.stringify(game.dead)!==job.dead || deadReviewTouched)return;
+    if(result.error || result.engine!=="katago") {
+      deadReview="unavailable";show();return;
+    }
+    try {
+      const positions=suggestDeadStones(game,result.ownership);
+      apply({type:"dead_auto",positions,number:game.moveNumber,before:boardHash(game.board)});
+      deadReview=positions.length?"complete":"none";
+      show();
+    }catch(error) {
+      console.error("KataGo dead-stone candidates",error);
+      deadReview="unavailable";show();
+    }
+    return;
+  }
   if(result.kind==="move") {
     if(result.error) { switchToFallback(result.error);return; }
     finishAiMove(result);
@@ -308,11 +353,19 @@ function show() {
   $("pass").disabled=!myTurn || game.status!=="playing";
   $("resign").disabled=!myTurn || game.status!=="playing";
   $("assisted").checked=game.assisted;$("assisted").disabled=game.moveNumber>0 || (room&&seat!=="host");
-  $("scoreBox").classList.toggle("hidden",game.status!=="scoring");
-  $("scoreInstruction").textContent=gameMode==="ai"
-    ?"死石を人間が指定して採点します。AI独自の生死判定・異議申し立ては行いません。"
-    :"死石をタップして指定し、双方で結果を確認してください。";
-  if(game.status==="scoring"){
+  const isScoring=game.status==="scoring",isFinished=game.status==="finished";
+  $("scoreBox").classList.toggle("hidden",!isScoring && !isFinished);
+  $("scoreBox").querySelector("strong").textContent=isFinished?"対局結果":"終局の確認";
+  $("scoreInstruction").textContent=isFinished?"中国式面積計算で確定しました。":
+    deadReview==="pending"?"KataGoが死石候補を調べています…":
+    deadReview==="awaiting"?"相手側で死石候補を判定しています。":
+    deadReview==="complete"?"KataGoが死石候補を仮指定しました。必要なら石をタップして修正できます。":
+    deadReview==="none"?"KataGoは死石候補を検出しませんでした。必要なら石をタップしてください。":
+    deadReview==="modified"?"死石候補を修正しました。双方で確認して採点してください。":
+    deadReview==="unavailable"?"KataGoによる死石判定ができません。石をタップして指定してください。":
+    "死石の判定を準備しています。";
+  $("scoreBox").querySelector(".score-actions").hidden=isFinished;
+  if(isScoring){
     const score=areaScore(game);
     $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+"目（コミ込み）";
     $("agree").disabled=room&&!connected;
@@ -321,13 +374,21 @@ function show() {
     $("agree").textContent=game.agreed[agreeing]?"確認済み":"この計算に同意";
     $("resume").disabled=room&&!connected;
   }
+  if(isFinished) {
+    const score=areaScore(game);
+    const result=game.result;
+    $("scoreText").textContent="黒 "+score.black+"目 / 白 "+score.white+
+      "目（コミ込み） · "+(result?.startsWith("B+")?"黒":result?.startsWith("W+")?"白":"引き分け")+
+      " "+Math.abs(score.difference).toFixed(1)+"目勝ち";
+  }
   updateEndUi();
   draw();
 }
 function apply(action, remote=false) {
   // End-offer messages can race with an actual stone. Ignore stale metadata
   // without tearing down the live Go DataChannel.
-  if(remote && (action?.type==="end_offer" || action?.type==="end_answer")) {
+  if(remote && (action?.type==="end_offer" || action?.type==="end_answer" ||
+                action?.type==="dead_auto")) {
     if(action.number!==game.moveNumber || action.before!==boardHash(game.board))return;
     if(action.type==="end_answer" && action.proposalFrom!==game.endProposal?.from)return;
   }
@@ -338,7 +399,17 @@ function apply(action, remote=false) {
       game=play(game,action.position);
       if(action.after!==boardHash(game.board)) throw new Error("局面の検証に失敗しました");
       lastPosition=Number.isInteger(action.position)?action.position:null;
-    } else if(action.type==="dead") game=toggleDead(game,action.position);
+    } else if(action.type==="dead") {
+      game=toggleDead(game,action.position);
+      deadReviewTouched=true;
+      deadReview="modified";
+    } else if(action.type==="dead_auto") {
+      if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
+        throw new Error("死石自動判定の局面が一致しません");
+      if(deadReviewTouched && !remote)return;
+      game=setDeadCandidates(game,action.positions);
+      deadReview=action.positions.length?"complete":"none";
+    }
     else if(action.type==="agree") game=agreeScore(game,action.color);
     else if(action.type==="resume") game=resume(game);
     else if(action.type==="mode") game=setAssisted(game,action.value);
@@ -357,9 +428,15 @@ function apply(action, remote=false) {
     }
     else return;
     if(action.type==="move")endExpanded=false;
+    if(action.type==="resume" || game.status==="playing") {
+      deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
+    }
     const hadCandidate=!!candidate;
     candidate=null;save();show();
-    if(!["end_offer","end_answer"].includes(action.type) || hadCandidate)requestAnalysis();
+    // Evaluate once, when a play/pass or accepted offer enters scoring.
+    if(!["end_offer","end_answer","dead_auto","dead"].includes(action.type)
+       || hadCandidate || (action.type==="end_answer" && game.status==="scoring"))
+      requestAnalysis();
     if(!remote&&room) send({type:"action",action});
   }catch(error){alert(error.message); if(remote){$("netStatus").textContent="同期エラー";channel?.close();}}
 }
@@ -389,8 +466,10 @@ $("agree").onclick=()=>{
   const color=room?(seat==="guest"?WHITE:BLACK):gameMode==="ai"?humanColor:BLACK;
   if(game.agreed[color===BLACK?"black":"white"])return;
   apply({type:"agree",color});
-  // Human adjudicates life and death; the AI does not claim to verify it.
-  if(gameMode==="ai" && game.status==="scoring")apply({type:"agree",color:-humanColor});
+  // Single-player modes require one human confirmation. No claim is made that
+  // KataGo independently approved the life-and-death judgment.
+  if(!room && game.status==="scoring")
+    apply({type:"agree",color:gameMode==="ai"?-humanColor:WHITE});
 };
 $("resume").onclick=()=>apply({type:"resume"});
 $("endToggle").onclick=()=>{
