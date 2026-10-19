@@ -69,3 +69,11 @@ test("settings button shows a toothed gear and is labeled",()=>{
   assert.match(gear,/m9\\.7 2\\.5/);
   assert.match(gear,/<circle cx="11\\.5" cy="12\\.5"/);
 });
+
+test("reset discards endgame and dead-stone hints",()=>{
+  const block=app.slice(app.indexOf("function resetLocalBoard()"),app.indexOf('$("resetLocalGame").onclick'));
+  assert.match(block,/endgameAdvisor\.reset\(\)/);
+  assert.match(block,/deadReview="idle"/);
+  assert.match(block,/deadEvaluation=null/);
+  assert.match(block,/analysisContext=null/);
+});

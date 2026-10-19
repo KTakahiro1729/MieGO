@@ -14,7 +14,7 @@ import { toKataGoPosition } from "./position.mjs";
 let model: KataGoModelV8Tf | null = null;
 let boot: Promise<void> | null = null;
 let backend = "uninitialized";
-let newest: { id: number; state: unknown; kind?: "move" | "analyze" } | null = null;
+let newest: { id: number; state: unknown; kind?: "move" | "analyze" | "scoring" } | null = null;
 let busy = false;
 
 async function prepare() {
@@ -139,7 +139,7 @@ async function drain() {
         await prepare();
         if (newest) continue; // superseded while the model was initializing
         const result = next.kind === "move" ? await evaluateMovePolicy(next.state) : await evaluate(next.state);
-        if (!newest) self.postMessage({ id: next.id, ...result });
+        if (!newest) self.postMessage({ id: next.id, kind: next.kind || "analyze", ...result });
       } catch (error) {
         if (!newest) self.postMessage({
           id: next.id, kind: next.kind || "analyze", error: error instanceof Error ? error.message : String(error), backend
@@ -152,7 +152,9 @@ async function drain() {
 }
 self.onmessage = event => {
   if (!event.data || !Number.isSafeInteger(event.data.id)) return;
-  newest = { id: event.data.id, state: event.data.state, kind: event.data.kind === "move" ? "move" : "analyze" };
+  newest = { id: event.data.id, state: event.data.state,
+    kind: event.data.kind === "move" ? "move" :
+      event.data.kind === "scoring" ? "scoring" : "analyze" };
   void drain();
 };
 

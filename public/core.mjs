@@ -29,18 +29,18 @@ export function newGame(assisted = true) {
   const board = Array(SIZE * SIZE).fill(0);
   return { board, next: BLACK, passes: 0, moves: [], moveNumber: 0,
     captures: { black: 0, white: 0 }, history: [boardHash(board)], status: "playing",
-    assisted, dead: [], agreed: { black: false, white: false }, result: null };
+    assisted, dead: [], agreed: { black: false, white: false }, endProposal: null, result: null };
 }
 export function play(state, position) {
   if (state.status !== "playing") throw new Error("対局中ではありません");
   const color = state.next;
   if (position === "resign") return {
-    ...state, status: "finished", result: color === BLACK ? "W+R" : "B+R",
+    ...state, status: "finished", endProposal: null, result: color === BLACK ? "W+R" : "B+R",
     moves: [...state.moves, { color, position: "resign" }]
   };
   if (position === null) {
     const passes = state.passes + 1;
-    return { ...state, next: -color, passes, moveNumber: state.moveNumber + 1,
+    return { ...state, next: -color, passes, endProposal: null, moveNumber: state.moveNumber + 1,
       status: passes >= 2 ? "scoring" : "playing", agreed: { black: false, white: false },
       history: [...state.history, boardHash(state.board)],
       moves: [...state.moves, { color, position: null }] };
@@ -66,11 +66,39 @@ export function play(state, position) {
     throw new Error("コウで直前の局面に戻せません");
   }
   return {
-    ...state, board, next: -color, passes: 0, moveNumber: state.moveNumber + 1,
+    ...state, board, next: -color, passes: 0, endProposal: null, moveNumber: state.moveNumber + 1,
     history: [...state.history, hash], moves: [...state.moves, { color, position }],
     captures: { black: state.captures.black + (color === BLACK ? captured : 0),
       white: state.captures.white + (color === WHITE ? captured : 0) }
   };
+}
+/** A proposed conclusion is not a Go move, a pass, or a scoring verdict.
+ * Either color may offer, even when it is not their turn. The other side
+ * must explicitly accept before entering dead-stone adjudication.
+ */
+export function proposeEnd(state, color) {
+  if (state.status !== "playing" || ![BLACK, WHITE].includes(color)) {
+    throw new Error("対局中のみ終局を提案できます");
+  }
+  if (state.endProposal) {
+    // Simultaneous proposals are deterministic across the two peers: Black
+    // wins the tie, and the other offer is ignored (not a rule preference).
+    if (state.endProposal.from === color || color === WHITE) return state;
+  }
+  return { ...state, endProposal: { from: color, atMove: state.moveNumber } };
+}
+export function answerEndProposal(state, color, accept) {
+  const offer = state.endProposal;
+  if (state.status !== "playing" || !offer || ![BLACK, WHITE].includes(color)) {
+    throw new Error("返答する終局提案がありません");
+  }
+  if (color === offer.from) {
+    if (accept) throw new Error("自分の提案には同意できません");
+    return { ...state, endProposal: null }; // withdraw own offer
+  }
+  if (!accept) return { ...state, endProposal: null };
+  return { ...state, status: "scoring", passes: 0, endProposal: null,
+    dead: [], agreed: { black: false, white: false } };
 }
 export function toggleDead(state, index) {
   if (state.status !== "scoring" || !state.board[index]) throw new Error("石を指定してください");
@@ -79,9 +107,26 @@ export function toggleDead(state, index) {
   for (const i of stones) removing ? dead.delete(i) : dead.add(i);
   return { ...state, dead: [...dead], agreed: { black: false, white: false } };
 }
+/** Apply a KataGo-based dead-stone proposal as complete connected groups.
+ * This is provisional: users may toggle the marked stones before agreement.
+ */
+export function setDeadCandidates(state, positions) {
+  if(state.status!=="scoring" || !Array.isArray(positions)) {
+    throw new Error("採点中のみ死石候補を適用できます");
+  }
+  const marked=new Set();
+  for(const index of positions) {
+    if(!Number.isInteger(index) || index<0 || index>=SIZE*SIZE || !state.board[index]) {
+      throw new Error("死石候補に不正な交点があります");
+    }
+    for(const stone of group(state.board,index).stones) marked.add(stone);
+  }
+  return {...state,dead:[...marked].sort((a,b)=>a-b),
+    agreed:{black:false,white:false}};
+}
 export function resume(state) {
   if (state.status !== "scoring") throw new Error("計算中ではありません");
-  return { ...state, status: "playing", passes: 0, agreed: { black: false, white: false } };
+  return { ...state, status: "playing", passes: 0, endProposal: null, agreed: { black: false, white: false } };
 }
 export function areaScore(state) {
   const board = [...state.board];
