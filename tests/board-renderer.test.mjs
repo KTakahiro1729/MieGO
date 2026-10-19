@@ -83,3 +83,18 @@ test("ownership overlay uses preview-independent review values and hides with th
   draw();
   assert.equal(calls.filter(c=>c.kind==="image").length,0);
 });
+
+test("board looks change the board fill and the overlay colours, unknown looks fall back to wood",()=>{
+  const game=newGame();
+  let boardTheme;
+  const fills=[];
+  const ownership=Array(81).fill(1);
+  const view={...baseView(game),displayedOwnership:ownership};
+  const {draw,overlay}=mockBoard(()=>({...view,boardTheme}));
+  for(boardTheme of ["wood","modern","glass","bogus"]){
+    draw();
+    fills.push(overlay.data.slice(0,4).join(","));
+  }
+  assert.equal(new Set(fills.slice(0,3)).size,3,"each look tunes the black side");
+  assert.equal(fills[3],fills[0]);
+});
