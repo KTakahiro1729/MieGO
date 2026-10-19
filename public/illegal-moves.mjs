@@ -1,53 +1,85 @@
-import { SIZE, play } from "./core.mjs";
+import { SIZE, BLACK, play } from "./core.mjs";
 
 export const ILLEGAL_SUICIDE = "suicide";
 export const ILLEGAL_KO = "ko";
+const columns = "ABCDEFGHJ";
+const reasons = {
+  [ILLEGAL_SUICIDE]: "自殺手は禁止です",
+  [ILLEGAL_KO]: "コウで直前の局面に戻せません"
+};
 
-/** Use the actual game engine, not a separate approximation, to identify
- * empty intersections prohibited for the player whose turn it is.
- */
-export function illegalMoveReasons(state) {
-  const reasons = new Map();
-  if(state.status !== "playing") return reasons;
-  for(let position=0;position<SIZE*SIZE;position++) {
-    if(state.board[position] !== 0) continue;
-    try {
-      play(state, position);
-    } catch(error) {
-      if(error instanceof Error && error.message === "自殺手は禁止です")
-        reasons.set(position, ILLEGAL_SUICIDE);
-      else if(error instanceof Error && error.message === "コウで直前の局面に戻せません")
-        reasons.set(position, ILLEGAL_KO);
-    }
-  }
-  return reasons;
+export function forbiddenMoveReason(error) {
+  if(!(error instanceof Error))return null;
+  return Object.entries(reasons).find(([,message])=>error.message===message)?.[0]||null;
 }
 
-/** Both reasons use precisely the same circle, color, opacity and stroke.
- * Only the central slash or cross differs. Draw on the existing canvas.
- */
-export function drawIllegalMoveMarker(ctx, x, y, gap, reason) {
-  if(reason !== ILLEGAL_KO && reason !== ILLEGAL_SUICIDE) return;
-  const radius=gap*.18;
-  const inner=radius*.57;
-  ctx.save();
-  ctx.globalAlpha=.84;
-  ctx.fillStyle="#ecdfc4";
-  ctx.strokeStyle="#4d4a44";
-  ctx.lineWidth=Math.max(1.7,gap*.032);
-  ctx.lineCap="round";
-  ctx.beginPath();
-  ctx.arc(x,y,radius,0,Math.PI*2);
-  ctx.fill();
-  ctx.stroke();
-  ctx.beginPath();
-  // Ko: circle with slash. Suicide: circle with cross.
-  ctx.moveTo(x-inner,y+inner);
-  ctx.lineTo(x+inner,y-inner);
-  if(reason===ILLEGAL_SUICIDE) {
-    ctx.moveTo(x-inner,y-inner);
-    ctx.lineTo(x+inner,y+inner);
+/** The rules engine remains the only authority for whether a move is legal.
+ * A forbidden preview is separate from committed game state. */
+export function inspectProvisionalMove(game,position) {
+  if(game.status!=="playing" || !Number.isInteger(position) ||
+     position<0 || position>=SIZE*SIZE || game.board[position]!==0)
+    return {candidate:null,forbidden:null};
+  try {return {candidate:play(game,position),forbidden:null};}
+  catch(error) {
+    const reason=forbiddenMoveReason(error);
+    if(!reason)throw error;
+    return {candidate:null,forbidden:{position,reason,source:game}};
   }
-  ctx.stroke();
-  ctx.restore();
+}
+
+/** Kept as a rules-only helper; never used to draw marks on the board. */
+export function illegalMoveReasons(state) {
+  const result=new Map();
+  if(state.status!=="playing")return result;
+  for(let i=0;i<SIZE*SIZE;i++) {
+    if(state.board[i])continue;
+    const {forbidden}=inspectProvisionalMove(state,i);
+    if(forbidden)result.set(i,forbidden.reason);
+  }
+  return result;
+}
+
+export function pointLabel(position) {
+  if(!Number.isInteger(position)||position<0||position>=SIZE*SIZE)throw Error("Invalid board point");
+  return columns[position%SIZE]+(SIZE-Math.floor(position/SIZE));
+}
+function boardText(board) {
+  if(!Array.isArray(board)||board.length!==SIZE*SIZE)throw Error("Invalid board");
+  const rows=["    "+columns.split("").join(" ")];
+  for(let y=0;y<SIZE;y++) {
+    const line=board.slice(y*SIZE,(y+1)*SIZE).map(n=>n===BLACK?"X":n===-BLACK?"O":".").join(" ");
+    rows.push(String(SIZE-y).padStart(2," ")+"  "+line);
+  }
+  return rows.join("\n");
+}
+
+/** A self-contained Japanese question for a user to paste into an AI chat.
+ * It includes the position, reason and (for ko) the preceding board, but
+ * intentionally excludes the private invitation URL and account details. */
+export function makeIllegalMovePrompt(game,forbidden) {
+  if(!forbidden || !Object.hasOwn(reasons,forbidden.reason) ||
+     game.board?.[forbidden.position]!==0 || game.status!=="playing")
+    throw Error("説明する禁止手がありません");
+  const color=game.next===BLACK?"黒":"白";
+  const point=pointLabel(forbidden.position);
+  let before="";
+  if(forbidden.reason===ILLEGAL_KO && game.history?.length>=2) {
+    const hash=game.history.at(-2);
+    if(typeof hash==="string" && hash.length===SIZE*SIZE && /^[012]+$/.test(hash)) {
+      const previous=[...hash].map(n=>Number(n)-1);
+      before="\n\n直前の着手前の盤面：\n"+boardText(previous);
+    }
+  }
+  return [
+    "9路盤の囲碁（中国式・コミ7.5）の着手ルールについて質問です。",
+    "現在は"+color+"番で、交点 "+point+" に打とうとしたところ、",
+    "アプリでは「"+reasons[forbidden.reason]+"」と判定されました。",
+    "なぜこの交点に打てないのか、周囲の石・呼吸点・取れる石やコウの関係を具体的に説明してください。",
+    "盤面の記号は X=黒石、O=白石、.=空点で、列はA〜H・J、行番号は下から1〜9です。",
+    "",
+    "現在の盤面：",
+    boardText(game.board)+before,
+    "",
+    "判定の根拠が局面情報だけで不足する場合やルール上疑問がある場合は、その点も明示してください。"
+  ].join("\n");
 }
