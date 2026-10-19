@@ -35,3 +35,16 @@ test("frequent pass and solo endgame do not open redundant confirmation screens"
   assert.match(app,/if\(!room && game\.status==="playing" && game\.endProposal\?\.from===color\)/);
   assert.match(app,/type:"end_answer",color:-color,accept:true/);
 });
+
+test("autosaved everyday navigation has no blocking browser confirmation",()=>{
+  assert.doesNotMatch(app,/confirm\("パスしますか？"\)/);
+  assert.doesNotMatch(app,/confirm\("新しい対局を始めますか？/);
+  assert.doesNotMatch(app,/confirm\("現在の対局を離れて、友人対局を開始しますか？/);
+  assert.match(app,/if\(room && connected &&/);
+});
+test("resignation requires two taps in the same game menu, not a browser dialog",()=>{
+  assert.doesNotMatch(app,/confirm\("投了しますか？"\)/);
+  assert.match(app,/\$\("resign"\)\.textContent="もう一度押すと投了"/);
+  assert.match(app,/if\(!resignArmed\)/);
+  assert.match(app,/if\(!\$\("gameMenu"\)\.open\)resetResignButton\(\)/);
+});

@@ -5,7 +5,7 @@ import { createRoomId, makeInviteUrl, copyInviteText } from "./invite.mjs";
 import { PALETTES, ownershipPixel, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { illegalMoveReasons, drawIllegalMoveMarker } from "./illegal-moves.mjs";
-import { needsSwitchConfirmation, freshLocalGame } from "./mode-state.mjs";
+import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { parseSGF, exportSGF, replaySteps, forkReview } from "./sgf.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
@@ -545,14 +545,27 @@ canvas.addEventListener("click",e=>{
 $("confirm").onclick=()=>{if(candidate){const p=candidate.moves.at(-1).position;submitMove(p);}};
 $("cancel").onclick=()=>{candidate=null;show();requestAnalysis();};
 $("pass").onclick=()=>submitMove(null);
+let resignArmed=false;
+function resetResignButton() {
+  resignArmed=false;
+  $("resign").textContent="投了する";
+}
+$("gameMenu").addEventListener("toggle",()=>{
+  if(!$("gameMenu").open)resetResignButton();
+});
 $("resign").onclick=()=>{
+  if(!resignArmed) {
+    resignArmed=true;
+    $("resign").textContent="もう一度押すと投了";
+    return;
+  }
+  resetResignButton();
   $("gameMenu").open=false;
-  if(confirm("投了しますか？"))submitMove("resign");
+  submitMove("resign");
 };
 function resetLocalBoard() {
   if (room || gameMode!=="local") return;
-  if((game.moveNumber>0 || candidate!==null || game.status!=="playing") &&
-     !confirm("新しい対局を始めますか？ 現在の棋譜は履歴に保存されます。"))return;
+  // The current match stays in the saved-game library; no modal is needed.
   if(!save())return;
   $("gameMenu").open=false;
   clearTimeout(analysisTimer);
@@ -694,8 +707,8 @@ function leaveOnlineRoom() {
 function switchToLocal() {
   $("gameMenu").open=false;
   if(gameMode==="local" && !room){closePanels();return;}
-  if(needsSwitchConfirmation(game,gameMode,"local",connected) &&
-    !confirm("現在の対局を離れて、1台で打つモードに切り替えますか？"))return;
+  if(room && connected &&
+    !confirm("友人との対局から離れて、1台で打つモードに切り替えますか？"))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
   stopAiTurn();gameMode="local";
@@ -788,7 +801,7 @@ function showInviteLink() {
 }
 function ensureRoom() {
   if (room) return showInviteLink();
-  if (needsSwitchConfirmation(game,gameMode,"online",connected) && !confirm("現在の対局を離れて、友人対局を開始しますか？")) return null;
+  // The previous local/AI game remains accessible from history.
   if(!save())return null;
   // This room ID is purely random: the Durable Object room is created lazily by
   // the first WebSocket connection. No async fetch is required here, preserving
@@ -1095,8 +1108,8 @@ $("startAi").onclick=()=>{
     $("aiMatchStatus").textContent="AI対局を開始できません。";
     return;
   }
-  if((game.moveNumber>0 || connected) &&
-     !confirm("現在の対局を離れて、AIと新しい対局を始めますか？"))return;
+  if(room && connected &&
+     !confirm("友人との対局から離れて、AIと新しい対局を始めますか？"))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
   stopAiTurn();
