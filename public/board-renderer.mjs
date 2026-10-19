@@ -109,21 +109,18 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   function paintRegionLabels(regions,gap,pad){
-    const fontSize=Math.max(20,Math.round(gap*.3));
+    const fontSize=Math.max(18,Math.round(gap*.36));
     for(const region of regions){
       const index=region.position;
       if(!Number.isInteger(index))continue;
       const x=pad+(index%SIZE)*gap,y=pad+Math.floor(index/SIZE)*gap;
       const label=String(region.count);
-      // No box: a halo in the opposite colour keeps the bare number legible
-      // on stones, territory markers and the board alike.
+      // The label always sits on a stone or marker of the region's colour,
+      // so plain text in the opposite tone is legible without a box or halo.
       ctx.save();
-      ctx.font="700 "+fontSize+"px system-ui, sans-serif";
+      ctx.font="600 "+fontSize+"px Inter, system-ui, -apple-system, sans-serif";
       ctx.textAlign="center";ctx.textBaseline="middle";
-      ctx.lineJoin="round";ctx.lineWidth=Math.max(3,fontSize*.22);
-      ctx.strokeStyle=region.color===BLACK?"#141b1e":"#fdfaf0";
-      ctx.strokeText(label,x,y+1);
-      ctx.fillStyle=region.color===BLACK?"#fffaed":"#20282b";
+      ctx.fillStyle=region.color===BLACK?"#f6efdc":"#2a2f31";
       ctx.fillText(label,x,y+1);ctx.restore();
     }
   }

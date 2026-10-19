@@ -49,7 +49,7 @@ test("renderer paints one area label per connected region only for scored games"
   game.board[at(3,4)]=0;game.board[at(5,4)]=0;
   const labels=[];
   const ctx={
-    save(){},restore(){},clearRect(){},fillRect(){},strokeText(){},beginPath(){},moveTo(){},
+    save(){},restore(){},clearRect(){},fillRect(){},beginPath(){},moveTo(){},
     lineTo(){},arc(){},fill(){},stroke(){},setLineDash(){},fillText(t){labels.push(t);},
     createRadialGradient(){return {addColorStop(){}}}
   };
@@ -71,7 +71,7 @@ test("scoring overlay is never drawn in active game replay",()=>{
   const state={...newGame(),status:"scoring",board:Array(81).fill(WHITE)};
   const labels=[];
   const ctx={
-    save(){},restore(){},clearRect(){},fillRect(){},strokeText(){},beginPath(){},
+    save(){},restore(){},clearRect(){},fillRect(){},beginPath(){},
     moveTo(){},lineTo(){},arc(){},fill(){},stroke(){},setLineDash(){},
     fillText(text){labels.push(text);},createRadialGradient(){return {addColorStop(){}};}
   };
