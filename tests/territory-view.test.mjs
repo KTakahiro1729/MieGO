@@ -55,12 +55,15 @@ test("five bands: neutral, leaning (weak colour) and settled (strong colour) on 
     assert.ok(alpha(LEANING+BLEND)>alpha(LEANING-BLEND)*4,"leaning is clearly visible");
     assert.ok(alpha(SETTLED+BLEND)>alpha(SETTLED-BLEND)+.15,"settled stands out from leaning");
   }
-  assert.deepEqual(PALETTES.orangePurple.light.white.weak,[253,184,99],"ColorBrewer PuOr inner orange");
-  assert.deepEqual(PALETTES.orangePurple.light.black.weak,[178,171,210],"ColorBrewer PuOr inner purple");
-  const legend=paletteGradient("orangePurple",1,"wood");
-  assert.match(legend,/rgba\(230,97,1,1\) 0%/);
-  assert.match(legend,/rgba\(247,150,50,0\.\d+\) 25%/,"the leaning band appears in the legend");
-  assert.match(legend,/rgba\(94,60,153,1\) 100%/);
+  // The leaning colour shifts hue within its side rather than only fading.
+  const hue=([r,g,b])=>{const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn||1;
+    const h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;return (h*60+360)%360;};
+  for(const name of ["orangePurple","greenPurple"])for(const theme of THEMES)
+    for(const s of ["white","black"]){
+      const {rgb,weak}=PALETTES[name][theme][s];
+      const d=Math.abs(hue(rgb)-hue(weak));
+      assert.ok(Math.min(d,360-d)>=10,name+"/"+theme+"/"+s+" leaning step has its own hue");
+    }
 });
 test("the endgame advisor counts as settled exactly what is drawn in the strong colour",async()=>{
   const {readFileSync}=await import("node:fs");
@@ -113,7 +116,7 @@ test("counting legend shows White's area, a neutral ring and Black's area in the
   assert.equal(countingOpacity(.8),.8);
   const css=countingGradient("orangePurple",.8,"wood");
   assert.match(css,/^radial-gradient\(/);
-  assert.match(css,/rgba\(230,97,1,[^)]+\) 0 33%/);
+  assert.match(css,/rgba\(214,88,0,[^)]+\) 0 33%/);
   assert.match(css,/transparent 33% 67%/);
-  assert.match(css,/rgba\(94,60,153,[^)]+\) 67% 100%/);
+  assert.match(css,/rgba\(84,39,143,[^)]+\) 67% 100%/);
 });

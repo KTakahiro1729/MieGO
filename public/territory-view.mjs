@@ -13,20 +13,24 @@ const side = (rgb,weak,gain) => Object.freeze({rgb:Object.freeze(rgb),weak:Objec
 const sides = (white,black) => Object.freeze({white,black});
 export const PALETTES = Object.freeze({
   mono: Object.freeze({
-    wood: sides(side([246,249,255],[196,204,216],3),side([22,26,34],[82,88,100],.65)),
-    light: sides(side([255,255,255],[226,230,236],2.5),side([16,20,28],[72,78,90],.7)),
+    wood: sides(side([246,249,255],[196,204,216],3),side([22,26,34],[58,63,76],.65)),
+    light: sides(side([255,255,255],[226,230,236],2.5),side([16,20,28],[58,63,76],.7)),
     dark: sides(side([240,248,255],[150,166,182],.5),side([0,2,8],[14,20,30],2.6))
   }),
-  // ColorBrewer 5-class PuOr / PRGn (outer and inner hues), re-lit per board.
+  // After matplotlib's diverging maps. The inner colour is not a paler
+  // in-between: it shifts hue within the side, so a leaning point still says
+  // which side it leans to. PuOr's orange and purple with managua's amber
+  // and vanimo's magenta for the leaning steps.
   orangePurple: Object.freeze({
-    wood: sides(side([230,97,1],[247,150,50],1.5),side([94,60,153],[178,171,210],.8)),
-    light: sides(side([230,97,1],[253,184,99],1.3),side([94,60,153],[178,171,210],.95)),
-    dark: sides(side([245,150,50],[253,200,140],.7),side([120,80,190],[178,171,210],1.5))
+    wood: sides(side([214,88,0],[255,196,40],1.5),side([84,39,143],[190,90,200],.8)),
+    light: sides(side([214,88,0],[255,190,30],1.3),side([84,39,143],[190,90,200],.95)),
+    dark: sides(side([245,140,40],[255,215,90],.7),side([150,100,230],[225,130,215],1.5))
   }),
+  // PRGn's green and purple with PiYG's lime and pink for the leaning steps.
   greenPurple: Object.freeze({
-    wood: sides(side([90,190,120],[166,219,160],2.2),side([84,39,120],[194,165,207],.75)),
-    light: sides(side([90,190,120],[166,219,160],2.2),side([84,39,120],[194,165,207],.75)),
-    dark: sides(side([110,215,160],[180,235,190],.7),side([120,80,190],[194,165,207],1.5))
+    wood: sides(side([27,120,55],[170,220,60],1.6),side([118,42,131],[222,119,174],.8)),
+    light: sides(side([27,120,55],[160,215,50],1.6),side([118,42,131],[222,119,174],.9)),
+    dark: sides(side([90,200,110],[200,240,110],.7),side([160,100,220],[240,150,200],1.5))
   })
 });
 // "Hide the ownership overlay" is one of the colour-map choices, not a game setting.
