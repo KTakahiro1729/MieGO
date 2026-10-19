@@ -1,4 +1,4 @@
-import {neighbors,SIZE} from "./core.mjs";
+import {neighbors,SIZE,sizeOf} from "./core.mjs";
 
 // Beginner-friendly strength levels. "strong" keeps the original
 // temperature-sampled KataGo policy. The weaker levels follow KaTrain's
@@ -32,7 +32,7 @@ export function pickCount(kyu, legalCount, boardSquares=SIZE*SIZE) {
 // Filling a point surrounded only by your own stones almost never helps and
 // confuses beginners when the AI destroys its own eyes.
 export function fillsOwnEye(state, point) {
-  const adjacent=neighbors(point);
+  const adjacent=neighbors(point,sizeOf(state.board));
   return adjacent.every(n=>state.board[n]===state.next);
 }
 
@@ -64,13 +64,13 @@ export function pickWeakenedMove(candidates, passLogit, options={}) {
   // KaTrain's overrides: near the end (pass among the top five), forced-looking
   // moves such as captures or urgent defence are answered with the top move.
   if(hasPass && (ranked.length<5 || passProb>=ranked[4].prob))return best;
-  const squares=SIZE*SIZE;
+  const squares=options.state?.board?.length || SIZE*SIZE;
   const filled=(squares-ranked.length)/squares;
   if(top.prob>0.8*(1-0.5*filled))return top.position;
   if(ranked.length>1 && top.prob+ranked[1].prob>0.85+Math.max(0,0.02*(kyu-8)))
     return top.position;
   const pool=ranked.filter((c,i)=>i===0 || !fillsOwnEye(options.state,c.position));
-  const n=Math.min(pool.length,pickCount(kyu,ranked.length));
+  const n=Math.min(pool.length,pickCount(kyu,ranked.length,squares));
   // Uniform sample without replacement (Fisher-Yates prefix).
   for(let i=0;i<n;i++){
     const r=Math.max(0,Math.min(Number(random())||0,1-Number.EPSILON));

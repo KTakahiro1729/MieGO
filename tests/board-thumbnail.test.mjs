@@ -27,3 +27,13 @@ test("thumbnail rejects malformed boards instead of emitting markup",()=>{
   const board=Array(81).fill(0);board[0]="<script>";
   assert.doesNotMatch(boardThumbnailSvg(board),/script/);
 });
+
+test("13x13 and 19x19 thumbnails share the 90x90 view box with scaled spacing",()=>{
+  const big=play(newGame(true,{size:19}),at(18,18,19));
+  const svg=recordThumbnailSvg({snapshot:big});
+  assert.match(svg,/^<svg viewBox="0 0 90 90"/);
+  assert.equal((svg.match(/<circle[^>]*fill="#1c2427"/g)||[]).length,1);
+  assert.match(svg,/<circle cx="85" cy="85"/,"the far corner sits on the last line");
+  assert.equal((svg.match(/fill="#685537"\/>/g)||[]).length,9,"19x19 has nine star points");
+  assert.doesNotThrow(()=>boardThumbnailSvg(newGame(true,{size:13}).board));
+});

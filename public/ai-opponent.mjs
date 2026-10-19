@@ -1,5 +1,5 @@
 
-import {play,SIZE} from "./core.mjs";
+import {play} from "./core.mjs";
 import {personalityFeatures} from "./ai-personality.mjs";
 import {samplePolicyCandidate} from "./ai-policy-sampling.mjs";
 import {AI_STRENGTHS,pickWeakenedMove} from "./ai-strength.mjs";
@@ -13,7 +13,7 @@ const bounded = v => clamp(Number(v) || 0, 0, 100);
 export function legalAiMoves(state) {
   if (state.status !== "playing") return [];
   const moves = [];
-  for (let p=0; p<SIZE*SIZE; p++) {
+  for (let p=0; p<state.board.length; p++) {
     if (state.board[p]) continue;
     try { play(state,p); moves.push(p); } catch {}
   }
@@ -21,7 +21,7 @@ export function legalAiMoves(state) {
 }
 
 export function scorePolicyCandidates(state, logits, ownership, options={}) {
-  if(!logits || logits.length!==81)throw new Error("Invalid KataGo policy logits");
+  if(!logits || logits.length!==state.board.length)throw new Error("Invalid KataGo policy logits");
   const legal=legalAiMoves(state).filter(p=>Number.isFinite(logits[p]));
   if(!legal.length)return [];
   const best=Math.max(...legal.map(p=>logits[p]));

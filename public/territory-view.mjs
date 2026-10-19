@@ -77,7 +77,7 @@ export function paletteGradient(palette = DEFAULT_PALETTE, opacity = 1, theme = 
 }
 export function interpolateOwnership(from,to,progress) {
   const t=clamp(progress,0,1);
-  if (!Array.isArray(to) || to.length!==81) throw new Error("Invalid ownership map");
+  if (!Array.isArray(to) || ![81,169,361].includes(to.length)) throw new Error("Invalid ownership map");
   if (!Array.isArray(from) || from.length!==to.length) return [...to];
   return to.map((value,i)=>from[i]*(1-t)+value*t);
 }

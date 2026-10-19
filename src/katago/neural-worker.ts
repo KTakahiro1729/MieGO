@@ -21,7 +21,6 @@ let busy = false;
 async function prepare() {
   if (boot) return boot;
   boot = (async () => {
-    setBoardSize(9);
     setWasmPaths("/tfjs/");
     setThreadsCount(1); // Works without COOP/COEP and avoids heavy memory use on phones.
     let chosen = false;
@@ -47,11 +46,21 @@ async function prepare() {
   })();
   return boot;
 }
+/**
+ * Encode a position for the network. The fully convolutional network accepts
+ * any of MieGO's board sizes; the shared feature tables follow the position.
+ */
+function encode(state: unknown) {
+  const { size, ...pos } = toKataGoPosition(state);
+  setBoardSize(size);
+  const spatialFeatures = new Float32Array(size * size * 22);
+  const globalFeatures = new Float32Array(19);
+  return { size, pos, spatialFeatures, globalFeatures };
+}
 async function evaluate(state: unknown) {
   if (!model) throw new Error("Model not initialized");
-  const pos = toKataGoPosition(state);
-  const spatialFeatures = new Float32Array(9 * 9 * 22);
-  const globalFeatures = new Float32Array(19);
+  const { size, pos, spatialFeatures, globalFeatures } = encode(state);
+  const area = size * size;
   fillInputsV7FastForPosition({
     ...pos,
     // KataGo's NN komi input already includes the handicap bonus (selfKomi).
@@ -61,7 +70,7 @@ async function evaluate(state: unknown) {
     outSpatial: spatialFeatures,
     outGlobal: globalFeatures
   });
-  const spatial = tf.tensor4d(spatialFeatures, [1, 9, 9, 22]);
+  const spatial = tf.tensor4d(spatialFeatures, [1, size, size, 22]);
   const global = tf.tensor2d(globalFeatures, [1, 19]);
   let output: ReturnType<KataGoModelV8Tf["forward"]> | undefined;
   try {
@@ -78,14 +87,14 @@ async function evaluate(state: unknown) {
     const sign = pos.currentPlayer === "black" ? 1 : -1;
     const scale = model.postProcessParams.outputScaleMultiplier;
     const ownership = Array.from(owners, v => Math.tanh(v * scale) * sign);
-    if (ownership.length !== 81 || ownership.some(v => !Number.isFinite(v))
+    if (ownership.length !== area || ownership.some(v => !Number.isFinite(v))
       || !Number.isFinite(evaled.blackScoreLead) || !Number.isFinite(evaled.blackWinProb)) {
       throw new Error("Invalid KataGo neural network output");
     }
     // Policy for the player to move; the UI may show it as optional hints.
     const channels = model.policyOutChannels;
-    const policy = rawPolicy.length === 81 * channels
-      ? Array.from({ length: 81 }, (_, p) => rawPolicy[p * channels]) : null;
+    const policy = rawPolicy.length === area * channels
+      ? Array.from({ length: area }, (_, p) => rawPolicy[p * channels]) : null;
     let black = 0, white = whiteCompensation(state);
     for (const v of ownership) { black += (1 + v) / 2; white += (1 - v) / 2; }
     return {
@@ -102,15 +111,14 @@ async function evaluate(state: unknown) {
 }
 async function evaluateMovePolicy(state: unknown) {
   if (!model) throw new Error("KataGo model not initialized");
-  const pos = toKataGoPosition(state);
-  const spatialFeatures = new Float32Array(9 * 9 * 22);
-  const globalFeatures = new Float32Array(19);
+  const { size, pos, spatialFeatures, globalFeatures } = encode(state);
+  const area = size * size;
   fillInputsV7FastForPosition({
     ...pos, komi: whiteCompensation(state), rules: "chinese",
     conservativePassAndIsRoot: true,
     outSpatial: spatialFeatures, outGlobal: globalFeatures
   });
-  const spatial = tf.tensor4d(spatialFeatures, [1, 9, 9, 22]);
+  const spatial = tf.tensor4d(spatialFeatures, [1, size, size, 22]);
   const global = tf.tensor2d(globalFeatures, [1, 19]);
   let output: ReturnType<KataGoModelV8Tf["forward"]> | undefined;
   try {
@@ -119,16 +127,16 @@ async function evaluateMovePolicy(state: unknown) {
       output.policy.data(), output.policyPass.data(), output.ownership.data()
     ]);
     const channels = model.policyOutChannels;
-    if (raw.length !== 81 * channels || !pass.length)
+    if (raw.length !== area * channels || !pass.length)
       throw new Error("KataGo returned an unexpected policy shape");
-    const policy = Array.from({ length:81 }, (_, p) => raw[p * channels]);
+    const policy = Array.from({ length:area }, (_, p) => raw[p * channels]);
     if (!policy.every(Number.isFinite) || !Number.isFinite(pass[0]))
       throw new Error("KataGo policy logits are not finite");
     // Same sign convention as MieGO: +1 Black controls, -1 White controls.
     const sign = pos.currentPlayer === "black" ? 1 : -1;
     const scale = model.postProcessParams.outputScaleMultiplier;
     const ownership = Array.from(rawOwnership, v => Math.tanh(v * scale) * sign);
-    if (ownership.length !== 81 || !ownership.every(Number.isFinite))
+    if (ownership.length !== area || !ownership.every(Number.isFinite))
       throw new Error("KataGo ownership output is invalid");
     return { kind:"move", engine:"katago", backend, policy, passLogit:pass[0], ownership };
   } finally {

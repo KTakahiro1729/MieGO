@@ -26,7 +26,10 @@ test("SGF mainline picks first variation and handles escaped metadata safely",()
 });
 test("reject unsupported sizes, setup stones, illegal order, suicidal moves and malformed syntax",()=>{
  for(const sample of [
-   "(;GM[1]SZ[19];B[dd])",
+   "(;GM[1]SZ[15];B[dd])",
+   "(;GM[1];B[dd])",
+   "(;GM[1]SZ[9];B[jj])",
+   "(;GM[1]SZ[13];B[nn])",
    "(;GM[1]SZ[9]AB[aa];W[ee])",
    "(;GM[1]SZ[9];B[aa];B[bb])",
    "(;GM[1]SZ[9];B[zz])",
@@ -64,4 +67,20 @@ test("imported result and alternate komi are metadata, not new score calculation
  assert.equal(parsed.snapshot.status,"finished");
  assert.equal(parsed.snapshot.result,"W+R");
  assert.ok(exportSGF({snapshot:parsed.snapshot,sgfMeta:parsed.metadata}).includes("KM[6.5]"));
+});
+
+test("13x13 and 19x19 SGFs round-trip with their size, star-point handicap and tt passes",()=>{
+ const parsed=parseSGF("(;GM[1]FF[4]SZ[19]HA[6]AB[pd][dp][pp][dd][dj][pj];W[jj];B[tt];W[ss])");
+ assert.equal(parsed.snapshot.board.length,361);
+ assert.equal(parsed.snapshot.moves[1].position,null,"tt is a pass on 19x19");
+ assert.equal(parsed.snapshot.board[18*19+18],-1);
+ const text=exportSGF(parsed.snapshot);
+ assert.match(text,/SZ\[19\]/);
+ assert.match(text,/HA\[6\]AB\[pd\]\[dp\]\[pp\]\[dd\]\[dj\]\[pj\]/);
+ assert.equal(parseSGF(text).snapshot.board.join(""),parsed.snapshot.board.join(""));
+ const small=parseSGF("(;GM[1]SZ[13];B[mm];W[gg])");
+ assert.equal(small.snapshot.board[12*13+12],1);
+ assert.equal(small.snapshot.board[6*13+6],-1);
+ assert.throws(()=>parseSGF("(;GM[1]SZ[13]AB[jd][dj][jj][dd][gg][dg];W[aa])"),/置き石/,
+   "six stones must use the side stars, not tengen");
 });

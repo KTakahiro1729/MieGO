@@ -1,4 +1,4 @@
-import { SIZE, BLACK, play } from "./core.mjs";
+import { BLACK, play, sizeOf } from "./core.mjs";
 import { formatBoardForAi, AI_BOARD_LEGEND, AI_SELECTED_POINT } from "./board-text.mjs";
 
 export const ILLEGAL_SUICIDE = "suicide";
@@ -17,7 +17,7 @@ export function forbiddenMoveReason(error) {
  * A forbidden preview is separate from committed game state. */
 export function inspectProvisionalMove(game,position) {
   if(game.status!=="playing" || !Number.isInteger(position) ||
-     position<0 || position>=SIZE*SIZE || game.board[position]!==0)
+     position<0 || position>=game.board.length || game.board[position]!==0)
     return {candidate:null,forbidden:null};
   try {return {candidate:play(game,position),forbidden:null};}
   catch(error) {
@@ -31,7 +31,7 @@ export function inspectProvisionalMove(game,position) {
 export function illegalMoveReasons(state) {
   const result=new Map();
   if(state.status!=="playing")return result;
-  for(let i=0;i<SIZE*SIZE;i++) {
+  for(let i=0;i<state.board.length;i++) {
     if(state.board[i])continue;
     const {forbidden}=inspectProvisionalMove(state,i);
     if(forbidden)result.set(i,forbidden.reason);
@@ -54,13 +54,13 @@ export function makeIllegalMovePrompt(game,forbidden,reviewUrl) {
   let before="";
   if(forbidden.reason===ILLEGAL_KO && game.history?.length>=2) {
     const hash=game.history.at(-2);
-    if(typeof hash==="string" && hash.length===SIZE*SIZE && /^[012]+$/.test(hash)) {
+    if(typeof hash==="string" && hash.length===game.board.length && /^[012]+$/.test(hash)) {
       const previous=[...hash].map(n=>Number(n)-1);
       before="\n\n直前の着手前の盤面：\n"+formatBoardForAi(previous);
     }
   }
   return [
-    "MieGO・9路盤の着手確認",
+    "MieGO・"+sizeOf(game.board)+"路盤の着手確認",
     "手番："+color+"、選択した空点は図中の◇です。",
     "禁止理由："+reasons[forbidden.reason],
     "なぜこの手が打てないのか、盤面と囲碁のルールに沿って説明してください。",
