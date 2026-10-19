@@ -385,6 +385,7 @@ function show() {
   $("hint").textContent=candidate?"仮置き中。確定か取り消しを選べます":
     game.status==="scoring"?"盤上の石をタップすると死石を指定できます":
     gameMode==="ai" && fallbackMode?"KataGoを利用できないためAI対局は停止中":
+    gameMode==="ai" && !katagoReady?"KataGoの準備ができるまで待機中":
     isAiTurn()?"AIが着手を計算しています":"";
   $("confirm").disabled=!candidate || !myTurn;
   $("cancel").disabled=!candidate;
