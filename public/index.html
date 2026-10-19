@@ -147,17 +147,25 @@
         </fieldset>
         <details class="info-disclosure colour-editor" id="colourEditor">
           <summary>色を調整</summary>
-          <p class="explanation">左から白の地（確定）、白寄り、黒寄り、黒の地（確定）です。変えると「カスタム」になります。</p>
-          <div class="colour-inputs">
-            <label><input type="color" id="colour-whiteSettled" aria-label="白の地（確定）の色"><span>白の地</span></label>
-            <label><input type="color" id="colour-whiteLeaning" aria-label="白寄りの色"><span>白寄り</span></label>
-            <label><input type="color" id="colour-blackLeaning" aria-label="黒寄りの色"><span>黒寄り</span></label>
-            <label><input type="color" id="colour-blackSettled" aria-label="黒の地（確定）の色"><span>黒の地</span></label>
+          <div class="ramp-card">
+            <div class="ramp-ends" aria-hidden="true"><span class="ramp-stone white"></span><span>白の地</span><span class="ramp-spacer"></span><span>黒の地</span><span class="ramp-stone black"></span></div>
+            <div class="ramp-track">
+              <div class="ramp-preview" id="rampPreview" aria-hidden="true"></div>
+              <span class="ramp-neutral" aria-hidden="true"></span>
+              <label class="ramp-stop" style="--at:0%"><input type="color" id="colour-whiteSettled" aria-label="白の地（確定）の色"></label>
+              <label class="ramp-stop" style="--at:27%"><input type="color" id="colour-whiteLeaning" aria-label="白寄りの色"></label>
+              <label class="ramp-stop" style="--at:73%"><input type="color" id="colour-blackLeaning" aria-label="黒寄りの色"></label>
+              <label class="ramp-stop" style="--at:100%"><input type="color" id="colour-blackSettled" aria-label="黒の地（確定）の色"></label>
+            </div>
+            <div class="ramp-captions" aria-hidden="true"><span style="--at:0%">確定</span><span style="--at:27%">寄り</span><span style="--at:50%">中立</span><span style="--at:73%">寄り</span><span style="--at:100%">確定</span></div>
+            <p class="ramp-hint">丸をタップして色を選ぶと「カスタム」になります。</p>
           </div>
           <fieldset class="shape-choices">
             <legend>濃さの付き方</legend>
-            <label><input type="radio" name="opacityShape" value="V" checked><span>V字（傾きに比例）</span></label>
-            <label><input type="radio" name="opacityShape" value="U"><span>U字（決まった所を強調）</span></label>
+            <div class="segmented">
+              <label><input type="radio" name="opacityShape" value="V" checked><span><svg viewBox="0 0 40 20" aria-hidden="true"><path d="M3 3 20 17 37 3"/></svg>V字<small>傾きに比例</small></span></label>
+              <label><input type="radio" name="opacityShape" value="U"><span><svg viewBox="0 0 40 20" aria-hidden="true"><path d="M3 3C10 3 13 17 20 17S30 3 37 3"/></svg>U字<small>決まった所を強調</small></span></label>
+            </div>
           </fieldset>
         </details>
         <label for="opacity">色の濃さ（最大）</label>

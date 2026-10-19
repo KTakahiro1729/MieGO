@@ -1023,6 +1023,9 @@ function updateGradient(){
   $("legendNeutral").hidden=!counting;
   $("ownershipLegend").classList.toggle("overlay-off",!counting && !overlayOn() ||
     game.status==="finished" && !counting);
+  // The editor's ramp shows the colours at full strength on the chosen board.
+  $("rampPreview").style.backgroundColor=surface;
+  $("rampPreview").style.backgroundImage=paletteGradient(showsOwnership(palette)?palette:PALETTE_CUSTOM,1);
   document.querySelectorAll(".swatch[data-palette]").forEach(swatch=>{
     const name=swatch.dataset.palette;
     swatch.style.backgroundColor=surface;
