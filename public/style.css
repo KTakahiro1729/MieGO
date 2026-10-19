@@ -357,9 +357,6 @@ body{overflow:hidden}
   border-radius:9px;font-size:11px;padding:4px 4px}
 .review-panel #reviewNotice:empty{display:none}
 .game-panel:has(.review-panel:not([hidden])){--board-reserve:380px}
-.history-share-actions{display:flex;gap:6px;margin-top:15px}
-.history-share-actions>button{flex:1;min-width:0;min-height:44px;
-  padding:7px 4px;font-size:11px;white-space:normal}
 @media(max-width:700px){
   .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:294px}
   .game-panel:has(.review-panel:not([hidden])){--board-reserve:369px}

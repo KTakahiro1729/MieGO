@@ -2,7 +2,6 @@ import {SIZE, BLACK} from "./core.mjs";
 import {ownershipPixel} from "./territory-view.mjs";
 import {illegalMoveReasons, drawIllegalMoveMarker} from "./illegal-moves.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
-import {scoringRegions} from "./scoring-regions.mjs";
 
 const STAR_POINTS = [[2,2],[6,2],[4,4],[2,6],[6,6]];
 
@@ -21,13 +20,6 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   // The cache is private to this renderer and the immutable committed game.
   let illegalCacheGame = null;
   let illegalCache = new Map();
-  let scoringCacheGame=null,scoringCache=null;
-  function currentScoringView(game) {
-    if(scoringCacheGame!==game){
-      scoringCacheGame=game;scoringCache=scoringRegions(game);
-    }
-    return scoringCache;
-  }
 
   function paintGrid(d, gap, pad) {
     ctx.clearRect(0,0,d,d);
@@ -50,7 +42,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const {game,boardReview,displayedOwnership,palette,opacity} = view;
     const shown = boardReview?.display||game;
     const values = boardReview ? boardReview.ownership : displayedOwnership;
-    if((!boardReview && game.status!=="playing") || !shown.assisted || !values)return;
+    if(!shown.assisted || !values)return;
 
     const image = overlayContext.createImageData(SIZE,SIZE);
     for(let i=0;i<SIZE*SIZE;i++) {
@@ -113,45 +105,13 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     ctx.restore();
   }
 
-  function paintCountingStones(game,scoreView,gap,pad,finished) {
-    const dead=new Set(game.dead||[]);
-    for(let i=0;i<scoreView.filled.length;i++){
-      const color=scoreView.filled[i];
-      if(!color || (game.board[i] && !(finished&&dead.has(i))))continue;
-      const x=pad+i%SIZE*gap,y=pad+Math.floor(i/SIZE)*gap;
-      ctx.save();ctx.beginPath();ctx.arc(x,y,gap*.35,0,Math.PI*2);
-      ctx.fillStyle=color===BLACK?"rgba(19,26,29,.50)":"rgba(253,251,240,.78)";
-      ctx.fill();ctx.setLineDash([3,3]);
-      ctx.strokeStyle=color===BLACK?"#394342":"#918b7c";
-      ctx.lineWidth=1.7;ctx.stroke();ctx.restore();
-    }
-  }
-  function paintCountingLabels(regions,gap,pad){
-    const fontSize=Math.max(21,gap*.33);
-    for(const region of regions){
-      const i=region.position;if(!Number.isInteger(i))continue;
-      const x=pad+i%SIZE*gap,y=pad+Math.floor(i/SIZE)*gap;
-      const label=region.count+"目";
-      const width=label.length*fontSize*.70+12,height=fontSize+8;
-      ctx.save();
-      ctx.fillStyle=region.color===BLACK?"rgba(22,30,34,.96)":"rgba(250,247,238,.98)";
-      ctx.fillRect(x-width/2,y-height/2,width,height);
-      ctx.strokeStyle=region.color===BLACK?"#e1bd74":"#756d60";
-      ctx.lineWidth=2;ctx.strokeRect(x-width/2,y-height/2,width,height);
-      ctx.fillStyle=region.color===BLACK?"#fffaf0":"#1c2225";
-      ctx.font="700 "+fontSize+"px system-ui, sans-serif";
-      ctx.textAlign="center";ctx.textBaseline="middle";
-      ctx.fillText(label,x,y+1);ctx.restore();
-    }
-  }
   function paintStones(view, display, gap, pad) {
     const {game,boardReview,candidate} = view;
     const proposedBoard = boardReview ? null : candidate?.board;
     const preview = boardReview ? null : candidate?.moves.at(-1)?.position;
     for(let i=0;i<display.board.length;i++) {
       const {color,captured} = stoneForPreview(display.board, proposedBoard, i);
-      if(!color || (game.status==="finished" && !game.result?.endsWith("+R") &&
-        game.dead?.includes(i) && !boardReview))continue;
+      if(!color)continue;
       const x=pad+(i%SIZE)*gap;
       const y=pad+Math.floor(i/SIZE)*gap;
       const r=gap*.44;
@@ -199,13 +159,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     paintGrid(d,gap,pad);
     paintOwnership(view,gap,pad);
     paintIllegalMarkers(view,gap,pad);
-    const finishedScore=game.status==="finished" && !game.result?.endsWith("+R");
-    const scoreView=!boardReview && (game.status==="scoring"||finishedScore)?
-      currentScoringView(game):null;
-    if(scoreView)paintCountingStones(game,scoreView,gap,pad,finishedScore);
     paintStarPoints(gap,pad);
     paintStones(view,display,gap,pad);
-    if(scoreView)paintCountingLabels(scoreView.regions,gap,pad);
     paintLastMove(view,display,gap,pad);
   }
   return {draw};

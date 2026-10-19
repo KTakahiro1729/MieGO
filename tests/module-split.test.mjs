@@ -54,13 +54,14 @@ test("board renderer preserves provisional capture, confirmation and cancel visi
   assert.equal(stone(100,150),undefined);
 });
 
-test("history panel exposes selected-record state without mutating the live match",()=>{
+test("history panel is only a list and importer; main board owns replay state",()=>{
   const history=createHistoryPanel({
     $:()=>{throw Error("DOM not needed during construction");},
-    gameLibrary:{},storageError:()=>{}
+    gameLibrary:{},storageError:()=>{},onSelect:()=>{}
   });
-  assert.equal(history.selection,null);
-  assert.equal(history.step,0);
-  assert.equal(typeof history.showHistoryRecord,"function");
+  assert.equal(typeof history.renderHistoryList,"function");
+  assert.equal(typeof history.openHistoryPanel,"function");
   assert.equal(typeof history.importHistoryFile,"function");
+  assert.equal("selection" in history,false);
+  assert.equal("step" in history,false);
 });

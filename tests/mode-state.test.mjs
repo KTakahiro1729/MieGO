@@ -4,8 +4,8 @@ import {readFileSync} from "node:fs";
 import {gameStorageKey,parseGameSnapshot,needsSwitchConfirmation} from "../public/mode-state.mjs";
 const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
-test("three modes use the header native select",()=>{
-  for(const value of ["local","online","ai"])assert.match(html,new RegExp('option value="'+value+'"'));
+test("three playing modes and a saved-game browser use the header native select",()=>{
+  for(const value of ["local","online","ai","history"])assert.match(html,new RegExp('option value="'+value+'"'));
   assert.match(html,/id="modePicker"/);
 });
 test("settings is presentation-only, with credits and no board rotation",()=>{
@@ -55,14 +55,11 @@ test("a local reset creates an empty independent game while retaining display as
   assert.equal(previous.moveNumber,1);
   assert.equal(reset.moves.length,0);
 });
-test("direct game actions replace hidden menu, with local reset in settings",()=>{
-  const row=html.slice(html.indexOf('<div id="actionRow"'),html.indexOf('<section id="reviewPanel"'));
-  assert.ok(row.indexOf('id="pass"')<row.indexOf('id="resign"'));
-  assert.match(row,/id="newMatch"/);
-  assert.match(row,/id="openHistory"/);
-  assert.doesNotMatch(row,/<details|id="gameMenu"/);
-  assert.match(html,/id="resetLocalGame"/);
-  assert.match(html,/id="openHistorySettings"/);
+test("the game menu shares the action row with pass and keeps reset local-only",()=>{
+  const row=html.slice(html.indexOf('<div id="actionRow" class="action-row">'),html.indexOf('</details>',html.indexOf('id="gameMenu"'))+10);
+  assert.ok(row.indexOf('id="pass"') < row.indexOf('id="gameMenu"'));
+  assert.match(row,/id="resetLocalGame"/);
+  assert.match(row,/id="resign"/);
   assert.match(html,/id="cancel"[^>]*aria-label="仮置きを戻す"/);
   assert.match(app,/if \(room \|\| gameMode!=="local"\) return;/);
   assert.match(app,/resetLocalGame"\)\.hidden=!!room \|\| gameMode!=="local"/);
