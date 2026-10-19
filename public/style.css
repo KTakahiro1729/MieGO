@@ -460,3 +460,10 @@ body{overflow:hidden}
 .help-copy-status:empty{display:none}
 .help-copy-status{margin:10px 0 0}
 .help-copy-fallback{display:block;width:100%;margin:8px 0 12px;background:#141924;border:1px solid #666a73;border-radius:8px;color:#eee5d4;padding:10px;font-size:12px}
+.help-popover{position:fixed;z-index:12;width:min(340px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;
+  padding:6px 14px 4px;background:#202737;border:1px solid #556074;border-radius:var(--radius);box-shadow:0 14px 44px #000b}
+.help-popover-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.help-popover-head strong{font-size:14px}
+.help-popover-head .icon-button{margin-right:-10px}
+.help-popover-body .help-list{margin-top:0}
+.help-popover-body .explanation{margin:0 0 12px}
