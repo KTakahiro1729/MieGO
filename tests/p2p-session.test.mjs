@@ -49,3 +49,12 @@ test("before the first move the inviter's board size wins over a guest's default
   const played = play(host, 0);
   assert.equal(reconcileGame(played, 1, guest, 1, { localIsOwner: true }).kind, "conflict");
 });
+
+test("before the first move the inviter's handicap wins over a guest's even board", () => {
+  const host = newGame(true, { handicap: 3 }), guest = newGame();
+  assert.equal(reconcileGame(host, 0, guest, 0, { localIsOwner: true }).kind, "send");
+  const adopted = reconcileGame(guest, 0, host, 0, { localIsOwner: false });
+  assert.equal(adopted.kind, "adopt");
+  assert.equal(adopted.game.handicap, 3);
+  assert.equal(adopted.game.next, WHITE);
+});

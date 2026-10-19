@@ -51,10 +51,13 @@ let ownerColor=null,onlineSession=null,guestInviteKey=null,issuedSide=null,onlin
 let p2pTransport;
 const myOnlineColor=()=>ownerColor===null?null:playerColor(p2pRole,ownerColor);
 const currentSideSelection=()=>document.querySelector('input[name="onlineSide"]:checked')?.value||"random";
+// Before play starts, a changed side, board size or handicap calls for a new invitation.
+const inviteMatchesChoice=()=>issuedSide===currentSideSelection() &&
+  (connected || game.moveNumber>0 || (sizeOf(game.board)===boardSize && handicapOf(game)===onlineHandicap));
 function renderInviteButton() {
   $("copy").disabled=!!room && p2pRole!=="owner";
   $("copy").textContent=!room?"招待リンクを準備する":
-    issuedSide!==null && currentSideSelection()!==issuedSide?
+    issuedSide!==null && !inviteMatchesChoice()?
       "新しい設定で招待リンクを作り直す":"招待リンクをコピー";
 }
 function persistOnline(){
@@ -73,10 +76,10 @@ const storedOpacity = Number(localStorage.getItem("miego-opacity"));
 let opacity = Number.isFinite(storedOpacity) && storedOpacity>=0 && storedOpacity<=1 && localStorage.getItem("miego-opacity")!==null ? storedOpacity : .55;
 let connected = false;
 let gameMode = room ? "online" : "local";
-let humanColor = BLACK, aiLevel = "standard", invasion = 50, reinforcement = 50;
+let humanColor = BLACK, invasion = 50, reinforcement = 50;
 let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNotice = null;
 let aiSideChoice = "black";
-let aiHandicap = 0, localHandicap = 0;
+let aiHandicap = 0, localHandicap = 0, onlineHandicap = 0;
 // Up to nine stones; newGame() caps the count for the chosen board (9x9: five).
 const toHandicap = value => handicapOf({handicap:Number(value)},19);
 // The board size for the next new game in any mode; a running game keeps its own.
@@ -105,7 +108,7 @@ const {renderHistoryList,importHistoryFile}=historyPanel;
 function setBackgroundInert(on){
   for(const el of document.querySelectorAll(".topbar,.game-layout"))el.inert=on;
 }
-function openHistoryPanel(){setBackgroundInert(true);historyPanel.openHistoryPanel();}
+function openHistoryPanel(){openPanel("history");}
 // The actual match always remains in 'game'; only the visible board is replayed.
 let boardReview=null,reviewWorker=null,reviewSequence=0;
 try {gameLibrary.migrateLegacy();}
@@ -201,13 +204,25 @@ function stopAiTurn() {
 function rememberSettings() {
   try {
     localStorage.setItem("miego-local-settings", JSON.stringify({
-      mode:gameMode,humanColor,aiSide:aiSideChoice,aiLevel,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap,boardSize
+      mode:gameMode,humanColor,aiSide:aiSideChoice,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap,onlineHandicap,boardSize
     }));
   } catch {}
 }
+// Step sliders name each stop under the bar and show the chosen stop's note below it.
+function syncStepSlider(id) {
+  const input=$(id),stops=[...$(id+"Row").querySelectorAll(".step-ticks span")];
+  const index=Math.round((Number(input.value)-Number(input.min))/Number(input.step));
+  stops.forEach((stop,i)=>stop.classList.toggle("is-current",i===index));
+  $(id+"Value").textContent=stops[index]?.textContent||"";
+  $(id+"Note").textContent=stops[index]?.dataset.note||"";
+}
+// Invasion and reinforcement have three stops; older saves with any 0-100 value snap to the nearest.
+const personaStep=value=>Math.round(Math.max(0,Math.min(100,Number(value??50)||0))/50)*50;
+const personaLabel=value=>value<50?"控える":value>50?"重視":"ふつう";
 function updatePersonaUi() {
-  $("aiInvasionValue").textContent = invasion + "%";
-  $("aiReinforcementValue").textContent = reinforcement + "%";
+  $("aiInvasion").value=String(invasion);
+  $("aiReinforcement").value=String(reinforcement);
+  syncStepSlider("aiInvasion");syncStepSlider("aiReinforcement");
 }
 
 let displayedOwnership = null, transitionFrame = null;
@@ -347,10 +362,10 @@ function finishAiMove(result) {
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
       ownership:result.ownership,endgameStage:passStage,
       invasion,reinforcement,strength:aiStrength,
-      temperature:aiLevel==="gentle"?1.05:0.38
+      temperature:0.38
     });
-    $("aiMatchStatus").textContent = "強さ「"+AI_STRENGTHS[aiStrength].label+"」・侵入度 "+invasion+
-      "% / 補強度 "+reinforcement+"% で対局中（探索なし）";
+    $("aiMatchStatus").textContent = "強さ「"+AI_STRENGTHS[aiStrength].label+"」・侵入度「"+personaLabel(invasion)+
+      "」・補強度「"+personaLabel(reinforcement)+"」で対局中（探索なし）";
     submitMove(next,true);
   } catch(error) {
     switchToFallback(error instanceof Error?error.message:String(error));
@@ -436,7 +451,6 @@ function show() {
   $("startAi").disabled=!katagoReady || fallbackMode;
   $("startAi").textContent=fallbackMode?"KataGoが利用できません":
     !katagoReady?"KataGo準備中…":gameMode==="ai"?"設定して再戦":"AIと対局を始める";
-  $("aiLevel").disabled=false;
   $("aiInvasion").disabled=false;
   $("aiReinforcement").disabled=false;
   $("turn").classList.toggle("white-to-play",game.next===WHITE);
@@ -938,7 +952,7 @@ function updateGradient(){
 function save(){
   try {
     const record=gameLibrary.save({id:currentGameId,mode:room?"online":gameMode,
-      roomId:room||null,snapshot:game,lastPosition,humanColor,aiLevel,aiStrength,invasion,reinforcement,seat},currentRevision);
+      roomId:room||null,snapshot:game,lastPosition,humanColor,aiStrength,invasion,reinforcement,seat},currentRevision);
     currentGameId=record.id;currentRevision=record.revision;
     if(!room)gameLibrary.setActive(gameMode,record.id);
     if(room)persistOnline();
@@ -953,9 +967,8 @@ function savedGame(mode) {
   lastPosition=record?.lastPosition??null;
   if(mode==="ai" && record){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
-    aiLevel=record.aiLevel==="gentle"?"gentle":"standard";
     aiStrength=normalizeStrength(record.aiStrength);
-    invasion=record.invasion;reinforcement=record.reinforcement;
+    invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
   }
   return record?.snapshot||newGame(true,{size:boardSize});
 }
@@ -970,7 +983,7 @@ function leaveOnlineRoom() {
   history.replaceState(null,"",oldUrl.pathname+oldUrl.search);
   $("inviteDetails").classList.add("hidden");
   $("inviteStatus").textContent="";
-  $("roomInfo").textContent="URLを共有すると、別の端末から対局に参加できます。";
+  $("roomInfo").textContent="";
 }
 /** Resume the unfinished saved game of another offline mode (1台 or AI). */
 function resumeModeGame(mode) {
@@ -990,7 +1003,7 @@ function resumeModeGame(mode) {
  * (leaving any replay), or the unfinished saved game of another offline mode.
  */
 function returnTarget(kind) {
-  if(kind===(room?"online":gameMode))
+  if(kind==="history" || kind===(room?"online":gameMode))
     return {mode:null,label:"現在の対局に戻る"};
   if(kind==="online")return null; // friend rooms reopen from the saved games
   let record=null;
@@ -1087,8 +1100,8 @@ function showInviteLink() {
 async function beginOnlineRoom(){
   const choice=currentSideSelection();
   if(room&&p2pRole!=="owner")throw Error("作成者だけが招待を更新できます");
-  if(room&&issuedSide===choice)return showInviteLink();
-  if(room&&(connected||game.moveNumber>0))throw Error("対局開始後は色を変更できません");
+  if(room&&inviteMatchesChoice())return showInviteLink();
+  if(room&&(connected||game.moveNumber>0))throw Error("対局開始後は設定を変更できません");
   if(room&&!confirm("古い招待URLを無効化して、新しい設定で作り直しますか？"))return null;
   if(!room && game.moveNumber>0 &&
      !confirm("現在の対局を離れて、友人と新しく対局しますか？"))return null;
@@ -1105,7 +1118,7 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  game=newGame(true,{size:boardSize});candidate=null;lastPosition=null;
+  game=newGame(true,{handicap:onlineHandicap,size:boardSize});candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
@@ -1115,7 +1128,7 @@ async function beginOnlineRoom(){
 }
 async function copyLink(){
   try{
-    if(!room||(issuedSide!==null&&issuedSide!==currentSideSelection())){
+    if(!room||(issuedSide!==null&&!inviteMatchesChoice())){
       $("copy").disabled=true;
       const url=await beginOnlineRoom();
       if(url)$("inviteStatus").textContent="招待を準備しました。もう一度押すとコピーできます。";
@@ -1128,7 +1141,7 @@ async function copyLink(){
   }catch(error){$("inviteStatus").textContent=error.message;}
   finally{renderInviteButton();}
 }
-/** kind: "settings", or a 新規対戦 mode ("local", "ai", "online"). */
+/** kind: "settings", or a 新規対戦 tab ("local", "ai", "online", "history"). */
 function openPanel(kind) {
   setBackgroundInert(true);
   $("settingsBackdrop").hidden=false;
@@ -1147,8 +1160,13 @@ function showNewGameMode(kind) {
   $("localSetup").hidden=kind!=="local";
   $("onlineSetup").hidden=kind!=="online";
   $("aiSetup").hidden=kind!=="ai";
-  // Friend matches are always even games.
-  $("handicapSetup").hidden=kind==="online";
+  // 履歴 swaps the game options for the saved-game list in the same sheet.
+  $("historySetup").hidden=kind!=="history";
+  $("newGameSetup").hidden=kind==="history";
+  $("modePanel").scrollTop=0;
+  if(kind==="history")historyPanel.showHistory();
+  $("aiSideRow").hidden=$("aiStrengthRow").hidden=$("aiOptions").hidden=kind!=="ai";
+  $("onlineSideRow").hidden=kind!=="online";
   syncReturnButton(kind);
   syncHandicapUi();
   if(kind==="online" && room)showInviteLink();
@@ -1164,7 +1182,8 @@ for(const input of document.querySelectorAll('input[name="boardSize"]')) {
     // 9x9 has five star points, so a larger handicap is reduced to five.
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
-    syncHandicapUi();rememberSettings();
+    onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
+    syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
 function reviewFeedback(message){
@@ -1402,7 +1421,7 @@ function openSavedBoard(record) {
     $("moveLabel").focus();
   }catch(error){
     $("historySaveNotice").textContent="棋譜を表示できません："+error.message;
-    if($("historyPanel").hidden)openHistoryPanel();
+    if($("historySetup").hidden)openHistoryPanel();
   }
 }
 function exportReviewSGF(){
@@ -1470,14 +1489,12 @@ function resumeSelectedReview(){
   lastPosition=record.lastPosition;candidate=null;
   if(gameMode==="ai"){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
-    aiLevel=record.aiLevel;invasion=record.invasion;reinforcement=record.reinforcement;
+    invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
     aiStrength=normalizeStrength(record.aiStrength);syncStrengthUi();
     // A random preference stays random; a fixed one follows the resumed game.
     if(aiSideChoice!=="random")aiSideChoice=humanColor===WHITE?"white":"black";
     syncSideUi();
-    $("aiLevel").value=aiLevel;
-    $("aiInvasion").value=String(invasion);
-    $("aiReinforcement").value=String(reinforcement);updatePersonaUi();
+    updatePersonaUi();
   }
   endgameAdvisor.reset();endgameStage="playing";endExpanded=!!game.endProposal;
   lastOfferKey=null;deadReview=game.status==="scoring" &&
@@ -1497,10 +1514,8 @@ $("openCurrentMode").onclick=()=>{
 $("openHistory").onclick=openHistoryPanel;
 $("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
 $("openHistorySettings").onclick=openHistoryPanel;
-$("closeHistory").onclick=()=>{closePanels();$("newGameButton").focus();};
-$("openHistoryFromNew").onclick=openHistoryPanel;
 document.addEventListener("storage",e=>{
-  if(e.key?.startsWith("miego:game:v1:") && !$("historyPanel").hidden)renderHistoryList();
+  if(e.key?.startsWith("miego:game:v1:") && !$("historySetup").hidden)renderHistoryList();
 });
 function openSettings(){openPanel("settings");}
 function closePanels() {
@@ -1509,7 +1524,7 @@ function closePanels() {
   $("settingsBackdrop").hidden=true;
   $("settingsPanel").hidden=true;
   $("modePanel").hidden=true;
-  $("historyPanel").hidden=true;
+  $("historySetup").hidden=true;
   $("onlineSetup").hidden=true;
   $("aiSetup").hidden=true;
   $("localSetup").hidden=true;
@@ -1539,9 +1554,7 @@ $("startAi").onclick=()=>{
   // Otherwise: the same choices and the same random draw as a friend invitation.
   try{humanColor=aiHandicap?BLACK:selectColor(aiSideChoice);}
   catch(error){$("aiMatchStatus").textContent=error.message;return;}
-  aiLevel=$("aiLevel").value==="gentle"?"gentle":"standard";
-  aiStrength=normalizeStrength(document.querySelector('input[name="aiStrength"]:checked')?.value,
-    DEFAULT_AI_STRENGTH);
+  aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
   game=newGame(true,{handicap:aiHandicap,size:boardSize});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
@@ -1564,13 +1577,15 @@ function syncHandicapUi() {
   const sizeChoice=document.querySelector('input[name="boardSize"][value="'+boardSize+'"]');
   if(sizeChoice)sizeChoice.checked=true;
   // One set of handicap buttons shows the stored choice of the selected mode.
-  const ai=newGameModeKind()==="ai",shown=ai?aiHandicap:localHandicap;
+  const kind=newGameModeKind(),ai=kind==="ai";
+  const shown=ai?aiHandicap:kind==="online"?onlineHandicap:localHandicap;
   for(const option of $("handicap").options)option.disabled=Number(option.value)>maxHandicap(boardSize);
   $("handicap").value=String(shown);
-  $("handicapNote").textContent=(ai?"置き石があるとあなたが黒で、AIが白で先に打ちます。":
-    "置き石は黒が最初から星に置く石で、置き石があると白が先に打ちます。")+
-    "コミは0.5目で、中国式のとおり白に置き石の数だけ目数を加えます。"+
-    (boardSize===9?"9路盤は5子まで、13路・19路盤は9子まで置けます。":"");
+  // The note only appears when stones are placed, so an even game shows no extra text.
+  $("handicapNote").hidden=!shown;
+  $("handicapNote").textContent=(ai?"あなたが黒、AIが白で、白が先に打ちます。":
+    kind==="online"?"黒を持つ側が置き石を受け、白が先に打ちます。":"白が先に打ちます。")+
+    "コミ0.5目、白に置き石の数だけ加点（中国式）。"+(boardSize===9?"9路は5子まで。":"");
   // With handicap the human is Black; the saved side preference returns afterwards.
   for(const input of document.querySelectorAll('input[name="aiSide"]'))
     input.disabled=!!aiHandicap && input.value!=="black";
@@ -1586,33 +1601,33 @@ function syncHandicapUi() {
       aiHandicap=value;
       $("aiMatchStatus").textContent=aiHandicap?
         "置き石"+aiHandicap+"子で次の対局を始めます（あなたは黒）。":"互先で次の対局を始めます。";
-    }else localHandicap=value;
-    syncHandicapUi();rememberSettings();
+    }else if(newGameModeKind()==="online")onlineHandicap=value;
+    else localHandicap=value;
+    syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
 for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]]) {
   $(id).oninput=e=>{
-    const value=Math.max(0,Math.min(100,Number(e.target.value)||0));
+    const value=personaStep(e.target.value);
     if(key==="invasion")invasion=value;else reinforcement=value;
     updatePersonaUi();rememberSettings();
     $("aiMatchStatus").textContent="次のAI着手から反映します。";
   };
 }
-$("aiLevel").onchange=e=>{aiLevel=e.target.value==="gentle"?"gentle":"standard";rememberSettings();};
+// The strength bar's stops follow AI_STRENGTHS from weakest to strongest.
+const STRENGTH_ORDER=Object.keys(AI_STRENGTHS);
+const strengthAt=index=>normalizeStrength(STRENGTH_ORDER[Number(index)],DEFAULT_AI_STRENGTH);
 function syncStrengthUi() {
-  const input=document.querySelector('input[name="aiStrength"][value="'+aiStrength+'"]');
-  if(input)input.checked=true;
+  $("aiStrength").value=String(STRENGTH_ORDER.indexOf(aiStrength));
+  syncStepSlider("aiStrength");
   $("aiHints").checked=aiHints;
 }
 // Strength applies from the next AI move, like the personality sliders.
-for(const input of document.querySelectorAll('input[name="aiStrength"]')) {
-  input.onchange=e=>{
-    if(!e.target.checked)return;
-    aiStrength=normalizeStrength(e.target.value,DEFAULT_AI_STRENGTH);
-    if(gameMode==="ai")save();else rememberSettings();
-    $("aiMatchStatus").textContent="次のAI着手から「"+AI_STRENGTHS[aiStrength].label+"」で打ちます。";
-  };
-}
+$("aiStrength").oninput=e=>{
+  aiStrength=strengthAt(e.target.value);syncStepSlider("aiStrength");
+  if(gameMode==="ai")save();else rememberSettings();
+  $("aiMatchStatus").textContent="次のAI着手から「"+AI_STRENGTHS[aiStrength].label+"」で打ちます。";
+};
 $("aiHints").onchange=e=>{
   aiHints=e.target.checked;rememberSettings();
   if(aiHints && !visibleHints())requestAnalysis();
@@ -1658,22 +1673,20 @@ else try {
     // Older settings stored only the resolved color.
     aiSideChoice=SIDE_CHOICES.includes(settings.aiSide)?settings.aiSide:
       humanColor===WHITE?"white":"black";
-    aiLevel=settings.aiLevel==="gentle"?"gentle":"standard";
     aiStrength=normalizeStrength(settings.aiStrength,DEFAULT_AI_STRENGTH);
     aiHandicap=toHandicap(settings.aiHandicap);localHandicap=toHandicap(settings.localHandicap);
+    onlineHandicap=toHandicap(settings.onlineHandicap);
     boardSize=toBoardSize(settings.boardSize);
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
+    onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
     aiHints=settings.aiHints===true;
-    invasion=Math.max(0,Math.min(100,Number(settings.invasion??50)));
-    reinforcement=Math.max(0,Math.min(100,Number(settings.reinforcement??50)));
+    invasion=personaStep(settings.invasion);
+    reinforcement=personaStep(settings.reinforcement);
   }
   game=savedGame(gameMode);endExpanded=!!game.endProposal;
 }catch{}
 syncSideUi();
-$("aiLevel").value=aiLevel;
-$("aiInvasion").value=String(invasion);
-$("aiReinforcement").value=String(reinforcement);
 updatePersonaUi();syncStrengthUi();syncHandicapUi();
 const selectedPalette=document.querySelector('input[name="palette"][value="'+palette+'"]');
 if(selectedPalette)selectedPalette.checked=true;

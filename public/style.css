@@ -145,8 +145,8 @@ body.board-zoomed .board-bleed{opacity:1}
 .info-disclosure{margin-top:12px;border-top:1px solid #3b4050;padding-top:13px}
 .info-disclosure summary{cursor:pointer;min-height:44px;padding:11px 0;box-sizing:border-box;font-size:13px;color:#d6dae3}
 .info-disclosure .explanation{margin:6px 0 12px}
-.mode-panel .settings-head{margin-bottom:15px}
-.mode-panel .settings-section{border:0;padding-top:8px}
+
+.mode-panel .settings-section{border:0;padding:0}
 .mode-panel .settings-section[hidden]{display:none}
 .ai-color-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .ai-color-choices label{margin:0;cursor:pointer;position:relative}
@@ -157,32 +157,59 @@ body.board-zoomed .board-bleed{opacity:1}
 .settings-section h3.ai-subhead{margin-top:22px}
 .ai-color-choices input:disabled+span{opacity:.4;cursor:not-allowed}
 .board-size-choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.board-size-choices span{padding:11px 4px}
-/* The mode is the main choice: one full-width row each, with an icon. */
-.new-game-modes{display:flex;flex-direction:column;gap:8px}
+/* The mode is the main choice: a 2x2 grid of icon tiles; 履歴 opens saved games instead. */
+.new-game-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .new-game-modes label{margin:0;cursor:pointer;position:relative}
 .new-game-modes input{position:absolute;opacity:0}
-.new-game-modes label>span{display:flex;align-items:center;gap:14px;min-height:64px;padding:11px 14px;border:1px solid #505766;border-radius:var(--radius);background:#252c38}
+.new-game-modes label>span{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px;
+  padding:8px 10px;border:1px solid #505766;border-radius:var(--radius);background:#252c38;color:#f1f2f2;font:inherit;cursor:pointer;box-sizing:border-box}
+.new-game-modes strong{font-size:14px}
 .new-game-modes input:checked+span{border-color:#efcb81;background:#38342d}
 .new-game-modes input:checked+span .mode-icon,.new-game-modes input:checked+span strong{color:#f8ddac}
 .new-game-modes input:focus-visible+span{outline:3px solid #f2c875;outline-offset:2px}
 .mode-icon{flex:none;color:#c9ced8}
-.mode-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
-.mode-copy strong{font-size:15px;color:#f1f2f2}
-.mode-copy small{font-size:11px;color:var(--muted);line-height:1.4}
 .handicap-select{width:100%;min-height:var(--control-h);background:#252c38;border:1px solid #4a5160;border-radius:var(--radius-sm);color:#f1f0ed;padding:10px 12px}
 .mode-panel .new-game-common{padding-top:0}
 .return-to-game{margin-top:10px}
-.ai-strength-choices span{padding:11px 6px}
-.ai-strength-choices small{display:block;margin-top:3px;font-size:11px;color:var(--muted)}
+/* Board, handicap and side share one compact label-left grid instead of a heading each. */
+.setup-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;margin-top:16px}
+.setup-row{display:contents}
+.setup-row[hidden]{display:none}
+.setup-label{margin:0;font-size:13px;color:#d6dae3;white-space:nowrap}
+.setup-rows .ai-color-choices span{padding:10px 4px}
+/* Board size reads at a glance: denser grid lines for larger boards. */
+.board-size-choices span{display:flex;align-items:center;justify-content:center;gap:6px}
+.size-icon{color:#9aa1ad}
+.board-size-choices input:checked+span .size-icon{color:#f8ddac}
+.new-game-advanced .advanced-row{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
+.new-game-advanced .advanced-row[hidden],.new-game-advanced [hidden]{display:none}
+.new-game-advanced .advanced-row label{margin:0;white-space:nowrap;font-size:13px}
+/* Step sliders: a named tick under each stop; the thumb's 20px width sets the tick inset. */
+.step-slider{margin-top:14px}
+.step-slider[hidden]{display:none}
+.step-slider label[for]{display:flex;justify-content:space-between;gap:12px;margin:0 0 6px;font-size:13px}
+.step-slider input[type=range]{display:block;width:100%;margin:0}
+.step-ticks{display:flex;justify-content:space-between;padding:0 10px;height:30px}
+.step-ticks span{position:relative;width:1px;height:6px;background:#6a7180}
+.step-ticks small{position:absolute;top:9px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;color:var(--muted)}
+.step-ticks span:first-child small{left:-10px;transform:none}
+.step-ticks span:last-child small{left:auto;right:-10px;transform:none}
+.step-ticks span.is-current small{color:#f8ddac}
+.step-note{margin-top:2px;min-height:1.7em}
+/* The sheet should fit one phone screen: tight section spacing, no empty status lines. */
+.mode-panel .settings-head{margin-bottom:12px}
+.mode-panel #localSetup,.mode-panel #onlineSetup,.mode-panel #aiSetup{padding:0}
+.mode-panel .settings-section .primary.full{margin-top:12px}
+.mode-panel .new-game-advanced{margin-top:10px;padding-top:0}
+.mode-panel .explanation:empty,.mode-panel .invite-status:empty{display:none}
+.mode-panel .history-setup{padding-top:12px}
 .side-choices{grid-template-columns:repeat(3,1fr)}
 /* One button, two meanings: × discards a provisional stone, the labelled arrow is 待った. */
 .undo-button .takeback-icon{display:none;flex-direction:column;align-items:center;gap:1px;line-height:1}
 .undo-button .takeback-icon small{font-size:10px;font-weight:700;letter-spacing:.02em}
 .undo-button.is-takeback .takeback-icon{display:flex}
 .undo-button.is-takeback .cancel-icon{display:none}
-.ai-advanced select{display:block;width:100%;margin:6px 0 15px}
-.ai-advanced label{display:flex;justify-content:space-between;gap:12px;margin-top:12px}
+.ai-advanced label[for]{display:flex;justify-content:space-between;gap:12px;margin-top:12px}
 .ai-advanced input[type=range]{width:100%}
 @media(max-width:700px){.header-actions{gap:6px}.new-game-button{padding:8px 12px;font-size:12px}}
 
