@@ -515,7 +515,7 @@ $("startAi").onclick=()=>{
     $("aiMatchStatus").textContent="AI対局を開始できません。";
     return;
   }
-  if(needsSwitchConfirmation(game,gameMode,"ai",connected) &&
+  if((game.moveNumber>0 || connected) &&
      !confirm("現在の対局を離れて、AIと新しい対局を始めますか？"))return;
   if(!room)save();else leaveOnlineRoom();
   stopAiTurn();
