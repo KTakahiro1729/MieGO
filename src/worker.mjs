@@ -10,11 +10,24 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/api/health" && request.method === "GET") {
+      // Assert that Cloudflare Builds really published the generated AI assets.
+      const assetIsPresent = async (path) => {
+        try {
+          const target = new URL(path, url.origin);
+          const response = await env.ASSETS.fetch(new Request(target, { method: "HEAD" }));
+          return response.ok;
+        } catch { return false; }
+      };
+      const [katagoWorkerReady, katagoModelReady] = await Promise.all([
+        assetIsPresent("/katago-worker.bundle.mjs"),
+        assetIsPresent("/models/katago-small.bin.gz")
+      ]);
       return json({
-        status: "ok",
+        status: katagoWorkerReady && katagoModelReady ? "ok" : "degraded",
         app: "MieGO",
         durableObjectBinding: Boolean(env.ROOMS),
-        turnConfigured: Boolean(env.TURN_KEY_ID && env.TURN_API_TOKEN)
+        turnConfigured: Boolean(env.TURN_KEY_ID && env.TURN_API_TOKEN),
+        katagoWorkerReady, katagoModelReady
       });
     }
     if (url.pathname === "/api/rooms" && request.method === "POST") {

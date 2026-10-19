@@ -21,4 +21,6 @@ test("browser-readable deployment health check exists", () => {
   const src = readFileSync(resolve(root, "src/worker.mjs"), "utf8");
   assert.match(src, /url\.pathname === "\/api\/health"/);
   assert.match(src, /durableObjectBinding:/);
+  assert.match(src, /katagoWorkerReady/);
+  assert.match(src, /katagoModelReady/);
 });
