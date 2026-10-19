@@ -474,6 +474,8 @@ function show() {
   const blocked=!!illegalCandidate;
   $("confirm").disabled=!candidate || !myTurn || blocked;
   $("confirm").hidden=blocked;
+  // The stone on the button shows the colour that will be placed.
+  $("confirmStone").classList.toggle("white",game.next===WHITE);
   $("copyIllegalPrompt").hidden=!blocked;
   $("copyIllegalPrompt").textContent=illegalPromptCopied?"コピーしました":"AIへの質問をコピー";
   // With a provisional stone the button discards it; otherwise it is 待った.
@@ -1264,6 +1266,7 @@ function renderBoardReview() {
   $("reviewNext").hidden=isPreview;
   $("reviewStepToggle").hidden=isPreview;
   $("reviewPlayActions").hidden=!isPreview;
+  $("reviewConfirmStone").classList.toggle("white",boardReview.preview?.moves.at(-1)?.color===WHITE);
   $("reviewOriginal").hidden=!variationActive;
   $("reviewVariation").hidden=variationActive || !boardReview.variation;
   $("reviewSaveVariation").hidden=!boardReview.variation;
