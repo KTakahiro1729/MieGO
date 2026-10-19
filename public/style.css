@@ -280,3 +280,24 @@ body{overflow:hidden}
 .invite-side label{display:inline-flex;align-items:center;gap:6px;font-size:13px;min-height:28px}
 #p2pVerify{margin:12px 0}
 #p2pVerify p{font-size:12px;opacity:.85;margin:0 0 8px}
+
+/* SGF playback shares the primary board instead of opening a second board. */
+.move-history-toggle{border:1px solid #525666;border-radius:9px;background:#212733;min-height:44px;padding:7px 11px;color:#ead194;font-size:12px}
+.move-history-toggle:hover{border-color:var(--gold)}
+.review-panel{position:sticky;bottom:0;z-index:3;background:linear-gradient(180deg,#141b27,#0d1018);border:1px solid #3d4655;border-radius:15px;padding:11px;margin:8px -2px max(9px,env(safe-area-inset-bottom))}
+.review-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;color:#eee9d9}
+#reviewStepText{color:#bfc9d7;font-size:12px;font-variant-numeric:tabular-nums}
+#reviewStepRange{display:block;width:100%;accent-color:var(--gold);margin:10px 0;min-height:22px}
+.review-navigation,.review-share,.history-share-actions{display:flex;gap:6px;align-items:stretch}
+.review-navigation button{min-width:44px;min-height:44px;padding:7px 5px;border-radius:10px;font-size:20px}
+.review-navigation .review-back{flex:1;min-width:0;font-size:12px;padding:7px 8px;border-color:#a38351;color:#eed8a4}
+.review-share,.history-share-actions{margin-top:9px}
+.review-share button,.history-share-actions button{flex:1;min-width:0;min-height:44px;font-size:12px;padding:9px 7px;border-radius:10px}
+#reviewAiLink,#historyAiLink{color:#161a20;background:#e4bf72;border-color:#f4d992}
+.review-branch{width:100%;min-height:44px;padding:7px;margin-top:8px;font-size:12px;background:transparent;border-color:#545e6c}
+.review-explanation{font-size:11px;color:#aeb6c4;line-height:1.45;margin:8px 0 4px}
+.review-new-moves{margin:5px 0;color:#f1d18c;font-size:12px}
+#reviewNotice{margin:5px 0;color:#f1d18c;font-size:12px}
+#reviewNotice:empty{display:none}
+#reviewCopyFallback{width:100%;min-height:58px;margin:6px 0 0;background:#202836;color:#f0f0ed;border:1px solid #6b7588;border-radius:7px;padding:7px;font-size:12px}
+@media(max-width:360px){.review-navigation{gap:4px}.review-navigation button{min-width:40px}.review-navigation .review-back{font-size:11px}}
