@@ -878,7 +878,7 @@ function previewReviewPass(){
 function saveReviewVariation(){
   if(!boardReview?.variation)return;
   try{
-    gameLibrary.save({mode:"local",snapshot:boardReview.variation.snapshot,source:"sgf"});
+    gameLibrary.save({mode:"local",snapshot:boardReview.variation.snapshot,source:"variation"});
     $("reviewNotice").textContent="変化図を保存した棋譜に追加しました。";
   }catch(error){$("reviewNotice").textContent="変化図を保存できません："+error.message;}
 }

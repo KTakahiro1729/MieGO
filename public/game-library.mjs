@@ -63,7 +63,8 @@ export class GameLibrary {
       invasion:Number.isFinite(invasion)?invasion:50,
       reinforcement:Number.isFinite(reinforcement)?reinforcement:50,
       seat:mode==="online"?(seat==="guest"?"guest":seat==="host"?"host":null):null,
-      source:previous?.source==="sgf"?"sgf":source==="sgf"?"sgf":"played",
+      source:previous?.source==="sgf" || previous?.source==="variation"?previous.source:
+        source==="sgf" || source==="variation"?source:"played",
       sgfMeta:previous?.sgfMeta||((source==="sgf" && sgfMeta)?{
         komi:String(sgfMeta.komi??"7.5"),rules:String(sgfMeta.rules??"Chinese"),
         result:sgfMeta.result?String(sgfMeta.result):null,
