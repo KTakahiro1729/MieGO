@@ -67,8 +67,9 @@
           <div id="scoreText"></div>
         </div>
         <div id="actionRow" class="action-row">
-          <button id="cancel" class="secondary-action undo-button" type="button" aria-label="仮置きを戻す" title="仮置きを戻す" disabled>
-            <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h9a7 7 0 0 1 0 14h-2"/></svg>
+          <button id="cancel" class="secondary-action undo-button is-takeback" type="button" aria-label="待った" title="待った" disabled>
+            <svg class="cancel-icon" aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+            <span class="takeback-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg><small>待った</small></span>
           </button>
           <button id="confirm" class="primary" type="button" disabled><span class="button-stone" aria-hidden="true"></span>この手を打つ</button>
           <button id="copyIllegalPrompt" class="secondary-action illegal-prompt-action" type="button" aria-label="禁止手についてAIに質問する文章をコピー" title="コピーした文章を好きなAIに貼り付けて質問できます" hidden>AIへの質問をコピー</button>
@@ -165,7 +166,12 @@
       <section id="onlineSetup" class="settings-section" hidden>
         <h3>友人を招待</h3>
         <p id="roomInfo" class="explanation">URLを共有すると、別の端末から対局に参加できます。</p>
-        <fieldset class="invite-side"><legend>自分の石</legend><label><input type="radio" name="onlineSide" value="random" checked> ランダム</label><label><input type="radio" name="onlineSide" value="black"> 黒番</label><label><input type="radio" name="onlineSide" value="white"> 白番</label></fieldset>
+        <h3 class="ai-subhead">自分の石</h3>
+        <div class="ai-color-choices side-choices">
+          <label><input type="radio" name="onlineSide" value="random" checked><span>ランダム</span></label>
+          <label><input type="radio" name="onlineSide" value="black"><span>● 黒</span></label>
+          <label><input type="radio" name="onlineSide" value="white"><span>○ 白</span></label>
+        </div>
         <div id="p2pVerify" hidden><p>新しい対局の作成・初回参加には本人確認が必要です。</p><div id="p2pTurnstile"></div></div>
         <button id="copy" class="primary full" type="button">招待リンクを準備する</button>
         <div id="inviteDetails" class="invite-details hidden">
@@ -176,12 +182,12 @@
         <p class="explanation">作成者の端末で色を決めます。相手が参加すると対局できます。再接続では原則として本人確認は不要です。</p>
       </section>
       <section id="aiSetup" class="settings-section" hidden>
-        <h3>自分の色</h3>
-        <div class="ai-color-choices">
-          <label><input type="radio" name="aiSide" value="1" checked><span>● 黒で打つ</span></label>
-          <label><input type="radio" name="aiSide" value="-1"><span>○ 白で打つ</span></label>
+        <h3>自分の石</h3>
+        <div class="ai-color-choices side-choices">
+          <label><input type="radio" name="aiSide" value="random"><span>ランダム</span></label>
+          <label><input type="radio" name="aiSide" value="black" checked><span>● 黒</span></label>
+          <label><input type="radio" name="aiSide" value="white"><span>○ 白</span></label>
         </div>
-        <select id="aiColor" hidden><option value="1">黒</option><option value="-1">白</option></select>
         <h3 class="ai-subhead">AIの強さ</h3>
         <div class="ai-color-choices ai-strength-choices">
           <label><input type="radio" name="aiStrength" value="beginner"><span>はじめて<small>囲碁を覚えたて</small></span></label>
@@ -200,7 +206,7 @@
         </div>
         <p class="explanation">置き石は、あなた（黒）が最初から星に置く石です。置き石があるとAIが白で先に打ちます。コミは0.5目で、中国式のとおり白に置き石の数だけ目数を加えます。</p>
         <div class="mode"><div><strong>ヒントを表示</strong><p>あなたの番に、KataGoの候補手を盤上に1〜3で示します。読みを入れた最善手とは限りません。</p></div><input id="aiHints" type="checkbox" aria-label="ヒントを表示する"></div>
-        <p class="explanation">打ち間違えたら、盤の下の↶を2回押すと<strong>待った</strong>（自分の直前の手まで戻す）ができます。</p>
+        <p class="explanation">打ち間違えたら、盤の下の「待った」で自分の直前の手まで戻せます。</p>
         <details class="info-disclosure ai-advanced"><summary>AIの打ち方を調整</summary>
           <label for="aiLevel">着手のばらつき（「つよい」のみ・棋力とは別）</label>
           <select id="aiLevel"><option value="standard">標準</option><option value="gentle">大きめ</option></select>

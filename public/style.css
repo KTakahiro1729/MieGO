@@ -160,7 +160,12 @@ button:hover:not(:disabled){border-color:#748094}
 .handicap-select[hidden]{display:none}
 .ai-strength-choices span{padding:11px 6px}
 .ai-strength-choices small{display:block;margin-top:3px;font-size:11px;color:var(--muted)}
-.action-row .undo-button.takeback-armed{font-size:12px;font-weight:700;border-color:#efcb81;color:#f8ddac}
+.side-choices{grid-template-columns:repeat(3,1fr)}
+/* One button, two meanings: × discards a provisional stone, the labelled arrow is 待った. */
+.undo-button .takeback-icon{display:none;flex-direction:column;align-items:center;gap:1px;line-height:1}
+.undo-button .takeback-icon small{font-size:10px;font-weight:700;letter-spacing:.02em}
+.undo-button.is-takeback .takeback-icon{display:flex}
+.undo-button.is-takeback .cancel-icon{display:none}
 .ai-advanced select{display:block;width:100%;margin:6px 0 15px}
 .ai-advanced label{display:flex;justify-content:space-between;gap:12px;margin-top:12px}
 .ai-advanced input[type=range]{width:100%}
@@ -272,9 +277,6 @@ body{overflow:hidden}
 .game-panel.is-scoring .action-row,.game-panel.is-finished .action-row{margin-top:0}
 
 /* Two-person P2P invitation: compact color selector and conditional human check. */
-.invite-side{display:flex;flex-wrap:wrap;gap:10px 16px;border:1px solid var(--border, #59636d);border-radius:8px;padding:10px 12px;margin:12px 0}
-.invite-side legend{padding:0 5px;font-size:13px}
-.invite-side label{display:inline-flex;align-items:center;gap:6px;font-size:13px;min-height:28px}
 #p2pVerify{margin:12px 0}
 #p2pVerify p{font-size:12px;opacity:.85;margin:0 0 8px}
 
@@ -328,7 +330,6 @@ body{overflow:hidden}
 .action-row .resign-control[aria-label^="もう一度"]{
   color:#ffe0c5;border-color:#bb795b;background:#58392f;
 }
-.action-row #pass[aria-label^="もう一度"]{color:#f5d88f;border-color:#a8894f;background:#38342d}
 .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:302px}
 .game-panel.is-scoring .score-box,.game-panel.is-finished .score-box{margin-top:7px}
 .game-panel.is-scoring .action-row,.game-panel.is-finished .action-row{margin-top:auto}

@@ -33,10 +33,9 @@ test("game screen viewport never scrolls and board responds to available height"
   assert.match(css,/\.game-layout\{height:calc\(100dvh - var\(--topbar-height\)\);overflow:hidden/);
   assert.match(css,/calc\(100dvh - var\(--board-reserve\) - env\(safe-area-inset-bottom\)\)/);
 });
-test("pass needs an inline second tap only on one device; solo endgame stays in-bar",()=>{
-  assert.match(app,/if\(!room && gameMode==="local" && !passArmed\)/);
-  assert.match(app,/\$\("pass"\)\.textContent="パス？"/);
-  assert.match(app,/resetPassButton\(\);submitMove\(null\);/);
+test("pass is a single tap in every mode; solo endgame stays in-bar",()=>{
+  assert.match(app,/\$\("pass"\)\.onclick=\(\)=>submitMove\(null\);/);
+  assert.doesNotMatch(app,/passArmed|パス？/);
   assert.doesNotMatch(app,/confirm\("パスしますか？"\)/);
   assert.match(app,/if\(!room\)\{[\s\S]{0,240}endExpanded=true;show\(\);/);
   assert.match(app,/if\(!room && endExpanded && !game\.endProposal\)/);
