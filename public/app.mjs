@@ -880,6 +880,157 @@ function openPanel(kind) {
   const panel=kind==="settings"?$("settingsPanel"):$("modePanel");
   panel.querySelector(".settings-head button").focus();
 }
+function renderBoardReview() {
+  if(!boardReview)return;
+  // The live match may advance over WebRTC or AI while the chosen step stays fixed.
+  if(boardReview.source==="live")boardReview.snapshot=game;
+  const {snapshot,step,source}=boardReview, count=snapshot.moves.length;
+  $("reviewTitle").textContent=source==="url"?"共有棋譜を確認中":"棋譜を確認中";
+  $("reviewStepText").textContent=step+" / "+count+"手";
+  $("reviewStepRange").max=String(count);
+  $("reviewStepRange").value=String(step);
+  $("reviewFirst").disabled=step===0;
+  $("reviewPrevious").disabled=step===0;
+  $("reviewNext").disabled=step>=count;
+  $("reviewLast").disabled=step>=count;
+  $("reviewBack").textContent=source==="url"?"閲覧を閉じる":"現在に戻る";
+  const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
+  $("reviewNewMoves").hidden=updates===0;
+  $("reviewNewMoves").textContent=updates>0?"対局が"+updates+"手進みました。現在に戻ると最新局面を表示します。":"";
+  $("moveLabel").textContent=step+" / "+count+"手";
+  $("moveLabel").setAttribute("aria-label","棋譜再生を終了する");
+  $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
+  $("turn").textContent="棋譜を確認中";
+  $("modePicker").disabled=true;
+  $("actionRow").hidden=true;
+  $("endgameBar").hidden=true;
+  $("scoreBox").hidden=true;
+  $("reviewPanel").hidden=false;
+  draw();
+}
+function requestReviewOwnership() {
+  if(!boardReview)return;
+  boardReview.ownership=null;
+  boardReview.analysisId=++reviewSequence;
+  if(!boardReview.display.assisted){draw();return;}
+  if(!reviewWorker){
+    reviewWorker=new Worker("/analysis-worker.mjs",{type:"module"});
+    reviewWorker.onmessage=e=>{
+      if(!boardReview || e.data.id!==boardReview.analysisId ||
+         !Array.isArray(e.data.ownership) || e.data.ownership.length!==SIZE*SIZE)return;
+      boardReview.ownership=e.data.ownership;
+      draw();
+    };
+    reviewWorker.onerror=e=>{
+      console.warn("Review ownership unavailable",e);
+      $("reviewNotice").textContent="過去局面の地合い推定を表示できません。";
+      reviewWorker?.terminate();reviewWorker=null;
+    };
+  }
+  reviewWorker.postMessage({id:boardReview.analysisId,board:boardReview.display.board});
+}
+function enterBoardReview(snapshot,step,source="live",metadata=null) {
+  const display=replaySteps(snapshot,step);
+  boardReview={snapshot,display,step,source,metadata,ownership:null,
+    openedAt:game.moveNumber,analysisId:0};
+  $("reviewNotice").textContent="";
+  $("reviewCopyFallback").hidden=true;
+  show();requestReviewOwnership();
+}
+function setBoardReviewStep(step) {
+  if(!boardReview)return;
+  const snapshot=boardReview.source==="live"?game:boardReview.snapshot;
+  if(!Number.isInteger(step)||step<0||step>snapshot.moves.length)return;
+  try{
+    const display=replaySteps(snapshot,step);
+    boardReview.snapshot=snapshot;
+    boardReview.display=display;boardReview.step=step;
+    $("reviewNotice").textContent="";
+    $("reviewCopyFallback").hidden=true;
+    show();requestReviewOwnership();
+  }catch(error){$("reviewNotice").textContent="棋譜を再生できません："+error.message;}
+}
+function leaveBoardReview() {
+  if(!boardReview)return;
+  const wasUrl=boardReview.source==="url";
+  boardReview=null;reviewSequence++;
+  if(wasUrl){
+    // Stop reopening the imported replay on refresh after the user closes it.
+    const url=new URL(location.href);
+    url.searchParams.delete("sgf");url.searchParams.delete("move");
+    history.replaceState(null,"",url.pathname+url.search+url.hash);
+  }
+  $("reviewCopyFallback").hidden=true;
+  show();requestAnalysis();
+  $("moveLabel").focus();
+}
+function forkBoardReview() {
+  if(!boardReview)return;
+  let fork;
+  try{fork=forkReview(boardReview.snapshot,boardReview.step);}
+  catch(error){$("reviewNotice").textContent="この局面から検討できません："+error.message;return;}
+  if(room && connected && !confirm("友人との対局から離れて、この局面を1台で検討しますか？"))return;
+  if(!save())return;
+  if(room)leaveOnlineRoom();
+  stopAiTurn();gameMode="local";game=fork;
+  currentGameId=null;currentRevision=null;
+  const last=game.moves.at(-1)?.position;
+  lastPosition=Number.isInteger(last)?last:null;
+  candidate=null;analysis=null;displayedOwnership=null;
+  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
+  lastOfferKey=null;endHintSuppressedUntil=-1;
+  deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
+  boardReview=null;reviewSequence++;
+  save();show();requestAnalysis();
+}
+async function copyReviewText(text,statusId,fallbackId) {
+  const status=$(statusId),field=$(fallbackId);
+  try{
+    if(typeof navigator.clipboard?.writeText!=="function")throw Error("clipboard unavailable");
+    await navigator.clipboard.writeText(text);
+    field.hidden=true;status.textContent="コピーしました。";
+  }catch{
+    field.value=text;field.hidden=false;field.focus();field.select();
+    try{field.setSelectionRange(0,text.length);}catch{}
+    status.textContent="自動コピーできませんでした。選択された文章を手動でコピーしてください。";
+  }
+}
+function selectedBoardReviewUrl() {
+  const {snapshot,metadata,step}=boardReview;
+  const moves=snapshot.moves.filter(m=>m.position!=="resign").length;
+  return makeReviewUrl(location.origin,{snapshot,sgfMeta:metadata},Math.min(step,moves));
+}
+async function shareBoardReview(ai) {
+  if(!boardReview)return;
+  try{
+    const url=selectedBoardReviewUrl();
+    await copyReviewText(ai?makeAiHandoff(url):url,"reviewNotice","reviewCopyFallback");
+  }catch(error){$("reviewNotice").textContent="共有URLを作れません："+error.message;}
+}
+async function shareHistoryReview(ai) {
+  if(!historySelection)return;
+  try{
+    const moves=historySelection.snapshot.moves.filter(m=>m.position!=="resign").length;
+    const link=makeReviewUrl(location.origin,historySelection,Math.min(historyStep,moves));
+    await copyReviewText(ai?makeAiHandoff(link):link,"historyActionNotice","historyCopyFallback");
+  }catch(error){$("historyActionNotice").textContent="共有URLを作れません："+error.message;}
+}
+$("moveLabel").onclick=()=>{
+  if(boardReview){leaveBoardReview();return;}
+  try{enterBoardReview(game,game.moves.length,"live");}
+  catch(error){$("saveStatus").hidden=false;$("saveStatus").textContent="棋譜を再生できません："+error.message;}
+};
+$("reviewFirst").onclick=()=>setBoardReviewStep(0);
+$("reviewPrevious").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step-1);
+$("reviewNext").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
+$("reviewLast").onclick=()=>boardReview&&setBoardReviewStep(boardReview.snapshot.moves.length);
+$("reviewStepRange").oninput=e=>setBoardReviewStep(Number(e.target.value));
+$("reviewBack").onclick=leaveBoardReview;
+$("reviewBranch").onclick=forkBoardReview;
+$("reviewLink").onclick=()=>void shareBoardReview(false);
+$("reviewAiLink").onclick=()=>void shareBoardReview(true);
+$("historyLink").onclick=()=>void shareHistoryReview(false);
+$("historyAiLink").onclick=()=>void shareHistoryReview(true);
 function recordName(record) {
   if(record.source==="sgf")return "SGFから読み込んだ棋譜";
   return record.mode==="ai"?"AIと対戦":record.mode==="online"?"友人と対戦":"1台で打つ";

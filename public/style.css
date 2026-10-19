@@ -301,3 +301,6 @@ body{overflow:hidden}
 #reviewNotice:empty{display:none}
 #reviewCopyFallback{width:100%;min-height:58px;margin:6px 0 0;background:#202836;color:#f0f0ed;border:1px solid #6b7588;border-radius:7px;padding:7px;font-size:12px}
 @media(max-width:360px){.review-navigation{gap:4px}.review-navigation button{min-width:40px}.review-navigation .review-back{font-size:11px}}
+
+#historyCopyFallback{display:block;width:100%;min-height:58px;margin:8px 0;background:#202836;color:#f0f0ed;border:1px solid #6b7588;border-radius:9px;padding:8px;font-size:12px}
+#historyCopyFallback[hidden]{display:none}
