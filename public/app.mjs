@@ -39,6 +39,7 @@ let syncPending = false, pendingIce = [];
 const myOnlineColor = () => ownerColor === null ? null : playerColor(p2pRole,ownerColor);
 function currentSideSelection() { return document.querySelector('input[name="onlineSide"]:checked')?.value || "random"; }
 function renderInviteButton() {
+  $("copy").disabled=!!room && p2pRole!=="owner";
   $("copy").textContent = !room ? "招待リンクを準備する" :
     issuedSide !== null && currentSideSelection() !== issuedSide ?
       "新しい設定で招待リンクを作り直す" : "招待リンクをコピー";
