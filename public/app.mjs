@@ -1149,6 +1149,8 @@ function showNewGameMode(kind) {
   $("aiSetup").hidden=kind!=="ai";
   // Friend matches are always even games.
   $("handicapSetup").hidden=kind==="online";
+  $("aiSideRow").hidden=kind!=="ai";
+  $("onlineSideRow").hidden=kind!=="online";
   syncReturnButton(kind);
   syncHandicapUi();
   if(kind==="online" && room)showInviteLink();
@@ -1567,10 +1569,10 @@ function syncHandicapUi() {
   const ai=newGameModeKind()==="ai",shown=ai?aiHandicap:localHandicap;
   for(const option of $("handicap").options)option.disabled=Number(option.value)>maxHandicap(boardSize);
   $("handicap").value=String(shown);
-  $("handicapNote").textContent=(ai?"置き石があるとあなたが黒で、AIが白で先に打ちます。":
-    "置き石は黒が最初から星に置く石で、置き石があると白が先に打ちます。")+
-    "コミは0.5目で、中国式のとおり白に置き石の数だけ目数を加えます。"+
-    (boardSize===9?"9路盤は5子まで、13路・19路盤は9子まで置けます。":"");
+  // The note only appears when stones are placed, so an even game shows no extra text.
+  $("handicapNote").hidden=!shown;
+  $("handicapNote").textContent=(ai?"あなたが黒、AIが白で、白が先に打ちます。":"白が先に打ちます。")+
+    "コミ0.5目、白に置き石の数だけ加点（中国式）。"+(boardSize===9?"9路は5子まで。":"");
   // With handicap the human is Black; the saved side preference returns afterwards.
   for(const input of document.querySelectorAll('input[name="aiSide"]'))
     input.disabled=!!aiHandicap && input.value!=="black";
