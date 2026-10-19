@@ -1,22 +1,4 @@
-import {newGame,play} from "./core.mjs";
 import {legalAiMoves} from "./ai-opponent.mjs";
-
-/** Take back the human's latest move (and the AI reply after it) in an AI game.
- * The position is rebuilt by replaying the remaining moves, so captures, ko
- * history and pass counts stay consistent with the rules engine.
- * Returns null when nothing can be taken back.
- */
-export function takeBackForHuman(state, humanColor) {
-  if(state.status!=="playing" || state.endProposal)return null;
-  let cut=-1;
-  for(let i=state.moves.length-1;i>=0;i--)
-    if(state.moves[i].color===humanColor){cut=i;break;}
-  if(cut<0)return null;
-  let game=newGame(state.assisted);
-  for(const move of state.moves.slice(0,cut))game=play(game,move.position);
-  const last=game.moves.at(-1)?.position;
-  return {game,lastPosition:Number.isInteger(last)?last:null};
-}
 
 /** KataGo policy hints for the player to move: the top legal points, with
  * their share of the policy among legal moves. Policy is "shape intuition"

@@ -7,7 +7,8 @@ import { createP2PTransport } from "./p2p-transport.mjs";
 import { PALETTES, paletteGradient, interpolateOwnership } from "./territory-view.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
-import { takeBackForHuman, policyHints } from "./ai-assist.mjs";
+import { policyHints } from "./ai-assist.mjs";
+import { takebackCut, takeBack, requestTakeback, answerTakeback } from "./takeback.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
 import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
@@ -20,7 +21,6 @@ import { activeReviewSnapshot, proposeReviewStone, commitReviewStone, variationF
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board");
-const cancelIcon = $("cancel").innerHTML;
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
 let fallbackMode = false;
 function switchToFallback(reason) {
@@ -70,7 +70,8 @@ let opacity = Number.isFinite(storedOpacity) && storedOpacity>=0 && storedOpacit
 let connected = false;
 let gameMode = room ? "online" : "local";
 let humanColor = BLACK, aiLevel = "standard", invasion = 50, reinforcement = 50;
-let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackArmed = false;
+let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNotice = null;
+let aiSideChoice = "black";
 let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
 let endgameStage = "playing", endExpanded = false, analysisContext = null;
@@ -120,6 +121,22 @@ function updateEndUi() {
   const playing=game.status==="playing";
   const offer=playing?game.endProposal:null;
   const color=myColorForEnd();
+  // A friend's 待った request borrows the same in-bar answer buttons as an end offer.
+  const takebackRequest=playing && room?game.takebackRequest:null;
+  if(takebackRequest){
+    const asked=color!==null && takebackRequest.from!==color;
+    $("endStatus").textContent=asked?"待ったの申し出があります":"待ったの返答を待っています";
+    $("endPropose").hidden=true;
+    $("endAccept").hidden=!asked;
+    $("endDecline").hidden=false;
+    $("endAccept").textContent="受け入れる";
+    $("endDecline").textContent=asked?"断る":"取り下げる";
+    for(const id of ["endPropose","endAccept","endDecline"])
+      $(id).disabled=!connected || color===null;
+    $("endDetail").textContent=asked?"受け入れると相手の直前の手まで戻ります。":
+      "相手が受け入れると、あなたの直前の手まで戻ります。";
+    return;
+  }
   const incoming=!!(offer && room && color!==null && offer.from!==color);
   const localPrompt=playing && !room && endExpanded && !offer;
   const waiting=!!(offer && !incoming);
@@ -144,6 +161,9 @@ function updateEndUi() {
     localPrompt?"終局を受け入れると死石の確認に進みます。":
     waiting?"相手の返答待ちです。提案は取り下げられます。":
     "終局はいつでも提案できます。提案はパスと異なります。";
+  if(playing && !offer && !localPrompt && takebackNotice?.number===game.moveNumber &&
+     takebackNotice.hash===boardHash(game.board))
+    $("endStatus").textContent=takebackNotice.text;
   // The stable left-hand status slot doubles as a rule explanation for illegal previews.
   if(playing && illegalCandidate){
     $("endStatus").textContent=illegalCandidate.reason===ILLEGAL_KO?
@@ -164,7 +184,7 @@ function stopAiTurn() {
 function rememberSettings() {
   try {
     localStorage.setItem("miego-local-settings", JSON.stringify({
-      mode:gameMode,humanColor,aiLevel,invasion,reinforcement,aiStrength,aiHints
+      mode:gameMode,humanColor,aiSide:aiSideChoice,aiLevel,invasion,reinforcement,aiStrength,aiHints
     }));
   } catch {}
 }
@@ -186,13 +206,13 @@ function visibleHints() {
   return hints && hints.number===game.moveNumber && hints.hash===boardHash(game.board)
     ? hints.moves : null;
 }
-const canTakeBack = () => !room && gameMode==="ai" && !boardReview && katagoReady && !fallbackMode &&
-  game.status==="playing" && !game.endProposal && game.moves.some(m=>m.color===humanColor);
-function resetTakebackButton() {
-  if(takebackArmed)$("cancel").innerHTML=cancelIcon;
-  takebackArmed=false;
-  $("cancel").classList.remove("takeback-armed");
-}
+// 待った: one shared board undoes the latest move; AI and friend games undo
+// the player's own latest move together with any reply after it.
+const takebackOptions = () => room ? {color:myOnlineColor(),scope:"own"} :
+  gameMode==="ai" ? {color:humanColor,scope:"own"} : {scope:"ply"};
+const canTakeBack = () => !boardReview && game.status==="playing" &&
+  (!room || (connected && myOnlineColor()!==null && !game.takebackRequest)) &&
+  takebackCut(game,takebackOptions())>=0;
 function transitionOwnership(next) {
   if (transitionFrame!==null) cancelAnimationFrame(transitionFrame);
   const from=displayedOwnership;
@@ -386,7 +406,6 @@ function show() {
   $("startAi").disabled=!katagoReady || fallbackMode;
   $("startAi").textContent=fallbackMode?"KataGoが利用できません":
     !katagoReady?"KataGo準備中…":gameMode==="ai"?"設定して再戦":"AIと対局を始める";
-  $("aiColor").disabled=false;
   $("aiLevel").disabled=false;
   $("aiInvasion").disabled=false;
   $("aiReinforcement").disabled=false;
@@ -413,11 +432,14 @@ function show() {
   $("confirm").hidden=blocked;
   $("copyIllegalPrompt").hidden=!blocked;
   $("copyIllegalPrompt").textContent=illegalPromptCopied?"コピーしました":"AIへの質問をコピー";
-  const takeBack=!candidate && !blocked && canTakeBack();
-  if(!takeBack && takebackArmed)resetTakebackButton();
-  $("cancel").disabled=!candidate && !blocked && !takeBack;
-  const cancelLabel=takebackArmed?"もう一度押すと待った（自分の直前の手まで戻す）":
-    takeBack?"待った：自分の直前の手まで戻す。確認のため二度押し":"仮置きを戻す";
+  // With a provisional stone the button discards it; otherwise it is 待った.
+  const provisional=!!candidate || blocked;
+  const takeBack=!provisional && canTakeBack();
+  $("cancel").classList.toggle("is-takeback",!provisional);
+  $("cancel").disabled=!provisional && !takeBack;
+  const cancelLabel=provisional?"仮置きを戻す":
+    room?"待った：相手の了承を得て、自分の直前の手まで戻す":
+    gameMode==="ai"?"待った：自分の直前の手まで戻す":"待った：直前の1手を戻す";
   $("cancel").setAttribute("aria-label",cancelLabel);
   $("cancel").title=cancelLabel;
   $("endgameBar").classList.toggle("has-illegal",blocked);
@@ -489,11 +511,13 @@ function show() {
 function apply(action, remote=false) {
   // End-offer messages can race with an actual stone. Ignore stale metadata
   // without tearing down the live Go DataChannel.
-  if(remote && (action?.type==="end_offer" || action?.type==="end_answer" ||
-                action?.type==="dead_auto" || action?.type==="dead_unavailable")) {
+  if(remote && ["end_offer","end_answer","takeback_request","takeback_answer",
+                 "dead_auto","dead_unavailable"].includes(action?.type)) {
     if(action.number!==game.moveNumber || action.before!==boardHash(game.board))return;
     if(action.type==="end_answer" && action.proposalFrom!==game.endProposal?.from)return;
+    if(action.type==="takeback_answer" && action.proposalFrom!==game.takebackRequest?.from)return;
   }
+  let rewound=false;
   try{
     const wasScoring=game.status==="scoring";
     if(action.type==="move"){
@@ -541,6 +565,18 @@ function apply(action, remote=false) {
       game=answerEndProposal(game,action.color,Boolean(action.accept));
       if(!action.accept)endHintSuppressedUntil=game.moveNumber+4;
       endExpanded=false;
+    } else if(action.type==="takeback_request") {
+      if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
+        throw new Error("待ったの申し出時点が一致しません");
+      game=requestTakeback(game,action.color);
+      endExpanded=false;
+    } else if(action.type==="takeback_answer") {
+      if(action.number!==game.moveNumber || action.before!==boardHash(game.board) ||
+         action.proposalFrom!==game.takebackRequest?.from)
+        throw new Error("待ったの返答時点が一致しません");
+      rewound=Boolean(action.accept);
+      game=answerTakeback(game,action.color,rewound);
+      if(rewound)afterTakeback();
     }
     else return;
     if(action.type==="move")endExpanded=false;
@@ -554,7 +590,7 @@ function apply(action, remote=false) {
     if(room)onlineRevision++;
     candidate=null;save();show();
     // Evaluate once, when a play/pass or accepted offer enters scoring.
-    if(["move","resume","mode"].includes(action.type) ||
+    if(["move","resume","mode"].includes(action.type) || rewound ||
        (action.type==="end_answer" && game.status==="scoring") ||
        (hadCandidate && game.status==="playing"))
       requestAnalysis();
@@ -612,14 +648,11 @@ $("confirm").onclick=()=>{
 $("cancel").onclick=()=>{
   if(!candidate && !illegalCandidate) {
     if(!canTakeBack())return;
-    if(!takebackArmed) {
-      takebackArmed=true;
-      $("cancel").classList.add("takeback-armed");
-      $("cancel").textContent="待った";
-      show();return;
-    }
-    resetTakebackButton();
-    takeBackMove();return;
+    // A takeback is itself reversible by replaying the move, so no second tap.
+    if(room)apply({type:"takeback_request",color:myOnlineColor(),
+      number:game.moveNumber,before:boardHash(game.board)});
+    else takeBackMove();
+    return;
   }
   candidate=null;illegalCandidate=null;illegalPromptCopied=false;
   $("illegalPromptFallbackPanel").hidden=true;
@@ -665,8 +698,8 @@ function resetPassButton() {
   $("pass").removeAttribute("aria-label");
 }
 $("pass").onclick=()=>{
-  // On one shared device a committed move cannot be taken back, so a pass
-  // there needs a second tap. Friend and AI games keep the immediate pass.
+  // On one shared device either player can reach the button, so a pass there
+  // needs a second tap. Friend and AI games keep the immediate pass.
   if(!room && gameMode==="local" && !passArmed){
     passArmed=true;
     $("pass").textContent="パス？";
@@ -691,27 +724,30 @@ $("resign").onclick=()=>{
   }
   resetResignButton();submitMove("resign");
 };
-function resetArmedButtons(){resetPassButton();resetResignButton();resetTakebackButton();}
+function resetArmedButtons(){resetPassButton();resetResignButton();}
 document.addEventListener("pointerdown",e=>{
   if(resignArmed && e.target!==$("resign"))resetResignButton();
   if(passArmed && e.target!==$("pass"))resetPassButton();
-  if(takebackArmed && !$("cancel").contains(e.target)){
-    resetTakebackButton();show();
-  }
 });
-// 待った in AI games: drop the human's latest move and any AI reply after it.
-function takeBackMove() {
-  const undone=takeBackForHuman(game,humanColor);
-  if(!undone)return;
-  stopAiTurn();
-  game=undone.game;lastPosition=undone.lastPosition;
+// Signals computed for the abandoned line must not survive a rewind.
+function afterTakeback() {
+  const last=game.moves.at(-1)?.position;
+  lastPosition=Number.isInteger(last)?last:null;
   candidate=null;illegalCandidate=null;hints=null;
   if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
   transitionFrame=null;analysis=null;displayedOwnership=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
   lastOfferKey=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  $("aiMatchStatus").textContent="待ったをしました。";
+  takebackNotice={number:game.moveNumber,hash:boardHash(game.board),
+    text:"待った："+game.moveNumber+"手目に戻しました"};
+}
+function takeBackMove() {
+  const undone=takeBack(game,takebackOptions());
+  if(!undone)return;
+  stopAiTurn();
+  game=undone.game;afterTakeback();
+  if(gameMode==="ai")$("aiMatchStatus").textContent="待ったをしました。";
   save();show();requestAnalysis();
 }
 function resetLocalBoard() {
@@ -751,14 +787,21 @@ $("agree").onclick=()=>{
 };
 $("resume").onclick=()=>apply({type:"resume"});
 $("endPropose").onclick=()=>{
-  if(game.status!=="playing" || game.endProposal)return;
+  if(game.status!=="playing" || game.endProposal || game.takebackRequest)return;
   const color=myColorForEnd();
   if(!color || (room&&!connected))return;
   if(!room){endExpanded=true;updateEndUi();return;}
   apply({type:"end_offer",color,number:game.moveNumber,before:boardHash(game.board)});
 };
+function answerTakebackRequest(accept) {
+  const request=game.takebackRequest,color=myColorForEnd();
+  if(!request || !room || !connected || color===null || (accept && request.from===color))return;
+  apply({type:"takeback_answer",color,accept,proposalFrom:request.from,
+    number:game.moveNumber,before:boardHash(game.board)});
+}
 $("endAccept").onclick=()=>{
   if(game.status!=="playing")return;
+  if(game.takebackRequest){answerTakebackRequest(true);return;}
   const color=myColorForEnd();
   if(!room && endExpanded && !game.endProposal){
     apply({type:"end_offer",color,number:game.moveNumber,before:boardHash(game.board)});
@@ -773,6 +816,7 @@ $("endAccept").onclick=()=>{
 };
 $("endDecline").onclick=()=>{
   if(game.status!=="playing")return;
+  if(game.takebackRequest){answerTakebackRequest(false);return;}
   if(!room && endExpanded && !game.endProposal){
     endExpanded=false;updateEndUi();return;
   }
@@ -1299,9 +1343,9 @@ function resumeSelectedReview(){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     aiLevel=record.aiLevel;invasion=record.invasion;reinforcement=record.reinforcement;
     aiStrength=normalizeStrength(record.aiStrength);syncStrengthUi();
-    $("aiColor").value=String(humanColor);
-    const side=document.querySelector('input[name="aiSide"][value="'+humanColor+'"]');
-    if(side)side.checked=true;
+    // A random preference stays random; a fixed one follows the resumed game.
+    if(aiSideChoice!=="random")aiSideChoice=humanColor===WHITE?"white":"black";
+    syncSideUi();
     $("aiLevel").value=aiLevel;
     $("aiInvasion").value=String(invasion);
     $("aiReinforcement").value=String(reinforcement);updatePersonaUi();
@@ -1372,18 +1416,29 @@ $("startAi").onclick=()=>{
   clearBoardReview();
   stopAiTurn();
   gameMode="ai";
-  humanColor=Number($("aiColor").value)===WHITE?WHITE:BLACK;
+  // Same choices and the same random draw as a friend invitation.
+  try{humanColor=selectColor(aiSideChoice);}
+  catch(error){$("aiMatchStatus").textContent=error.message;return;}
   aiLevel=$("aiLevel").value==="gentle"?"gentle":"standard";
   aiStrength=normalizeStrength(document.querySelector('input[name="aiStrength"]:checked')?.value,
     DEFAULT_AI_STRENGTH);
-  hints=null;resetTakebackButton();
+  hints=null;takebackNotice=null;
   game=newGame(game.assisted);currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
-  $("aiMatchStatus").textContent="対局を開始しました。";
+  $("aiMatchStatus").textContent="対局を開始しました。あなたは"+colorLabel(humanColor)+"です。";
   save();closePanels();show();requestAnalysis();
 };
+const SIDE_CHOICES=["random","black","white"];
+function syncSideUi() {
+  const input=document.querySelector('input[name="aiSide"][value="'+aiSideChoice+'"]');
+  if(input)input.checked=true;
+}
 for (const input of document.querySelectorAll('input[name="aiSide"]')) {
-  input.onchange=e=>{if(e.target.checked)$("aiColor").value=e.target.value;};
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    aiSideChoice=SIDE_CHOICES.includes(e.target.value)?e.target.value:"black";
+    rememberSettings();
+  };
 }
 for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]]) {
   $(id).oninput=e=>{
@@ -1450,6 +1505,9 @@ else try {
   if(settings){
     gameMode=settings.mode==="ai"?"ai":"local";
     humanColor=settings.humanColor===WHITE?WHITE:BLACK;
+    // Older settings stored only the resolved color.
+    aiSideChoice=SIDE_CHOICES.includes(settings.aiSide)?settings.aiSide:
+      humanColor===WHITE?"white":"black";
     aiLevel=settings.aiLevel==="gentle"?"gentle":"standard";
     aiStrength=normalizeStrength(settings.aiStrength,DEFAULT_AI_STRENGTH);
     aiHints=settings.aiHints===true;
@@ -1458,9 +1516,7 @@ else try {
   }
   game=savedGame(gameMode);endExpanded=!!game.endProposal;
 }catch{}
-$("aiColor").value=String(humanColor);
-const aiSide=document.querySelector('input[name="aiSide"][value="'+humanColor+'"]');
-if(aiSide)aiSide.checked=true;
+syncSideUi();
 $("aiLevel").value=aiLevel;
 $("aiInvasion").value=String(invasion);
 $("aiReinforcement").value=String(reinforcement);
