@@ -61,3 +61,13 @@ npm run dev
 Cloudflare Workers BuildsのPRデプロイコマンドが `npx wrangler preview` の場合、`wrangler.jsonc` の `previews.durable_objects.bindings` が必要です。MieGOは `env.ROOMS` を使うため、`GameRoom` をPreviewにも宣言しています。CloudflareはPreviewごとに独立したDurable Object名前空間とストレージを作成します。Build commandは `npm test`、Preview deploy commandは `npx wrangler preview` のままで構いません。Productionへのデプロイには `npx wrangler deploy` を使用してください。
 
 Cloudflare公式仕様: https://developers.cloudflare.com/workers/previews/resources/#durable-objects
+
+## 対AI戦と棋風パラメータ（PR #2）
+
+`main`の碁盤中心デザインを保持し、ヘッダーの「AIと対局」から設定パネルを開きます。KataGoの小型モデルで対AI戦を行う場合、自分の色と**侵入度**・**補強度**をそれぞれ0〜100%で設定できます。50%が中立で、0%はその傾向を控え、100%は優先度を高くします。設定はブラウザ内に保存し、次の着手から適用します。
+
+侵入度は相手が支配しそうな空点を選好する重み、補強度は自石の呼吸点改善や未確定の自陣境界の強化を選好する重みです。KataGoの方針logitsを基準に補正し、元の上位候補から大幅に外れた手・違法手は採用しません。**Ownershipは生存率を意味せず**、棋風調整は試験的な近似です。将来は候補ごとに局面評価し、実際に相手の地を削減できた量・自石の安定化を測る方法へ進めます。
+
+棋力は本設定から独立させます。現在の「着手のばらつき」は棋力（段級位）を保証するものではありません。KataGoが使えない場合は対AI戦を開始・続行できず、代替AIへ切り替えません。
+
+[AIの性格と棋力設計](docs/AI_PERSONALITIES.md)

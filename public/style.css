@@ -92,3 +92,10 @@ button:hover:not(:disabled){border-color:#748094}
  .board-frame{width:min(100%,calc(100dvh - 254px))}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+.ai-menu-button{background:#34302a;color:#f5d88f;border-color:#72603d}
+.ai-settings .full{width:100%;margin-top:13px}
+.ai-settings label{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ai-settings .setting-value{color:var(--gold);font-size:12px;font-variant-numeric:tabular-nums}
+.ai-settings .explanation{margin:5px 0 12px}
+@media(max-width:350px){.header-actions{gap:5px}.ai-menu-button{font-size:11px;padding:8px}}
