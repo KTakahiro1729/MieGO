@@ -296,7 +296,7 @@ test("呼吸の粒 sends a grain from each liberty into the stone on 9路 only, 
   const {draw,calls}=recordingBoard(view,{requestFrame:f=>frames.push(f),now:()=>time,stillMotion:()=>still});
   draw();
   // Halfway along each of the four lines from a liberty into the stone at (250,250).
-  const grain=c=>c.kind==="arc"&&c.args[2]===4.5;
+  const grain=c=>c.kind==="arc"&&c.args[2]===7.5;
   const grains=calls.filter(grain).map(c=>c.args.slice(0,2).join(","));
   assert.deepEqual(grains.sort(),["225,250","250,225","250,275","275,250"].sort());
   assert.equal(frames.length,1,"asks for the next frame");
@@ -319,9 +319,9 @@ test("呼吸の粒 fills a group with two liberties but stops at the edge of a g
   const {draw,calls}=recordingBoard(()=>({...baseView(game),breathParticles:true}),
     {requestFrame:()=>{},now:()=>time,stillMotion:()=>false});
   draw();
-  const grains=calls.filter(c=>c.kind==="arc"&&c.args[2]===4.5).map(c=>c.args.slice(0,2));
+  const grains=calls.filter(c=>c.kind==="arc"&&c.args[2]===7.5).map(c=>c.args.slice(0,2));
   assert.ok(grains.some(([x,y])=>y===50&&x>50&&x<100),"the air passes on from one stone to the other");
   time=BREATH_STEP_MS*.99;calls.length=0;draw();
-  const atari=calls.filter(c=>c.kind==="arc"&&c.args[2]===4.5&&c.args[0]===450);
+  const atari=calls.filter(c=>c.kind==="arc"&&c.args[2]===7.5&&c.args[0]===450);
   assert.ok(atari.length===1 && atari[0].args[1]<450-22+.5,"the one grain stops at the white stone's edge");
 });

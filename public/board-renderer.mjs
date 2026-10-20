@@ -306,11 +306,14 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       }
       const u=(age-leg)*(source.atari?1-.44:1);
       const [ax,ay]=xy(from),[bx,by]=xy(to);
-      ctx.globalAlpha=.75*Math.min(1,age*4,(life-age)*1.5);
-      ctx.beginPath();ctx.arc(ax+(bx-ax)*u,ay+(by-ay)*u,gap*.09,0,Math.PI*2);
-      const [cr,cg,cb]=tone[source.color], [or,og,ob]=tone[-source.color];
-      ctx.fillStyle=`rgb(${cr},${cg},${cb})`;ctx.fill();
-      ctx.strokeStyle=`rgb(${or},${og},${ob})`;ctx.lineWidth=Math.max(1.5,gap*.03);ctx.stroke();
+      ctx.globalAlpha=.9*Math.min(1,age*4,(life-age)*1.5);
+      // No outline: the grain is solid at its centre and fades out to its edge.
+      const x=ax+(bx-ax)*u, y=ay+(by-ay)*u, r=gap*.15, [cr,cg,cb]=tone[source.color];
+      const glow=ctx.createRadialGradient(x,y,0,x,y,r);
+      glow.addColorStop(0,`rgba(${cr},${cg},${cb},1)`);
+      glow.addColorStop(.35,`rgba(${cr},${cg},${cb},.85)`);
+      glow.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);
+      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
     });
     ctx.restore();
     if(frame===null)frame=requestFrame(()=>{frame=null;draw();});
