@@ -13,6 +13,7 @@ import {
   finalizeSoloScore,
   handicapOf,
   hasGomokuForbidden,
+  isFree,
   isGomoku,
   isJapanese,
   komiOf,
@@ -294,6 +295,15 @@ function myColorForEnd() {
 }
 function updateEndUi() {
   const playing=game.status==="playing";
+  // 自由に置く has no end: the bar only says how the board works.
+  if(isFree(game)){
+    $("endStatus").textContent=TEXT.endgame.free;
+    for(const id of ["endPropose","endAccept","endDecline"])$(id).hidden=true;
+    $("endgameBar").classList.remove("is-calling","has-illegal");
+    $("actionRow").classList.remove("end-prompt-open");
+    $("endHelp").dataset.help="rules";
+    return;
+  }
   const offer=playing?game.endProposal:null;
   const color=myColorForEnd();
   // A friend's 待った request borrows the same in-bar answer buttons as an end offer.
@@ -847,7 +857,7 @@ function handleAnalysis(event) {
   if(context?.id===result.id && context.committed && !candidate &&
     context.number===game.moveNumber && context.hash===boardHash(game.board) &&
     result.engine==="katago") {
-    endgameStage=endgameAdvisor.observe(game,result.ownership);
+    if(!isFree(game))endgameStage=endgameAdvisor.observe(game,result.ownership);
     updateEndUi();
     if(gameMode==="ai" && !room && game.next===humanColor && Array.isArray(result.policy)) {
       hints={number:context.number,hash:context.hash,moves:policyHints(game,result.policy)};
@@ -893,6 +903,7 @@ function show() {
     gameMode==="ai"?(gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
       fallbackMode?TEXT.game.aiStopped:!katagoReady?TEXT.game.aiPreparing:
       isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
+    isFree(game)?(game.next===BLACK?TEXT.game.freeBlack:TEXT.game.freeWhite):
     (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite);
   if(!room)$("netStatus").textContent=gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
   $("netStatus").classList.toggle("online",connected);
@@ -929,7 +940,8 @@ function show() {
   canvas.setAttribute("aria-label",TEXT.game.boardLabel(shownSize()));
   const japanese=isJapanese(game);
   const forbidden=hasGomokuForbidden(game);
-  $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,gomoku?"gomoku":japanese,forbidden);
+  $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,
+    isFree(game)?"free":gomoku?"gomoku":japanese,forbidden);
   $("ruleLabel").textContent=TEXT.game.ruleLabel(size,rulesOf(game),komiOf(game),handicap,forbidden);
   // Japanese territory scoring counts prisoners, so they sit under the ownership bar.
   $("captureCounts").hidden=!japanese;
@@ -964,6 +976,14 @@ function show() {
   if(gomoku)$("pass").disabled=true;
   $("confirm").hidden=isScoring || isFinished;
   $("copyIllegalPrompt").hidden=isScoring || isFinished || !blocked;
+  // 自由に置く: the colour to place takes the place of 投了, パス and ここに打つ.
+  const free=isFree(game);
+  $("freeColors").hidden=!free;
+  if(free){
+    for(const id of ["resign","pass","confirm"])$(id).hidden=true;
+    for(const input of document.querySelectorAll('input[name="freeColor"]'))
+      input.checked=input.value===(game.next===WHITE?"white":"black");
+  }
   $("actionRow").classList.toggle("finished-actions",isFinished);
   $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:
     scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
@@ -1179,6 +1199,8 @@ canvas.addEventListener("click",e=>{
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
   if(game.status!=="playing" || !isHumanTurn())return;
+  // A free board places or takes off a stone at once; 待った undoes it.
+  if(isFree(game)){submitMove(position);return;}
   if(!room && endExpanded)endExpanded=false;
   // Occupied intersections cannot hold a provisional stone.
   if(game.board[position]!==0)return;
@@ -1241,6 +1263,13 @@ $("closeIllegalPromptFallback").onclick=()=>{
   $("illegalPromptFallbackPanel").hidden=true;
   $("copyIllegalPrompt").focus();
 };
+// The chosen colour belongs to the free board, so it is saved and restored with it.
+for(const input of document.querySelectorAll('input[name="freeColor"]'))
+  input.onchange=e=>{
+    if(!e.target.checked || !isFree(game) || game.status!=="playing")return;
+    game={...game,next:e.target.value==="white"?WHITE:BLACK};
+    save();show();requestAnalysis();
+  };
 // A mistaken pass is undone with 待った, so every mode passes on one tap.
 $("pass").onclick=()=>submitMove(null);
 // The armed label names the action ("投了？"): a bare "確定" reads like the
@@ -1634,6 +1663,9 @@ function showNewGameMode(kind) {
   if(kind==="history")historyPanel.showHistory();
   $("aiSideRow").hidden=$("aiStrengthRow").hidden=$("aiOptions").hidden=kind!=="ai";
   $("onlineSideRow").hidden=kind!=="online";
+  // 自由に置く is a board for one device; the other modes fall back to the default rules.
+  $("freeRulesChoice").hidden=kind!=="local";
+  if(kind!=="local" && kind!=="history" && gameRules==="free"){gameRules="chinese";rememberSettings();}
   $("modeHelp").dataset.help=kind;
   syncReturnButton(kind);
   syncHandicapUi();
@@ -2129,11 +2161,12 @@ function syncHandicapUi() {
   const shown=ai?aiHandicap:kind==="online"?onlineHandicap:localHandicap;
   for(const option of $("handicap").options)option.disabled=Number(option.value)>maxHandicap(boardSize);
   // 五目並べ takes no handicap stones (newGame() drops them); 禁じ手 is its own choice.
-  $("handicapSetup").hidden=gameRules==="gomoku";
+  $("handicapSetup").hidden=gameRules==="gomoku" || gameRules==="free";
+  $("hideStonesRow").hidden=gameRules==="free";
   $("gomokuForbiddenRow").hidden=gameRules!=="gomoku";
   $("handicap").value=String(shown);
   // The note only appears when stones are placed, so an even game shows no extra text.
-  $("handicapNote").hidden=!shown || gameRules==="gomoku";
+  $("handicapNote").hidden=!shown || gameRules==="gomoku" || gameRules==="free";
   $("handicapNote").textContent=(ai?TEXT.handicap.noteAi:
     kind==="online"?TEXT.handicap.noteOnline:TEXT.handicap.noteLocal)+
     (gameRules==="japanese"?TEXT.handicap.noteRuleJapanese:TEXT.handicap.noteRule)+(boardSize===9?TEXT.handicap.note9:"");

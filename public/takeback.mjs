@@ -1,4 +1,4 @@
-import { BLACK, WHITE, resume } from "./core.mjs";
+import { BLACK, WHITE, isFree, resume } from "./core.mjs";
 import { replaySteps } from "./sgf.mjs";
 
 /** 待った for every mode. The position is rebuilt by replaying the remaining
@@ -21,6 +21,8 @@ export function takeBackTo(state, keep) {
   let game=replaySteps(state,keep);
   // Two passes followed by 対局を再開 must come back as a playable position.
   if(game.status==="scoring")game=resume(game);
+  // On a free board the colour chosen to place stays chosen.
+  if(isFree(state))game={...game,next:state.next};
   // The counter lets reconnecting peers tell a rewound line from a stale one.
   return {...game,takebacks:(state.takebacks||0)+1};
 }
