@@ -386,11 +386,11 @@ body{overflow:hidden}
 .review-graph-plot>svg{display:block;width:100%;height:100%;border-radius:4px}
 .review-graph.no-graph .review-graph-plot{display:none}
 .review-graph.no-graph>#reviewStepRange{opacity:1;pointer-events:auto}
-.score-graph-axis{stroke:#8a8f98;stroke-width:1;stroke-opacity:.6}
-.score-graph-black{fill:#000}
+.score-graph-axis{stroke:#9aa0aa;stroke-width:1;stroke-opacity:.7}
+.score-graph-black{fill:#626876}
 .score-graph-white{fill:#f8f6ee}
 .score-graph-line{stroke:#8a8f98;stroke-width:1;stroke-linejoin:round}
-.score-graph-mark{fill:#e08a5f;stroke:#0d1018;stroke-width:1}
+.score-graph-mark{fill:#e08a5f;stroke:#0d1018;stroke-width:1.5}
 .score-graph-step{stroke:var(--gold);stroke-width:2}
 #reviewNotice{margin:0;color:#efca90;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
 #reviewNotice:empty{display:none}
