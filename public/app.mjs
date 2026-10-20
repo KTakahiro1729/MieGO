@@ -797,7 +797,10 @@ function requestOwnership() {
   analysisTimer=setTimeout(()=>postToWorker({id,state,board:state.board}),180);
 }
 // 五目並べ has no territory to estimate, and its computer player needs no KataGo.
-const GOMOKU_AI_DELAY_MS=420;
+// The COM answers no sooner than this after a person's move, so the stone
+// (and its sound) lands as a reply rather than on top of the person's own.
+const AI_REPLY_MS=800;
+let personMovedAt=0;
 function requestGomokuTurn() {
   pending=++seq;
   displayedOwnership=null;
@@ -815,7 +818,7 @@ function requestGomokuTurn() {
     if(!isAiTurn() || game.moveNumber!==job.number || boardHash(game.board)!==job.hash){show();return;}
     lastWatchMoveAt=performance.now();
     submitMove(gomokuMove(game.board,game.next,Math.random,{forbidden:hasGomokuForbidden(game)}),true);
-  },GOMOKU_AI_DELAY_MS);
+  },AI_REPLY_MS);
 }
 /** The automatic dead-stone job still belongs to the position on the board. */
 function scoringJobCurrent(job) {
@@ -957,6 +960,9 @@ function finishAiMove(result) {
   }
   // A paused COM同士 stops at once: the move is asked for again on 再開.
   if(watching && watchPaused){requestAnalysis();return;}
+  // The job stays open while it waits, so a new position or 待った drops the move.
+  const wait=watching?0:personMovedAt+AI_REPLY_MS-performance.now();
+  if(wait>0){aiThinking=true;aiJob=job;setTimeout(()=>finishAiMove(result),wait);return;}
   try {
     // This is an NN evaluation of the committed position, not a preview.
     const valid=Array.isArray(result.ownership) &&
@@ -1279,6 +1285,7 @@ function apply(action, remote=false, isAiMove=false) {
         endNotice={number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.cancelledByMove};
       if(action.after!==boardHash(game.board)) throw new Error("Board mismatch after the move");
       lastPosition=Number.isInteger(action.position)?action.position:null;
+      if(!remote && !isAiMove)personMovedAt=performance.now();
     } else if(action.type==="solo_scoring") {
       stopAiTurn(); // Invalidate pending AI workers on the old position.
       game=beginSoloScoring(game);
