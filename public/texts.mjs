@@ -523,6 +523,27 @@ export const TEXT = {
     cardLegend: "地合いの推定",
     cardPlay: "自分でプレイする",
     cardContribute: "開発に参加する",
+    // 棋風診断 (play-style.mjs): one name per type, A/G 攻め・守り, H/L 模様・実利,
+    // F/R 自由・律儀, T/Q 粘り強い・潔い.
+    playStyles: {
+      AHFQ: "疾風の大将",
+      AHFT: "不屈の暴れん坊",
+      AHRQ: "正面突破の武将",
+      AHRT: "鬼の喧嘩師",
+      ALFQ: "神出鬼没の荒らし屋",
+      ALFT: "しぶとい忍者",
+      ALRQ: "切れ味の職人",
+      ALRT: "食らいつく猟犬",
+      GHFQ: "悠々の大局観",
+      GHFT: "粘りの大名",
+      GHRQ: "品のいい王道派",
+      GHRT: "鉄壁の城主",
+      GLFQ: "飄々の仙人",
+      GLFT: "地に足の苦労人",
+      GLRQ: "堅実な石橋",
+      GLRT: "忍耐の石垣",
+    },
+    cardPlayStyle: (type, name) => type + " " + name,
   },
 
   sgf: {

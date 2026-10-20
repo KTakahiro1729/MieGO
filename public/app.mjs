@@ -2417,7 +2417,16 @@ function restoreEndgameAdvice(){
 function rememberOwnership(board,values){
   try{ownershipStore.remember(currentGameId,board,values);}catch(error){console.warn("Ownership not kept",error);}
 }
-const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,
+// The colours a person played in the shared game: a COM's side is left out, and a watched game has none.
+function playedSides(){
+  const record=boardReview?.source==="archive" ? boardReview.record : null;
+  const live=!boardReview || boardReview.source==="live";
+  const ai=record ? record.mode==="ai" : live && gameMode==="ai";
+  if(!ai)return [BLACK,WHITE];
+  if(record ? record.watch : watching)return [];
+  return [record ? record.humanColor : humanColor];
+}
+const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,playedSides,
   stillColoured:()=>boardReview ? !!boardReview.ownership : game.status==="playing" && !!displayedOwnership});
 function openSharePanel(){
   openPanel("share");

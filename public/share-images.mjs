@@ -2,6 +2,7 @@ import { sizeOf, komiOf, handicapOf } from "./core.mjs";
 import { shareLabels, shareFrameSize, paintShareFrame, buildGameAnimation, loadShareFonts } from "./share-image.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
 import { influence } from "./influence.mjs";
+import { playStyle, reportPlayStyles } from "./play-style.mjs";
 import { TEXT } from "./texts.mjs";
 
 export function downloadBlob(blob,name){
@@ -14,7 +15,8 @@ export function downloadBlob(blob,name){
 
 // The 画像 part of the share sheet. sharedPosition() is the board the sheet
 // works on; stillColoured() tells whether that board now shows ownership.
-export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ownershipStore,
+// playedSides() lists the colours a person played (a COM's style is its setting).
+export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ownershipStore,playedSides,
                                    appearance:{shownPalette,overlayOn,opacity,boardTheme}}) {
   // Shared images end on the board exactly as drawn (board look, ownership
   // colours, marks and labels come from the canvas itself), set in a card
@@ -33,10 +35,20 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
     // The legend explains colours only when the image carries them: every
     // animation frame is coloured, a still only what the board now shows.
     const coloured=overlayOn() && (animated || stillColoured());
+    const styles=playStyles(snapshot,step,gameId);
     return {snapshot,step,gameId,labels:{...shareLabels({step,total,result,animated,
         komi:Number.isFinite(Number(metadata?.komi)) ? Number(metadata.komi) : komiOf(snapshot),
         handicap:handicapOf(snapshot)}),boardSize:sizeOf(snapshot.board),
-      theme:boardTheme(),legend:coloured ? {palette:shownPalette(),opacity:opacity()} : null}};
+      theme:boardTheme(),legend:coloured ? {palette:shownPalette(),opacity:opacity()} : null,styles}};
+  }
+  // 棋風診断 of each person who played, counted (by type only) the first time it is shown.
+  function playStyles(snapshot,step,gameId){
+    try{
+      const recall=state=>gameId===null ? null : ownershipStore.recall(gameId,state.board);
+      const styles=playedSides().map(color=>playStyle(snapshot,color,{through:step,recall})).filter(Boolean);
+      reportPlayStyles(gameId+":"+step+":"+styles.map(s=>s.type).join(","),snapshot,styles);
+      return styles;
+    }catch(error){console.warn("Play style not read",error);return [];}
   }
   // An animation frame: the replayed position with the ownership recorded for
   // it, or the replay view's quick estimate where none was recorded.

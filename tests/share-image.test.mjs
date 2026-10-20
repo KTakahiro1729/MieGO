@@ -127,3 +127,20 @@ test("committed positions keep the ownership shown, and animation frames use it"
   assert.match(app,/context\.hash===boardHash\(game\.board\)\)\s*rememberOwnership\(game\.board,result\.ownership\)/);
   assert.match(source("share-images.mjs"),/ownershipStore\.recall\(gameId,state\.board\) \?\? influence\(state\.board\)/);
 });
+
+test("a 棋風診断 line sits between the result and a smaller board",()=>{
+  const ctx=recordingContext();
+  paintShareFrame({width:800,getContext:()=>ctx},{width:720},
+    {moves:"全42手",rules:"コミ7.5目",result:"白の中押し勝ち",winner:"W",theme:"wood",
+      styles:[{color:"B",type:"AHFT"},{color:"W",type:"GLRQ"}]});
+  const at=text=>ctx.texts.find(t=>t.text===text);
+  const black=at("AHFT 不屈の暴れん坊"),white=at("GLRQ 堅実な石橋");
+  const [[bx,by,bs]]=ctx.images;
+  assert.ok(black && white);
+  assert.ok(black.y>at("白の中押し勝ち").y && black.y<by,"under the result, above the board");
+  assert.equal(black.y,white.y);
+  assert.ok(bs<700 && Math.abs(bx+bs/2-400)<1,"the board makes room and stays centred");
+  assert.ok(black.x<400 && white.x>400,"one per half");
+  assert.equal(ctx.arcs.filter(([,,r])=>r===9).length,2,"each with its stone");
+  assert.ok(ctx.texts.every(t=>t.y<1000));
+});
