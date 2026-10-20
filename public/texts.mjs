@@ -178,6 +178,10 @@ export const TEXT = {
     waitingOpponent: "対局相手を待っています",
     aiStopped: "ページを開き直してください",
     aiTurn: "AIの番です",
+    // 最強's wait after the turn label: the download, or the read's time left.
+    withWait: (label, note) => label + "（" + note + "）",
+    waitPercent: percent => percent + "%",
+    waitSeconds: seconds => "約" + seconds + "秒",
     yourTurnAi: "あなたの番です",
     watchPause: "一時停止",
     watchResume: "再開",

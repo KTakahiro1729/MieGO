@@ -471,8 +471,10 @@ function onStrongMessage(net, event) {
   const result=event.data;
   if(result?.kind==="progress") {
     net.progress=result.total>0?Math.floor(100*result.loaded/result.total):0;
-    if(net===strongNet() && isAiTurn() && !aiThinking && comToMove().strength==="strongest")
+    if(net===strongNet() && isAiTurn() && !aiThinking && comToMove().strength==="strongest"){
       $("aiMatchStatus").textContent=TEXT.ai.strongestLoading(net.progress);
+      show();
+    }
     return;
   }
   if(result?.kind==="availability") {
@@ -482,13 +484,26 @@ function onStrongMessage(net, event) {
     return;
   }
   if(result?.kind==="reading") {
-    if(aiJob?.id===result.id)$("aiMatchStatus").textContent=TEXT.ai.strongestReading;
+    if(aiJob?.id!==result.id)return;
+    aiJob.remainingMs=Math.max(0,result.total-result.done)*(Number(result.evalMs)||0);
+    $("aiMatchStatus").textContent=TEXT.ai.strongestReading;
+    show();
     return;
   }
   if(result?.kind==="move") {
     if(result.error){strongFailed(net,result.error);return;}
     finishAiMove(result);
   }
+}
+/** While 最強 is to move: true, or the note after the turn label (download
+ * percent, or seconds left when it reads); null for any other move. */
+function strongWait() {
+  if(!isAiTurn() || isGomoku(game) || comToMove().strength!=="strongest")return null;
+  const net=strongNet();
+  if(net.state==="loading")return net.progress<100?TEXT.game.waitPercent(net.progress):true;
+  if(net.state!=="ready")return null;
+  if(aiJob?.strong && aiJob.remainingMs>0)return TEXT.game.waitSeconds(Math.max(1,Math.round(aiJob.remainingMs/1000)));
+  return true;
 }
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
@@ -1037,7 +1052,10 @@ function show() {
   // Nobody is to move while scoring or after the game, so no turn stone.
   $("turn").classList.toggle("no-stone",game.status!=="playing" ||
     isWatching() && watchReturning && !watchPaused && !intervening);
-  $("turn").textContent=game.status==="finished"?finishedTitle():
+  // 最強 can take a while: its turn stone pulses, with the download or the read's time left.
+  const waiting=strongWait();
+  $("turn").classList.toggle("is-waiting",!!waiting);
+  $("turn").textContent=(typeof waiting==="string"?TEXT.game.withWait:(label=>label))(game.status==="finished"?finishedTitle():
     // The scoring step names itself here, so the score box keeps its one line for the instruction.
     game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
     room && !connected?TEXT.game.waitingOpponent:
@@ -1049,7 +1067,7 @@ function show() {
       gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
       fallbackMode?TEXT.game.aiStopped:
       isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
-    (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite);
+    (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite),waiting);
   if(!room)$("netStatus").textContent=spectating?TEXT.common.modeWatch:
     gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
   $("netStatus").classList.toggle("online",connected);
