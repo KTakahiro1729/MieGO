@@ -33,9 +33,9 @@ test("a 新規対戦 button opens one sheet with the modes as icon tabs, then �
   assert.match(app,/function openHistoryPanel\(\)\{openPanel\("history"\);\}/);
 });
 
-test("自分の石・COMのキャラ・盤・ルール are one row of tabs over one panel of choices",()=>{
-  assert.deepEqual([...sheet.matchAll(/id="setupTab(\w+)"[^>]*role="tab"/g)].map(m=>m[1]),["Side","Strength","Board","Rules"]);
-  for(const key of ["Board","Rules","Side","Strength"])assert.match(sheet,new RegExp('id="setupPanel'+key+'" class="setup-panel" role="tabpanel"'));
+test("自分の石・COMのキャラ・盤・ルール・時間 are one row of tabs over one panel of choices",()=>{
+  assert.deepEqual([...sheet.matchAll(/id="setupTab(\w+)"[^>]*role="tab"/g)].map(m=>m[1]),["Side","Strength","Board","Rules","Time"]);
+  for(const key of ["Board","Rules","Side","Strength","Time"])assert.match(sheet,new RegExp('id="setupPanel'+key+'" class="setup-panel" role="tabpanel"'));
   for(const size of [9,13,19])assert.match(sheet,new RegExp('name="boardSize" value="'+size+'"'));
   assert.equal((sheet.match(/name="boardSize"[^>]*><span class="choice"><svg class="size-icon"/g)||[]).length,3);
   // No 詳細設定 disclosure: handicap sits under ルール's choices; the sampling-variance setting is gone.
@@ -176,4 +176,16 @@ test("every mode's start button reads 新しい対局を始める and stays at t
  assert.match(css,/\.mode-panel #localSetup,\.mode-panel #aiSetup,\.mode-panel #onlineStart\{[^}]*position:sticky/);
  // 対友人's button is its own section, so it can stick like the others.
  assert.match(html,/<section id="onlineStart" class="settings-section" hidden>\s*<button id="copy"/);
+});
+test("the 時間 tab holds the clock and 観戦's speed, each greyed out where the mode does not use it",()=>{
+  const time=panel("Time");
+  assert.ok(time.indexOf('id="timeControlSetup"')>=0 && time.indexOf('id="timeControlSetup"')<time.indexOf('id="watchSpeedRow"'));
+  assert.doesNotMatch(panel("Rules"),/id="mainTime"|id="byoyomi"/);
+  assert.doesNotMatch(panel("Side"),/name="watchSpeed"/);
+  assert.match(app,/const untimedRules=kind=>gameRules==="free" \|\| kind==="online" \|\| kind==="ai" && watchChoice;/);
+  // 観戦 runs without a clock; its tab value is the speed.
+  assert.match(app,/startAiGame\(newGame\(true,\{\.\.\.nextGameOptions\(aiHandicap\),\.\.\.\(watchChoice\?\{timeControl:null\}:\{\}\)\}\),watchChoice,aiSideChoice\);/);
+  assert.equal(TEXT.newGame.timeValue("","") ,"なし");
+  assert.equal(TEXT.newGame.timeValue("10分","30秒"),"10分+30秒");
+  assert.equal(TEXT.newGame.timeValue("","30秒"),"秒読み30秒");
 });

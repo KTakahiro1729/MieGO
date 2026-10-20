@@ -73,10 +73,11 @@ import {
   storageKey,
 } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
-import { interpolateOwnership } from "./territory-view.mjs";
+import { interpolateOwnership, prisonerOutline } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
+import { playerSides } from "./player-row.mjs";
 import { DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
 import {
   CUSTOM_CHARACTER,
@@ -95,7 +96,7 @@ import {
   takebackCut,
 } from "./takeback.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
-import { scoreBreakdown, scoreRows, PRISONER_OUTLINE } from "./scoring-regions.mjs";
+import { scoreBreakdown, scoreRows } from "./scoring-regions.mjs";
 import { createBoardZoom } from "./board-zoom.mjs";
 import {forbiddenLines,inspectProvisionalMove,makeIllegalMovePrompt} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
@@ -521,18 +522,23 @@ function onStrongMessage(net, event) {
     finishAiMove(result);
   }
 }
-/** While 最強 is to move: what it is doing, with how far along it is;
- * null for any other move. */
+/** While 最強 is to move: what it is doing, with how far along it is, in full
+ * and short enough for its side of the turn row; null for any other move. */
 function strongWait() {
   if(!isAiTurn() || isGomoku(game) || comToMove().strength!=="strongest")return null;
   const net=strongNet();
-  if(net.state==="loading")return net.progress<100?TEXT.game.thinkDownloading(net.progress):TEXT.game.thinkPreparing;
+  if(net.state==="loading")return net.progress<100?
+    {text:TEXT.game.thinkDownloading(net.progress),short:TEXT.game.sideDownloading(net.progress)}:
+    {text:TEXT.game.thinkPreparing,short:TEXT.game.sidePreparing};
   if(net.state!=="ready")return null;
   const read=aiJob?.strong && aiJob.read;
   // The time left needs one timed evaluation of this read first.
-  if(read?.total>0)return TEXT.game.thinkReading(read.depth,Math.floor(100*read.done/read.total),
-    read.done>0 && Math.max(1,Math.round(read.remainingMs/1000)));
-  return TEXT.game.thinkMove;
+  if(read?.total>0){
+    const percent=Math.floor(100*read.done/read.total);
+    return {text:TEXT.game.thinkReading(read.depth,percent,read.done>0 && Math.max(1,Math.round(read.remainingMs/1000))),
+      short:TEXT.game.sideReading(percent)};
+  }
+  return {text:TEXT.game.thinkMove,short:TEXT.game.comThinking};
 }
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
@@ -1084,10 +1090,14 @@ function show() {
       fallbackMode?TEXT.game.aiStopped:
       isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
     (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite);
-  if(!room)$("netStatus").textContent=waiting || (spectating?TEXT.common.modeWatch:
+  if(!room)$("netStatus").textContent=waiting?.text || (spectating?TEXT.common.modeWatch:
     gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal);
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=TEXT.game.moveLabel(game.moveNumber);
+  // The sentence above stays for the states it explains (scoring, the result, waiting, a stopped AI).
+  renderPlayers(game.status==="playing" && !isFree(game) && !(room && !connected) &&
+    !(spectating && watchReturning && !watchPaused && !intervening) &&
+    !(gameMode==="ai" && !gomoku && fallbackMode),waiting);
   // ◁ opens the replay one move back; ▷ only moves within a replay, so it rests disabled here.
   $("stepBack").disabled=!game.moves.length;
   $("stepForward").disabled=true;
@@ -1137,12 +1147,13 @@ function show() {
   const counted=game.status==="scoring" || game.status==="finished" && !game.result?.endsWith("+R");
   const prisoners=japanese && counted?
     areaScore(game).prisoners:{black:game.captures?.black||0,white:game.captures?.white||0};
-  // Black's prisoners are White stones: that pill shows White stones, in the
-  // outline colour of the White stones filled into White's territory.
+  // Black's prisoners are White stones: that pill shows White stones, in
+  // Black's area colour, as the White stones filled into White's territory are.
   $("whitePrisoners").textContent=String(prisoners.black);
   $("blackPrisoners").textContent=String(prisoners.white);
-  $("whitePrisonerPill").style.borderColor=PRISONER_OUTLINE.white;
-  $("blackPrisonerPill").style.borderColor=PRISONER_OUTLINE.black;
+  const outline=prisonerOutline(shownPalette());
+  $("whitePrisonerPill").style.borderColor=outline.white;
+  $("blackPrisonerPill").style.borderColor=outline.black;
   $("captureCounts").setAttribute("aria-label",TEXT.game.capturesAria(prisoners.black,prisoners.white));
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
   $("gamePanel").classList.toggle("is-scoring",isScoring);
@@ -1655,15 +1666,17 @@ function timeOut(side) {
   save();show();
 }
 gameClock.onTimeout(timeOut);
-// Each side's time beside the move count: the side to move counts down.
+// Each person's time under their name in the turn row: the side to move counts down.
+// A COM has no clock, so its side keeps its strength or 考え中.
+const clockShown = side => !!game.timeControl && !boardReview && room===null && !isFree(game) &&
+  !(gameMode==="ai" && (isWatching() || side!==humanColor));
 function renderClock() {
-  const box=$("gameClock");
-  box.hidden=!game.timeControl || !!boardReview || room!==null || isFree(game);
-  if(box.hidden)return;
   const running=gameClock.reading();
   for(const side of [BLACK,WHITE]){
-    const reading=running?.side===side?running:readClock(game,side);
     const cell=$(side===BLACK?"clockBlack":"clockWhite");
+    cell.hidden=!clockShown(side);
+    if(cell.hidden)continue;
+    const reading=running?.side===side?running:readClock(game,side);
     cell.textContent=reading.main>0?clockText(reading.main):
       reading.byoyomi===null?clockText(0):TEXT.game.byoyomi(clockSeconds(reading.byoyomi));
     cell.classList.toggle("is-running",running?.side===side);
@@ -1943,9 +1956,9 @@ function syncStartButtons() {
   keepArmedLabel($("startLocal"));
 }
 function startLabel(){return continueFrom?TEXT.review.continue:TEXT.newGame.start;}
-// 自分の石, COMのキャラ, 盤 and ルール are one row of underlined tabs, the colour first; the selected
+// 自分の石, COMのキャラ, 盤, ルール and 時間 are one row of underlined tabs, the colour first; the selected
 // tab's choices fill the one panel under it, one per line with a note beside it.
-const SETUP_TABS=["Side","Strength","Board","Rules"];
+const SETUP_TABS=["Side","Strength","Board","Rules","Time"];
 function selectSetupTab(key, focus=false) {
   for(const other of SETUP_TABS){
     const tab=$("setupTab"+other),selected=other===key;
@@ -1964,11 +1977,13 @@ SETUP_TABS.forEach((key,index)=>{
 });
 // A tab whose setting the chosen mode does not use is greyed out; its panel still opens.
 function syncSetupValues() {
-  const kind=newGameModeKind();
-  $("setupTabSide").classList.toggle("is-unused",kind==="local");
+  const kind=newGameModeKind(),watch=kind==="ai" && watchChoice;
+  $("setupTabSide").classList.toggle("is-unused",kind==="local" || watch);
   // While watching, the tab still holds each COM's card.
   $("setupTabStrength").classList.toggle("is-unused",kind!=="ai");
-  $("sideNote").textContent=kind==="local"?TEXT.newGame.sideNotes.local:"";
+  // 時間 holds the clock and 観戦's speed; a friend game or a free board uses neither.
+  $("setupTabTime").classList.toggle("is-unused",!watch && untimedRules(kind));
+  $("sideNote").textContent=kind==="local"?TEXT.newGame.sideNotes.local:watch?TEXT.newGame.sideNotes.watch:"";
   syncSetupTabValues();
 }
 // Each tab shows its chosen value under its name, so the game to start reads without opening every tab.
@@ -1979,11 +1994,20 @@ function syncSetupTabValues() {
     const checked=[...panel.querySelectorAll("input:checked")].find(input=>input.closest("[hidden]")===panel || !panel.contains(input.closest("[hidden]")));
     // ここから打つ fixes 盤 and ルール to the record's, so those still show the value.
     const fixed=continueFrom && (key==="Board" || key==="Rules");
+    if(key==="Time" && !tab.classList.contains("is-unused")){$("setupValueTime").textContent=timeTabValue();continue;}
     $("setupValue"+key).textContent=key==="Strength" && editsWatchAi() && !tab.classList.contains("is-unused")?TEXT.newGame.watchStrengthValue:
       !checked || tab.classList.contains("is-unused") && !fixed?"—":checked.nextElementSibling.textContent.trim();
   }
 }
 $("newGameSetup").addEventListener("change",syncSetupTabValues);
+// 観戦 shows its speed; the other modes their clock.
+function timeTabValue() {
+  if(newGameModeKind()==="ai" && watchChoice)return TEXT.newGame.watchSpeeds[watchSpeed];
+  const label=(id,value)=>value?$(id).selectedOptions[0]?.textContent.trim()||"":"";
+  return TEXT.newGame.timeValue(label("mainTime",mainTimeChoice),label("byoyomi",byoyomiChoice));
+}
+// A free board has no turns to time, a friend game no clock yet, and 観戦 its speed instead.
+const untimedRules=kind=>gameRules==="free" || kind==="online" || kind==="ai" && watchChoice;
 // The 新規対戦 sheet shows the same rows in every mode, so its height stays put;
 // a row the chosen mode does not use is greyed out.
 function showNewGameMode(kind) {
@@ -2001,13 +2025,13 @@ function showNewGameMode(kind) {
   $("newGameSetup").hidden=kind==="history";
   $("modePanel").scrollTop=0;
   if(kind==="history")historyPanel.showHistory();
-  // 1台で打つ has no side to choose: it shows 対COM's row greyed out.
-  // 観戦 has no side either: its first tab is the speed of the moves instead.
-  $("aiSideRow").hidden=kind==="online" || watch;
+  // 1台で打つ and 観戦 have no side to choose: they show 対COM's row greyed out.
+  $("aiSideRow").hidden=kind==="online";
   $("onlineSideRow").hidden=kind!=="online";
-  $("watchSpeedRow").hidden=!watch;
-  $("setupNameSide").textContent=watch?TEXT.newGame.watchSpeed:TEXT.newGame.mySide;
-  $("aiSideChoices").disabled=kind!=="ai";
+  $("aiSideChoices").disabled=kind!=="ai" || watch;
+  // 観戦's speed sits under 時間 in every mode, greyed out outside 観戦.
+  $("watchSpeedChoices").disabled=!watch;
+  $("watchSpeedRow").classList.toggle("is-off",!watch);
   syncSideUi();syncStrengthUi();updatePersonaUi();
   // 自由に置く has no computer opponent: under 対COM it is greyed out and the default rules apply.
   if(kind==="ai" && gameRules==="free" && !continueFrom){gameRules="chinese";rememberSettings();}
@@ -2095,8 +2119,31 @@ function saveReviewVariation(){
     $("reviewNotice").textContent=TEXT.review.variationSaved;
   }catch(error){$("reviewNotice").textContent=messageFor(error,TEXT.review.variationSaveFailed);}
 }
+/** Both players in the turn row: who each colour is, and whether it is to move. */
+function renderPlayers(shown, waiting=null) {
+  $("players").hidden=!shown;
+  $("statusRow").querySelector(".status-main").classList.toggle("has-players",shown);
+  if(!shown)return;
+  const sides=playerSides({mode:room?"online":gameMode,watching:isWatching(),humanColor,aiCom,watchAi,
+    onlineColor:room?myOnlineColor():null});
+  for(const color of [BLACK,WHITE]){
+    const side=sides[color],box=$(color===BLACK?"playerBlack":"playerWhite");
+    const toMove=game.next===color;
+    const thinking=toMove && side.com && !watchPaused && !intervening;
+    box.classList.toggle("is-turn",toMove);
+    box.querySelector(".player-wait").hidden=!thinking;
+    // A person's 持ち時間 takes the place of their line.
+    box.querySelector(".player-name").textContent=side.name;
+    // The opponent's line carries the connection; the side to move says so.
+    box.querySelector(".player-detail-text").textContent=
+      room && !side.com && side.name===TEXT.game.opponent?$("netStatus").textContent:
+      thinking?(waiting?.short || TEXT.game.comThinking):clockShown(color)?"":toMove && !side.com?TEXT.game.toMove:side.detail;
+  }
+  $("playersMove").textContent=TEXT.game.moveLabel(game.moveNumber);
+}
 function renderBoardReview() {
   if(!boardReview)return;
+  renderPlayers(false);
   // The live match may advance over WebRTC or AI while the chosen step stays fixed.
   if(boardReview.source==="live")boardReview.snapshot=game;
   const {step,source}=boardReview;
@@ -2574,7 +2621,8 @@ $("startAi").onclick=()=>{
   if(gameRules!=="gomoku" && (!katagoReady || fallbackMode))return;
   if(room && connected &&
      !confirmByRetap($("startAi"),TEXT.confirm.leaveForAi))return;
-  startAiGame(newGame(true,nextGameOptions(aiHandicap)),watchChoice,aiSideChoice);
+  // 観戦 runs at its own speed, without a clock.
+  startAiGame(newGame(true,{...nextGameOptions(aiHandicap),...(watchChoice?{timeControl:null}:{})}),watchChoice,aiSideChoice);
 };
 /** A new AI game from the empty board `fresh`: watched, or with the human's side drawn from `side`. */
 function startAiGame(fresh, watch, side) {
@@ -2652,8 +2700,7 @@ function syncHandicapUi() {
     ["hideStonesRow","hideStones",gameRules==="free"],["gomokuForbiddenRow","gomokuForbidden",gameRules!=="gomoku"]]){
     $(input).disabled=off;$(row).classList.toggle("is-off",off);
   }
-  // A free board has no turns to time, and a friend game no clock yet.
-  const untimed=gameRules==="free" || kind==="online";
+  const untimed=untimedRules(kind);
   for(const input of ["mainTime","byoyomi"])$(input).disabled=untimed;
   $("timeControlSetup").classList.toggle("is-off",untimed);
   $("handicap").value=String(shown);
