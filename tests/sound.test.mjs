@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { countdownSound, createSoundEffects, moveSound } from "../public/sound.mjs";
+import { CALM_VOICES, countdownSound, createSoundEffects, DOPA_VOICES, moveSound } from "../public/sound.mjs";
 
 function fakePage() {
   const elements = new Map();
@@ -92,4 +92,23 @@ test("秒読み beeps in the last 10 seconds, higher in the last 5", () => {
   assert.equal(countdownSound({ left: 5000, out: false }), "countdownLast");
   assert.equal(countdownSound({ left: 400, out: false }), "countdownLast");
   assert.equal(countdownSound({ left: 0, out: true }), null);
+});
+
+test("a voices getter is read at each play, and a capture's count reaches the voice", () => {
+  globalThis.localStorage = { getItem: () => "on", setItem() {} };
+  const page = fakePage();
+  const heard = [];
+  let loud = false;
+  const calm = { capture: () => heard.push("calm") };
+  const dopa = { capture: (ctx, out, at, detail) => heard.push("dopa:" + detail?.count) };
+  const sound = createSoundEffects({ $: page.$, voices: () => loud ? dopa : calm, AudioContextClass: FakeContext, target: page.target });
+  page.tap();
+  sound.play("capture", { count: 3 });
+  loud = true;
+  sound.play("capture", { count: 3 });
+  assert.deepEqual(heard, ["calm", "dopa:3"]);
+});
+
+test("ドパガキモード's voices cover every calm sound", () => {
+  for (const name of Object.keys(CALM_VOICES)) assert.equal(typeof DOPA_VOICES[name], "function", name);
 });
