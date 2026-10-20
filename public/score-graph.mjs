@@ -51,7 +51,7 @@ export function stepAt(x, width, last) {
 
 /**
  * SVG markup of the graph, built only from numbers, so it is safe to assign as
- * innerHTML. Black's lead is up. The vertical scale is symmetric and at least
+ * innerHTML. Black's lead is up: the black area grows as Black leads. The vertical scale is symmetric and at least
  * ±minScale points so a close game stays flat. Colours come from CSS classes.
  */
 export function scoreGraphSvg(raw, {width=300, height=48, step=0, marks=[], minScale=10}={}) {
@@ -71,15 +71,13 @@ export function scoreGraphSvg(raw, {width=300, height=48, step=0, marks=[], minS
   });
   const filled=runs.filter(run=>run.length);
   const d=filled.map(run=>run.map(([px,py],i)=>(i?"L":"M")+px+" "+py).join("")).join("");
-  // The area between the line and the axis: black where Black leads, white below.
-  const area=filled.map(run=>"M"+run[0][0]+" "+mid+run.map(([px,py])=>"L"+px+" "+py).join("")+"L"+run.at(-1)[0]+" "+mid+"Z").join("");
+  // Two tones, as in chess evaluation graphs: black fills from the bottom up
+  // to the line and white from the top down to it, so the colour that covers
+  // more of the graph is the side ahead. Gaps stay unfilled.
+  const black=filled.map(run=>"M"+run[0][0]+" "+height+run.map(([px,py])=>"L"+px+" "+py).join("")+"L"+run.at(-1)[0]+" "+height+"Z").join("");
+  const white=filled.map(run=>"M"+run[0][0]+" 0"+run.map(([px,py])=>"L"+px+" "+py).join("")+"L"+run.at(-1)[0]+" 0Z").join("");
   const parts=[];
-  if(area){
-    parts.push(`<clipPath id="score-graph-up"><rect width="${width}" height="${mid}"/></clipPath>`,
-      `<clipPath id="score-graph-down"><rect y="${mid}" width="${width}" height="${mid}"/></clipPath>`,
-      `<path class="score-graph-black" d="${area}" clip-path="url(#score-graph-up)"/>`,
-      `<path class="score-graph-white" d="${area}" clip-path="url(#score-graph-down)"/>`);
-  }
+  if(black)parts.push(`<path class="score-graph-black" d="${black}"/>`,`<path class="score-graph-white" d="${white}"/>`);
   parts.push(`<line class="score-graph-axis" x1="0" y1="${mid}" x2="${width}" y2="${mid}"/>`);
   if(d)parts.push(`<path class="score-graph-line" d="${d}" fill="none"/>`);
   for(const s of marks){
@@ -88,6 +86,7 @@ export function scoreGraphSvg(raw, {width=300, height=48, step=0, marks=[], minS
     parts.push(`<circle class="score-graph-mark" cx="${x(s)}" cy="${y(v)}" r="3.5"/>`);
   }
   const at=Math.max(0,Math.min(last,Math.trunc(Number(step)||0)));
-  parts.push(`<line class="score-graph-step" x1="${x(at)}" y1="0" x2="${x(at)}" y2="${height}"/>`);
+  const stepX=Math.max(1,Math.min(width-1,x(at))); // Kept whole at either edge.
+  parts.push(`<line class="score-graph-step" x1="${stepX}" y1="0" x2="${stepX}" y2="${height}"/>`);
   return `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">${parts.join("")}</svg>`;
 }
