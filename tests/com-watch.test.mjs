@@ -60,7 +60,8 @@ test("a watched game is saved and resumed as watched",()=>{
 
 test("each COM of a watched game plays with its own character",()=>{
   // The move is chosen with the settings of the colour to play.
-  assert.match(body("finishAiMove"),/const com=watching\?watchAi\[game\.next===BLACK\?"black":"white"\]:aiCom;/);
+  assert.match(app,/const comToMove = \(\) => watching \? watchAi\[game\.next===BLACK\?"black":"white"\] : aiCom;/);
+  assert.match(body("finishAiMove"),/const com=comToMove\(\);/);
   assert.match(body("finishAiMove"),/choosePolicyMove\(game,result\.policy,result\.passLogit,\{\s*\.\.\.com,/);
   // 「COMの打ち方」 under the COMのキャラ tab holds one card per COM, shown only for two COMs:
   // a character, and カスタム's strength and four style rows.
@@ -72,9 +73,9 @@ test("each COM of a watched game plays with its own character",()=>{
     assert.deepEqual([...card.matchAll(/name="(com[A-Za-z]+)"/g)].map(m=>m[1]).filter((v,i,a)=>a.indexOf(v)===i),
       ["Strength","Invasion","Stance","Height","Tenuki"].map(field=>"com"+side+field));
   }
-  assert.deepEqual(choices("comBlackStrength"),["beginner","easy","normal","strong"]);
+  assert.deepEqual(choices("comBlackStrength"),["beginner","easy","normal","strong","strongest"]);
   assert.deepEqual([...cards[0].matchAll(/<option value="([a-z]+)"/g)].map(m=>m[1]),
-    ["chick","steady","raider","brawler","wide","serious","custom"]);
+    ["chick","steady","raider","brawler","wide","serious","master","custom"]);
   assert.match(app,/\$\("watchAiOptions"\)\.hidden=!two;/);
   // The COM left playing after a take-over keeps its own settings.
   assert.match(body("takeOverWatchedGame"),/=watchAi\[color===BLACK\?"white":"black"\]/);

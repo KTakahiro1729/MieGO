@@ -16,6 +16,8 @@ export const AI_CHARACTERS = Object.freeze({
   brawler: define("normal", {stance:100, tenuki:0}),
   wide: define("normal", {height:100, tenuki:100}),
   serious: define("strong"),
+  // 最強 plays KataGo's own choice from a larger network and ignores style.
+  master: define("strongest"),
 });
 export const CUSTOM_CHARACTER = "custom";
 export const DEFAULT_AI_CHARACTER = "chick";

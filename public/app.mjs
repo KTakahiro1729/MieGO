@@ -11,6 +11,7 @@ import {
   confirmDeadSolo,
   fillStones,
   finalizeSoloScore,
+  HANDICAP_KOMI,
   handicapOf,
   hasGomokuForbidden,
   isFree,
@@ -23,6 +24,7 @@ import {
   playFreeStone,
   proposeEnd,
   resume,
+  RULES_KOMI,
   RULESETS,
   rulesOf,
   scoringStepOf,
@@ -75,6 +77,7 @@ import {
   readCom,
   setComValue,
 } from "./ai-characters.mjs";
+import { strongNetworkFor } from "./strong-networks.mjs";
 import { policyHints } from "./ai-assist.mjs";
 import {
   answerTakeback,
@@ -435,6 +438,59 @@ const isHumanTurn = () => room
   : (gameMode !== "ai" || ((isGomoku(game) || !fallbackMode) &&
     (watching ? intervening : game.next === humanColor)));
 const isWatching = () => !room && gameMode === "ai" && watching;
+// The COM whose turn it is: in COM同士 each side has its own settings.
+const comToMove = () => watching ? watchAi[game.next===BLACK?"black":"white"] : aiCom;
+const gameUsesStrongest = () => !room && gameMode==="ai" && game.status==="playing" && !isGomoku(game) &&
+  (watching ? watchAi.black.strength==="strongest" || watchAi.white.strength==="strongest" : aiCom.strength==="strongest");
+// 最強 has its own worker and network (about 100 MB, 9路 or larger boards),
+// started only once a game against it is under way. If it cannot load, the
+// COM plays on with the small network instead.
+const strongNets = {};
+// Behind by this many points, 最強 reads one or two moves ahead.
+const STRONG_READ = {one:2,two:6};
+const strongNet = () => {
+  const key=strongNetworkFor(sizeOf(game.board));
+  return strongNets[key] ??= {key,worker:null,state:"idle",progress:0};
+};
+function startStrongWorker(net=strongNet()) {
+  if(net.worker || net.state==="failed")return;
+  net.state="loading";net.progress=0;
+  net.worker=new Worker("/katago-worker.bundle.mjs?net="+net.key,{type:"module"});
+  net.worker.onerror=e=>strongFailed(net,e.message || "worker startup error");
+  net.worker.onmessage=event=>onStrongMessage(net,event);
+}
+function strongFailed(net, reason) {
+  console.warn("Strongest ("+net.key+") network unavailable; the COM plays with the small network:",reason);
+  net.state="failed";
+  net.worker?.terminate();net.worker=null;
+  if(net!==strongNet())return;
+  if(aiJob?.strong){aiThinking=false;aiJob=null;}
+  if(gameMode==="ai")$("aiMatchStatus").textContent=TEXT.ai.strongestFailed;
+  if(isAiTurn())requestAnalysis();
+}
+function onStrongMessage(net, event) {
+  const result=event.data;
+  if(result?.kind==="progress") {
+    net.progress=result.total>0?Math.floor(100*result.loaded/result.total):0;
+    if(net===strongNet() && isAiTurn() && !aiThinking && comToMove().strength==="strongest")
+      $("aiMatchStatus").textContent=TEXT.ai.strongestLoading(net.progress);
+    return;
+  }
+  if(result?.kind==="availability") {
+    if(!result.available){strongFailed(net,result.error || TEXT.analysis.initFailed);return;}
+    net.state="ready";
+    if(net===strongNet() && isAiTurn())requestAnalysis();
+    return;
+  }
+  if(result?.kind==="reading") {
+    if(aiJob?.id===result.id)$("aiMatchStatus").textContent=TEXT.ai.strongestReading;
+    return;
+  }
+  if(result?.kind==="move") {
+    if(result.error){strongFailed(net,result.error);return;}
+    finishAiMove(result);
+  }
+}
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
   analysisContext=null;deadEvaluation=null;
@@ -593,6 +649,8 @@ let analysisTimer = null;
 function requestAnalysis() {
   clearTimeout(analysisTimer);
   analysisContext=null;
+  // The 最強 network downloads while the player thinks about the first move.
+  if(gameUsesStrongest())startStrongWorker();
   if(game.status==="scoring") {
     pending=++seq;
     analysisContext=null;
@@ -633,7 +691,13 @@ function requestAnalysis() {
       $("aiMatchStatus").textContent = TEXT.ai.unavailableContinue;
       show();return;
     }
-    if (!katagoReady) {
+    const net = strongNet(), strong = comToMove().strength==="strongest" && net.state!=="failed";
+    if (strong && net.state!=="ready") {
+      startStrongWorker(net);
+      $("aiMatchStatus").textContent = TEXT.ai.strongestLoading(net.progress);
+      requestOwnership(); show(); return;
+    }
+    if (!strong && !katagoReady) {
       $("analysisStatus").textContent = TEXT.analysis.starting;
       $("aiMatchStatus").textContent = TEXT.ai.waitingLoad;
       show();return;
@@ -642,10 +706,11 @@ function requestAnalysis() {
     const id = ++seq;
     pending=id;
     aiThinking=true;
-    aiJob={id,number:game.moveNumber,hash:boardHash(game.board)};
+    aiJob={id,number:game.moveNumber,hash:boardHash(game.board),strong};
     $("analysisStatus").textContent = TEXT.analysis.thinking;
     $("aiMatchStatus").textContent = TEXT.ai.thinking;
-    postToWorker({id,kind:"move",state:game});
+    if(strong)net.worker.postMessage({id,kind:"move",state:game,read:STRONG_READ});
+    else postToWorker({id,kind:"move",state:game});
     show();return;
   }
   requestOwnership();
@@ -859,12 +924,14 @@ function finishAiMove(result) {
     const passStage=valid?endgameAdvisor.observe(game,result.ownership):"playing";
     if(valid){endgameStage=passStage;rememberOwnership(game.board,result.ownership);}
     // Two COMs each play with their own settings.
-    const com=watching?watchAi[game.next===BLACK?"black":"white"]:aiCom;
+    const com=comToMove();
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
       ...com,ownership:result.ownership,endgameStage:passStage,
-      temperature:0.38
+      readMove:result.readMove,temperature:0.38
     });
-    $("aiMatchStatus").textContent = TEXT.ai.playingWith(characterLabel(com.character),comSummary(com));
+    $("aiMatchStatus").textContent = com.strength==="strongest" ?
+      (job.strong?TEXT.ai.playingStrongest(result.readDepth):TEXT.ai.strongestFailed) :
+      TEXT.ai.playingWith(characterLabel(com.character),comSummary(com));
     if(watching)lastWatchMoveAt=performance.now();
     submitMove(next,true);
   } catch(error) {
@@ -986,7 +1053,7 @@ function show() {
   // Nobody is to move while scoring or after the game, so no turn stone.
   $("turn").classList.toggle("no-stone",game.status!=="playing" ||
     isWatching() && watchReturning && !watchPaused && !intervening);
-  $("turn").textContent=game.status==="finished"?TEXT.scoring.finishedResign:
+  $("turn").textContent=game.status==="finished"?finishedTitle():
     // The scoring step names itself here, so the score box keeps its one line for the instruction.
     game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
     room && !connected?TEXT.game.waitingOpponent:
@@ -1520,6 +1587,13 @@ $("endDecline").onclick=()=>{
 };
 $("hideStones").onchange=e=>{hideStonesChoice=e.target.checked;rememberSettings();};
 $("gomokuForbidden").onchange=e=>{gomokuForbiddenChoice=e.target.checked;rememberSettings();renderInviteButton();};
+// A player reads their own result first; a 1台 game or COM同士 has no "you".
+function finishedTitle(){
+  const mine=room?myOnlineColor():gameMode==="ai" && !isWatching()?humanColor:null;
+  const winner=resultWinner(game.result);
+  if(!mine || !winner)return TEXT.scoring.finishedResign;
+  return winner===(mine===BLACK?"B":"W")?TEXT.scoring.finishedWin:TEXT.scoring.finishedLoss;
+}
 // Two aligned rows: stone, name, what is added to the board area, total.
 function renderScoreboard(){
   const rows=scoreRows(game);
@@ -2458,6 +2532,11 @@ function syncHandicapUi() {
   $("handicap").value=String(shown);
   // The note only appears when stones are placed, so an even game shows no extra text.
   $("handicapNote").hidden=!shown || gameRules==="gomoku" || gameRules==="free";
+  // What komi is: the even-game value, or the handicap one when stones are placed.
+  const go=gameRules==="chinese" || gameRules==="japanese";
+  $("komiNote").hidden=!go;
+  if(go)$("komiNote").textContent=shown?TEXT.newGame.komiNoteHandicap(HANDICAP_KOMI,gameRules==="japanese"):
+    TEXT.newGame.komiNote(RULES_KOMI[gameRules]);
   $("handicapNote").textContent=(ai?TEXT.handicap.noteAi:
     kind==="online"?TEXT.handicap.noteOnline:TEXT.handicap.noteLocal)+
     (gameRules==="japanese"?TEXT.handicap.noteRuleJapanese:TEXT.handicap.noteRule)+(boardSize===9?TEXT.handicap.note9:"");

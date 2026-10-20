@@ -36,13 +36,13 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   const advanced=panel("Strength");
   for(const id of ["handicap","gomokuForbidden","hideStones"])assert.match(panel("Rules"),new RegExp('id="'+id+'"'));
   assert.match(advanced,/id="aiHints"/);
-  // The COM is seven choices under its own tab, each with its note, above the style;
+  // The COM is eight choices under its own tab, each with its note, above the style;
   // カスタム's strength and four style rows have their own card.
   assert.ok(advanced.indexOf('name="aiCharacter"')<advanced.indexOf('id="aiOptions"'));
   assert.deepEqual([...sheet.matchAll(/name="aiCharacter" value="(\w+)"/g)].map(m=>m[1]),
-    ["chick","steady","raider","brawler","wide","serious","custom"]);
-  assert.equal((sheet.slice(sheet.indexOf('id="aiCharacterChoices"'),sheet.indexOf('</fieldset>',sheet.indexOf('id="aiCharacterChoices"'))).match(/<small class="choice-note">/g)||[]).length,7);
-  assert.deepEqual([...sheet.matchAll(/name="aiStrength" value="(\w+)"/g)].map(m=>m[1]),["beginner","easy","normal","strong"]);
+    ["chick","steady","raider","brawler","wide","serious","master","custom"]);
+  assert.equal((sheet.slice(sheet.indexOf('id="aiCharacterChoices"'),sheet.indexOf('</fieldset>',sheet.indexOf('id="aiCharacterChoices"'))).match(/<small class="choice-note">/g)||[]).length,8);
+  assert.deepEqual([...sheet.matchAll(/name="aiStrength" value="(\w+)"/g)].map(m=>m[1]),["beginner","easy","normal","strong","strongest"]);
   for(const name of ["aiInvasion","aiStance","aiHeight","aiTenuki"])
     assert.deepEqual([...sheet.matchAll(new RegExp('name="'+name+'" value="(\\d+)"',"g"))].map(m=>m[1]),["0","50","100"]);
   // 自分の石・COMのキャラ・盤・ルール are one row of tabs over one panel of choices, the colour first.

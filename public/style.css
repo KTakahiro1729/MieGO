@@ -315,6 +315,8 @@ body.board-zoomed .board-bleed{opacity:1}
 .com-choices span{padding:8px 0;font-size:12px;white-space:nowrap}
 /* A watched COM's カスタム rows join its card's grid. */
 .com-custom{display:contents}
+/* Five strengths only fit a phone's width on a row of their own, under their label. */
+.com-strength{grid-column:1/-1}
 @media(max-width:700px){.header-actions{gap:6px}.new-game-button{padding:8px 12px;font-size:12px}}
 
 /* One existing status row; optional expanded content never overlays the board. */
