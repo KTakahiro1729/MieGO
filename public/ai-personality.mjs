@@ -15,7 +15,7 @@ export const STYLE_AXES = Object.freeze([
 // (docs/AI_PERSONALITIES.md), so they share one axis.
 export const styleSignal = Object.freeze({
   height: f => f.height,
-  stance: f => f.attack + f.invasion - f.reinforcement,
+  stance: f => (f.attack + f.invasion)/2 - f.reinforcement,
   tenuki: f => f.tenuki,
 });
 // Saved settings from before 攻守 took in 侵入度 and 補強度: 攻守 is the mean of
