@@ -135,7 +135,7 @@ body.board-zoomed .board-bleed{opacity:1}
  #board{border-radius:6px}
  .ownership-legend{margin-top:14px;width:92%}
  .settings-panel{left:0;right:0;bottom:0;top:auto;width:100%;max-height:min(84dvh,740px);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom))}
- .mode-panel{height:min(84dvh,606px)}
+ .mode-panel{height:min(84dvh,640px)}
 }
 @media(max-width:350px){
  .turn{font-size:15px}
@@ -185,7 +185,7 @@ body.board-zoomed .board-bleed{opacity:1}
 .info-disclosure .explanation{margin:6px 0 12px}
 
 /* One height for every mode, so switching modes never moves the sheet; longer content scrolls inside. */
-.mode-panel{height:min(calc(100dvh - 95px),606px)}
+.mode-panel{height:min(calc(100dvh - 95px),640px)}
 .mode-panel .settings-section{border:0;padding:0}
 .mode-panel .settings-section[hidden]{display:none}
 .ai-color-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -196,7 +196,6 @@ body.board-zoomed .board-bleed{opacity:1}
 .ai-color-choices input:focus-visible+span{outline:3px solid #f2c875;outline-offset:2px}
 .settings-section h3.ai-subhead{margin-top:22px}
 .ai-color-choices input:disabled+span{opacity:.4;cursor:not-allowed}
-.board-size-choices{grid-template-columns:repeat(3,minmax(0,1fr))}
 /* The mode is one row of icon tabs under the start button: [対COM|対友人] [1台で打つ] [履歴]. 履歴 opens saved games instead. */
 .new-game-modes{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
 .new-game-modes label{margin:0;cursor:pointer;position:relative}
@@ -219,25 +218,35 @@ body.board-zoomed .board-bleed{opacity:1}
 .setup-row{display:contents}
 .setup-row[hidden]{display:none}
 .setup-label{margin:0;font-size:13px;color:#d6dae3;white-space:nowrap}
-/* 盤・ルール・自分の石・AIの強さ: a row of tabs showing each chosen value, joined to one panel of choices. */
-.setup-tabs{margin-top:14px;border-radius:var(--radius) var(--radius) 0 0;--fused-bg:#252c38;--fused-edge:#505766}
-.fused>.setup-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;padding:6px 2px;
-  border-radius:0;font-weight:600;color:#f1f2f2}
-.setup-tab small{font-size:11px;font-weight:400;color:#9aa1ad;white-space:nowrap}
-.setup-tab span{font-size:12px;white-space:nowrap}
-.fused>.setup-tab[aria-selected="true"]{background:#1b212c;box-shadow:inset 0 2px 0 #efcb81}
-.setup-tab[aria-selected="true"] small,.setup-tab[aria-selected="true"] span{color:#f8ddac}
-.setup-tab.is-unused span{color:#6b7180}
-.setup-panels{padding:10px;border:1px solid #505766;border-top:0;border-radius:0 0 var(--radius) var(--radius);background:#1b212c}
-.setup-panel{min-height:94px}
+/* 盤・ルール・自分の石・AIの強さ: underlined tabs naming each setting, over one panel of its choices. */
+.setup-tabs{display:flex;margin-top:14px;border-bottom:1px solid #3b4250}
+.setup-tab{flex:1 1 0;min-width:0;min-height:44px;margin:0;padding:0 2px;border:0;border-radius:0;background:none;
+  color:#9aa1ad;font-size:13px;font-weight:600;white-space:nowrap}
+.setup-tab[aria-selected="true"]{color:#f8ddac;box-shadow:inset 0 -2px 0 #efcb81}
+.setup-tab.is-unused{color:#5d6472}
+.setup-tab.is-unused[aria-selected="true"]{color:#8a8273;box-shadow:inset 0 -2px 0 #6b6352}
+.setup-panels{padding-top:12px}
+.setup-panel{min-height:220px}
 .setup-panel[hidden]{display:none}
-.setup-panels .board-size-choices span{min-height:44px}
-.setup-panels .rules-choices span,.setup-panels .strength-choices span{display:flex;align-items:center;justify-content:center;min-height:44px}
-.strength-groups{min-width:0;margin:0;padding:0;border:0}
-.strength-note{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin:6px 0 0}
-.strength-note .step-note{margin:0;min-height:0}
-/* 自分の石: [● 黒|ランダム|○ 白] and [観戦] apart, since watching is not a colour. */
-.side-groups{display:grid;grid-template-columns:3fr 1fr;gap:8px;min-width:0;margin:0;padding:0;border:0}
+/* Each tab lists its choices top to bottom, a button on the left and its note on the right. */
+.choice-list{display:grid;gap:6px;min-width:0;margin:0;padding:0;border:0}
+.choice-list .choice-row{display:grid;grid-template-columns:104px minmax(0,1fr);align-items:center;gap:12px;margin:0;cursor:pointer;position:relative}
+.choice-row input{position:absolute;opacity:0}
+.choice{display:flex;align-items:center;justify-content:center;gap:4px;min-height:44px;padding:0 6px;border:1px solid #505766;border-radius:var(--radius);
+  background:#252c38;font-size:13px;white-space:nowrap}
+.choice-note{font-size:12px;line-height:1.5;color:#aeb3be}
+.choice-row input:checked+.choice{border-color:#efcb81;background:#38342d;color:#f8ddac}
+.choice-row input:checked+.choice .size-icon{color:#f8ddac}
+.choice-row input:focus-visible+.choice{outline:3px solid #f2c875;outline-offset:2px}
+.choice-row input:disabled+.choice{color:#6b7180;cursor:not-allowed}
+.choice-row input:checked:disabled+.choice{border-color:#6b6352;background:#2b2a29;color:#8a8273}
+.choice-row input:disabled~.choice-note{color:#646b78}
+.choice-row:has(input:disabled){cursor:not-allowed}
+/* 観戦 is not a colour, so it sits a little apart from 黒・ランダム・白. */
+.choice-list .watch-choice{margin-top:6px}
+.setup-panels .setup-note{margin:8px 0 0}
+.strength-note{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin:0}
+.strength-note .setup-note{margin-top:8px}
 /* A choice the chosen mode or rule does not use stays in place, greyed out. */
 .mode-panel .is-off,.ai-advanced:disabled{opacity:.45}
 /* Greyed-out choices keep their tile and dim the text, as greyed-out fused buttons do. */
@@ -245,12 +254,8 @@ body.board-zoomed .board-bleed{opacity:1}
 .mode-panel .fused input:checked:disabled+span{box-shadow:inset 0 0 0 1px #6b6352;color:#8a8273}
 .ai-advanced:disabled .fused input:disabled+span{color:inherit}
 .ai-advanced{min-width:0;margin:0;padding:0;border:0}
-/* Narrow chips so four choices (or a board icon and 13路) stay on one line at 320px. */
-.setup-panels .ai-color-choices span{padding:10px 2px;font-size:12px;white-space:nowrap}
 /* Board size reads at a glance: denser grid lines for larger boards. */
-.board-size-choices span{display:flex;align-items:center;justify-content:center;gap:4px}
 .size-icon{flex:none;width:20px;height:20px;color:#9aa1ad}
-.board-size-choices input:checked+span .size-icon{color:#f8ddac}
 .new-game-advanced .advanced-row{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
 .new-game-advanced .advanced-row[hidden],.new-game-advanced [hidden]{display:none}
 .new-game-advanced .advanced-row label{margin:0;white-space:nowrap;font-size:13px}
@@ -272,7 +277,6 @@ body.board-zoomed .board-bleed{opacity:1}
 .mode-panel .new-game-advanced{margin-top:10px;padding-top:0}
 .mode-panel .explanation:empty,.mode-panel .invite-status:empty{display:none}
 .mode-panel .history-setup{padding-top:12px}
-.side-choices,.rules-choices{grid-template-columns:repeat(3,1fr)}
 /* One button, two meanings: × discards a provisional stone, the labelled arrow is 待った. */
 .undo-button .takeback-icon{display:none;flex-direction:column;align-items:center;gap:1px;line-height:1}
 .undo-button .takeback-icon small{font-size:10px;font-weight:700;letter-spacing:.02em}

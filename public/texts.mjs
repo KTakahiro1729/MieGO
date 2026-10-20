@@ -582,6 +582,25 @@ export const TEXT = {
     rulesChoices: { chinese: "中国式", japanese: "日本式", gomoku: "五目並べ", free: "自由" },
     advanced: "詳細設定",
     setupTabs: "対局の設定",
+    // Beside each choice under the 盤, ルール and 自分の石 tabs; two lines at most at 320px.
+    boardNotes: {
+      9: "小さな盤。短い時間で1局打てます。はじめての人向け。",
+      13: "9路と19路の中間の大きさ。",
+      19: "正式な大きさ。1局が長くなります。",
+    },
+    rulesChoiceNotes: {
+      chinese: "石と地の合計で数えます。迷ったらこれ。",
+      japanese: "地とアゲハマで数えます。勝敗はほぼ同じ。",
+      gomoku: "縦・横・斜めに5つ並べたら勝ち。",
+      free: "ルールなし。石を好きに置けます。対COMでは使えません。",
+    },
+    sideNotes: {
+      black: "先に打ちます。",
+      random: "黒か白かを対局ごとにくじで決めます。",
+      white: "あとから打ちます。",
+      watch: "自分は打たず、COM同士の対局を見ます。対COMだけ。",
+      local: "1台で打つでは、黒と白を交互に打ちます。",
+    },
     hideStones: "石を隠す（地合いだけ表示）",
     gomokuForbidden: "禁じ手あり（五目並べ）",
     gomokuForbiddenNote: "黒だけ三三・四四・長連を打てなくなります。先手の黒が強すぎるのを抑える連珠のルールです。",

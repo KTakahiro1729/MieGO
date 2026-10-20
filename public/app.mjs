@@ -1769,8 +1769,8 @@ function openPanel(kind) {
 }
 // Every mode's start button reads the same: 設定して再戦 while that mode's game is on the board.
 function startLabel(kind){return !room && gameMode===kind?TEXT.ai.restart:TEXT.newGame.start;}
-// 盤, ルール, 自分の石 and AIの強さ are one row of tabs, each showing its chosen
-// value; the selected tab's choices fill the one panel under it.
+// 盤, ルール, 自分の石 and AIの強さ are one row of underlined tabs; the selected
+// tab's choices fill the one panel under it, one per line with a note beside it.
 const SETUP_TABS=["Board","Rules","Side","Strength"];
 function selectSetupTab(key, focus=false) {
   for(const other of SETUP_TABS){
@@ -1788,17 +1788,12 @@ SETUP_TABS.forEach((key,index)=>{
     if(step){e.preventDefault();selectSetupTab(SETUP_TABS[(index+step+SETUP_TABS.length)%SETUP_TABS.length],true);}
   };
 });
-const checkedLabel=name=>document.querySelector('input[name="'+name+'"]:checked')?.nextElementSibling.textContent||"";
-// A tab whose setting the chosen mode does not use shows its value greyed out.
+// A tab whose setting the chosen mode does not use is greyed out; its panel still opens.
 function syncSetupValues() {
   const kind=newGameModeKind();
-  $("boardSizeValue").textContent=checkedLabel("boardSize");
-  $("gameRulesValue").textContent=checkedLabel("gameRules");
-  $("sideValue").textContent=checkedLabel(kind==="online"?"onlineSide":"aiSide");
   $("setupTabSide").classList.toggle("is-unused",kind==="local");
-  const watch=kind==="ai" && editsWatchAi();
-  $("aiStrengthValue").textContent=watch?TEXT.newGame.advanced:checkedLabel("aiStrength");
-  $("setupTabStrength").classList.toggle("is-unused",kind!=="ai" || watch);
+  $("setupTabStrength").classList.toggle("is-unused",kind!=="ai" || editsWatchAi());
+  $("sideNote").textContent=kind==="local"?TEXT.newGame.sideNotes.local:"";
 }
 // The 新規対戦 sheet shows the same rows in every mode, so its height stays put;
 // a row the chosen mode does not use is greyed out.
@@ -2423,7 +2418,7 @@ function syncStrengthUi() {
   const input=document.querySelector('input[name="aiStrength"][value="'+aiStrength+'"]');
   if(input)input.checked=true;
   $("aiStrengthChoices").disabled=off;
-  $("aiStrengthNote").textContent=two && newGameModeKind()==="ai"?TEXT.ai.strengthInAdvanced:input?.dataset.note||"";
+  $("aiStrengthNote").textContent=two && newGameModeKind()==="ai"?TEXT.ai.strengthInAdvanced:"";
   syncComCards();
   $("aiHints").checked=aiHints;
   syncWatchSliderRows();

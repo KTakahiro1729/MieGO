@@ -26,20 +26,21 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   for(const id of ["historySetup","historyList","historyImportFile"])assert.match(sheet,new RegExp('id="'+id+'"'));
   assert.doesNotMatch(html,/id="historyPanel"|id="closeHistory"/);
   assert.match(app,/function openHistoryPanel\(\)\{openPanel\("history"\);\}/);
-  assert.equal((sheet.match(/name="boardSize"[^>]*><span><svg class="size-icon"/g)||[]).length,3);
+  assert.equal((sheet.match(/name="boardSize"[^>]*><span class="choice"><svg class="size-icon"/g)||[]).length,3);
   // Handicap and the AI's style live under 詳細設定; the sampling-variance setting is gone.
   const advanced=sheet.slice(sheet.indexOf('<details id="newGameAdvanced"'),sheet.indexOf('</details>',sheet.indexOf('<details id="newGameAdvanced"')));
   for(const id of ["handicap","aiInvasion","aiReinforcement","aiHints"])assert.match(advanced,new RegExp('id="'+id+'"'));
-  // Strength stays outside 詳細設定 as four choices under its own tab; the style sliders have three stops.
+  // Strength stays outside 詳細設定 as four choices under its own tab, each with its note; the style sliders have three stops.
   assert.doesNotMatch(advanced,/name="aiStrength"/);
   assert.deepEqual([...sheet.matchAll(/name="aiStrength" value="(\w+)"/g)].map(m=>m[1]),["beginner","easy","normal","strong"]);
+  assert.equal((sheet.slice(sheet.indexOf('id="aiStrengthChoices"'),sheet.indexOf('</fieldset>',sheet.indexOf('id="aiStrengthChoices"'))).match(/<small class="choice-note">/g)||[]).length,4);
   // 盤・ルール・自分の石・AIの強さ are one row of tabs over one panel of choices.
   assert.deepEqual([...sheet.matchAll(/id="setupTab(\w+)"[^>]*role="tab"/g)].map(m=>m[1]),["Board","Rules","Side","Strength"]);
   for(const key of ["Board","Rules","Side","Strength"])assert.match(sheet,new RegExp('id="setupPanel'+key+'" class="setup-panel" role="tabpanel"'));
   for(const id of ["aiInvasion","aiReinforcement"])
     assert.match(advanced,new RegExp('id="'+id+'" type="range" min="0" max="100" step="50"'));
-  for(const id of ["aiStrength","aiInvasion","aiReinforcement"])
-    assert.equal((sheet.slice(sheet.indexOf('id="'+id+'Row"')).split('</div>')[0].match(/data-note=/g)||[]).length,id==="aiStrength"?4:3);
+  for(const id of ["aiInvasion","aiReinforcement"])
+    assert.equal((sheet.slice(sheet.indexOf('id="'+id+'Row"')).split('</div>')[0].match(/data-note=/g)||[]).length,3);
   assert.doesNotMatch(html+app,/aiLevel/);
   for(const id of ["startLocal","startAi","copy","openHistoryFromNew"])assert.match(sheet,new RegExp('id="'+id+'"'));
   // The way back tops the sheet, then the start button, then the mode tabs and options.
