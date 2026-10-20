@@ -55,6 +55,15 @@ export const TEXT = {
       doubleFour: "別の交点を選んでください。黒の四四で打てません。",
       overline: "別の交点を選んでください。黒の長連で打てません。",
     },
+    // The same, short enough for the one-line status beside the AI question
+    // (UX policy §3.5: one line at 360px wide).
+    short: {
+      ko: "別の交点に。コウで打てません",
+      suicide: "別の交点に。自殺手になります",
+      doubleThree: "別の交点に。黒の三三は禁じ手",
+      doubleFour: "別の交点に。黒の四四は禁じ手",
+      overline: "別の交点に。黒の長連は禁じ手",
+    },
   },
 
   takeback: {

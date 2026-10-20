@@ -160,7 +160,7 @@ test("禁じ手 games forbid Black's shapes, keep White free, and survive replay
   assert.throws(()=>play(game,p13(6,6)),{message:TEXT.rules.gomoku.doubleThree});
   const shown=inspectProvisionalMove(game,p13(6,6));
   assert.equal(shown.forbidden.reason,"doubleThree");
-  assert.equal(forbiddenMessage("doubleThree"),TEXT.rules.gomoku.doubleThree);
+  assert.equal(forbiddenMessage("doubleThree"),TEXT.rules.short.doubleThree);
   // The same point is fine without 禁じ手.
   const free=line(newGame(true,{size:13,rules:"gomoku"}),[[4,6],[0,0],[5,6],[0,2],[6,4],[0,4],[6,5],[12,12]]);
   assert.equal(play(free,p13(6,6)).board[p13(6,6)],BLACK);
@@ -179,4 +179,13 @@ test("禁じ手 games forbid Black's shapes, keep White free, and survive replay
   assert.equal(reconcileGame(newGame(true,{size:13,rules:"gomoku"}),0,
     newGame(true,{size:13,rules:"gomoku",gomokuForbidden:true}),0).kind,"adopt");
   assert.equal(TEXT.game.ruleLabel(13,"gomoku",0,0,true),"13路 · 五目並べ · 禁じ手あり");
+});
+
+test("forbidden-point statuses stay short enough for one line at 360px",()=>{
+  // The status shares its row with the AI question and the ?; about 14 characters fit.
+  for(const reason of ["ko","suicide","doubleThree","doubleFour","overline"]){
+    const text=forbiddenMessage(reason);
+    assert.ok(text.length<=14,reason+": "+text);
+    assert.match(text,/^別の交点に。/);
+  }
 });
