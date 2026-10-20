@@ -13,6 +13,8 @@ const reasons = {
 };
 /** What to tell the player about a forbidden point. */
 export const forbiddenMessage = reason => reasons[reason] ?? TEXT.rules.suicide;
+/** The same in two lines, what to do and then why, for the status beside the board. */
+export const forbiddenLines = reason => forbiddenMessage(reason).replace(/。(?=.)/, "。\n");
 
 export function forbiddenMoveReason(error) {
   if(!(error instanceof Error))return null;

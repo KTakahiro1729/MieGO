@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {newGame,play,at,isGomoku,hasGomokuForbidden,initialGame,rulesOf,toSGF,BLACK,WHITE} from "../public/core.mjs";
 import {gomokuMove,forbiddenReason,makesFive,winningLine} from "../public/gomoku.mjs";
-import {inspectProvisionalMove,forbiddenMessage} from "../public/illegal-moves.mjs";
+import {inspectProvisionalMove,forbiddenLines,forbiddenMessage} from "../public/illegal-moves.mjs";
 import {replaySteps,parseSGF,exportSGF} from "../public/sgf.mjs";
 import {takeBack} from "../public/takeback.mjs";
 import {reconcileGame} from "../public/p2p-session.mjs";
@@ -186,7 +186,10 @@ test("forbidden-point reasons are full sentences that wrap to two lines",async()
   const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
   assert.equal(forbiddenMessage("ko"),TEXT.rules.ko);
   assert.equal(forbiddenMessage("overline"),TEXT.rules.gomoku.overline);
+  // What to do on the first line, why on the second.
+  assert.equal(forbiddenLines("doubleThree"),"別の交点を選んでください。\n黒の三三で打てません。");
+  assert.equal(forbiddenLines("ko"),"別の交点を選んでください。\nコウで打てません。");
   // Two lines inside the fixed-height bar, never cut to one line with an ellipsis.
-  assert.match(css,/\.endgame-bar\.has-illegal \.end-status\{[^}]*white-space:normal[^}]*-webkit-line-clamp:2/);
+  assert.match(css,/\.endgame-bar\.has-illegal \.end-status\{[^}]*white-space:pre-line[^}]*-webkit-line-clamp:2/);
   assert.doesNotMatch(css,/\.endgame-bar\.has-illegal \.end-status\{[^}]*text-overflow:ellipsis/);
 });

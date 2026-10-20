@@ -398,7 +398,7 @@ body{overflow:hidden}
 /* The AI question follows the reason text directly. It is drawn about one
    line tall to sit with the 14px text; ::after keeps a 44px tap target. */
 /* The reason wraps onto a second line inside the bar's fixed height (UX policy §3.5). */
-.endgame-bar.has-illegal .end-status{flex:0 1 auto;min-width:0;white-space:normal;overflow:hidden;
+.endgame-bar.has-illegal .end-status{flex:0 1 auto;min-width:0;white-space:pre-line;overflow:hidden;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
 @media(max-width:360px){
   .endgame-bar.has-illegal .end-status{font-size:13px}

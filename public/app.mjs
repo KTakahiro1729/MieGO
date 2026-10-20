@@ -71,7 +71,7 @@ import {
 import { createBoardRenderer } from "./board-renderer.mjs";
 import { scoreBreakdown, scoreRows, PRISONER_OUTLINE } from "./scoring-regions.mjs";
 import { createBoardZoom } from "./board-zoom.mjs";
-import {forbiddenMessage,inspectProvisionalMove,makeIllegalMovePrompt} from "./illegal-moves.mjs";
+import {forbiddenLines,inspectProvisionalMove,makeIllegalMovePrompt} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
@@ -355,7 +355,7 @@ function updateEndUi() {
   // 五目並べ's forbidden moves are explained with its rules, not with ko and suicide.
   $("endHelp").dataset.help=isGomoku(game)?"rules":playing && illegalCandidate?"illegal":"endgame";
   if(playing && illegalCandidate){
-    $("endStatus").textContent=forbiddenMessage(illegalCandidate.reason);
+    $("endStatus").textContent=forbiddenLines(illegalCandidate.reason);
   }
 }
 
