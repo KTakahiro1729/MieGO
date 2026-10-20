@@ -263,43 +263,19 @@
               <p id="aiReinforcementNote" class="explanation step-note"></p>
             </div>
             </div>
-            <div id="watchAiOptions" class="watch-ai-options" hidden>
-              <div id="aiStrengthBlackRow" class="step-slider">
-                <label for="aiStrengthBlack">{{ai.strengthBlack}} <span id="aiStrengthBlackValue" class="setting-value"></span></label>
-                <input id="aiStrengthBlack" type="range" min="0" max="3" step="1" value="1">
-                <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.strengthNotes.beginner}}"><small>{{ai.strengths.beginner}}</small></span><span data-note="{{ai.strengthNotes.easy}}"><small>{{ai.strengths.easy}}</small></span><span data-note="{{ai.strengthNotes.normal}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.strengthNotes.strong}}"><small>{{ai.strengths.strong}}</small></span></div>
-                <p id="aiStrengthBlackNote" class="explanation step-note"></p>
-              </div>
-              <div id="aiInvasionBlackRow" class="step-slider">
-                <label for="aiInvasionBlack">{{ai.invasionBlack}} <span id="aiInvasionBlackValue" class="setting-value"></span></label>
-                <input id="aiInvasionBlack" type="range" min="0" max="100" step="50" value="50">
-                <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.invasionNotes.low}}"><small>{{ai.persona.low}}</small></span><span data-note="{{ai.invasionNotes.mid}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.invasionNotes.high}}"><small>{{ai.persona.high}}</small></span></div>
-                <p id="aiInvasionBlackNote" class="explanation step-note"></p>
-              </div>
-              <div id="aiReinforcementBlackRow" class="step-slider">
-                <label for="aiReinforcementBlack">{{ai.reinforcementBlack}} <span id="aiReinforcementBlackValue" class="setting-value"></span></label>
-                <input id="aiReinforcementBlack" type="range" min="0" max="100" step="50" value="50">
-                <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.reinforcementNotes.low}}"><small>{{ai.persona.low}}</small></span><span data-note="{{ai.reinforcementNotes.mid}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.reinforcementNotes.high}}"><small>{{ai.persona.high}}</small></span></div>
-                <p id="aiReinforcementBlackNote" class="explanation step-note"></p>
-              </div>
-              <div id="aiStrengthWhiteRow" class="step-slider">
-                <label for="aiStrengthWhite">{{ai.strengthWhite}} <span id="aiStrengthWhiteValue" class="setting-value"></span></label>
-                <input id="aiStrengthWhite" type="range" min="0" max="3" step="1" value="1">
-                <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.strengthNotes.beginner}}"><small>{{ai.strengths.beginner}}</small></span><span data-note="{{ai.strengthNotes.easy}}"><small>{{ai.strengths.easy}}</small></span><span data-note="{{ai.strengthNotes.normal}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.strengthNotes.strong}}"><small>{{ai.strengths.strong}}</small></span></div>
-                <p id="aiStrengthWhiteNote" class="explanation step-note"></p>
-              </div>
-              <div id="aiInvasionWhiteRow" class="step-slider">
-                <label for="aiInvasionWhite">{{ai.invasionWhite}} <span id="aiInvasionWhiteValue" class="setting-value"></span></label>
-                <input id="aiInvasionWhite" type="range" min="0" max="100" step="50" value="50">
-                <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.invasionNotes.low}}"><small>{{ai.persona.low}}</small></span><span data-note="{{ai.invasionNotes.mid}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.invasionNotes.high}}"><small>{{ai.persona.high}}</small></span></div>
-                <p id="aiInvasionWhiteNote" class="explanation step-note"></p>
-              </div>
-              <div id="aiReinforcementWhiteRow" class="step-slider">
-                <label for="aiReinforcementWhite">{{ai.reinforcementWhite}} <span id="aiReinforcementWhiteValue" class="setting-value"></span></label>
-                <input id="aiReinforcementWhite" type="range" min="0" max="100" step="50" value="50">
-                <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.reinforcementNotes.low}}"><small>{{ai.persona.low}}</small></span><span data-note="{{ai.reinforcementNotes.mid}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.reinforcementNotes.high}}"><small>{{ai.persona.high}}</small></span></div>
-                <p id="aiReinforcementWhiteNote" class="explanation step-note"></p>
-              </div>
+            <div id="watchAiOptions" class="watch-ai" hidden>
+              <fieldset class="com-card">
+                <legend>{{newGame.comBlack}}</legend>
+                <span class="com-label">{{ai.strengthShort}}</span><div class="ai-color-choices com-choices"><label><input type="radio" name="comBlackStrength" value="beginner"><span>{{ai.strengths.beginner}}</span></label><label><input type="radio" name="comBlackStrength" value="easy"><span>{{ai.strengths.easy}}</span></label><label><input type="radio" name="comBlackStrength" value="normal"><span>{{ai.strengths.normal}}</span></label><label><input type="radio" name="comBlackStrength" value="strong"><span>{{ai.strengths.strong}}</span></label></div>
+                <span class="com-label">{{ai.invasion}}</span><div class="ai-color-choices com-choices"><label><input type="radio" name="comBlackInvasion" value="0"><span>{{ai.persona.low}}</span></label><label><input type="radio" name="comBlackInvasion" value="50"><span>{{ai.persona.mid}}</span></label><label><input type="radio" name="comBlackInvasion" value="100"><span>{{ai.persona.high}}</span></label></div>
+                <span class="com-label">{{ai.reinforcement}}</span><div class="ai-color-choices com-choices"><label><input type="radio" name="comBlackReinforcement" value="0"><span>{{ai.persona.low}}</span></label><label><input type="radio" name="comBlackReinforcement" value="50"><span>{{ai.persona.mid}}</span></label><label><input type="radio" name="comBlackReinforcement" value="100"><span>{{ai.persona.high}}</span></label></div>
+              </fieldset>
+              <fieldset class="com-card">
+                <legend>{{newGame.comWhite}}</legend>
+                <span class="com-label">{{ai.strengthShort}}</span><div class="ai-color-choices com-choices"><label><input type="radio" name="comWhiteStrength" value="beginner"><span>{{ai.strengths.beginner}}</span></label><label><input type="radio" name="comWhiteStrength" value="easy"><span>{{ai.strengths.easy}}</span></label><label><input type="radio" name="comWhiteStrength" value="normal"><span>{{ai.strengths.normal}}</span></label><label><input type="radio" name="comWhiteStrength" value="strong"><span>{{ai.strengths.strong}}</span></label></div>
+                <span class="com-label">{{ai.invasion}}</span><div class="ai-color-choices com-choices"><label><input type="radio" name="comWhiteInvasion" value="0"><span>{{ai.persona.low}}</span></label><label><input type="radio" name="comWhiteInvasion" value="50"><span>{{ai.persona.mid}}</span></label><label><input type="radio" name="comWhiteInvasion" value="100"><span>{{ai.persona.high}}</span></label></div>
+                <span class="com-label">{{ai.reinforcement}}</span><div class="ai-color-choices com-choices"><label><input type="radio" name="comWhiteReinforcement" value="0"><span>{{ai.persona.low}}</span></label><label><input type="radio" name="comWhiteReinforcement" value="50"><span>{{ai.persona.mid}}</span></label><label><input type="radio" name="comWhiteReinforcement" value="100"><span>{{ai.persona.high}}</span></label></div>
+              </fieldset>
             </div>
           </div>
         </details>

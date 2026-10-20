@@ -224,6 +224,14 @@ body.board-zoomed .board-bleed{opacity:1}
 .undo-button.is-takeback .cancel-icon{display:none}
 .ai-advanced label[for]{display:flex;justify-content:space-between;gap:12px;margin-top:12px}
 .ai-advanced input[type=range]{width:100%}
+/* 観戦: one card per COM, each a label column and compact choices. */
+.watch-ai{display:grid;gap:12px;margin-top:14px}
+.com-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;
+  margin:0;padding:10px 12px 12px;border:1px solid var(--edge);border-radius:var(--radius);background:var(--surface)}
+.com-card legend{padding:0 6px;font-size:13px;font-weight:600}
+.com-label{font-size:13px;color:#d6dae3;white-space:nowrap}
+.com-choices{gap:6px;grid-auto-flow:column;grid-auto-columns:1fr;grid-template-columns:none}
+.com-choices span{padding:8px 0;font-size:12px;white-space:nowrap}
 @media(max-width:700px){.header-actions{gap:6px}.new-game-button{padding:8px 12px;font-size:12px}}
 
 /* One existing status row; optional expanded content never overlays the board. */

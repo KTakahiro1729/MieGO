@@ -417,11 +417,19 @@ function syncStepSlider(id) {
 const personaStep=value=>Math.round(Math.max(0,Math.min(100,Number(value??50)||0))/50)*50;
 const personaLabel=value=>value<50?TEXT.ai.persona.low:value>50?TEXT.ai.persona.high:TEXT.ai.persona.mid;
 // The sheet's sliders set the COM opponent. With two COMs, 「AIの強さ」 sets both,
-// and 詳細設定 holds each colour's own sliders ("…Black", "…White").
+// and 詳細設定 holds a card of choices for each colour's COM.
 // The sheet's side choice follows a watched game (see watchCurrentGame), so
 // the sliders always set what the next game, and a running one, use.
 const editsWatchAi = () => aiSideChoice==="watch";
 const COM_SLOTS = {Black:"black", White:"white"};
+const COM_FIELDS = {Invasion:"invasion", Reinforcement:"reinforcement", Strength:"strength"};
+function syncComCards() {
+  for(const [slot,side] of Object.entries(COM_SLOTS))
+    for(const [field,key] of Object.entries(COM_FIELDS)){
+      const input=document.querySelector('input[name="com'+slot+field+'"][value="'+watchAi[side][key]+'"]');
+      if(input)input.checked=true;
+    }
+}
 function syncWatchSliderRows() {
   const two=editsWatchAi();
   $("watchAiOptions").hidden=!two;
@@ -441,12 +449,7 @@ function updatePersonaUi() {
   $("aiInvasion").value=String(invasion);
   $("aiReinforcement").value=String(reinforcement);
   syncStepSlider("aiInvasion");syncStepSlider("aiReinforcement");
-  for(const [slot,side] of Object.entries(COM_SLOTS)){
-    $("aiInvasion"+slot).value=String(watchAi[side].invasion);
-    $("aiReinforcement"+slot).value=String(watchAi[side].reinforcement);
-    syncStepSlider("aiInvasion"+slot);syncStepSlider("aiReinforcement"+slot);
-  }
-  syncWatchSliderRows();
+  syncComCards();syncWatchSliderRows();
 }
 
 let displayedOwnership = null, transitionFrame = null;
@@ -2159,12 +2162,22 @@ function syncHandicapUi() {
     syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
-for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]])
-for(const slot of ["",...Object.keys(COM_SLOTS)]) {
-  $(id+slot).oninput=e=>{
+for(const [slot,side] of Object.entries(COM_SLOTS))
+for(const [field,key] of Object.entries(COM_FIELDS))
+for(const input of document.querySelectorAll('input[name="com'+slot+field+'"]')) {
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    watchAi[side][key]=key==="strength"?normalizeStrength(e.target.value,DEFAULT_AI_STRENGTH):
+      personaStep(e.target.value);
+    syncStrengthUi();
+    if(isWatching())save();else rememberSettings();
+    $("aiMatchStatus").textContent=TEXT.ai.nextMove;
+  };
+}
+for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]]) {
+  $(id).oninput=e=>{
     const value=personaStep(e.target.value);
-    if(slot)watchAi[COM_SLOTS[slot]][key]=value;
-    else if(key==="invasion")invasion=value;else reinforcement=value;
+    if(key==="invasion")invasion=value;else reinforcement=value;
     updatePersonaUi();
     if(isWatching())save();else rememberSettings();
     $("aiMatchStatus").textContent=TEXT.ai.nextMove;
@@ -2180,25 +2193,19 @@ function syncStrengthUi() {
   syncStepSlider("aiStrength");
   if(two && watchAi.black.strength!==watchAi.white.strength)
     $("aiStrengthNote").textContent=TEXT.ai.strengthSplit;
-  for(const [slot,side] of Object.entries(COM_SLOTS)){
-    $("aiStrength"+slot).value=String(STRENGTH_ORDER.indexOf(watchAi[side].strength));
-    syncStepSlider("aiStrength"+slot);
-  }
+  syncComCards();
   $("aiHints").checked=aiHints;
   syncWatchSliderRows();
 }
 // Strength applies from the next AI move, like the personality sliders.
-for(const slot of ["",...Object.keys(COM_SLOTS)]) {
-  $("aiStrength"+slot).oninput=e=>{
-    const strength=strengthAt(e.target.value);
-    if(slot)watchAi[COM_SLOTS[slot]].strength=strength;
-    else if(editsWatchAi())watchAi.black.strength=watchAi.white.strength=strength;
-    else aiStrength=strength;
-    syncStrengthUi();
-    if(gameMode==="ai")save();else rememberSettings();
-    $("aiMatchStatus").textContent=TEXT.ai.nextStrength(AI_STRENGTHS[strength].label);
-  };
-}
+$("aiStrength").oninput=e=>{
+  const strength=strengthAt(e.target.value);
+  if(editsWatchAi())watchAi.black.strength=watchAi.white.strength=strength;
+  else aiStrength=strength;
+  syncStrengthUi();
+  if(gameMode==="ai")save();else rememberSettings();
+  $("aiMatchStatus").textContent=TEXT.ai.nextStrength(AI_STRENGTHS[strength].label);
+};
 $("aiHints").onchange=e=>{
   aiHints=e.target.checked;rememberSettings();
   if(aiHints && !visibleHints())requestAnalysis();
