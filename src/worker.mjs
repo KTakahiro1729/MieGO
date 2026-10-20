@@ -58,8 +58,10 @@ export default {
         katagoWorkerReady,katagoModelReady});
     }
     if (path === "/api/p2p/config" && request.method === "GET") {
-      return json({ siteKey: env.TURNSTILE_SECRET && env.TURNSTILE_SITE_KEY ? env.TURNSTILE_SITE_KEY : null });
+      return json({ siteKey: env.TURNSTILE_SECRET && env.TURNSTILE_SITE_KEY ? env.TURNSTILE_SITE_KEY : null, rooms: Boolean(env.ROOMS) });
     }
+    // Branch previews deploy without the GameRoom namespace (wrangler.preview.jsonc).
+    if (path.startsWith("/api/rooms") && !env.ROOMS) return json({error:"Rooms unavailable",code:"rooms_unavailable"},503);
     // No API endpoint creates rooms without a successful Turnstile validation.
     if (path === "/api/rooms" && request.method === "POST") {
       if (!sameOrigin(request,url)) return json({error:"Forbidden origin"},403);
