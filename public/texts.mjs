@@ -170,7 +170,6 @@ export const TEXT = {
     hintAiLoading: "KataGoの準備ができるまで待機中",
     hintAiThinking: "AIが着手を計算しています",
     resignAria: "投了する。確認のため二度押し",
-    resignConfirm: "投了？",
     resignConfirmAria: "もう一度押すと投了します",
     zoomReset: "全体を表示",
     pinchHint: "2本の指で広げると拡大できます",

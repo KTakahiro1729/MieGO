@@ -872,38 +872,30 @@ $("closeIllegalPromptFallback").onclick=()=>{
 };
 // A mistaken pass is undone with 待った, so every mode passes on one tap.
 $("pass").onclick=()=>submitMove(null);
-let resignArmed=false;
-function resetResignButton() {
-  resignArmed=false;
-  $("resign").textContent=TEXT.common.resign;
-  $("resign").setAttribute("aria-label",TEXT.game.resignAria);
-  $("resign").classList.remove("danger-armed");
-}
+// The armed label names the action ("投了？"): a bare "確定" reads like the
+// adjacent move confirmation.
 $("resign").onclick=()=>{
-  if(!resignArmed){
-    resignArmed=true;
-    // Name the action: a bare "確定" reads like the adjacent move confirmation.
-    $("resign").textContent=TEXT.game.resignConfirm;
-    $("resign").setAttribute("aria-label",TEXT.game.resignConfirmAria);
-    $("resign").classList.add("danger-armed");
-    return;
-  }
-  resetResignButton();submitMove("resign");
+  if(!confirmByRetap($("resign"),null,TEXT.game.resignConfirmAria))return;
+  submitMove("resign");
 };
-// Leaving a friend's match is confirmed in place, like 投了: the first tap arms
-// the button (color and a trailing ？ on its label) and explains below it; only a
-// second tap on the same button proceeds.
+// Irreversible actions (投了, leaving a friend's match) are confirmed in place:
+// the first tap arms the button itself (danger color and a trailing ？ on its
+// label), optionally explaining below it; only a second tap on it proceeds.
 let armedConfirm=null;
-function confirmByRetap(button,message) {
+function confirmByRetap(button,message=null,armedAria=null) {
   if(armedConfirm?.button===button){disarmConfirm();return true;}
   disarmConfirm();
-  const note=document.createElement("p");
-  note.id="armedConfirmNote";note.className="armed-note";note.setAttribute("role","status");
-  note.textContent=TEXT.confirm.retap(message);
+  armedConfirm={button,note:null,label:button.textContent,aria:button.getAttribute("aria-label")};
+  if(message){
+    const note=document.createElement("p");
+    note.id="armedConfirmNote";note.className="armed-note";note.setAttribute("role","status");
+    note.textContent=TEXT.confirm.retap(message);
+    button.setAttribute("aria-describedby",note.id);
+    button.after(note);
+    armedConfirm.note=note;
+  }
+  if(armedAria)button.setAttribute("aria-label",armedAria);
   button.classList.add("danger-armed");
-  button.setAttribute("aria-describedby",note.id);
-  button.after(note);
-  armedConfirm={button,note,label:button.textContent};
   button.textContent=TEXT.confirm.armedLabel(armedConfirm.label);
   return false;
 }
@@ -918,12 +910,12 @@ function disarmConfirm() {
   armedConfirm.button.classList.remove("danger-armed");
   armedConfirm.button.removeAttribute("aria-describedby");
   armedConfirm.button.textContent=armedConfirm.label;
-  armedConfirm.note.remove();
+  if(armedConfirm.aria!==null)armedConfirm.button.setAttribute("aria-label",armedConfirm.aria);
+  armedConfirm.note?.remove();
   armedConfirm=null;
 }
-function resetArmedButtons(){resetResignButton();disarmConfirm();}
+function resetArmedButtons(){disarmConfirm();}
 document.addEventListener("pointerdown",e=>{
-  if(resignArmed && e.target!==$("resign"))resetResignButton();
   if(armedConfirm && !armedConfirm.button.contains(e.target))disarmConfirm();
 });
 // Signals computed for the abandoned line must not survive a rewind.
@@ -1206,7 +1198,6 @@ function leaveOnlineRoom() {
 }
 /** Resume the unfinished saved game of another offline mode (1台 or AI). */
 function resumeModeGame(mode) {
-  resetResignButton();
   if(room && connected &&
     !confirmByRetap($("returnToGame"),TEXT.confirm.leaveFor(mode)))return;
   if(!save())return;
