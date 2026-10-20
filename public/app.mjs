@@ -84,7 +84,14 @@ function ownSeatLink() {
 }
 function renderInviteButton() {
   $("seatLinkBox").hidden=!ownSeatLink();
-  $("copy").disabled=!!room && p2pRole!=="owner";
+  // Only the owner's device that created the room holds the guest's key, and
+  // the side cannot change once the game has started.
+  $("copy").disabled=!!room && (p2pRole!=="owner" || !guestInviteKey);
+  const locked=!!room && (connected || game.moveNumber>0);
+  for(const input of document.querySelectorAll('input[name="onlineSide"]')) {
+    input.disabled=locked;
+    if(locked && issuedSide!==null)input.checked=input.value===issuedSide;
+  }
   $("copy").textContent=!room?TEXT.online.prepareInvite:
     issuedSide!==null && !inviteMatchesChoice()?
       TEXT.online.renewInvite:TEXT.online.copyInvite;
@@ -546,6 +553,7 @@ function show() {
   $("scoreBox").hidden=false;
   const myTurn=isHumanTurn();
   $("startAi").disabled=!katagoReady || fallbackMode;
+  renderInviteButton();
   $("startAi").textContent=fallbackMode?TEXT.ai.startUnavailable:
     !katagoReady?TEXT.ai.startLoading:gameMode==="ai"?TEXT.ai.restart:TEXT.ai.start;
   $("aiInvasion").disabled=false;
@@ -662,13 +670,13 @@ function apply(action, remote=false, isAiMove=false) {
   try{
     // The friend's client acts only for the friend's color.
     if(remote && !isPeerAction(action,game,{peerColor:myOnlineColor()===null?null:-myOnlineColor(),
-      peerIsOwner:p2pRole==="guest"}))throw new Error(TEXT.online.peerActionRejected);
+      peerIsOwner:p2pRole==="guest"}))throw new Error("Not the peer's action");
     const wasScoring=game.status==="scoring";
     if(action.type==="move"){
-      if(action.number!==game.moveNumber+1) throw new Error(TEXT.game.moveMismatch);
-      if(action.before!==boardHash(game.board)) throw new Error(TEXT.game.boardMismatch);
+      if(action.number!==game.moveNumber+1) throw new Error("Move number mismatch");
+      if(action.before!==boardHash(game.board)) throw new Error("Board mismatch before the move");
       game=play(game,action.position);
-      if(action.after!==boardHash(game.board)) throw new Error(TEXT.game.verifyFailed);
+      if(action.after!==boardHash(game.board)) throw new Error("Board mismatch after the move");
       lastPosition=Number.isInteger(action.position)?action.position:null;
     } else if(action.type==="solo_scoring") {
       stopAiTurn(); // Invalidate pending AI workers on the old position.
@@ -734,7 +742,12 @@ function apply(action, remote=false, isAiMove=false) {
        (hadCandidate && game.status==="playing"))
       requestAnalysis();
     if(!remote&&room)p2pTransport.sendAction(action);
-  }catch(error){showNotice(error.message); if(remote){$("netStatus").textContent=TEXT.game.syncError;p2pTransport.refresh();}}
+  }catch(error){
+    // The UI offers only actions that apply, so a failure is a peer out of
+    // step (or a bug): the position is resynchronised, not explained.
+    console.warn("MieGO action rejected",action?.type,error);
+    if(remote){showNotice(TEXT.online.peerOutOfSync);$("netStatus").textContent=TEXT.game.syncError;p2pTransport.refresh();}
+  }
 }
 function submitMove(position,fromAi=false){
   if(boardReview && !fromAi)return;
@@ -1284,9 +1297,7 @@ function showInviteLink() {
 }
 async function beginOnlineRoom(){
   const choice=currentSideSelection();
-  if(room&&p2pRole!=="owner")throw Error(TEXT.online.ownerOnly);
   if(room&&inviteMatchesChoice())return showInviteLink();
-  if(room&&(connected||game.moveNumber>0))throw Error(TEXT.online.lockedAfterStart);
   if(room&&!confirm(TEXT.confirm.renewInvite))return null;
   if(!room && game.moveNumber>0 &&
      !confirm(TEXT.confirm.leaveForOnline))return null;
@@ -1320,7 +1331,6 @@ async function copyLink(){
       return;
     }
     const url=showInviteLink();
-    if(!url)throw Error(TEXT.online.inviteUnavailable);
     const copied=await copyInviteText(url,{clipboard:navigator.clipboard,input:$("inviteUrl"),document});
     $("inviteStatus").textContent=copied?TEXT.online.inviteCopied:TEXT.online.inviteManual;
   }catch(error){$("inviteStatus").textContent=error.message;}
@@ -2004,10 +2014,7 @@ document.addEventListener("keydown",e=>{
 });
 $("newGameButton").onclick=()=>openPanel(room?"online":gameMode);
 $("startAi").onclick=()=>{
-  if(!katagoReady || fallbackMode){
-    $("aiMatchStatus").textContent=TEXT.ai.cannotStart;
-    return;
-  }
+  if(!katagoReady || fallbackMode)return; // The button is disabled meanwhile.
   if(room && connected &&
      !confirm(TEXT.confirm.leaveForAi))return;
   if(!save())return;

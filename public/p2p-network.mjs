@@ -4,7 +4,7 @@ export async function postP2PJson(path,data,fetchRequest=globalThis.fetch) {
   const response=await fetchRequest(path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(data)});
   let result;
   try {result=await response.json();}
-  catch {throw Error(TEXT.online.badResponse);}
+  catch {throw Error(TEXT.online.requestFailed);}
   if(!response.ok) {
     const error=Error(result?.error||TEXT.online.requestFailed);
     error.status=response.status;

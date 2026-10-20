@@ -53,7 +53,7 @@ test("online matches are archived locally, not marked as resumable active games"
  assert.equal(lib.load(r.id).seat,"guest");
  assert.equal(lib.active("online"),null);
  assert.equal(lib.load(r.id).snapshot.board[40],BLACK);
- assert.throws(()=>lib.save({mode:"online",snapshot:newGame()}),/ルームID/);
+ assert.throws(()=>lib.save({mode:"online",snapshot:newGame()}),/破損/);
 });
 test("migrate legacy snapshots once without deleting original keys",()=>{
  const {lib,storage}=setup();

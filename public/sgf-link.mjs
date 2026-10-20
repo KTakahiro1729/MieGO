@@ -11,7 +11,7 @@ export function makeReviewUrl(origin, record, step) {
   const {snapshot}=parseSGF(sgf);
   const total=snapshot.moves.length;
   if(!Number.isSafeInteger(step) || step<0 || step>total)
-    throw Error(TEXT.link.stepOutside);
+    throw Error("Step outside the record");
   const url=new URL("/",origin);
   url.searchParams.set("sgf",sgf);
   url.searchParams.set("move",String(step));
@@ -25,18 +25,17 @@ export function readReviewUrl(input) {
   // A live invitation must never be mistaken for a static SGF replay.
   if(url.searchParams.has("room"))return {kind:"room"};
   if(!url.searchParams.has("sgf"))return {kind:"none"};
-  if(url.href.length>MAX_SHARE_URL_LENGTH)
-    throw Error(TEXT.link.urlTooLong);
-  if(url.searchParams.getAll("sgf").length!==1 ||
-     url.searchParams.getAll("move").length>1)throw Error(TEXT.link.duplicate);
   const source=url.searchParams.get("sgf");
-  if(!source)throw Error(TEXT.link.noSgf);
+  // A cut-off or edited link is one problem to the person opening it.
+  if(url.href.length>MAX_SHARE_URL_LENGTH || !source ||
+     url.searchParams.getAll("sgf").length!==1 || url.searchParams.getAll("move").length>1)
+    throw Error(TEXT.link.broken);
   const parsed=parseSGF(source);
   const stepValue=url.searchParams.get("move");
   const step=stepValue===null?parsed.snapshot.moves.length:
     /^(0|[1-9][0-9]*)$/.test(stepValue)?Number(stepValue):NaN;
   if(!Number.isSafeInteger(step) || step<0 || step>parsed.snapshot.moves.length)
-    throw Error(TEXT.link.moveOutside);
+    throw Error(TEXT.link.broken);
   return {kind:"review",snapshot:parsed.snapshot,step,sgf:source,metadata:parsed.metadata};
 }
 
@@ -46,7 +45,7 @@ export function shareableReviewUrl(input) {
   const url=new URL(input);
   if(!["https:","http:"].includes(url.protocol) || url.searchParams.has("room") ||
      !url.searchParams.get("sgf") || !url.searchParams.has("move"))
-    throw Error(TEXT.link.unshareable);
+    throw Error("Not a public replay URL");
   return url;
 }
 

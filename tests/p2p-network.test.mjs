@@ -18,7 +18,7 @@ test("P2P JSON API sends unchanged POST envelopes and handles server errors",asy
   await assert.rejects(()=>postP2PJson("/bad",{},async()=>({ok:false,status:500,json:async()=>({})})),
     error=>error.message==="通信に失敗しました"&&error.status===500);
   await assert.rejects(()=>postP2PJson("/bad",{},async()=>({ok:false,json:async()=>{throw Error("unparseable");}})),
-    /サーバーの応答が不正です/);
+    /通信に失敗しました/);
 });
 
 test("retry policy maintains exponential delay, cap and terminal HTTP statuses",()=>{

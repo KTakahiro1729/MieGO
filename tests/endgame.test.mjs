@@ -14,7 +14,7 @@ test("end offer consumes no turn, move number or passes", () => {
 });
 test("other player must accept explicitly to enter scoring", () => {
   let g=proposeEnd(newGame(), WHITE);
-  assert.throws(()=>answerEndProposal(g,WHITE,true),/自分/);
+  assert.throws(()=>answerEndProposal(g,WHITE,true));
   g=answerEndProposal(g,BLACK,true);
   assert.equal(g.status,"scoring");
   assert.equal(g.moves.length,0);
