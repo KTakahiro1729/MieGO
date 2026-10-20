@@ -339,6 +339,8 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
    a dark area colour visible on the page. Sharing the line costs the board no
    height, in any rules. */
 .capture-counts{display:flex;align-items:center;flex:none;gap:6px;color:var(--slate-77);font-size:var(--font-small);font-variant-numeric:tabular-nums}
+/* On the narrowest phones the pills go without their アゲハマ label, so the rules stay whole. */
+@media(max-width:360px){.capture-label{display:none}}
 .prisoner-pill{display:inline-flex;align-items:center;gap:4px;padding:0 7px;line-height:14px;border:2px solid;border-radius:var(--radius-pill);box-shadow:0 0 0 1px var(--white-a25)}
 .prisoner-pill span[id]{min-width:1.2em;text-align:center;font-weight:var(--weight-medium)}
 .capture-stone{width:11px;height:11px;border-radius:var(--radius-round);display:inline-block;opacity:.7}
