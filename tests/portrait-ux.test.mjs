@@ -124,7 +124,8 @@ test("solo prompt hides the second gold button without shifting the action row",
   assert.match(app,/if\(!room && endExpanded\)endExpanded=false;/);
 });
 test("AI scoring waits for a computing move instead of pausing the AI",()=>{
-  assert.match(app,/if\(aiThinking\)\$\("endPropose"\)\.disabled=true;/);
+  // Except while watching, where a COM is nearly always thinking: 採点を始める stops it (com-watch.test.mjs).
+  assert.match(app,/if\(aiThinking && !isWatching\(\)\)\$\("endPropose"\)\.disabled=true;/);
   assert.match(app,/if\(!room\)\{\s*if\(aiThinking\)return;/);
   assert.doesNotMatch(app,/AIは待機しています/);
 });

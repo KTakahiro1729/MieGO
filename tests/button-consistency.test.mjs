@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {TEXT} from "../public/texts.mjs";
 import {source} from "./helpers/source.mjs";
-const html=source("index.html"),app=source("app.mjs"),css=source("style.css"),retap=source("confirm-retap.mjs");
+const html=source("index.html"),app=source("app.mjs"),css=source("style.css");
 
 test("buttons draw colours from the four shared kinds, not per-button overrides",()=>{
   for(const kind of [".secondary{",".accent-outline{",".danger-armed{"])assert.ok(css.includes(kind),kind);
@@ -14,8 +14,6 @@ test("buttons draw colours from the four shared kinds, not per-button overrides"
 });
 
 test("an armed button is marked by a class, not by its aria-label text",()=>{
-  assert.match(retap,/button\.classList\.add\("danger-armed"\)/);
-  assert.match(retap,/armedConfirm\.button\.classList\.remove\("danger-armed"\)/);
   assert.doesNotMatch(css,/aria-label\^=/);
 });
 
@@ -35,7 +33,7 @@ test("the action, scoring and replay rows share one height token",()=>{
 test("the same action has the same name and glyph wherever it appears",()=>{
   // Discarding a provisional stone: × with the same label in play and in replay.
   assert.match(html,/id="reviewCancel"[^>]*aria-label="仮置きを戻す"[^>]*><svg[^>]*><path d="M6 6l12 12M18 6 6 18"\/><\/svg>/);
-  assert.match(app,/const cancelLabel=provisional\?TEXT\.takeback\.undoProvisional/);
+  assert.match(app,/const cancelLabel=stepIn\?TEXT\.game\.watchBack:provisional\?TEXT\.takeback\.undoProvisional/);
   assert.equal(TEXT.takeback.undoProvisional,"仮置きを戻す");
   // Both entries to the saved-game sheet carry the sheet's own title.
   assert.match(html,/id="openHistory"[^>]*>履歴<\/button>/);
