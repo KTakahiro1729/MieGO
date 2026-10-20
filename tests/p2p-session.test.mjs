@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, play, BLACK, WHITE } from "../public/core.mjs";
-import { selectColor, playerColor, readCheckpoint, saveCheckpoint, reconcileGame, guestUrl, ownUrl } from "../public/p2p-session.mjs";
+import { newGame, play, agreeScore, answerEndProposal, proposeEnd, BLACK, WHITE } from "../public/core.mjs";
+import { selectColor, playerColor, readCheckpoint, saveCheckpoint, reconcileGame, guestUrl, ownUrl, isPeerAction, isConsistentSnapshot, roomUrl, newPeerSignins } from "../public/p2p-session.mjs";
 
 test("creator's choice fixes color and guest receives opposite color",()=>{
   assert.equal(selectColor("black"),BLACK);
@@ -57,4 +57,69 @@ test("before the first move the inviter's handicap wins over a guest's even boar
   assert.equal(adopted.kind, "adopt");
   assert.equal(adopted.game.handicap, 3);
   assert.equal(adopted.game.next, WHITE);
+});
+
+test("a friend's client may act only for the friend's color", () => {
+  const game = newGame(); // Black to play
+  const peer = { peerColor: WHITE };
+  assert.equal(isPeerAction({ type: "move", position: 0 }, game, peer), false);
+  assert.equal(isPeerAction({ type: "move", position: "resign" }, game, peer), false);
+  assert.equal(isPeerAction({ type: "move", position: 0 }, game, { peerColor: BLACK }), true);
+  for (const type of ["agree", "end_offer", "end_answer", "takeback_request", "takeback_answer"]) {
+    assert.equal(isPeerAction({ type, color: BLACK }, game, peer), false, type);
+    assert.equal(isPeerAction({ type, color: WHITE }, game, peer), true, type);
+  }
+  // Automated dead-stone reviews come from the room owner only.
+  assert.equal(isPeerAction({ type: "dead_auto", positions: [] }, game, peer), false);
+  assert.equal(isPeerAction({ type: "dead_auto", positions: [] }, game, { ...peer, peerIsOwner: true }), true);
+  assert.equal(isPeerAction({ type: "dead", position: 0 }, game, peer), true);
+  assert.equal(isPeerAction({ type: "move", position: 0 }, game, { peerColor: null }), false);
+});
+
+test("a synced snapshot must be the position its moves produce", () => {
+  const start = newGame(), next = play(start, 0);
+  assert.equal(isConsistentSnapshot(next), true);
+  const board = [...next.board]; board[40] = WHITE;
+  assert.equal(reconcileGame(start, 1, { ...next, board }, 2).kind, "conflict");
+  assert.equal(reconcileGame(start, 1, { ...next, komi: 100 }, 2).kind, "conflict");
+  assert.equal(reconcileGame(start, 1, { ...next, status: "finished", result: "B+R" }, 2).kind, "conflict");
+  assert.equal(reconcileGame(start, 1, { ...next, agreed: null }, 2).kind, "conflict");
+  // A count is finished only when both agreed and the result matches the board.
+  let scored = answerEndProposal(proposeEnd(next, BLACK), WHITE, true);
+  scored = agreeScore(agreeScore(scored, BLACK), WHITE);
+  assert.equal(isConsistentSnapshot(scored), true);
+  assert.equal(isConsistentSnapshot({ ...scored, result: "W+80.0" }), false);
+  assert.equal(isConsistentSnapshot({ ...scored, agreed: { black: true, white: false } }), false);
+});
+
+test("a device that has synced rejects stones or agreements claimed in its name", () => {
+  const start = newGame(), mine = play(start, 0), theirs = play(mine, 1);
+  // Black's device adopts White's reply, but never a Black stone it did not play.
+  assert.equal(reconcileGame(mine, 1, theirs, 2, { localColor: BLACK }).kind, "adopt");
+  assert.equal(reconcileGame(start, 1, mine, 2, { localColor: BLACK }).kind, "conflict");
+  const resigned = play(theirs, "resign"); // Black to move, so Black "resigns"
+  assert.equal(reconcileGame(theirs, 2, resigned, 3, { localColor: BLACK }).kind, "conflict");
+  assert.equal(reconcileGame(theirs, 2, resigned, 3, { localColor: WHITE }).kind, "adopt");
+  // A fresh device (revision 0) still takes over its seat's moves from the friend.
+  assert.equal(reconcileGame(start, 0, theirs, 2, { localColor: BLACK }).kind, "adopt");
+  const counting = answerEndProposal(proposeEnd(theirs, BLACK), WHITE, true);
+  const agreedForBlack = agreeScore(agreeScore(counting, WHITE), BLACK);
+  assert.equal(reconcileGame(counting, 3, agreedForBlack, 5, { localColor: BLACK }).kind, "conflict");
+  assert.equal(reconcileGame(agreeScore(counting, BLACK), 4, agreedForBlack, 5, { localColor: BLACK }).kind, "adopt");
+});
+
+test("the address bar names only the room; seat keys never appear in it", () => {
+  const room = "1".repeat(32);
+  assert.equal(roomUrl("https://miego.example", room), "https://miego.example/?room=" + room);
+  assert.throws(() => roomUrl("https://miego.example", "bad"));
+});
+
+test("only new sign-ins of the other seat on another device are reported", () => {
+  // A device that has never seen the count records it without a notice.
+  assert.deepEqual(newPeerSignins({ owner: 2, guest: 1 }, "owner", null), { seen: 1, notify: false });
+  assert.deepEqual(newPeerSignins({ owner: 2, guest: 1 }, "owner", 1), { seen: 1, notify: false });
+  assert.deepEqual(newPeerSignins({ owner: 2, guest: 2 }, "owner", 1), { seen: 2, notify: true });
+  // The guest hears about the owner's seat, not its own.
+  assert.deepEqual(newPeerSignins({ owner: 3, guest: 9 }, "guest", 2), { seen: 3, notify: true });
+  assert.deepEqual(newPeerSignins({ owner: "x" }, "guest", 2), { seen: 2, notify: false });
 });

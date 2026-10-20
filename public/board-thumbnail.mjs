@@ -1,6 +1,7 @@
 import {BLACK, WHITE, isBoardSize, starPoints} from "./core.mjs";
 import {boardTheme} from "./board-theme.mjs";
 import { TEXT } from "./texts.mjs";
+import {ownershipPixel} from "./territory-view.mjs";
 
 const PAD = 5, SPAN = 80, END = PAD+SPAN;
 const num = v => +v.toFixed(2);
@@ -9,8 +10,9 @@ const num = v => +v.toFixed(2);
  * Static SVG markup of a saved position for the library list. The markup is
  * built only from validated numbers, so it is safe to assign as innerHTML.
  * Every board size shares one 90x90 view box; spacing scales with the size.
+ * overlay {ownership,palette,opacity} tints each point as the board does.
  */
-export function boardThumbnailSvg(board, lastPosition=null, themeName) {
+export function boardThumbnailSvg(board, lastPosition=null, themeName, overlay=null) {
   const size=Math.sqrt(board?.length);
   if(!Array.isArray(board) || !isBoardSize(size))throw Error(TEXT.rules.badBoard);
   const theme=boardTheme(themeName);
@@ -26,6 +28,17 @@ export function boardThumbnailSvg(board, lastPosition=null, themeName) {
   for(const star of starPoints(size)) {
     const [cx,cy]=point(star);
     parts.push(`<circle cx="${cx}" cy="${cy}" r="${num(Math.max(.8,1.3*k))}" fill="${theme.line}"/>`);
+  }
+  const ownership=overlay?.ownership;
+  if(Array.isArray(ownership) && ownership.length===board.length) {
+    for(let i=0;i<board.length;i++) {
+      const value=Number(ownership[i]);
+      if(!Number.isFinite(value))continue;
+      const [r,g,b,a]=ownershipPixel(value,overlay.palette,overlay.opacity);
+      if(!a)continue;
+      const [cx,cy]=point(i);
+      parts.push(`<rect x="${num(cx-gap/2)}" y="${num(cy-gap/2)}" width="${num(gap)}" height="${num(gap)}" fill="rgb(${r},${g},${b})" fill-opacity="${num(a/255)}"/>`);
+    }
   }
   for(let i=0;i<board.length;i++) {
     const color=board[i];
@@ -44,8 +57,8 @@ export function boardThumbnailSvg(board, lastPosition=null, themeName) {
 }
 
 /** The final board of a record, marked with its last on-board move. */
-export function recordThumbnailSvg(record, themeName) {
+export function recordThumbnailSvg(record, themeName, overlay=null) {
   // A trailing pass or resignation leaves no stone to mark.
   const last=record.snapshot.moves.at(-1)?.position;
-  return boardThumbnailSvg(record.snapshot.board,Number.isInteger(last)?last:null,themeName);
+  return boardThumbnailSvg(record.snapshot.board,Number.isInteger(last)?last:null,themeName,overlay);
 }

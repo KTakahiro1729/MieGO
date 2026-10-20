@@ -227,6 +227,10 @@ body.board-zoomed .board-bleed{opacity:1}
 .save-status{margin:7px 0;color:#ffcfac;font-size:12px;line-height:1.5}
 .history-panel{max-height:min(90dvh,760px)}
 .history-list{display:flex;flex-direction:column;gap:8px;margin-top:17px}
+.history-row{display:flex;align-items:center;gap:4px}
+.history-row .history-list-item{flex:1;min-width:0}
+.history-favorite[aria-pressed="true"]{color:#d0b25c}
+.history-favorite[aria-pressed="true"] svg{fill:currentColor}
 .history-list-item{min-height:66px;width:100%;text-align:left;display:flex;align-items:center;gap:12px;background:#232a36;border:1px solid #41495b;border-radius:13px;padding:10px 12px}
 .history-thumb{position:relative;width:72px;height:72px;flex:none}
 .history-thumb svg{display:block;width:100%;height:100%;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.45)}

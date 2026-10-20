@@ -185,10 +185,12 @@ CloudflareのBuild logsで`Browser KataGo worker built`および`KataGo model do
 Node.js 20以降が必要です。以下はCloudflare内で自動実行され、ユーザーがブラウザ以外の操作を行う必要はありません。
 
 ```bash
-npm install
+npm ci
 npm test
 npm run dev
 ```
+
+依存関係は`package-lock.json`で固定しています。CIは`npm ci`で、ロックファイルどおりの版だけを導入します。依存を追加・更新するときは`npm install <パッケージ>`を実行し、更新された`package-lock.json`も一緒にコミットしてください。
 
 ### 文言の管理
 

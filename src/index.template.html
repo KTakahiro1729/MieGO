@@ -123,6 +123,7 @@
           </div>
         </section>
         <p id="saveStatus" class="save-status" role="alert" hidden></p>
+        <p id="seatNotice" class="save-status" role="alert" hidden></p>
       </section>
     </main>
     <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
@@ -266,6 +267,12 @@
         </div>
         <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
         <p id="roomInfo" class="explanation"></p>
+        <details id="seatLinkBox" class="info-disclosure" hidden><summary>{{online.seatLinkSummary}}</summary>
+          <p class="explanation">{{online.seatLinkNote}}</p>
+          <button id="copySeatLink" class="secondary full" type="button">{{online.seatLinkCopy}}</button>
+          <input id="seatLinkFallback" type="text" readonly hidden autocomplete="off" spellcheck="false" aria-label="{{online.seatLinkField}}">
+          <p id="seatLinkStatus" class="invite-status" role="status" aria-live="polite"></p>
+        </details>
       </section>
       <section id="aiSetup" class="settings-section" hidden>
         <button id="startAi" class="primary full" type="button" disabled>{{ai.preparing}}</button>

@@ -2,7 +2,7 @@ import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDe
 import { suggestDeadStones } from "./dead-stones.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
-import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame } from "./p2p-session.mjs";
+import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame, isPeerAction, storageKey, roomUrl, newPeerSignins } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
 import { isPaletteChoice, normalizePalette, showsOwnership, paletteGradient, countingGradient, interpolateOwnership, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
 import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss, boardTheme as boardLook } from "./board-theme.mjs";
@@ -19,6 +19,7 @@ import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { shareLabels, shareFrameSize, paintShareFrame, buildGameAnimation, loadShareFonts } from "./share-image.mjs";
 import { OwnershipStore } from "./ownership-store.mjs";
+import { replayLine, prefetchOrder } from "./ownership-prefetch.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { influence } from "./influence.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
@@ -42,26 +43,47 @@ function switchToFallback(reason) {
   console.warn("KataGo unavailable; switching to transparent approximation:", reason);
   worker.terminate();
   worker = new Worker("/analysis-worker.mjs", { type: "module" });
-  worker.onmessage = handleAnalysis;
+  workerWaiting = null; prefetch = null;
+  worker.onmessage = onWorkerMessage;
   worker.onerror = e => { $("analysisStatus").textContent = TEXT.analysis.unavailable; console.error(e); };
   if (gameMode === "ai") $("aiMatchStatus").textContent = TEXT.ai.unavailable;
   show();
   requestAnalysis();
 }
 worker.onerror = e => switchToFallback(e.message || "worker startup error");
+// The worker answers only its newest request, so one waiting id tells whether it is busy.
+let workerWaiting = null;
+// Background estimates of a replayed line (see planPrefetch).
+let prefetch = null;
+function postToWorker(message) {
+  // A newer request supersedes a background estimate, which is then asked again.
+  if (prefetch?.inflight) { prefetch.queue.unshift(prefetch.inflight.step); prefetch.inflight = null; }
+  workerWaiting = message.id;
+  worker.postMessage(message);
+}
 const params = new URLSearchParams(location.search);
 let room = params.get("room"), seat = room ? null : "host";
 const inviteFragment=new URLSearchParams(location.hash.slice(1));
 let p2pRole=inviteFragment.get("role")==="guest"?"guest":"owner";
 let inviteKey=inviteFragment.get("key");
+// A seat link opened on this page may take the seat over once if a stored session no longer works.
+let linkKey=inviteKey;
 let ownerColor=null,onlineSession=null,guestInviteKey=null,issuedSide=null,onlineRevision=0;
+// The other seat's count of sign-ins on another device that this player has seen.
+let seenPeerSignins=null;
 let p2pTransport;
 const myOnlineColor=()=>ownerColor===null?null:playerColor(p2pRole,ownerColor);
 const currentSideSelection=()=>document.querySelector('input[name="onlineSide"]:checked')?.value||"random";
 // Before play starts, a changed side, board size or handicap calls for a new invitation.
 const inviteMatchesChoice=()=>issuedSide===currentSideSelection() &&
   (connected || game.moveNumber>0 || (sizeOf(game.board)===boardSize && handicapOf(game)===onlineHandicap));
+// The player's own seat link moves the game to another device; it never sits in the address bar.
+function ownSeatLink() {
+  try{return room && inviteKey ? (p2pRole==="owner"?ownUrl:guestUrl)(location.origin,room,inviteKey) : null;}
+  catch{return null;}
+}
 function renderInviteButton() {
+  $("seatLinkBox").hidden=!ownSeatLink();
   $("copy").disabled=!!room && p2pRole!=="owner";
   $("copy").textContent=!room?TEXT.online.prepareInvite:
     issuedSide!==null && !inviteMatchesChoice()?
@@ -69,8 +91,8 @@ function renderInviteButton() {
 }
 function persistOnline(){
   if(!room || !ROOM_PATTERN.test(room))return;
-  if(!saveCheckpoint(localStorage,room,{role:p2pRole,ownerColor,session:onlineSession,
-    inviteKey,guestInviteKey,issuedSide,revision:onlineRevision,game,lastPosition}))
+  if(!saveCheckpoint(roomingStorage,room,{role:p2pRole,ownerColor,session:onlineSession,
+    inviteKey,guestInviteKey,issuedSide,revision:onlineRevision,game,lastPosition,seenPeerSignins}))
     storageError(Error(TEXT.online.checkpointFailed));
 }
 let game = newGame(), candidate = null, illegalCandidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
@@ -110,9 +132,42 @@ function reviewUnavailable() {
      game.agreed.black || game.agreed.white)return;
   apply(scoringReviewAction("dead_unavailable"));
 }
-const gameLibrary=new GameLibrary(localStorage);
+// When storage is full, the oldest saved games that are not favourites make
+// room; the current game and the active 1台/AI games always stay.
+let evictedGames=0;
+const gameLibrary=new GameLibrary(localStorage,undefined,undefined,{
+  keep:()=>currentGameId?[currentGameId]:[],
+  onRemove:record=>{
+    ownershipStore.forget(record.id);
+    if(record.mode==="online" && record.roomId!==room)
+      try{localStorage.removeItem(storageKey(record.roomId));}catch{}
+    evictedGames++;
+  }
+});
+// Friend-game checkpoints make room the same way.
+const roomingStorage={getItem:key=>localStorage.getItem(key),setItem:(key,value)=>gameLibrary.write(key,value)};
+// The ownership shown for each committed position: every position of the
+// current game, the final board (its thumbnail) of every other saved game.
+const ownershipStore=new OwnershipStore(localStorage,{write:(key,value)=>gameLibrary.write(key,value)});
+let ownershipCompactedFor;
+function compactOwnership(){
+  if(ownershipCompactedFor===currentGameId)return;
+  ownershipCompactedFor=currentGameId;
+  try{ownershipStore.compact(currentGameId,new Map(gameLibrary.list().map(r=>[r.id,r.snapshot.board])));}
+  catch(error){console.warn("Ownership compaction failed",error);}
+}
+function showEvictionNotice(){
+  if(!evictedGames)return;
+  showNotice(TEXT.history.evicted(evictedGames));
+  evictedGames=0;
+}
 let currentGameId=null,currentRevision=null;
-const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard,getBoardTheme:()=>boardTheme});
+const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard,getBoardTheme:()=>boardTheme,
+  getThumbnailOverlay:record=>{
+    if(!overlayOn())return null;
+    const ownership=ownershipStore.recall(record.id,record.snapshot.board);
+    return ownership?{ownership,palette,opacity}:null;
+  }});
 const {renderHistoryList,importHistoryFile}=historyPanel;
 // Sheets are aria-modal: keep Tab and taps out of the board behind them.
 function setBackgroundInert(on){
@@ -136,6 +191,11 @@ function clearStorageError() {
 function showNotice(message) {
   $("saveStatus").hidden=false;
   $("saveStatus").textContent=message;
+}
+// Seat notices stay until tapped: a save does not clear them.
+function showSeatNotice(message) {
+  $("seatNotice").hidden=false;
+  $("seatNotice").textContent=TEXT.online.tapToClose(message);
 }
 function myColorForEnd() {
   if(room)return myOnlineColor();
@@ -302,7 +362,7 @@ function requestAnalysis() {
     const id=pending;
     deadEvaluation={id,number:game.moveNumber,hash:boardHash(game.board),
       dead:deadSignature(game.dead)};
-    worker.postMessage({id,kind:"scoring",state:game});
+    postToWorker({id,kind:"scoring",state:game});
     show();return;
   }
   if(game.status!=="playing") {
@@ -333,7 +393,7 @@ function requestAnalysis() {
     aiJob={id,number:game.moveNumber,hash:boardHash(game.board)};
     $("analysisStatus").textContent = TEXT.analysis.thinking;
     $("aiMatchStatus").textContent = TEXT.ai.thinking;
-    worker.postMessage({id,kind:"move",state:game});
+    postToWorker({id,kind:"move",state:game});
     show();return;
   }
   pending=++seq;
@@ -350,7 +410,7 @@ function requestAnalysis() {
   const state=overlayOn()?(candidate || game):game, id=pending;
   analysisContext={id,number:state.moveNumber,hash:boardHash(state.board),committed:!candidate};
   if(overlayOn())$("analysisStatus").textContent=fallbackMode?TEXT.analysis.updatingFallback:TEXT.analysis.updating;
-  analysisTimer=setTimeout(()=>worker.postMessage({id,state,board:state.board}),180);
+  analysisTimer=setTimeout(()=>postToWorker({id,state,board:state.board}),180);
 }
 function finishAiMove(result) {
   const job=aiJob;
@@ -382,13 +442,27 @@ function finishAiMove(result) {
     switchToFallback(error instanceof Error?error.message:String(error));
   }
 }
+function onWorkerMessage(event) {
+  if(event.data?.id!==undefined && event.data.id===workerWaiting)workerWaiting=null;
+  handleAnalysis(event);
+  pumpPrefetch();
+}
 function handleAnalysis(event) {
   const result=event.data;
+  const validFor=state=>!result.error && result.engine==="katago" && Array.isArray(result.ownership) &&
+    result.ownership.length===state.board.length && result.ownership.every(Number.isFinite);
+  if(prefetch?.inflight && result.id===prefetch.inflight.id) {
+    const state=prefetch.states[prefetch.inflight.step];
+    prefetch.inflight=null;
+    if(validFor(state))keepReviewOwnership(prefetch,state.board,result.ownership);
+    else prefetch=null; // A failing estimate is not retried in the background.
+    return;
+  }
   if(boardReview && result.id!==undefined && result.id===boardReview.katagoId) {
     const state=boardReview.preview||boardReview.display;
-    if(!result.error && result.engine==="katago" && Array.isArray(result.ownership) &&
-       result.ownership.length===state.board.length) {
+    if(validFor(state)) {
       boardReview.ownership=result.ownership;
+      if(!boardReview.preview)keepReviewOwnership(reviewOwner(),state.board,result.ownership);
       draw();
     }
     return;
@@ -458,7 +532,7 @@ function handleAnalysis(event) {
     :TEXT.analysis.showingFallback;
   transitionOwnership(result.ownership);
 }
-worker.onmessage=handleAnalysis;
+worker.onmessage=onWorkerMessage;
 function show() {
   if(boardReview){renderBoardReview();return;}
   // The forbidden stone is a provisional UI selection, never part of game state.
@@ -585,6 +659,9 @@ function apply(action, remote=false, isAiMove=false) {
   }
   let rewound=false;
   try{
+    // The friend's client acts only for the friend's color.
+    if(remote && !isPeerAction(action,game,{peerColor:myOnlineColor()===null?null:-myOnlineColor(),
+      peerIsOwner:p2pRole==="guest"}))throw new Error(TEXT.online.peerActionRejected);
     const wasScoring=game.status==="scoring";
     if(action.type==="move"){
       if(action.number!==game.moveNumber+1) throw new Error(TEXT.game.moveMismatch);
@@ -1063,6 +1140,7 @@ function save(){
     if(!room)gameLibrary.setActive(gameMode,record.id);
     if(room)persistOnline();
     rememberSettings();clearStorageError();
+    compactOwnership();showEvictionNotice();
     return true;
   }catch(error){storageError(error);return false;}
 }
@@ -1086,6 +1164,7 @@ function leaveOnlineRoom() {
   const oldUrl=new URL(location.href);oldUrl.searchParams.delete("room");oldUrl.hash="";
   room=null;seat="host";connected=false;ownerColor=null;onlineSession=null;
   inviteKey=null;guestInviteKey=null;issuedSide=null;onlineRevision=0;p2pRole="owner";
+  linkKey=null;seenPeerSignins=null;
   history.replaceState(null,"",oldUrl.pathname+oldUrl.search);
   $("inviteDetails").classList.add("hidden");
   $("inviteStatus").textContent="";
@@ -1151,7 +1230,7 @@ async function verifyP2P(){
 }
 function onPeerSync(message){
   const result=reconcileGame(game,onlineRevision,message.game,message.revision,
-    {localIsOwner:p2pRole==="owner"});
+    {localIsOwner:p2pRole==="owner",localColor:myOnlineColor()});
   if(result.kind==="conflict"||result.kind==="invalid"){
     connected=false;$("netStatus").textContent=TEXT.online.mismatch;
     show();return false;
@@ -1175,14 +1254,31 @@ function onPeerSync(message){
 p2pTransport=createP2PTransport({
   verify:verifyP2P,
   onSession:({session,ownerColor:chosen,role})=>{
-    onlineSession=session;p2pRole=role;ownerColor=chosen==="black"?BLACK:WHITE;
+    onlineSession=session;p2pRole=role;ownerColor=chosen==="black"?BLACK:WHITE;linkKey=null;
     seat=role==="owner"?"host":"guest";persistOnline();show();
+  },
+  onSignins:signins=>{
+    linkKey=null; // The stored session worked.
+    const {seen,notify}=newPeerSignins(signins,p2pRole,seenPeerSignins);
+    if(notify)showSeatNotice(TEXT.online.peerSigninNotice);
+    if(seen!==seenPeerSignins){seenPeerSignins=seen;persistOnline();}
   },
   onSync:onPeerSync,
   onAction:action=>apply(action,true),
   onConnected:()=>{connected=true;$("netStatus").textContent=TEXT.online.connected;show();},
   onDisconnected:message=>{connected=false;$("netStatus").textContent=message;show();},
-  onError:error=>{$("netStatus").textContent=error.message||TEXT.online.connectionError;console.warn("P2P",error);show();},
+  onError:error=>{
+    console.warn("P2P",error);
+    if(error.stage==="ticket" && error.status===403){
+      // An opened seat link takes the seat back once; otherwise another device holds it.
+      if(linkKey){inviteKey=linkKey;linkKey=null;onlineSession=null;persistOnline();void joinRoom();return;}
+      $("netStatus").textContent=TEXT.online.seatElsewhere;
+      showSeatNotice(TEXT.online.seatTakenNotice);
+    }else if(error.stage==="ticket" && error.status===410){
+      $("netStatus").textContent=TEXT.online.roomGone;
+    }else $("netStatus").textContent=error.message||TEXT.online.connectionError;
+    show();
+  },
   getSnapshot:()=>({game,revision:onlineRevision,lastPosition,
     scoringReview:game.status==="scoring" &&
     ["complete","none","modified","unavailable"].includes(deadReview)?deadReview:null})
@@ -1221,14 +1317,14 @@ async function beginOnlineRoom(){
   }else if(!save())return null;
   room=created.room;p2pRole="owner";seat="host";ownerColor=color;
   onlineSession=created.ownerSession;inviteKey=created.ownerKey;
-  guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;
+  guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;seenPeerSignins=0;linkKey=null;
   clearBoardReview();
   gameMode="online";stopAiTurn();
   game=newGame(true,{handicap:onlineHandicap,size:boardSize});candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
-  history.replaceState(null,"",ownUrl(location.origin,room,inviteKey));
+  history.replaceState(null,"",roomUrl(location.origin,room));
   save();show();requestAnalysis();
   void joinRoom();return showInviteLink();
 }
@@ -1401,8 +1497,54 @@ function renderBoardReview() {
 // A replayed position shows the same KataGo estimate as during play: the one
 // kept for it then, or a fresh KataGo evaluation. The simple influence model
 // is only the fallback when KataGo is unavailable.
+// Whose estimates a replayed line holds: the current game keeps every position,
+// another saved game only its final board (its thumbnail), a variation or a
+// shared URL nothing beyond this page.
+function reviewOwner() {
+  const variation=boardReview.activeLine==="variation" && !!boardReview.variation;
+  const record=boardReview.source==="archive" ? boardReview.record : null;
+  const gameId=variation ? null : boardReview.source==="live" ? currentGameId : record?.id ?? null;
+  return {gameId,finalHash:record && !variation ? boardHash(record.snapshot.board) : null};
+}
+function keepReviewOwnership({gameId,finalHash},board,values) {
+  try{
+    if(gameId && (gameId===currentGameId || boardHash(board)===finalHash))
+      ownershipStore.remember(gameId,board,values);
+    else ownershipStore.keep(board,values);
+  }catch(error){console.warn("Ownership not kept",error);}
+}
+// While a game is replayed, KataGo estimates its other positions in the
+// background, nearest to the one on screen first, whenever the worker is idle.
+function planPrefetch() {
+  if(!boardReview){prefetch=null;return;}
+  const line=activeReviewSnapshot(boardReview,game);
+  if(prefetch?.line!==line){
+    let states;
+    try{states=replayLine(line);}catch{prefetch=null;return;}
+    prefetch={line,states,queue:[],inflight:null,...reviewOwner()};
+  }
+  prefetch.queue=prefetchOrder(prefetch.states.length-1,boardReview.step)
+    .filter(step=>step!==prefetch.inflight?.step);
+  pumpPrefetch();
+}
+function pumpPrefetch() {
+  if(!boardReview){prefetch=null;return;}
+  if(!prefetch || prefetch.inflight || workerWaiting!==null || aiThinking ||
+     !katagoReady || fallbackMode || !overlayOn())return;
+  while(prefetch.queue.length){
+    const step=prefetch.queue.shift(),state=prefetch.states[step];
+    if(!state || ownershipStore.recall(prefetch.gameId,state.board))continue;
+    const id=++seq;
+    postToWorker({id,state,board:state.board});
+    prefetch.inflight={id,step};
+    return;
+  }
+}
 function requestReviewOwnership() {
   if(!boardReview)return;
+  try{showReviewOwnership();}finally{planPrefetch();}
+}
+function showReviewOwnership() {
   boardReview.ownership=null;
   boardReview.analysisId=++reviewSequence;
   boardReview.katagoId=null;
@@ -1413,7 +1555,7 @@ function requestReviewOwnership() {
   if(kept){boardReview.ownership=kept;draw();return;}
   if(katagoReady && !fallbackMode){
     boardReview.katagoId=++seq;
-    worker.postMessage({id:boardReview.katagoId,state,board:state.board});
+    postToWorker({id:boardReview.katagoId,state,board:state.board});
     draw();return;
   }
   if(!reviewWorker){
@@ -1562,9 +1704,7 @@ let shareImageKind="still",shareImageJob=0;
 let shareImages={},sharePreviewUrls=[];
 let frameRenderer=null,frameState=null,frameOwnership=null;
 const ANIMATION_SIZE=600;
-// The ownership shown for each committed position, kept per saved game so
-// every frame of a shared animation carries the colours seen while playing.
-const ownershipStore=new OwnershipStore(localStorage);
+// Every frame of a shared animation carries the colours seen while playing.
 function rememberOwnership(board,values){
   try{ownershipStore.remember(currentGameId,board,values);}catch(error){console.warn("Ownership not kept",error);}
 }
@@ -1763,6 +1903,11 @@ $("reviewResume").onclick=resumeSelectedReview;
 $("historyImportFile").onchange=e=>void importHistoryFile(e.target.files?.[0]);
 $("openHistory").onclick=openHistoryPanel;
 $("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
+$("seatNotice").onclick=()=>{$("seatNotice").hidden=true;};
+$("copySeatLink").onclick=()=>{
+  const link=ownSeatLink();
+  if(link)void copyWithFallback(link,$("seatLinkStatus"),$("seatLinkFallback"),TEXT.online.seatLinkCopied);
+};
 document.addEventListener("storage",e=>{
   if(e.key?.startsWith("miego:game:v1:") && !$("historySetup").hidden)renderHistoryList();
 });
@@ -1987,6 +2132,7 @@ if(room){
     p2pRole=stored.role;ownerColor=stored.ownerColor;
     inviteKey=stored.inviteKey||inviteKey;guestInviteKey=stored.guestInviteKey;
     onlineSession=stored.session;issuedSide=stored.issuedSide;onlineRevision=stored.revision;
+    seenPeerSignins=Number.isInteger(stored.seenPeerSignins)?stored.seenPeerSignins:null;
     game=stored.game;lastPosition=stored.lastPosition;
     const prior=gameLibrary.list().find(r=>r.mode==="online"&&r.roomId===room);
     if(prior){currentGameId=prior.id;currentRevision=prior.revision;}
@@ -2000,6 +2146,13 @@ if(room){
   seat=p2pRole==="owner"?"host":"guest";
   gameMode="online";
   if(p2pRole==="owner")showInviteLink();
+  // Seat keys leave the address bar once read, so a copied address names only
+  // the room. They are kept in this browser first, in case verification is cut short.
+  if(inviteFragment.has("key") || inviteFragment.has("role")){
+    if(inviteKey && (!stored || safeStored))persistOnline();
+    if(ROOM_PATTERN.test(room))history.replaceState(null,"",roomUrl(location.origin,room));
+  }
+  renderInviteButton();
   void joinRoom();
 }
 else try {
@@ -2046,4 +2199,5 @@ if(!room && params.has("sgf")){
     $("saveStatus").textContent=TEXT.history.sharedLoadFailed(error.message);
   }
 }
+compactOwnership();
 show();requestAnalysis();

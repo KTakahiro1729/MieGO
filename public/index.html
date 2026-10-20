@@ -124,6 +124,7 @@
           </div>
         </section>
         <p id="saveStatus" class="save-status" role="alert" hidden></p>
+        <p id="seatNotice" class="save-status" role="alert" hidden></p>
       </section>
     </main>
     <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
@@ -267,6 +268,12 @@
         </div>
         <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
         <p id="roomInfo" class="explanation"></p>
+        <details id="seatLinkBox" class="info-disclosure" hidden><summary>別の端末で続ける</summary>
+          <p class="explanation">自分用の再入室リンクです。別の端末で開くと、あなたの席で続きを打てます（この端末の接続は切れます）。持っている人は誰でもあなたの席に入れるので、相手やほかの人には送らないでください。</p>
+          <button id="copySeatLink" class="secondary full" type="button">自分用の再入室リンクをコピー</button>
+          <input id="seatLinkFallback" type="text" readonly hidden autocomplete="off" spellcheck="false" aria-label="自分用の再入室リンク">
+          <p id="seatLinkStatus" class="invite-status" role="status" aria-live="polite"></p>
+        </details>
       </section>
       <section id="aiSetup" class="settings-section" hidden>
         <button id="startAi" class="primary full" type="button" disabled>準備中…</button>
@@ -364,6 +371,8 @@
             <li>「招待リンクを準備する」を押し、もう一度押すと招待URLをコピーできます。友人に送って開いてもらえば対局が始まります。</li>
             <li>対局中に招待URLをもう一度見るときは、「新規対戦」を開きます。</li>
             <li>新しい対局を作るときなどに、本人確認が出ることがあります。</li>
+            <li>アドレスバーのURLには参加用の鍵を残しません。同じブラウザなら開き直すだけで続きから再開できます。別の端末で続けるときは「別の端末で続ける」から自分用の再入室リンクをコピーしてください。</li>
+            <li>相手の席に別の端末から参加があると、お知らせが出ます。相手が端末を替えたのでなければ、招待URLがほかの人に渡っていないか確認してください。</li>
           </ul>
         </details>
         <details id="help-history" class="info-disclosure help-topic" name="helpTopic"><summary>保存した棋譜</summary>
@@ -372,6 +381,8 @@
             <li>新規対戦の「履歴」で棋譜を選ぶと再生できます。盤をタップすると別の手を試せます。</li>
             <li>再生中は右端のメニューから、URLのコピー、SGFの保存、「ここから1台で打つ」などができます。</li>
             <li>「SGFファイルを読み込む」でほかのアプリの棋譜も開けます。</li>
+            <li>保存容量がいっぱいになると、古い棋譜から自動で削除されます。残したい棋譜は「履歴」の☆でお気に入りにしてください。お気に入りと、いま打っている対局・途中の1台／AI対局は削除されません。</li>
+            <li>形勢の推定は、対局中の棋譜では全手、ほかの棋譜では最終局面だけを保存します。棋譜を再生すると、表示中の手に近い局面から順に裏で推定し直します。</li>
           </ul>
         </details>
         <details id="help-about" class="info-disclosure help-topic" name="helpTopic"><summary>このアプリについて</summary>

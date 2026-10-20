@@ -12,7 +12,9 @@ async function body(request) {
   if (Number(request.headers.get("content-length") || 0) > 4096) throw Error("Request too large");
   const text = await request.text();
   if (text.length > 4096) throw Error("Request too large");
-  return JSON.parse(text);
+  const value = JSON.parse(text);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw Error("Invalid request");
+  return value;
 }
 const sameOrigin = (request, url) => request.headers.get("Origin") === url.origin;
 
@@ -31,6 +33,8 @@ async function verifyHuman(token, request, env) {
     return data.success === true && data.hostname === new URL(request.url).hostname && data.action === "miego_p2p";
   } catch { return false; }
 }
+// How many times each seat was taken over by another device.
+const signinsOf = meta => ({ owner: Number(meta.signins?.owner) || 0, guest: Number(meta.signins?.guest) || 0 });
 const roomStub = (env, room) => env.ROOMS.get(env.ROOMS.idFromName(room));
 const callRoom = (stub, path, data) => stub.fetch(new Request("https://room.internal" + path, {
   method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data)
@@ -101,8 +105,29 @@ export class GameRoom extends DurableObject {
   }
   async metadata() {
     const m = await this.ctx.storage.get("meta");
-    if (!m || m.revoked || Date.now()>m.expires) return null;
+    if (!m) return null;
+    if (m.revoked || Date.now()>m.expires) { await this.destroy(); return null; }
+    // Rooms created before expiry alarms existed get one on their next use.
+    if (await this.ctx.storage.getAlarm() === null) await this.ctx.storage.setAlarm(m.expires);
     return m;
+  }
+  // An expired or revoked room keeps nothing: its sockets close and its storage
+  // (alarm included, since compatibility date 2026-02-24) is deleted.
+  async destroy(code=4003, reason="Room expired") {
+    for (const p of this.peers()) try { p.ws.close(code, reason); } catch {}
+    await this.ctx.storage.deleteAll();
+  }
+  async alarm() {
+    const m = await this.ctx.storage.get("meta");
+    if (m && !m.revoked && Date.now() < m.expires) { await this.ctx.storage.setAlarm(m.expires); return; }
+    await this.destroy();
+  }
+  // One-time tickets nobody redeemed are dropped once they lapse.
+  async dropExpiredTickets() {
+    const now = Date.now(), lapsed = [];
+    for (const [key, value] of await this.ctx.storage.list({ prefix: "ticket:" }))
+      if (!value || now > value.expires) lapsed.push(key);
+    if (lapsed.length) await this.ctx.storage.delete(lapsed);
   }
   allowed(kind, max, interval=60000) {
     const now=Date.now(), old=this.rate.get(kind) || {time:now,count:0};
@@ -122,7 +147,9 @@ export class GameRoom extends DurableObject {
       if (url.pathname==="/init") {
         if (await this.ctx.storage.get("meta")) return json({error:"Exists"},409);
         if (!["black","white"].includes(data.ownerColor)) return inputError();
-        await this.ctx.storage.put("meta", {...data, expires:Date.now()+MAX_ROOM_AGE,revoked:false});
+        const expires=Date.now()+MAX_ROOM_AGE;
+        await this.ctx.storage.put("meta", {...data, expires,revoked:false});
+        await this.ctx.storage.setAlarm(expires);
         return json({ok:true});
       }
       let meta=await this.metadata();
@@ -132,10 +159,18 @@ export class GameRoom extends DurableObject {
         if (!["owner","guest"].includes(data.role) || typeof data.key!=="string" || data.key.length!==48) return inputError();
         if (await hash(data.key)!==meta[data.role+"KeyHash"]) return json({error:"Invalid invitation"},403);
         const session=random();
+        // A seat that already had a device is now signed in elsewhere: the
+        // other player is told (now, or when it next joins), as is every device.
+        const replaced=Boolean(meta[data.role+"SessionHash"]);
         meta[data.role+"SessionHash"]=await hash(session);
+        meta.signins=signinsOf(meta);
+        if(replaced)meta.signins[data.role]++;
         await this.ctx.storage.put("meta",meta);
         // A new claim replaces any existing device's session for that seat.
-        for(const peer of this.peers())if(peer.info.role===data.role)try{peer.ws.close(4001,"New sign-in");}catch{}
+        for(const peer of this.peers()){
+          if(peer.info.role===data.role)try{peer.ws.close(4001,"New sign-in");}catch{}
+          else if(replaced)try{peer.ws.send(JSON.stringify({type:"signin",signins:meta.signins}));}catch{}
+        }
         return json({session,role:data.role,ownerColor:meta.ownerColor});
       }
       if (!this.allowed("ticket",30)) return json({error:"Reconnect rate exceeded"},429);
@@ -143,11 +178,11 @@ export class GameRoom extends DurableObject {
       if (await hash(data.session)!==meta[data.role+"SessionHash"]) return json({error:"Session expired"},403);
       if (url.pathname==="/revoke") {
         if (data.role!=="owner") return json({error:"Only creator may revoke"},403);
-        meta.revoked=true;await this.ctx.storage.put("meta",meta);
-        for(const p of this.peers())try{p.ws.close(4002,"Invitation replaced");}catch{}
+        await this.destroy(4002,"Invitation replaced");
         return json({ok:true});
       }
       if (url.pathname==="/ticket") {
+        await this.dropExpiredTickets();
         const ticket=random();
         await this.ctx.storage.put("ticket:"+await hash(ticket),{role:data.role,expires:Date.now()+60000});
         return json({ticket,role:data.role,ownerColor:meta.ownerColor});
@@ -167,7 +202,7 @@ export class GameRoom extends DurableObject {
     const pair=new WebSocketPair(),client=pair[0],server=pair[1];
     this.ctx.acceptWebSocket(server);
     server.serializeAttachment({role:claim.role});
-    server.send(JSON.stringify({type:"joined",role:claim.role,ownerColor:meta.ownerColor}));
+    server.send(JSON.stringify({type:"joined",role:claim.role,ownerColor:meta.ownerColor,signins:signinsOf(meta)}));
     this.broadcastRoster();
     return new Response(null,{status:101,webSocket:client});
   }

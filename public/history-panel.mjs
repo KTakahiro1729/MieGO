@@ -3,9 +3,26 @@ import {recordName,recordIcon,recordSummary} from "./history-navigation.mjs";
 import {recordThumbnailSvg} from "./board-thumbnail.mjs";
 import { TEXT } from "./texts.mjs";
 
+const STAR='<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="m12 3.2 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/></svg>';
 // The library sheet is a file picker and saved-game list. All board/replay
 // controls live on the main board; it never creates a second playing surface.
-export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},getBoardTheme=()=>undefined}) {
+// getThumbnailOverlay(record) gives the kept ownership tint of its final board, or null.
+export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},getBoardTheme=()=>undefined,
+                                    getThumbnailOverlay=()=>null}) {
+  function favoriteButton(record) {
+    const star=document.createElement("button");
+    star.type="button";star.className="icon-button history-favorite";star.innerHTML=STAR;
+    star.dataset.favoriteId=record.id;
+    const on=record.favorite===true,label=on?TEXT.history.favoriteOff:TEXT.history.favoriteOn;
+    star.setAttribute("aria-pressed",String(on));
+    star.setAttribute("aria-label",label);star.title=label;
+    star.onclick=()=>{
+      try{gameLibrary.setFavorite(record.id,!on);}catch(error){storageError(error);}
+      renderHistoryList();
+      $("historyList").querySelector('[data-favorite-id="'+record.id+'"]')?.focus();
+    };
+    return star;
+  }
   function renderHistoryList() {
     const list=$("historyList");list.replaceChildren();
     let records=[];
@@ -15,7 +32,7 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},g
       const item=document.createElement("button");
       item.type="button";item.className="history-list-item";
       const thumb=document.createElement("span");thumb.className="history-thumb";
-      try{thumb.innerHTML=recordThumbnailSvg(record,getBoardTheme());}catch{}
+      try{thumb.innerHTML=recordThumbnailSvg(record,getBoardTheme(),getThumbnailOverlay(record));}catch{}
       const icon=document.createElement("span");icon.className="history-list-icon";
       icon.textContent=recordIcon(record);
       thumb.append(icon);
@@ -35,7 +52,9 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},g
         }
         onSelect(selected);
       };
-      list.append(item);
+      const row=document.createElement("div");row.className="history-row";
+      row.append(item,favoriteButton(record));
+      list.append(row);
     }
   }
   // The list is the 履歴 tab of the 新規対戦 sheet; the sheet itself handles opening and focus.
