@@ -235,6 +235,9 @@ export const TEXT = {
     // After a game: 新規対戦 opens the sheet; もう一局 starts the same game again at once.
     rematch: "もう一局",
     rematchAria: "同じ設定でもう一局",
+    rematchNote: "同じ設定で",
+    newGameAria: "設定を選んで新規対戦",
+    newGameNote: "設定を選ぶ",
     hintIllegal: "禁止手の仮置き中。確定せず、理由を質問する文をコピーできます",
     hintCandidate: "仮置き中。確定か取り消しを選べます",
     hintScoring: "盤上の石をタップすると死石を指定できます",
