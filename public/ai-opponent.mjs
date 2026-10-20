@@ -1,6 +1,5 @@
 
 import {play} from "./core.mjs";
-import {boardScale} from "./endgame.mjs";
 import {personalityFeatures} from "./ai-personality.mjs";
 import {samplePolicyCandidate} from "./ai-policy-sampling.mjs";
 import {AI_STRENGTHS,pickWeakenedMove} from "./ai-strength.mjs";
@@ -38,21 +37,21 @@ export function scorePolicyCandidates(state, logits, ownership, options={}) {
   });
 }
 
-/** Ownership advice changes only the earliest time a NN pass is
- * considered; it never forces an automatic pass.
+/** Like a person, the AI starts to think about passing once the board has
+ * settled (EndgameAdvisor's "near" or "ready": the last moves shift the
+ * estimate by at most about two points), whatever the move number or board
+ * size. A pass by the other side counts the same way: on an unsettled board
+ * the AI plays on. A pass is only a candidate; KataGo's pass logit decides.
  */
-export function canConsiderAiPass(state,stage="playing") {
-  const scale=boardScale(state.board?.length);
-  if(state.passes===1 && state.moveNumber>=18*scale)return true;
-  const minimum=stage==="ready"?45:stage==="near"?52:58;
-  return state.moveNumber>=minimum*scale;
+export function canConsiderAiPass(stage="playing") {
+  return stage==="near" || stage==="ready";
 }
 export function choosePolicyMove(state, logits, passLogit, options={}) {
   const weakened=Number.isFinite(AI_STRENGTHS[options.strength]?.kyu);
   const candidates=scorePolicyCandidates(state,logits,options.ownership,
     {...options,allMoves:weakened});
   if(!candidates.length)return null;
-  const passAllowed=canConsiderAiPass(state,options.endgameStage);
+  const passAllowed=canConsiderAiPass(options.endgameStage);
   if(weakened)return pickWeakenedMove(candidates,passLogit,{...options,state,passAllowed});
   if(passAllowed && Number.isFinite(passLogit)){
     candidates.push({position:null,score:passLogit-0.3});

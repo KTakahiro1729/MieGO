@@ -30,11 +30,10 @@ test("policy sampling ignores very low logits without changing legal move checks
   assert.equal(choosePolicyMove(next,logits,-100,{random:()=>0}),39);
 });
 
-test("pass candidate remains eligible only after the existing move threshold",()=>{
+test("pass candidate is eligible only once the board has settled",()=>{
   const state=newGame();
   const logits=Array(81).fill(-100);
   logits[40]=10;
   assert.equal(choosePolicyMove(state,logits,1e3,{random:()=>0}),40);
-  state.moveNumber=65;
-  assert.equal(choosePolicyMove(state,logits,1e3,{random:()=>0.5}),null);
+  assert.equal(choosePolicyMove(state,logits,1e3,{endgameStage:"near",random:()=>0.5}),null);
 });
