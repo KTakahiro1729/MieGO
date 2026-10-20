@@ -21,14 +21,21 @@ export function endgameHint(state,advisor,{unavailable=false,suppressedUntil=-1}
   if(advisor.stage==="ready" || advisor.stage==="near")return ENDGAME_HINTS.near;
   return ENDGAME_HINTS.playing;
 }
-const DECIDED = .9;
-/** Board area relative to 9x9: the unit for stone-count thresholds. */
+/** Board area relative to 9x9 (kept for callers that scale move counts). */
 export const boardScale = points => Number.isFinite(points) && points>0 ? points/81 : 1;
+/** The advice reads the feel of the position, not move or stone counts: how
+ * many points one stone moves in the estimate. Σ|Δv|/2 over the board is the
+ * number of points that change hands (v going from -1 to +1 is one point).
+ * Opening and middle game move 4-9 points a stone; "near" is when the last
+ * moves shift at most about 2 points, "ready" when they shift at most 1.
+ * Tuned on self-play: at "ready", scoring gives the estimate's result within
+ * a few points, before the first pass. */
+export const ENDGAME_SWING = Object.freeze({near:2, ready:1, window:2});
 export class EndgameAdvisor {
   constructor() { this.reset(); }
   reset() {
     this.previous = null;
-    this.streak = 0;
+    this.swings = [];
     this.stage = "playing";
   }
   observe(state, ownership) {
@@ -38,11 +45,11 @@ export class EndgameAdvisor {
       return this.stage;
     }
     if (this.previous && state.moveNumber <= this.previous.move) return this.stage;
-    if (this.previous && state.moveNumber - this.previous.move > 3) this.streak = 0;
-    const free = [];
-    let occupied = 0;
-    for (let i=0;i<state.board.length;i++) {
-      if (state.board[i]) occupied++; else free.push(i);
+    // Estimates far apart say nothing about what one stone does.
+    if (this.previous && state.moveNumber - this.previous.move > 3) this.swings = [];
+    if (this.previous) {
+      const swing = ownership.reduce((s,v,i)=>s+Math.abs(v-this.previous.ownership[i]),0)/2;
+      this.swings = [...this.swings, swing].slice(-ENDGAME_SWING.window);
     }
     // A group in atari is an open fight, unless the estimate shows every stone
     // of it in the opponent's settled colour: then it is a dead group waiting
@@ -56,26 +63,10 @@ export class EndgameAdvisor {
       if(g.liberties.size>1)continue;
       if(![...g.stones].every(j=>state.board[j]*ownership[j]<=-OWNERSHIP_BANDS.SETTLED))fight=true;
     }
-    const share = line => free.length ? free.filter(i=>Math.abs(ownership[i])>=line).length/free.length : 1;
-    const settled = share(OWNERSHIP_BANDS.SETTLED), decided = share(DECIDED);
-    let change = Infinity;
-    if(this.previous) {
-      change = free.length
-        ? free.reduce((s,i)=>s+Math.abs(ownership[i]-this.previous.ownership[i]),0)/free.length
-        : 0;
-    }
-    // How far the game has gone is read from the stones on the board, not the
-    // move number: a short, decisive game settles early. "ready" asks for most
-    // empty points to be all but decided (|v| >= DECIDED) on two evaluations
-    // in a row; tuned on self-play so that scoring at that point gives the
-    // estimate's result within a few points. Counts were tuned on 9x9;
-    // larger boards scale them by area.
-    const scale = boardScale(state.board.length);
-    const stable = occupied>=24*scale &&
-      free.length>0 && decided>=.85 && change<=.09 && !fight;
-    this.streak = stable ? this.streak+1 : 0;
-    this.stage = this.streak>=2 ? "ready"
-      : occupied>=20*scale && settled>=.65 && !fight ? "near" : "playing";
+    const full = this.swings.length >= ENDGAME_SWING.window;
+    const swing = full ? Math.max(...this.swings) : Infinity;
+    this.stage = swing <= ENDGAME_SWING.ready && !fight ? "ready"
+      : swing <= ENDGAME_SWING.near ? "near" : "playing";
     this.previous={move:state.moveNumber,ownership:[...ownership]};
     return this.stage;
   }
