@@ -17,6 +17,14 @@ export function isQuotaError(error) {
     error?.code===22 || error?.code===1014;
 }
 
+const persona=value=>Number.isFinite(value)?value:50;
+/** Both COMs of a watched game, or null when they cannot be read. */
+export function cleanWatchAi(value) {
+  if(!value?.black || !value?.white)return null;
+  const one=c=>({strength:normalizeStrength(c.strength),invasion:persona(c.invasion),
+    reinforcement:persona(c.reinforcement)});
+  return {black:one(value.black),white:one(value.white)};
+}
 export class GameLibrary {
   /** onRemove(record) runs after a game is deleted; keep() names games that must stay. */
   constructor(storage, createId=()=>crypto.randomUUID(), now=()=>new Date().toISOString(),
@@ -93,7 +101,7 @@ export class GameLibrary {
     return updated;
   }
   save({id=null,mode,snapshot,roomId=null,lastPosition=null,humanColor=1,
-        aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null},expectedRevision=null) {
+        aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null,watch=false,watchAi=null},expectedRevision=null) {
     const previous=id===null?null:this.load(id);
     // Nothing that cannot be read back is written.
     if(!MODES.has(mode) || !parseGameSnapshot(JSON.stringify(snapshot)) ||
@@ -116,6 +124,10 @@ export class GameLibrary {
       aiStrength:normalizeStrength(aiStrength),
       invasion:Number.isFinite(invasion)?invasion:50,
       reinforcement:Number.isFinite(reinforcement)?reinforcement:50,
+      // COM同士: the AI plays both colours and the player only watches.
+      watch:mode==="ai" && watch===true,
+      // Each colour's COM in a watched game: strength and personality.
+      watchAi:mode==="ai" && watch===true ? cleanWatchAi(watchAi) : null,
       seat:mode==="online"?(seat==="guest"?"guest":seat==="host"?"host":null):null,
       source:previous?.source==="sgf" || previous?.source==="variation"?previous.source:
         source==="sgf" || source==="variation"?source:"played",
