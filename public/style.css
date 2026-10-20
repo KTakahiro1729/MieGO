@@ -30,9 +30,12 @@ button:hover:not(:disabled){border-color:#748094}
 .game-panel{display:flex;flex-direction:column;align-items:stretch}
 
 /* Under the board nothing is boxed in: no panel or card around the turn and the
-   endgame, and buttons drop their edges (fused groups keep a dark seam), so
-   blank space alone groups things. Gold edges stay where they mean something. */
-.game-panel,.topbar{--btn-edge:transparent;--fused-edge:#0d1018}
+   endgame, so blank space alone groups things. Buttons keep a soft edge, since a
+   dark fill alone sinks into the page; fused groups keep it outside and a dark
+   seam between members. Gold edges stay where they mean something. */
+.topbar{--btn-edge:transparent}
+.game-panel{--btn-edge:#5a6273;--fused-edge:#0d1018}
+.game-panel .fused:not(.ai-color-choices){border-color:var(--btn-edge)}
 .game-panel .gradient{border-color:transparent}
 .info-panel{flex:none;margin-top:auto;display:flex;flex-direction:column;gap:6px;padding:10px 0 6px}
 .info-panel>.endgame-bar,.info-panel>.score-box{margin-top:0!important}
