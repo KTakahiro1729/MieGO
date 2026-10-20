@@ -28,18 +28,22 @@ button:hover:not(:disabled){border-color:#748094}
 .icon-button{border:0;background:transparent;color:#c5c8d1;font-size:28px;font-weight:400;padding:8px;display:grid;place-items:center;width:44px;height:44px}
 .game-layout{max-width:710px;margin:0 auto;padding:0 12px 12px}
 .game-panel{display:flex;flex-direction:column;align-items:stretch}
-.game-meta{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:54px;padding:2px 3px 12px}
-.turn{font-size:19px;font-weight:700;letter-spacing:.01em;display:flex;align-items:center;gap:9px}
-.turn::before{content:"";width:22px;height:22px;flex:none;background:radial-gradient(circle at 32% 28%,#56575c,#0c1013 72%);border:1px solid #6c7073;border-radius:50%;box-shadow:0 3px 9px #0008}
+/* Under the board: ◁ status ▷. The status line may be cut short, never wrapped, so the row keeps its height. */
+.status-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.status-row .step-button{flex:0 0 44px;width:44px;height:44px;min-height:44px;padding:0;display:grid;place-items:center}
+.status-main{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px}
+.status-sub{display:flex;justify-content:center;gap:10px;min-width:0;max-width:100%;color:var(--muted);font-size:11px;line-height:14px}
+.turn{font-size:19px;font-weight:700;letter-spacing:.01em;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:24px}
+.turn::before{content:"";display:inline-block;vertical-align:-4px;margin-right:9px;width:22px;height:22px;box-sizing:border-box;background:radial-gradient(circle at 32% 28%,#56575c,#0c1013 72%);border:1px solid #6c7073;border-radius:50%;box-shadow:0 3px 9px #0008}
 .turn.white-to-play::before{background:radial-gradient(circle at 32% 27%,#fff,#deddd6 72%);border:1px solid #b7b6b0}
 .connection-status{font-size:11px;color:#aeb6c0;white-space:nowrap;display:flex;align-items:center;gap:7px}
 .connection-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#7b8392;flex:none}
 .connection-status.online::before{background:#4fca8a;box-shadow:0 0 8px #4fca8a66}
-.meta-main{display:flex;flex-direction:column;gap:3px;min-width:0}
-/* The current rules: plain text, not a button; its ? opens the rules help. */
-.rule-line{display:flex;align-items:center;min-width:0;padding-left:31px}
+/* The current rules and komi, between the bar's two ends: plain text, not a button; its ? opens the rules help. */
+.rule-line{display:flex;align-items:center;justify-content:center;min-width:0;color:var(--muted)}
+.legend-labels:has(#legendNeutral:not([hidden])) .rule-line{display:none}
 .rule-label{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-.rule-line .help-button{width:20px;height:20px}
+.rule-line .help-button{width:18px;height:18px;flex:none}
 .rule-line .help-button svg{width:16px;height:16px}
 .board-frame{width:min(100%,calc(100dvh - 294px),675px);min-width:0;align-self:center;aspect-ratio:1;padding:5px;background:linear-gradient(135deg,#b28751,#e4c587 35%,#956c43 100%);border:1px solid #d3b078;border-radius:14px;box-shadow:0 2px 1px #ffffff13 inset,0 15px 40px #0008,0 0 0 1px #f2d69422;position:relative;isolation:isolate;transition:box-shadow .3s,border-color .3s}
 /* Board looks (board-theme.mjs): the frame matches the canvas. */
@@ -75,7 +79,8 @@ body.board-zoomed .board-bleed{opacity:1}
 }
 .ownership-legend{width:88%;max-width:490px;margin:19px auto 0}
 .gradient{height:13px;border-radius:100px;border:1px solid #686d76;background-color:#e5c58c;box-shadow:0 1px 0 #ffffff13}
-.legend-labels{display:flex;justify-content:space-between;gap:8px;padding-top:8px;color:#aab0bc;font-size:11px}
+.legend-labels{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:8px;color:#aab0bc;font-size:11px}
+.legend-area{flex:none}
 
 .move-label{color:var(--muted);white-space:nowrap;font-size:11px}
 
@@ -109,7 +114,6 @@ body.board-zoomed .board-bleed{opacity:1}
  .topbar{height:62px;padding:8px 14px}
  .brand{font-size:22px}
  .game-layout{padding:0 10px}
- .game-meta{min-height:49px;padding-bottom:9px}
  .turn{font-size:17px}
  .board-frame{padding:4px;border-radius:10px;width:min(100%,calc(100dvh - 265px))}
  #board{border-radius:6px}
@@ -147,7 +151,8 @@ body.board-zoomed .board-bleed{opacity:1}
 .board-swatch.wood{--sw-black:#1c2427;--sw-white:#f8f6ee;--sw-line:#685537;background-color:#e5c58c}
 .board-swatch.light{--sw-black:#1b1f24;--sw-white:#f7f7f4;--sw-line:#7b818b;background-color:#bdc1c7}
 .board-swatch.dark{--sw-black:#0b0e12;--sw-white:#f2f6fa;--sw-line:rgba(200,225,245,.4);background-color:#26323f;box-shadow:0 1px 4px #0005,inset 0 1px 0 #ffffff26}
-.ownership-legend.overlay-off{visibility:hidden}
+/* Without colours (or in 五目並べ) the bar and its ends go, but the rules stay in place. */
+.ownership-legend.overlay-off :is(.gradient,.legend-area),.ownership-legend.no-territory :is(.gradient,.legend-area){visibility:hidden}
 /* Japanese rules: prisoners under the ownership bar. Each pill holds the stones
    filled into territory on the board and wears the same outline colour. */
 .capture-counts{display:flex;align-items:center;justify-content:center;gap:10px;width:88%;max-width:490px;margin:6px auto 0;color:#aab0bc;font-size:12px;font-variant-numeric:tabular-nums}
@@ -278,9 +283,8 @@ body{overflow:hidden}
 .game-layout{height:calc(100dvh - var(--topbar-height));overflow:hidden;padding-bottom:8px}
 .game-panel{height:100%;min-height:0;--board-reserve:292px}
 .board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px);flex-shrink:0}
-.turn-and-move{display:flex;align-items:center;gap:10px;min-width:0}
-.turn-and-move .turn{min-width:0;white-space:nowrap}
-.turn-and-move .move-label{font-size:11px;font-variant-numeric:tabular-nums;flex-shrink:0}
+.status-sub .move-label{font-variant-numeric:tabular-nums;flex-shrink:0}
+.status-sub .connection-status{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ownership-legend{margin-top:6px}
 .gradient{height:9px}
 .legend-labels{padding-top:3px;font-size:10px}
@@ -313,10 +317,6 @@ body{overflow:hidden}
 #p2pVerify p{font-size:12px;opacity:.85;margin:0 0 8px}
 
 /* Playback replaces the existing action row, never increases page height. */
-.move-history-toggle{position:relative;border:1px solid #525666;border-radius:9px;background:#212733;min-height:26px;height:26px;padding:2px 7px;color:#ead194;font-size:11px;line-height:20px}
-.move-history-toggle::before{content:"";position:absolute;inset:-9px 0}
-.move-history-toggle:hover{border-color:var(--gold)}
-.move-history-toggle.is-returning{border-color:var(--accent-text);color:var(--accent-text)}
 #reviewStepRange{flex:1;min-width:0;accent-color:var(--gold)}
 #reviewNotice{margin:0;color:#efca90;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
 #reviewNotice:empty{display:none}
@@ -475,11 +475,9 @@ body{overflow:hidden}
 .review-navigation{display:flex;align-items:stretch;gap:7px;position:relative}
 .review-navigation>button,.review-navigation>.review-menu>summary{height:var(--action-h);min-height:var(--action-h);
   display:flex;align-items:center;justify-content:center;padding:7px}
-.review-navigation>.review-steps{flex:1}
-.review-steps>button{height:var(--action-h);min-height:var(--action-h);display:flex;align-items:center;justify-content:center;padding:7px}
-.review-steps>button:not(.review-step-toggle){flex:0 0 44px}
-.review-steps>.review-step-toggle{flex:1;min-width:0;flex-direction:column;gap:2px;color:#eac981;font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
-.review-navigation>.review-continue{flex:0 0 auto;padding:0 14px;font-size:13px;white-space:nowrap}
+.review-navigation>.review-back{flex:1 1 0;min-width:0;flex-direction:column;gap:1px;font-size:13px;white-space:nowrap}
+.review-navigation>.review-back[hidden]{display:none}
+.review-navigation>.review-continue{flex:1 1 0;min-width:0;padding:0 14px;font-size:13px;white-space:nowrap}
 .review-navigation>.review-menu{position:relative;flex:0 0 44px;min-width:44px}
 .review-navigation>.review-menu>summary{cursor:pointer;list-style:none}
 .review-navigation>.review-menu>summary::-webkit-details-marker{display:none}
@@ -503,12 +501,10 @@ body{overflow:hidden}
 }
 @media(max-width:700px){.action-row,.review-panel{padding-top:3px}}
 @media(max-width:360px){
-  /* The replay names its source in the move chip; the status text would wrap the turn line. */
-  .game-panel.is-reviewing .connection-status{display:none}
   .review-navigation{gap:4px}
   .review-navigation>.review-menu{flex-basis:42px;min-width:42px}
-  .review-steps>button:not(.review-step-toggle){flex-basis:42px}
   .review-navigation>.review-continue{padding:0 10px;font-size:12px}
+  .status-row{gap:4px}
 }
 @media(max-width:350px){
   .endgame-bar .end-action{font-size:10px;padding:5px 6px}

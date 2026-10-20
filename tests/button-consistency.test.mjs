@@ -55,9 +55,6 @@ test("related buttons fuse into one group; the primary stays apart (UX policy §
   const moves=group("move-controls");
   for(const id of ["cancel","resign","pass"])assert.match(moves,new RegExp('id="'+id+'"'));
   assert.doesNotMatch(moves,/id="confirm"|class="primary/);
-  const steps=group("review-steps");
-  for(const id of ["reviewPrevious","reviewStepToggle","reviewNext"])assert.match(steps,new RegExp('id="'+id+'"'));
-  assert.doesNotMatch(steps,/review-back|reviewConfirm/);
   for(const cls of ["new-game-modes","ai-color-choices board-size-choices","ai-color-choices rules-choices"])group(cls);
   assert.doesNotMatch(html,/class="fused[^"]*"[^>]*>\s*<button[^>]*class="[^"]*primary/);
   // Hidden members leave no stray divider; an all-hidden group disappears.

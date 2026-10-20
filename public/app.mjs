@@ -895,7 +895,9 @@ function show() {
   if(!room)$("netStatus").textContent=gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=TEXT.game.moveLabel(game.moveNumber);
-  $("moveLabel").disabled=!game.moves.length;
+  // ◁ opens the replay one move back; ▷ only moves within a replay, so it rests disabled here.
+  $("stepBack").disabled=!game.moves.length;
+  $("stepForward").disabled=true;
   $("hint").textContent=illegalCandidate?TEXT.game.hintIllegal:
     candidate?TEXT.game.hintCandidate:
     game.status==="scoring"?TEXT.game.hintScoring:
@@ -923,7 +925,7 @@ function show() {
   $("resign").disabled=!myTurn || game.status!=="playing";
   updateGradient();
   // 五目並べ has no territory, so no ownership bar.
-  $("ownershipLegend").hidden=gomoku;
+  $("ownershipLegend").classList.toggle("no-territory",gomoku);
   const handicap=handicapOf(game),size=sizeOf(game.board);
   canvas.setAttribute("aria-label",TEXT.game.boardLabel(shownSize()));
   const japanese=isJapanese(game);
@@ -1724,20 +1726,17 @@ function renderBoardReview() {
   const line=activeReviewSnapshot(boardReview,game),count=line.moves.length;
   const variationActive=boardReview.activeLine==="variation" && !!boardReview.variation;
   const isPreview=!!boardReview.preview;
-  $("ownershipLegend").hidden=isGomoku(line);
+  $("ownershipLegend").classList.toggle("no-territory",isGomoku(line));
   $("reviewTitle").textContent=variationActive?TEXT.review.checkingVariation:source==="url"?TEXT.review.checkingShared:TEXT.review.checking;
-  $("reviewStepText").textContent=TEXT.review.step(step,count);
+  $("moveLabel").textContent=TEXT.review.step(step,count);
   $("reviewStepRange").max=String(count);
   $("reviewStepRange").value=String(step);
   $("reviewFirst").disabled=step===0 || isPreview;
-  $("reviewPrevious").disabled=step===0 || isPreview;
-  $("reviewNext").disabled=step>=count || isPreview;
+  $("stepBack").disabled=step===0 || isPreview;
+  $("stepForward").disabled=step>=count || isPreview;
   $("reviewLast").disabled=step>=count || isPreview;
   $("reviewStepRange").disabled=isPreview;
-  $("reviewStepToggle").disabled=isPreview;
-  $("reviewPrevious").hidden=isPreview;
-  $("reviewNext").hidden=isPreview;
-  $("reviewStepToggle").hidden=isPreview;
+  $("reviewBack").hidden=isPreview;
   $("reviewPlayActions").hidden=!isPreview;
   $("reviewConfirmStone").classList.toggle("white",boardReview.preview?.moves.at(-1)?.color===WHITE);
   $("reviewOriginal").hidden=!variationActive;
@@ -1748,12 +1747,8 @@ function renderBoardReview() {
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?TEXT.review.newMoves(updates):"";
-  // The move chip is the way back: to the latest move, the original line, or the game.
-  const back=variationActive?TEXT.review.backOriginal:source==="live"?TEXT.review.backLatest:TEXT.review.backGame;
-  $("moveLabel").textContent=back+" ›";
-  $("moveLabel").setAttribute("aria-label",back);$("moveLabel").title=back;
-  $("moveLabel").classList.add("is-returning");$("gamePanel").classList.add("is-reviewing");
-  $("moveLabel").disabled=false;
+  // The way back: to the latest move, the original line, or the game.
+  $("reviewBack").firstChild.textContent=variationActive?TEXT.review.backOriginal:source==="live"?TEXT.review.backLatest:TEXT.review.backGame;
   $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
   $("turn").classList.remove("no-stone");
   $("turn").textContent=isPreview?TEXT.review.trying(step+1):variationActive?TEXT.review.trying(step):TEXT.review.showing(step);
@@ -1878,15 +1873,13 @@ function clearBoardReview() {
   const wasUrl=boardReview.source==="url";
   boardReview=null;reviewSequence++;
   if(wasUrl)clearImportedReviewUrl();
-  $("moveLabel").classList.remove("is-returning");$("gamePanel").classList.remove("is-reviewing");
-  $("moveLabel").setAttribute("aria-label",TEXT.review.play);$("moveLabel").title=TEXT.review.play;
 }
 function leaveBoardReview() {
   if(!boardReview)return;
   if(boardReview.activeLine==="variation"){selectOriginalLine();return;}
   clearBoardReview();
   show();requestAnalysis();
-  $("moveLabel").focus();
+  $("stepBack").focus();
 }
 function clearImportedReviewUrl() {
   const url=new URL(location.href);
@@ -1974,7 +1967,7 @@ function openSavedBoard(record) {
     if(boardReview?.source==="url")clearImportedReviewUrl();
     closePanels();
     enterBoardReview(record.snapshot,count,"archive",record.sgfMeta,record);
-    $("moveLabel").focus();
+    $("reviewBack").focus();
   }catch(error){
     $("historySaveNotice").textContent=TEXT.history.showFailed;
     if($("historySetup").hidden)openHistoryPanel();
@@ -2001,17 +1994,17 @@ function openSharePanel(){
   $("shareCopyFallback").hidden=true;
   void shareImages.prepare();
 }
-$("moveLabel").onclick=()=>{
-  if(boardReview){leaveBoardReview();return;}
-  // Opening the replay steps back one move at once, so the tap visibly changes the board.
+// ◁ in the live game opens the replay one move back; stepping ▷ onto the
+// latest move of the live game leaves it again (setBoardReviewStep).
+$("stepBack").onclick=()=>{
+  if(boardReview){setBoardReviewStep(boardReview.step-1);return;}
   if(!game.moves.length)return;
   try{enterBoardReview(game,game.moves.length-1,"live");}
   catch{$("saveStatus").hidden=false;$("saveStatus").textContent=TEXT.history.replayFailed;}
 };
-$("reviewStepToggle").onclick=()=>{$("reviewMenu").open=true;$("reviewStepRange").focus();};
+$("stepForward").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
+$("reviewBack").onclick=leaveBoardReview;
 $("reviewFirst").onclick=()=>setBoardReviewStep(0);
-$("reviewPrevious").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step-1);
-$("reviewNext").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
 $("reviewLast").onclick=()=>boardReview&&setBoardReviewStep(boardReview.snapshot.moves.length);
 $("reviewStepRange").oninput=e=>setBoardReviewStep(Number(e.target.value));
 $("reviewConfirm").onclick=confirmReviewPreview;
