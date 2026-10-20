@@ -48,7 +48,10 @@
         <div id="reviewTools" class="review-tools" role="group" aria-label="{{review.menu}}" hidden>
           <div class="review-scrubber">
             <button id="reviewFirst" type="button" aria-label="{{review.first}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 5-7 7 7 7M19 5l-7 7 7 7"/></svg></button>
-            <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="{{review.range}}">
+            <div id="reviewGraph" class="review-graph">
+              <div id="reviewGraphPlot" class="review-graph-plot" aria-hidden="true"></div>
+              <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="{{review.range}}">
+            </div>
             <button id="reviewLast" type="button" aria-label="{{review.last}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 5 7 7-7 7M12 5l7 7-7 7"/></svg></button>
           </div>
           <div class="review-extras">

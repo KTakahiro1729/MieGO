@@ -58,3 +58,10 @@ test("graph markup is built only from numbers",()=>{
 test("values that are not numbers are left out like missing estimates",()=>{
   assert.match(scoreGraphSvg([0,"x",10],{width:100,height:48}),/d="M0 24M100 2"/);
 });
+
+test("the graph takes the step slider's place and keeps the range for keyboards",async()=>{
+  const {readFile}=await import("node:fs/promises");
+  const html=await readFile(new URL("../src/index.template.html",import.meta.url),"utf8");
+  const scrubber=html.match(/<div class="review-scrubber">[\s\S]*?id="reviewLast"/)?.[0]??"";
+  assert.match(scrubber,/id="reviewGraph"[\s\S]*id="reviewGraphPlot"[\s\S]*id="reviewStepRange"/);
+});
