@@ -181,6 +181,13 @@ export const TEXT = {
     waitingOpponent: "対局相手を待っています",
     aiStopped: "ページを開き直してください",
     aiTurn: "AIの番です",
+    // While 最強 thinks: the turn label, and what it is doing on the line under it.
+    aiThinking: "AIが思考中です",
+    // The line is about 165px wide on a 320px phone, so these stay short.
+    thinkDownloading: percent => "AIをダウンロード中 " + percent + "%",
+    thinkPreparing: "AIを準備中",
+    thinkMove: "次の一手を計算中",
+    thinkReading: (depth, percent, seconds) => depth + "手先を読み中 " + percent + "%" + (seconds ? "・約" + seconds + "秒" : ""),
     yourTurnAi: "あなたの番です",
     watchPause: "一時停止",
     watchResume: "再開",
