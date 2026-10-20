@@ -683,6 +683,7 @@ const boardRenderer = createBoardRenderer({
   getView:()=>({
     boardReview,
     boardTheme:appearance.boardTheme(),
+    breathParticles:appearance.breathParticles(),
     candidate,
     displayedOwnership,
     game,

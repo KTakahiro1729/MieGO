@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {at,BLACK,boardHash,newGame,play,WHITE} from "../public/core.mjs";
-import {CAPTURE_FADE_MS} from "../public/board-renderer.mjs";
+import {BREATH_STEP_MS,CAPTURE_FADE_MS} from "../public/board-renderer.mjs";
 import {recordingBoard,baseView} from "./helpers/board-canvas.mjs";
 import {ownershipPixel,countingOpacity} from "../public/territory-view.mjs";
 
@@ -259,4 +259,44 @@ test("盤の線 joins same-coloured stones and reaches a cup around each liberty
   assert.ok(ends.includes(String([250,200+10])),"up to the cup around the empty point");
   assert.ok(calls.some(c=>c.kind==="arc"&&c.args[0]===250&&c.args[1]===200&&c.args[2]===10),"the cup");
   assert.equal(ends.includes(String([250,300-10])),false,"nothing toward the white stone");
+});
+
+test("呼吸の粒 sends a grain from each liberty into the stone on 9路 only, and keeps animating",()=>{
+  const game=newGame();
+  game.board[at(4,4)]=BLACK;
+  const frames=[];
+  let time=BREATH_STEP_MS/2, still=false, size=9;
+  const view=()=>{const g=size===9?game:newGame(size);if(size!==9)g.board[at(4,4,size)]=BLACK;
+    return {...baseView(g),breathParticles:true};};
+  const {draw,calls}=recordingBoard(view,{requestFrame:f=>frames.push(f),now:()=>time,stillMotion:()=>still});
+  draw();
+  // Halfway along each of the four lines from a liberty into the stone at (250,250).
+  const grain=c=>c.kind==="arc"&&c.args[2]===2.5;
+  const grains=calls.filter(grain).map(c=>c.args.slice(0,2).join(","));
+  assert.deepEqual(grains.sort(),["225,250","250,225","250,275","275,250"].sort());
+  assert.equal(frames.length,1,"asks for the next frame");
+  still=true;calls.length=0;frames.length=0;
+  draw();
+  assert.equal(calls.some(grain),false,"still where motion is reduced");
+  assert.equal(frames.length,0);
+  still=false;size=13;
+  draw();
+  assert.equal(frames.length,0,"9路 only");
+});
+
+test("呼吸の粒 fills a group with two liberties but stops at the edge of a group in atari",()=>{
+  const game=newGame();
+  // Black (0,0)-(1,0) with liberties (2,0) and (0,1),(1,1): reaches both stones.
+  game.board[at(0,0)]=BLACK;game.board[at(1,0)]=BLACK;
+  // White (8,8) in atari: black on (7,8), one liberty at (8,7).
+  game.board[at(8,8)]=WHITE;game.board[at(7,8)]=BLACK;
+  let time=BREATH_STEP_MS*1.5;
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),breathParticles:true}),
+    {requestFrame:()=>{},now:()=>time,stillMotion:()=>false});
+  draw();
+  const grains=calls.filter(c=>c.kind==="arc"&&c.args[2]===2.5).map(c=>c.args.slice(0,2));
+  assert.ok(grains.some(([x,y])=>y===50&&x>50&&x<100),"the air passes on from one stone to the other");
+  time=BREATH_STEP_MS*.99;calls.length=0;draw();
+  const atari=calls.filter(c=>c.kind==="arc"&&c.args[2]===2.5&&c.args[0]===450);
+  assert.ok(atari.length===1 && atari[0].args[1]<450-22+.5,"the one grain stops at the white stone's edge");
 });

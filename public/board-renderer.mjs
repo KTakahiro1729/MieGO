@@ -1,9 +1,20 @@
-import {SIZE as DEFAULT_SIZE, BLACK, WHITE, group, isFree, isGomoku, sizeOf, starPoints} from "./core.mjs";
+import {
+  BLACK,
+  group,
+  isFree,
+  isGomoku,
+  neighbors,
+  SIZE as DEFAULT_SIZE,
+  sizeOf,
+  starPoints,
+  WHITE,
+} from "./core.mjs";
 import {
   countingOpacity,
   countingPalette,
   NEUTRAL_MARK,
   ownershipPixel,
+  paletteAt,
   prisonerOutline,
   showsOwnership,
 } from "./territory-view.mjs";
@@ -14,6 +25,8 @@ import {scoringRegions,prisonerFill,prisonersFilled} from "./scoring-regions.mjs
 
 // Stones taken by a move fade out over this long instead of vanishing.
 export const CAPTURE_FADE_MS=200;
+// 呼吸の粒 (α, 9路 only): each step along a line takes this long.
+export const BREATH_STEP_MS=420;
 const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 /**
@@ -246,6 +259,57 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       }
     }
     if(view.linkStones==="lines" && !hidden)paintBoardLines(theme,around,gap,pad);
+    if(view.breathParticles && SIZE===9 && !hidden && (boardReview || game.status==="playing") &&
+       !isGomoku(game) && !isFree(game) && requestFrame && !stillMotion())paintBreath(view,around,gap,pad);
+  }
+
+  // 呼吸の粒: on every beat, one grain of air sets out from each liberty of
+  // every group at once, along the board's line into the stone next to it.
+  // With two liberties or more the air goes on along the lines between the
+  // group's stones until it has reached all of them; a group in atari gets
+  // its one grain only as far as the edge of the stone facing the liberty.
+  // Each side's grains take that side's colour on the colour map.
+  function paintBreath(view,board,gap,pad) {
+    const palette=countingPalette(view.palette);
+    const tone={[BLACK]:paletteAt(1,palette),[WHITE]:paletteAt(-1,palette)};
+    const steps=[];
+    for(let i=0;i<board.length;i++){
+      if(!board[i] || steps.some(g=>g.stones.has(i)))continue;
+      const g=group(board,i);
+      // How far each stone is from the nearest stone that touches a liberty.
+      const depth=new Map(), queue=[];
+      for(const s of g.stones)if(neighbors(s,SIZE).some(n=>!board[n])){depth.set(s,0);queue.push(s);}
+      for(let h=0;h<queue.length;h++)for(const n of neighbors(queue[h],SIZE))
+        if(g.stones.has(n) && !depth.has(n)){depth.set(n,depth.get(queue[h])+1);queue.push(n);}
+      const moves=[], atari=g.liberties.size===1;
+      for(const s of queue)for(const n of neighbors(s,SIZE))if(!board[n])
+        moves.push({from:n,to:s,step:0,reach:atari?1-.44:1});
+      // Along every line between two of its stones: outward from the stone
+      // nearer a liberty, or from both ends to meet halfway.
+      if(!atari)for(const s of queue)for(const n of neighbors(s,SIZE)){
+        if(!g.stones.has(n))continue;
+        const ds=depth.get(s),dn=depth.get(n);
+        if(dn===ds+1)moves.push({from:s,to:n,step:ds+1,reach:1});
+        else if(dn===ds)moves.push({from:s,to:n,step:ds+1,reach:.5});
+      }
+      steps.push({stones:g.stones,color:board[i],moves});
+    }
+    const last=Math.max(0,...steps.flatMap(g=>g.moves.map(m=>m.step)));
+    const beat=(last+2)*BREATH_STEP_MS, t=now()%beat/BREATH_STEP_MS;
+    const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
+    ctx.save();
+    for(const {color,moves} of steps)for(const {from,to,step,reach} of moves){
+      const u=t-step;
+      if(u<0 || u>1)continue;
+      const [ax,ay]=xy(from),[bx,by]=xy(to), at=u*reach;
+      ctx.globalAlpha=.75*Math.min(1,u*5,(1-u)*5+.4);
+      ctx.beginPath();ctx.arc(ax+(bx-ax)*at,ay+(by-ay)*at,gap*.05,0,Math.PI*2);
+      const [cr,cg,cb]=tone[color], [or,og,ob]=tone[-color];
+      ctx.fillStyle=`rgb(${cr},${cg},${cb})`;ctx.fill();
+      ctx.strokeStyle=`rgb(${or},${og},${ob})`;ctx.lineWidth=Math.max(1,gap*.02);ctx.stroke();
+    }
+    ctx.restore();
+    if(frame===null)frame=requestFrame(()=>{frame=null;draw();});
   }
 
   // 盤の線: the board's line between two stones of one colour is drawn a

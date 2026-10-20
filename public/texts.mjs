@@ -623,6 +623,8 @@ export const TEXT = {
     liberties: "呼吸点の表示",
     linkStones: "つながった石の描き方",
     linkStonesNote: "縦横に隣り合う同じ色の石は、取られるときも一緒です",
+    breathParticles: "呼吸の粒（α・9路だけ）",
+    breathParticlesNote: "呼吸点から空気の粒が石に吸い込まれ、つながった石を伝って広がります",
     linkModes: { off: "別々", bridge: "橋でつなぐ", fused: "一つの形", breathing: "息の形", square: "四角", lines: "盤の線" },
     libertyModes: { off: "表示しない", candidate: "仮置き中だけ", atari: "アタリだけ", danger: "危ないときだけ", dots: "すべて（点）", count: "すべて（数）" },
     themes: { wood: "木目", light: "ライト", dark: "ダーク", custom: "カスタム" },
