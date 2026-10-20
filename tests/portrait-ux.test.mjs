@@ -130,3 +130,10 @@ test("leaving a friend's match is confirmed in place, never by a browser dialog"
   assert.match(app,/function confirmByRetap\(button,message\)/);
   assert.match(app,/button\.classList\.add\("danger-armed"\)/);
 });
+
+test("an armed button itself changes: danger color and a trailing ？ on its label",()=>{
+  assert.equal(TEXT.confirm.armedLabel("対局を始める"),"対局を始める？");
+  assert.equal(TEXT.confirm.armedLabel("投了"),TEXT.game.resignConfirm);
+  assert.match(app,/button\.textContent=TEXT\.confirm\.armedLabel/);
+  assert.match(app,/keepArmedLabel\(\$\("copy"\)\)/);
+});

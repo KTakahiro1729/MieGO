@@ -202,6 +202,7 @@ export const TEXT = {
     leaveForReview: "友人との対局から離れて、この局面を1台で検討しますか？",
     leaveForArchive: "友人との対局から離れ、保存した棋譜を再開しますか？",
     leaveForAi: "友人との対局から離れて、AIと新しい対局を始めますか？",
+    armedLabel: label => label.replace(/[？?]$/, "") + "？",
     retap: question => question + "もう一度押すと実行します。",
   },
 

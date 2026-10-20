@@ -88,6 +88,7 @@ function renderInviteButton() {
   $("copy").textContent=!room?TEXT.online.prepareInvite:
     issuedSide!==null && !inviteMatchesChoice()?
       TEXT.online.renewInvite:TEXT.online.copyInvite;
+  keepArmedLabel($("copy"));
 }
 function persistOnline(){
   if(!room || !ROOM_PATTERN.test(room))return;
@@ -548,6 +549,7 @@ function show() {
   $("startAi").disabled=!katagoReady || fallbackMode;
   $("startAi").textContent=fallbackMode?TEXT.ai.startUnavailable:
     !katagoReady?TEXT.ai.startLoading:gameMode==="ai"?TEXT.ai.restart:TEXT.ai.start;
+  keepArmedLabel($("startAi"));
   $("aiInvasion").disabled=false;
   $("aiReinforcement").disabled=false;
   $("turn").classList.toggle("white-to-play",game.next===WHITE);
@@ -889,7 +891,8 @@ $("resign").onclick=()=>{
   resetResignButton();submitMove("resign");
 };
 // Leaving a friend's match is confirmed in place, like 投了: the first tap arms
-// the button and explains below it; only a second tap on the same button proceeds.
+// the button (color and a trailing ？ on its label) and explains below it; only a
+// second tap on the same button proceeds.
 let armedConfirm=null;
 function confirmByRetap(button,message) {
   if(armedConfirm?.button===button){disarmConfirm();return true;}
@@ -900,13 +903,21 @@ function confirmByRetap(button,message) {
   button.classList.add("danger-armed");
   button.setAttribute("aria-describedby",note.id);
   button.after(note);
-  armedConfirm={button,note};
+  armedConfirm={button,note,label:button.textContent};
+  button.textContent=TEXT.confirm.armedLabel(armedConfirm.label);
   return false;
+}
+// Renderers rewrite these labels; keep the armed ？ on whatever they wrote.
+function keepArmedLabel(button) {
+  if(armedConfirm?.button!==button)return;
+  armedConfirm.label=button.textContent;
+  button.textContent=TEXT.confirm.armedLabel(armedConfirm.label);
 }
 function disarmConfirm() {
   if(!armedConfirm)return;
   armedConfirm.button.classList.remove("danger-armed");
   armedConfirm.button.removeAttribute("aria-describedby");
+  armedConfirm.button.textContent=armedConfirm.label;
   armedConfirm.note.remove();
   armedConfirm=null;
 }
@@ -1222,7 +1233,7 @@ function returnTarget(kind) {
 function syncReturnButton(kind) {
   const target=returnTarget(kind);
   $("returnToGame").hidden=!target;
-  if(target)$("returnToGame").textContent=target.label;
+  if(target){$("returnToGame").textContent=target.label;keepArmedLabel($("returnToGame"));}
 }
 $("returnToGame").onclick=()=>{
   const target=returnTarget(newGameModeKind());
