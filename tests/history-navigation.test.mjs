@@ -52,7 +52,7 @@ test("labels and hints retain the display distinctions for saved records",()=>{
   assert.equal(recordStatus(saved({snapshot:{...local.snapshot,status:"finished"}})),"終局済み");
   assert.match(recordSummary(imported,true),/コミ 6\.5$/);
   assert.doesNotMatch(recordSummary(imported),/コミ/);
-  assert.match(readOnlyHint(imported),/SGFの主変化/);
+  assert.match(readOnlyHint(imported),/分岐のある棋譜/);
   assert.match(readOnlyHint(online),/友人対局は閲覧専用/);
   assert.match(readOnlyHint(saved({snapshot:{...local.snapshot,status:"finished"}})),/終局した棋譜/);
   assert.match(readOnlyHint(local),/元の対局を再開/);

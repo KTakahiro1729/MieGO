@@ -4,7 +4,7 @@
 
 ## Cloudflareへのデプロイと運用（ブラウザのみ）
 
-このREADMEにデプロイ手順を統合しています。**手元でのターミナル操作、Node.js・Git・Wranglerのインストール、ZIPダウンロード、手動のGit Pushは不要**です。GitHubとCloudflareのWeb画面だけを使用します。GitHubのリポジトリとCloudflare Workers Buildsを連携して、Cloudflare側でビルドと配置を実施します。
+デプロイはGitHubとCloudflareのWeb画面だけでできます。手元でのターミナル操作や、Node.js・Git・Wranglerのインストールは要りません。GitHubのリポジトリとCloudflare Workers Buildsを連携して、Cloudflare側でビルドと配置を実施します。
 
 既に`main`とCloudflare Workers Buildsを連携済みの場合、初回作成を繰り返す必要はありません。
 
@@ -160,7 +160,7 @@ CloudflareのBuild logsで`Browser KataGo worker built`および`KataGo model do
 - 推論結果: 黒視点のOwnership予測（-1〜+1）、KataGoのニューラル目数差、黒の予測勝率。**地合いの推定と「最強」以外のCOMではMCTS探索を行っていません。** Ownershipを勝敗確率と同一視しないでください。
 - ルール: 中国式（互先コミ7.5、KataGoの`chinese`ルール）と日本式（互先コミ6.5、KataGoの`japanese`ルール）に対応し、盤の大きさによらずコミは同じです。置き碁（9路は2〜5子・13路と19路は2〜9子、星に固定配置）はコミ0.5で、中国式のみ置き石数を白に加算します（KataGoの`whiteHandicapBonus=N`と同じ）。コウは簡易コウ（直前の局面に戻る手を禁止）で、例外的な反復局面の完全なルール互換は未検証です。
 - 五目並べのCOMはKataGoを使わず、並びの長さを数える簡単な読みで打ちます。
-- ヒートマップは引き続きブラウザ内で計算します。正式な着手のみP2P同期し、分析結果をサーバーへ送信しません。
+- 地合いの推定はブラウザ内で計算します。友人対局で相手に送るのは確定した着手だけで、推定の結果はサーバーへ送りません。
 
 ## 新規対戦のシート
 
