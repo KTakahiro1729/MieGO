@@ -28,29 +28,46 @@ test("観戦 has one way in: its own button beside the colours, not a wide butto
   assert.match(body("syncStrengthUi"),/TEXT\.ai\.strengthInAdvanced/);
 });
 
-test("while watching, the row holds 一時停止 alone; stepping in brings back × and ここに打つ",()=>{
+test("while watching, the row holds 介入する and 一時停止; stepping in brings back × and ここに打つ",()=>{
   const row=between('id="actionRow"','id="illegalPromptFallbackPanel"');
-  assert.match(row,/id="watchToggle" class="primary" type="button"[^>]* hidden/);
-  assert.doesNotMatch(row,/watchTake/);
+  assert.match(row,/id="watchIntervene" class="secondary" type="button" hidden>介入する<\/button>\s*<button id="watchToggle" class="primary" type="button"[^>]* hidden/);
   const view=body("show");
-  assert.match(view,/\$\("watchToggle"\)\.hidden=!watchingPlay \|\| intervening;/);
+  assert.match(view,/\$\("watchToggle"\)\.hidden=\$\("watchIntervene"\)\.hidden=!watchingPlay \|\| intervening;/);
   assert.match(view,/if\(watchingPlay && !intervening\)for\(const id of \["cancel","confirm"\]\)\$\(id\)\.hidden=true;/);
 });
 
-test("a tap while watching steps in; ここに打つ takes the colour over and × resumes watching",()=>{
+test("介入する steps in; only then the board takes a stone; ここに打つ takes the colour over and × resumes watching",()=>{
   // The COMs play both colours unless the viewer has stepped in, and the viewer plays only then.
   assert.match(app,/const isAiTurn = \(\) => [^;]*\(watching \? !intervening : game\.next === -humanColor\)/);
   assert.match(app,/const isHumanTurn = [^;]*\(watching \? intervening : game\.next === humanColor\)/);
-  // A tap on an empty point while watching stops the COM's pending move and steps in.
-  assert.match(app,/isWatching\(\) && !intervening[^{]*game\.board\[position\]===0\)\{\s*stopAiTurn\(\);[^\n]*\n\s*intervening=true;/);
+  // A tap on the board no longer steps in by itself; 介入する stops the COM's pending move.
+  assert.doesNotMatch(app,/isWatching\(\) && !intervening[^{]*game\.board\[position\]===0\)/);
+  const intervene=app.slice(app.indexOf('$("watchIntervene").onclick'),app.indexOf('$("watchToggle").onclick'));
+  assert.match(intervene,/stopAiTurn\(\);[^\n]*\n\s*intervening=true;watchReturning=false;/);
   // ここに打つ hands the side to move to the viewer before the stone is played.
   assert.match(app,/if\(isWatching\(\) && intervening\)takeOverWatchedGame\(game\.next\);\s*submitMove\(position\);/);
   assert.match(body("takeOverWatchedGame"),/stopAiTurn\(\);[\s\S]*watching=false;[\s\S]*humanColor=color;[\s\S]*save\(\);/);
-  // × ends the step-in, and the COMs wait a little longer than between moves.
-  assert.match(app,/intervening=false;watchReturning=true;lastWatchMoveAt=performance\.now\(\)\+WATCH_RESUME_MS-WATCH_STEP_MS;/);
+  // × ends the step-in, with or without a provisional stone, and the COMs wait a little longer than between moves.
+  assert.match(app,/intervening=false;watchReturning=!watchPaused;lastWatchMoveAt=performance\.now\(\)\+WATCH_RESUME_MS-WATCH_STEP_MS;/);
+  assert.match(body("show"),/\$\("cancel"\)\.disabled=!provisional && !takeBack && !stepIn;/);
   // During that pause the turn line says watching is about to resume, until the next COM move is asked for.
   assert.match(app,/spectating\?\(watchReturning && !watchPaused && !intervening\?TEXT\.game\.watchReturning:/);
   assert.match(body("watchDue"),/if\(wait<=0\)\{watchReturning=false;return true;\}/);
+});
+
+test("採点を始める works while a COM is thinking: it stops the watched game and asks",()=>{
+  assert.match(body("updateEndUi"),/if\(aiThinking && !isWatching\(\)\)\$\("endPropose"\)\.disabled=true;/);
+  const propose=app.slice(app.indexOf('$("endPropose").onclick'),app.indexOf("function answerTakebackRequest"));
+  assert.match(propose,/if\(isWatching\(\)\)\{stopAiTurn\(\);[^}]*\}\s*if\(!room\)\{\s*if\(aiThinking\)return;/);
+});
+
+test("a COM's pass while watching says what happened, without asking the viewer to pass",()=>{
+  assert.match(body("passNotice"),/if\(isWatching\(\)\)return \{text:TEXT\.endgame\.passedWatch\([^)]*\),second:false\};/);
+});
+
+test("stepping back through a watched game pauses it and shows the score graph",()=>{
+  assert.match(body("enterBoardReview"),/if\(source==="live" && isWatching\(\) && game\.status==="playing"\)\{\s*stopAiTurn\(\);watchPaused=true;/);
+  assert.match(app,/!\(boardReview\.source==="live" && game\.status!=="finished" && !isWatching\(\)\)/);
 });
 
 test("a watched game is saved and resumed as watched",()=>{

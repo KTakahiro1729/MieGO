@@ -230,9 +230,9 @@ const recordCom = record => readCom(record.aiCom ?? {strength:record.aiStrength,
   invasion:record.invasion,reinforcement:record.reinforcement},"strong");
 let watchAi = {black:newCom(), white:newCom()};
 const WATCH_STEP_MS = 1100;
-// A tap on the board while watching steps in: the COMs wait while the viewer
-// places a provisional stone for the side to move. ここに打つ takes that colour
-// over; × goes back to watching after a slightly longer pause, which the turn line announces.
+// 介入する steps in: the COMs wait while the viewer places a provisional stone
+// for the side to move. ここに打つ takes that colour over; × goes back to
+// watching after a slightly longer pause, which the turn line announces.
 let intervening = false;
 const WATCH_RESUME_MS = 1800;
 // True during that pause, so the turn line says watching is about to resume.
@@ -387,7 +387,8 @@ function updateEndUi() {
   for(const id of ["endPropose","endAccept","endDecline"])
     $(id).disabled=offline;
   // A move being computed is about to arrive; scoring waits for it instead of pausing the AI.
-  if(aiThinking)$("endPropose").disabled=true;
+  // While watching, a COM is nearly always thinking, so 採点を始める stops it instead.
+  if(aiThinking && !isWatching())$("endPropose").disabled=true;
   // Answering an opponent's offer is a negotiation: neither choice is emphasized.
   $("endAccept").classList.toggle("primary",!room);
   $("actionRow").classList.toggle("end-prompt-open",localPrompt);
@@ -425,6 +426,7 @@ function passNotice() {
   if(game.passes!==1 || game.moves.at(-1)?.position!==null)return null;
   const by=game.moves.at(-1).color;
   if(!room && gameMode!=="ai")return {text:TEXT.endgame.passedLocal(by===BLACK?"B":"W"),second:true};
+  if(isWatching())return {text:TEXT.endgame.passedWatch(by===BLACK?"B":"W"),second:false};
   const me=myColorForEnd();
   if(by===me)return {text:TEXT.endgame.passedSelf,second:false};
   return {text:room?TEXT.endgame.passedOpponent:TEXT.endgame.passedAi,second:true};
@@ -1061,7 +1063,8 @@ function show() {
     candidate?TEXT.game.hintCandidate:
     game.status==="scoring"?TEXT.game.hintScoring:
     gameMode==="ai" && !gomoku && fallbackMode?TEXT.game.hintAiStopped:
-    spectating && game.status==="playing"?(watchPaused?TEXT.game.hintWatchPaused:TEXT.game.hintWatching):
+    spectating && game.status==="playing"?(intervening?TEXT.game.hintIntervening:
+      watchPaused?TEXT.game.hintWatchPaused:TEXT.game.hintWatching):
     isAiTurn()?TEXT.game.hintAiThinking:"";
   const blocked=!!illegalCandidate;
   $("confirm").disabled=!candidate || !myTurn || blocked;
@@ -1072,9 +1075,11 @@ function show() {
   // With a provisional stone the button discards it; otherwise it is 待った.
   const provisional=!!candidate || blocked;
   const takeBack=!provisional && canTakeBack();
-  $("cancel").classList.toggle("is-takeback",!provisional);
-  $("cancel").disabled=!provisional && !takeBack;
-  const cancelLabel=provisional?TEXT.takeback.undoProvisional:
+  // After 介入する, × goes back to watching, with or without a provisional stone.
+  const stepIn=spectating && intervening;
+  $("cancel").classList.toggle("is-takeback",!provisional && !stepIn);
+  $("cancel").disabled=!provisional && !takeBack && !stepIn;
+  const cancelLabel=stepIn?TEXT.game.watchBack:provisional?TEXT.takeback.undoProvisional:
     room?TEXT.takeback.labelOnline:
     gameMode==="ai"?TEXT.takeback.labelAi:TEXT.takeback.labelLocal;
   $("cancel").setAttribute("aria-label",cancelLabel);
@@ -1136,9 +1141,10 @@ function show() {
       input.checked=input.value===(freeColor===WHITE?"white":"black");
   }
   $("actionRow").classList.toggle("finished-actions",isFinished);
-  // COM同士: one button pauses and resumes; stepping in shows × and ここに打つ instead.
+  // COM同士: 介入する and 一時停止 (再開); stepping in shows × and ここに打つ instead.
   const watchingPlay=spectating && game.status==="playing";
-  $("watchToggle").hidden=!watchingPlay || intervening;
+  $("watchToggle").hidden=$("watchIntervene").hidden=!watchingPlay || intervening;
+  $("watchIntervene").disabled=!isGomoku(game) && (!katagoReady || fallbackMode);
   if(watchingPlay)for(const id of ["pass","resign"])$(id).hidden=true;
   if(watchingPlay && !intervening)for(const id of ["cancel","confirm"])$(id).hidden=true;
   $("watchToggle").textContent=watchPaused?TEXT.game.watchResume:TEXT.game.watchPause;
@@ -1362,11 +1368,7 @@ canvas.addEventListener("click",e=>{
     else if(settle){settle.taps=[...(settle.taps||[]),position];skipSettle();return;}
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
-  if(game.status==="playing" && isWatching() && !intervening && (isGomoku(game) || katagoReady && !fallbackMode) &&
-     game.board[position]===0){
-    stopAiTurn(); // The COM's move being computed waits for the viewer's decision.
-    intervening=true;watchReturning=false;
-  }
+  // While watching, the board takes stones only after 介入する.
   if(game.status!=="playing" || !isHumanTurn())return;
   // A free board places or takes off a stone at once; 待った undoes it.
   if(isFree(game)){submitMove(position);return;}
@@ -1389,6 +1391,13 @@ $("confirm").onclick=()=>{
   }
 };
 $("cancel").onclick=()=>{
+  if(isWatching() && intervening){
+    // Back to watching: the COMs resume after a pause a little longer than a move's.
+    candidate=null;illegalCandidate=null;illegalPromptCopied=false;
+    $("illegalPromptFallbackPanel").hidden=true;
+    intervening=false;watchReturning=!watchPaused;lastWatchMoveAt=performance.now()+WATCH_RESUME_MS-WATCH_STEP_MS;
+    show();requestAnalysis();return;
+  }
   if(!candidate && !illegalCandidate) {
     if(!canTakeBack())return;
     // A takeback is itself reversible by replaying the move, so no second tap.
@@ -1399,10 +1408,6 @@ $("cancel").onclick=()=>{
   }
   candidate=null;illegalCandidate=null;illegalPromptCopied=false;
   $("illegalPromptFallbackPanel").hidden=true;
-  if(isWatching() && intervening){
-    // Back to watching: the COMs resume after a pause a little longer than a move's.
-    intervening=false;watchReturning=true;lastWatchMoveAt=performance.now()+WATCH_RESUME_MS-WATCH_STEP_MS;
-  }
   show();requestAnalysis();
 };
 $("copyIllegalPrompt").onclick=async()=>{
@@ -1525,6 +1530,8 @@ $("endPropose").onclick=()=>{
   if(game.status!=="playing" || game.endProposal || game.takebackRequest)return;
   const color=myColorForEnd();
   if(!color || (room&&!connected))return;
+  // While watching, the COM's move waits for the answer; 打ち続ける asks for it again.
+  if(isWatching()){stopAiTurn();intervening=false;watchReturning=false;}
   if(!room){
     if(aiThinking)return;
     // The prompt replaces any provisional stone; the board is not half-committed.
@@ -2008,7 +2015,7 @@ function renderBoardReview() {
   $("turn").textContent=isPreview?TEXT.review.trying(step+1):variationActive?TEXT.review.trying(step):TEXT.review.showing(step);
   $("gamePanel").classList.remove("is-scoring","is-finished");
   $("netStatus").textContent=source==="archive"?TEXT.game.savedGames:source==="url"?TEXT.review.sourceUrl:
-    gameMode==="ai"?TEXT.common.modeAi:room?TEXT.review.sourceOnline:TEXT.common.modeLocal;
+    isWatching()?TEXT.common.modeWatch:gameMode==="ai"?TEXT.common.modeAi:room?TEXT.review.sourceOnline:TEXT.common.modeLocal;
   // One primary slot: resume the saved game at its end, otherwise start from here.
   $("reviewContinue").textContent=canResumeSelectedReview()||atLiveLatest()?TEXT.review.resume:TEXT.review.continue;
   $("reviewContinue").hidden=isPreview;
@@ -2068,9 +2075,9 @@ function pumpPrefetch() {
 // where the step slider was. It fills in as KataGo estimates the positions.
 let scoreGraph=null;
 // No graph while stepping back through a game still being played: it would
-// tell the player who is ahead mid-game.
+// tell the player who is ahead mid-game. A watched game has no player to tell.
 const scoreGraphShown = () => !!boardReview && !isGomoku(boardReview.display) && !isFree(boardReview.display) &&
-  !(boardReview.source==="live" && game.status!=="finished");
+  !(boardReview.source==="live" && game.status!=="finished" && !isWatching());
 function renderScoreGraph() {
   const box=$("reviewGraph"),shown=scoreGraphShown();
   box.classList.toggle("no-graph",!shown);
@@ -2139,6 +2146,10 @@ function showReviewOwnership() {
 }
 function enterBoardReview(snapshot,step,source="live",metadata=null,record=null) {
   const display=replaySteps(snapshot,step);
+  // Stepping back through a watched game pauses it, so the shown line stays put; 再開 carries it on.
+  if(source==="live" && isWatching() && game.status==="playing"){
+    stopAiTurn();watchPaused=true;intervening=false;watchReturning=false;candidate=null;
+  }
   boardReview={snapshot,display,step,source,metadata,record,ownership:null,
     activeLine:"main",variation:null,preview:null,previewPosition:null,
     openedAt:game.moveNumber,analysisId:0};
@@ -2491,6 +2502,13 @@ function takeOverWatchedGame(color) {
   $("aiMatchStatus").textContent=TEXT.ai.tookOver(colorLabel(color));
   save();show();requestAnalysis();
 }
+$("watchIntervene").onclick=()=>{
+  if(!isWatching() || game.status!=="playing" || intervening)return;
+  if(!isGomoku(game) && (!katagoReady || fallbackMode))return;
+  stopAiTurn(); // The COM's move being computed waits for the viewer's decision.
+  intervening=true;watchReturning=false;endExpanded=false;
+  show();requestAnalysis();
+};
 $("watchToggle").onclick=()=>{
   if(!isWatching() || game.status!=="playing")return;
   watchPaused=!watchPaused;

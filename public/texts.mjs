@@ -108,6 +108,8 @@ export const TEXT = {
     passedOpponent: "パスで採点へ。相手はパス済み",
     passedSelf: "相手もパスすると採点へ",
     passedLocal: c => "パスで採点へ。" + color(c) + "はパス済み",
+    // While watching, nobody is asked to pass: the line only says what happened.
+    passedWatch: c => color(c) + "がパス。次もパスなら採点へ",
     declinedByPeer: "相手が終局を見送りました",
     withdrawnByPeer: "相手が提案を取り下げました",
     cancelledByMove: "相手の着手で提案は消えました",
@@ -181,6 +183,9 @@ export const TEXT = {
     yourTurnAi: "あなたの番です",
     watchPause: "一時停止",
     watchResume: "再開",
+    // While watching: stepping in lets the viewer place the next stone; × goes back to watching.
+    watchIntervene: "介入する",
+    watchBack: "観戦に戻る",
     moveLabel: move => move + "手目",
     localPractice: "ローカル練習",
     boardLabel: size => size + "路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。",
@@ -204,7 +209,8 @@ export const TEXT = {
     hintScoring: "盤上の石をタップすると死石を指定できます",
     hintAiStopped: "ページを開き直してください。KataGoを読み込めず、AIと対局できません",
     hintAiThinking: "AIが着手を計算しています",
-    hintWatching: "盤をタップすると、その手番の石を打って対局に加われます",
+    hintWatching: "「介入する」を押すと、その手番の石を打って対局に加われます",
+    hintIntervening: "盤をタップして仮置きし、「ここに打つ」でその色を引き継ぎます",
     watchReturning: "観戦に戻ります…",
     hintWatchPaused: "「再開」を押すと続きを打ちます",
     resignAria: "投了する。確認のため二度押し",
@@ -750,7 +756,7 @@ export const TEXT = {
         "「最強」の名人は、対局を始めたときに強いKataGo（約100MB、9路は9路専用のもの）を読み込みます。ふだんは読まずにKataGoが一番よいとする手を打ち、形勢が悪いときだけ読みます。2目以上負けているなら候補手を8手打ってみて、6目以上なら上位5手それぞれに相手の応手3手まで読んで、目数差が一番よくなる手を選びます。打ち方の好みは使いません。",
         "打ち方の好みは4つです。侵入度は相手の地に入るか、攻守は相手の石を攻めるか自分の石を守るか、高さは序盤に低く地を取るか高く勢力を作るか、応じ方は相手の手の近くで応じるか離れて打つかです。キャラは読みをせず、KataGoの候補のうち好みに合う手を少し選びやすくするだけなので、違いは手の2〜3割に出ます。",
         "「カスタム」を選ぶと、強さと4つの好みを自分で決められます。",
-        "「自分の石」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。黒と白それぞれのCOMのキャラは「COMのキャラ」タブで決めます。手の間に少し間を置き、「一時停止」でいつでも止められます。観戦中に盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。",
+        "「自分の石」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。黒と白それぞれのCOMのキャラは「COMのキャラ」タブで決めます。手の間に少し間を置き、「一時停止」でいつでも止められ、◁でさかのぼると一時停止して形勢グラフを見られます。「介入する」を押してから盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。",
       ],
     },
     online: {

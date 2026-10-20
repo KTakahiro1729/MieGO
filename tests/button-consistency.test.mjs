@@ -36,7 +36,7 @@ test("the action, scoring and replay rows share one height token",()=>{
 test("the same action has the same name and glyph wherever it appears",()=>{
   // Discarding a provisional stone: × with the same label in play and in replay.
   assert.match(html,/id="reviewCancel"[^>]*aria-label="仮置きを戻す"[^>]*><svg[^>]*><path d="M6 6l12 12M18 6 6 18"\/><\/svg>/);
-  assert.match(app,/const cancelLabel=provisional\?TEXT\.takeback\.undoProvisional/);
+  assert.match(app,/const cancelLabel=stepIn\?TEXT\.game\.watchBack:provisional\?TEXT\.takeback\.undoProvisional/);
   assert.equal(TEXT.takeback.undoProvisional,"仮置きを戻す");
   // Both entries to the saved-game sheet carry the sheet's own title.
   assert.match(html,/id="openHistory"[^>]*>履歴<\/button>/);
