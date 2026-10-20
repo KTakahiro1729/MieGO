@@ -9,6 +9,7 @@ import { fillInputsV7FastForPosition } from "../../vendor/web-katrain/src/engine
 import { parseKataGoModelV8 } from "../../vendor/web-katrain/src/engine/katago/loadModelV8";
 import { KataGoModelV8Tf } from "../../vendor/web-katrain/src/engine/katago/modelV8";
 import { postprocessKataGoV8 } from "../../vendor/web-katrain/src/engine/katago/evalV8";
+import { expandHalfModel } from "./half-model";
 import { toKataGoPosition } from "./position.mjs";
 import { whiteCompensation, rulesOf, play, BLACK } from "../../public/core.mjs";
 import { STRONG_NETWORKS } from "../../public/strong-networks.mjs";
@@ -52,7 +53,7 @@ async function prepare() {
   if (boot) return boot;
   boot = (async () => {
     // The model is most of the download; fetch it while the backend starts.
-    const download = strong ? downloadStrongModel() : fetchBytes("/models/katago-small.bin.gz");
+    const download = strong ? downloadStrongModel() : fetchBytes("/models/katago-small.f16.bin.gz");
     download.catch(() => {}); // Reported below, after the backend.
     setWasmPaths(new URL("./", import.meta.url).href); // The WASM files sit next to this bundle.
     setThreadsCount(1); // Works without COOP/COEP and avoids heavy memory use on phones.
@@ -70,7 +71,9 @@ async function prepare() {
       }
     }
     if (!chosen) throw new Error("No compatible TensorFlow.js backend");
-    const parsed = parseKataGoModelV8(ungzip(await download));
+    // The small network is served with float16 weights (see half-model.ts).
+    const bytes = ungzip(await download);
+    const parsed = parseKataGoModelV8(strong ? bytes : expandHalfModel(bytes));
     if (parsed.metaEncoderVersion !== 0) throw new Error("A human-SL metadata model is not supported");
     model = new KataGoModelV8Tf(parsed);
   })();

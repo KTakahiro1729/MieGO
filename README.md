@@ -154,7 +154,7 @@ CloudflareのBuild logsで`Browser KataGo worker built`および`KataGo model do
 ## 導入したKataGo
 
 - [Web KaTrain](https://github.com/Sir-Teo/web-katrain) のMITライセンスのKataGoニューラル推論モジュールを`vendor/web-katrain/`へ固定バージョンで取り込み、TypeScript + esbuildで専用Workerにまとめます。
-- モデル: Web KaTrainの`katago-small.bin.gz`（約3.8MB）。Cloudflareのビルド時に固定コミットから取得し、Git Blob SHA-1で検証して配置します。地合いの推定と「最強」以外のCOMに使います。**小型モデルなので、推定や棋力は参考程度です。**
+- モデル: Web KaTrainの`katago-small.bin.gz`（約3.8MB）。Cloudflareのビルド時に固定コミットから取得し、Git Blob SHA-1で検証したうえで、大きな重みをfloat16に丸めた`katago-small.f16.bin.gz`（約1.9MB）として配置します。地合いの推定と「最強」以外のCOMに使います。**小型モデルなので、推定や棋力は参考程度です。**
 - 実行: WebGPUを優先し、利用できなければTensorFlow.js WASM、さらにCPUへフォールバックします。
 - **「最強」**: 9路はKataGo作者が配布する9路専用ネット [kata9x9-b18c384nbt-20231025](https://github.com/lightvector/KataGo/releases/tag/v1.13.2-kata9x9)（約98MB、作者は9路以外での使用を勧めていません）、13路・19路はKataGo本流の [kata1-b18c384nbt-s9996604416-d4316597426](https://katagotraining.org/networks/)（約96MB、Web KaTrainがブラウザ向けに勧めるもの）を使います（`public/strong-networks.mjs`）。ビルド時に固定URLから取得してSHA-256で検証し（b18のハッシュはHomebrewのkatago定義が固定している値）、Cloudflareの1ファイル25MiB制限に合わせて`public/models/<key>/`へ24MiBずつ分割して置きます。ページを開いただけでは読み込まず、「最強」の対局が始まったときに別のWorkerでその盤の大きさのネットを読み込みます。ふだんは探索せず方針の最上位の手を打ちます（性格の補正は使いません）。手番側がKataGoの予測目数差で2目以上負けているなら、方針の上位8手の合法手を実際に打ってそれぞれ評価し、目数差が最もよい手を選ぶ「1手読み」をします。6目以上なら上位5手それぞれに相手の方針上位3手の応手を読み、相手の最善の応手での目数差が最もよい手を選ぶ「2手読み」（最大20回の評価）にします。勝率でなく目数差を使うのは、9路・コミ7.5では初手から黒の勝率が6%前後（0.5目負け）と出て、勝率では判断がつかないためです。「最強」の番の間は手番の表示が「AIが思考中です」になってその右で金色の弧が回り、その下の行に何をしているかを出します（「AIをダウンロード中 51%」「AIを準備中」「次の一手を計算中」「2手先を読み中 35%・約5秒」。読みの%は評価した局面の割合、秒数は残りの評価回数×1回の評価時間の移動平均）。読み込めなかった場合は小型モデルで打ち続けます。
 - 推論結果: 黒視点のOwnership予測（-1〜+1）、KataGoのニューラル目数差、黒の予測勝率。**地合いの推定と「最強」以外のCOMではMCTS探索を行っていません。** Ownershipを勝敗確率と同一視しないでください。
