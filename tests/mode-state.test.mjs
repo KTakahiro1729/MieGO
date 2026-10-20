@@ -16,6 +16,10 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   // The three modes and 履歴 form a 2x2 grid of icon tabs in one sheet.
   assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,4);
   assert.match(sheet,/id="openHistoryFromNew" type="radio" name="newGameMode" value="history"/);
+  // 対COM and 対友人 on the top row, 1台で and 履歴 below; 対COM is the first-visit default.
+  assert.deepEqual([...sheet.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1]),["ai","online","local","history"]);
+  assert.match(sheet,/name="newGameMode" value="ai" checked>/);
+  assert.match(app,/let gameMode = room \? "online" : "ai";/);
   for(const id of ["historySetup","historyList","historyImportFile"])assert.match(sheet,new RegExp('id="'+id+'"'));
   assert.doesNotMatch(html,/id="historyPanel"|id="closeHistory"/);
   assert.match(app,/function openHistoryPanel\(\)\{openPanel\("history"\);\}/);

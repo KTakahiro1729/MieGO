@@ -34,6 +34,7 @@ import {
   settleLimit,
   settleStart,
   settleStep,
+  settleStepMs,
 } from "./settle-playout.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
@@ -178,9 +179,12 @@ const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingSto
   onOverlayOn:()=>boardReview?requestReviewOwnership():requestAnalysis()});
 const {shownPalette,overlayOn,updateGradient}=appearance;
 let connected = false;
-let gameMode = room ? "online" : "local";
+// A first visit starts against the COM; later visits restore the saved mode.
+let gameMode = room ? "online" : "ai";
 let humanColor = BLACK, invasion = 50, reinforcement = 50;
 let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNotice = null;
+// What a friend's answer did to an end offer, shown once in the bar like takebackNotice.
+let endNotice = null;
 let aiSideChoice = "black";
 let aiHandicap = 0, localHandicap = 0, onlineHandicap = 0;
 // The ruleset for the next new game, shared by every mode like the board size.
@@ -200,7 +204,7 @@ let deadEvaluation=null, deadReview="idle", deadReviewTouched=false;
 // 決着手順: KataGo's playout shown on the board while it settles the dead
 // stones (settle), and the last playout kept for 再生 (settlePlayout).
 let settle=null, settlePlayout=null, settleShow=null;
-const SETTLE_STEP_MS=360, SETTLE_HOLD_MS=1100;
+const SETTLE_HOLD_MS=1100;
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 function scoringReviewAction(type, extra={}) {
   return {type,number:game.moveNumber,before:boardHash(game.board),
@@ -298,19 +302,22 @@ function updateEndUi() {
       $(id).disabled=!connected || color===null;
     $("endDetail").textContent=asked?TEXT.takeback.detailAsked:
       TEXT.takeback.detailWaiting;
+    $("endgameBar").classList.toggle("is-calling",asked);
     return;
   }
   const incoming=!!(offer && room && color!==null && offer.from!==color);
   const localPrompt=playing && !room && endExpanded && !offer;
   const waiting=!!(offer && !incoming);
   const offline=!!room && (!connected || color===null);
+  const hint=endgameHint(game,endgameAdvisor,{
+    unavailable:fallbackMode,suppressedUntil:endHintSuppressedUntil
+  });
+  const passed=playing && !offer && !localPrompt && !offline ? passNotice() : null;
   $("endStatus").textContent=!playing?"":offline?TEXT.endgame.offline:
     incoming?TEXT.endgame.proposed:
     waiting?TEXT.endgame.waiting:
     localPrompt?TEXT.endgame.askLocal:
-    endgameHint(game,endgameAdvisor,{
-      unavailable:fallbackMode,suppressedUntil:endHintSuppressedUntil
-    });
+    passed?passed.text:hint;
   $("endPropose").hidden=!playing||!!offer||localPrompt;
   $("endAccept").hidden=!playing||!(incoming||localPrompt);
   $("endDecline").hidden=!playing||!(incoming||localPrompt||waiting);
@@ -330,9 +337,13 @@ function updateEndUi() {
     waiting?TEXT.endgame.detailWaiting:
     room?TEXT.endgame.detailOnline:
     TEXT.endgame.detailOffline;
-  if(playing && !offer && !localPrompt && takebackNotice?.number===game.moveNumber &&
-     takebackNotice.hash===boardHash(game.board))
-    $("endStatus").textContent=takebackNotice.text;
+  const notice=[takebackNotice,endNotice].find(n=>n?.number===game.moveNumber &&
+    n.hash===boardHash(game.board));
+  if(playing && !offer && !localPrompt && !passed && notice)
+    $("endStatus").textContent=notice.text;
+  // A decision is asked of this player: an offer, the other side's pass, or the advice to end.
+  $("endgameBar").classList.toggle("is-calling",playing && !offline &&
+    (incoming || !!passed?.second || $("endStatus").textContent===TEXT.endgame.ready));
   // The stable left-hand status slot doubles as a rule explanation for illegal previews.
   $("endHelp").dataset.help=playing && illegalCandidate?"illegal":"endgame";
   if(playing && illegalCandidate){
@@ -341,6 +352,21 @@ function updateEndUi() {
   }
 }
 
+/** A friend has agreed to the count (or the dead stones) and this player has not yet. */
+function peerAgreed() {
+  if(!room || game.status!=="scoring" || myOnlineColor()===null)return false;
+  const [mine,theirs]=myOnlineColor()===WHITE?["white","black"]:["black","white"];
+  return game.agreed[theirs] && !game.agreed[mine];
+}
+/** After one pass: who passed, and whether this player's pass would start scoring. */
+function passNotice() {
+  if(game.passes!==1 || game.moves.at(-1)?.position!==null)return null;
+  const by=game.moves.at(-1).color;
+  if(!room && gameMode!=="ai")return {text:TEXT.endgame.passedLocal(by===BLACK?"B":"W"),second:true};
+  const me=myColorForEnd();
+  if(by===me)return {text:TEXT.endgame.passedSelf,second:false};
+  return {text:room?TEXT.endgame.passedOpponent:TEXT.endgame.passedAi,second:true};
+}
 const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" && game.next === -humanColor;
 const isHumanTurn = () => room
   ? (connected && (myOnlineColor()!==null && game.next===myOnlineColor()))
@@ -560,7 +586,7 @@ function continueSettle(result) {
   const limit=settleLimit(sizeOf(game.board));
   if(settle.state.status!=="playing" || settle.positions.length>=limit)return finishSettle();
   const position=pickSettleMove(settle.state,result.policy,result.passLogit,result.ownership);
-  const step=settle.skip || reducedMotion()?0:SETTLE_STEP_MS;
+  const step=settle.skip || reducedMotion()?0:settleStepMs(sizeOf(game.board));
   const wait=Math.max(0,settle.shownAt+step-performance.now());
   settle.timer=setTimeout(()=>{
     if(!settle || settle.id!==result.id)return;
@@ -584,6 +610,8 @@ function finishSettle() {
     console.error("KataGo dead-stone candidates",error);
     cancelSettle();deadEvaluation=null;reviewUnavailable();return;
   }
+  // A playout stopped at its move limit is not a finished game; the text says so.
+  run.cut=run.state.status==="playing";
   run.dead=positions;run.finished=true;show();
   run.timer=setTimeout(()=>commitSettle(run),run.skip || reducedMotion()?0:SETTLE_HOLD_MS);
 }
@@ -595,6 +623,9 @@ function commitSettle(run) {
   settlePlayout={number:game.moveNumber,hash:boardHash(game.board),positions:run.positions,
     board:run.state.board};
   apply(scoringReviewAction("dead_auto",{positions:run.dead,playout:run.positions}));
+  // Stones tapped during the playout are corrections to its result, applied on top of it.
+  for(const position of run.taps||[])
+    apply({type:"dead",position,selected:!game.dead.includes(position)});
 }
 /** 再生: the kept playout again, without asking KataGo. */
 function skipSettle() {
@@ -623,9 +654,9 @@ function replaySettle() {
       return;
     }
     run.index++;show();
-    run.timer=setTimeout(tick,reducedMotion()?0:SETTLE_STEP_MS);
+    run.timer=setTimeout(tick,reducedMotion()?0:settleStepMs(sizeOf(game.board)));
   };
-  show();run.timer=setTimeout(tick,SETTLE_STEP_MS);
+  show();run.timer=setTimeout(tick,settleStepMs(sizeOf(game.board)));
 }
 function stopSettleShow() {
   if(settleShow?.timer)clearTimeout(settleShow.timer);
@@ -636,7 +667,8 @@ const currentPlayout=()=>settlePlayout && game.status==="scoring" &&
   settlePlayout.positions.length ? settlePlayout : null;
 /** The stones the playout placed stay on the board, as fill stones, until the count is over. */
 function keptPlayout() {
-  if(boardReview || settle || settleShow || !settlePlayout?.board)return null;
+  // Once the dead stones are edited by hand, the playout's stones no longer match them.
+  if(boardReview || settle || settleShow || !settlePlayout?.board || deadReviewTouched)return null;
   const counted=game.status==="scoring" || game.status==="finished" && !game.result?.endsWith("+R");
   if(!counted || settlePlayout.number!==game.moveNumber || settlePlayout.hash!==boardHash(game.board))return null;
   const kept=[];
@@ -647,7 +679,7 @@ function keptPlayout() {
 function settleView() {
   if(boardReview || game.status!=="scoring")return null;
   if(settle)return {board:settle.state.board,base:game.board,last:settle.positions.at(-1)??null,
-    moves:settle.positions.length,ownership:settle.ownership,finished:!!settle.finished};
+    moves:settle.positions.length,ownership:settle.ownership,finished:!!settle.finished,cut:!!settle.cut};
   if(settleShow && currentPlayout()){
     const frame=settleShow.frames[settleShow.index];
     return {board:frame.board,base:game.board,last:frame.moves.at(-1)?.position??null,
@@ -878,10 +910,12 @@ function show() {
   $("settleSkip").hidden=!playout;
   $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout();
   $("scoreInstruction").textContent=playout?
-    (playout.finished?TEXT.scoring.settleDone(playout.moves):TEXT.scoring.settling(playout.moves)):
+    (playout.finished?(playout.cut?TEXT.scoring.settleCut(playout.moves):TEXT.scoring.settleDone(playout.moves)):
+      TEXT.scoring.settling(playout.moves)):
     isFinished?
     (game.result?.endsWith("+R")?TEXT.scoring.finishedResign:
       japanese?TEXT.scoring.finishedScoreJapanese:TEXT.scoring.finishedScore):
+    peerAgreed()?(scoringStepOf(game)==="dead"?TEXT.scoring.peerAgreedDead:TEXT.scoring.peerAgreed):
     deadReview==="pending"?TEXT.scoring.reviewPending:
     deadReview==="loading"?TEXT.scoring.reviewLoading:
     deadReview==="awaiting"?TEXT.scoring.reviewAwaiting:
@@ -941,7 +975,10 @@ function apply(action, remote=false, isAiMove=false) {
     if(action.type==="move"){
       if(action.number!==game.moveNumber+1) throw new Error("Move number mismatch");
       if(action.before!==boardHash(game.board)) throw new Error("Board mismatch before the move");
+      const offerBefore=game.endProposal;
       game=play(game,action.position);
+      if(remote && offerBefore?.from===myOnlineColor())
+        endNotice={number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.cancelledByMove};
       if(action.after!==boardHash(game.board)) throw new Error("Board mismatch after the move");
       lastPosition=Number.isInteger(action.position)?action.position:null;
     } else if(action.type==="solo_scoring") {
@@ -992,8 +1029,11 @@ function apply(action, remote=false, isAiMove=false) {
       game=proposeEnd(game,action.color);
       if(remote)endExpanded=false;
     } else if(action.type==="end_answer") {
+      const offerFrom=game.endProposal?.from;
       game=answerEndProposal(game,action.color,Boolean(action.accept));
       if(!action.accept)endHintSuppressedUntil=game.moveNumber+4;
+      if(remote && !action.accept)endNotice={number:game.moveNumber,hash:boardHash(game.board),
+        text:action.color===offerFrom?TEXT.endgame.withdrawnByPeer:TEXT.endgame.declinedByPeer};
       endExpanded=false;
     } else if(action.type==="takeback_request") {
       game=requestTakeback(game,action.color);
@@ -1062,9 +1102,10 @@ canvas.addEventListener("click",e=>{
     if(room&&!connected)return;
     // Counting stones are drawn on empty territory; only real stones can be marked dead.
     if(!game.board[position])return;
-    // A tap during the playout ends the replay, or skips ahead to its result.
-    if(settleShow){stopSettleShow();show();return;}
-    if(settle){skipSettle();return;}
+    // A tap on a stone during the playout skips ahead to its result and corrects
+    // that stone, as it would once the playout is over (UX方針 4: 死石解析中).
+    if(settleShow)stopSettleShow();
+    else if(settle){settle.taps=[...(settle.taps||[]),position];skipSettle();return;}
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
   if(game.status!=="playing" || !isHumanTurn())return;
@@ -1146,7 +1187,7 @@ function afterTakeback() {
   if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
   transitionFrame=null;analysis=null;displayedOwnership=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
-  lastOfferKey=null;endHintSuppressedUntil=-1;
+  lastOfferKey=null;endNotice=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
   takebackNotice={number:game.moveNumber,hash:boardHash(game.board),
     text:TEXT.takeback.done(game.moveNumber)};
@@ -1177,7 +1218,7 @@ function freshLocalBoard() {
   candidate=null;lastPosition=null;
   // New endgame/dead-stone signals must not survive a local board reset.
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
-  lastOfferKey=null;endHintSuppressedUntil=-1;
+  lastOfferKey=null;endNotice=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
   game=freshLocalGame(game,nextGameOptions(localHandicap));currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
@@ -1243,6 +1284,8 @@ $("endDecline").onclick=()=>{
   if(game.status!=="playing")return;
   if(game.takebackRequest){answerTakebackRequest(false);return;}
   if(!room && endExpanded && !game.endProposal){
+    // As with a friend's answer, the strongest advice waits a few moves.
+    endHintSuppressedUntil=game.moveNumber+4;
     endExpanded=false;updateEndUi();
     if(isAiTurn())requestAnalysis();
     return;
@@ -1472,7 +1515,7 @@ async function beginOnlineRoom(){
   game=newGame(true,nextGameOptions(onlineHandicap));candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
-  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
+  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;endNotice=null;
   history.replaceState(null,"",roomUrl(location.origin,room));
   save();show();requestAnalysis();
   void joinRoom();return showInviteLink();
@@ -1526,7 +1569,7 @@ function showNewGameMode(kind) {
   if(kind==="online" && room)showInviteLink();
   if(kind==="online")renderInviteButton();
 }
-const newGameModeKind=()=>document.querySelector('input[name="newGameMode"]:checked')?.value||"local";
+const newGameModeKind=()=>document.querySelector('input[name="newGameMode"]:checked')?.value||"ai";
 for(const input of document.querySelectorAll('input[name="newGameMode"]'))
   input.onchange=e=>{if(e.target.checked)showNewGameMode(e.target.value);};
 for(const input of document.querySelectorAll('input[name="boardSize"]')) {
@@ -1787,7 +1830,7 @@ function forkBoardReview() {
   lastPosition=Number.isInteger(last)?last:null;
   candidate=null;analysis=null;displayedOwnership=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
-  lastOfferKey=null;endHintSuppressedUntil=-1;
+  lastOfferKey=null;endNotice=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
   clearImportedReviewUrl();
   boardReview=null;reviewSequence++;
@@ -1914,7 +1957,7 @@ function resumeSelectedReview(){
     updatePersonaUi();
   }
   endgameAdvisor.reset();endgameStage="playing";endExpanded=!!game.endProposal;
-  lastOfferKey=null;deadReview=game.status==="scoring" &&
+  lastOfferKey=null;endNotice=null;deadReview=game.status==="scoring" &&
     (game.dead.length || game.agreed.black || game.agreed.white)?"modified":"idle";
   deadEvaluation=null;deadReviewTouched=deadReview==="modified";
   analysis=null;displayedOwnership=null;
@@ -1986,7 +2029,7 @@ $("startAi").onclick=()=>{
   aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
   game=newGame(true,nextGameOptions(aiHandicap));currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
-  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
+  endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;endNotice=null;
   $("aiMatchStatus").textContent=TEXT.ai.started(colorLabel(humanColor));
   save();closePanels();show();requestAnalysis();
 };
