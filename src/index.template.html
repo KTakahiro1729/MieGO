@@ -123,7 +123,7 @@
               <button id="reviewCancel" class="secondary review-cancel" type="button" aria-label="{{takeback.undoProvisional}}" title="{{takeback.undoProvisional}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
               <button id="reviewConfirm" class="review-confirm primary" type="button"><span id="reviewConfirmStone" class="button-stone" aria-hidden="true"></span>{{review.tryHere}}</button>
             </div>
-            <button id="reviewContinue" class="primary review-continue" type="button" aria-haspopup="dialog" aria-controls="continuePanel">{{review.continue}}</button>
+            <button id="reviewContinue" class="primary review-continue" type="button" aria-haspopup="dialog" aria-controls="modePanel">{{review.continue}}</button>
           </div>
         </section>
         <p id="saveStatus" class="save-status" role="alert" hidden></p>
@@ -345,19 +345,6 @@
         <p id="historySaveNotice" class="invite-status history-notice" role="status" aria-live="polite"></p>
         <div id="historyList" class="history-list"></div>
         <p id="historyEmpty" class="history-empty" hidden>{{history.empty}}</p>
-      </section>
-    </aside>
-    <aside id="continuePanel" class="settings-panel continue-panel" role="dialog" aria-modal="true" aria-labelledby="continueTitle" hidden>
-      <div class="settings-head"><h2 id="continueTitle">{{review.continue}}</h2><span class="sheet-head-actions"><button id="closeContinue" class="icon-button" type="button" aria-label="{{common.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span></div>
-      <section class="settings-section">
-        <div class="setup-row"><span class="setup-label">{{review.continueHow}}</span>
-          <div class="ai-color-choices"><label><input type="radio" name="continueKind" value="ai" checked><span>{{newGame.ai}}</span></label><label><input type="radio" name="continueKind" value="local"><span>{{help.local.summary}}</span></label></div>
-        </div>
-        <div id="continueSideRow" class="setup-row"><span class="setup-label">{{newGame.mySide}}</span>
-          <div class="ai-color-choices"><label><input type="radio" name="continueSide" value="black" checked><span>{{common.sideBlack}}</span></label><label><input type="radio" name="continueSide" value="white"><span>{{common.sideWhite}}</span></label></div>
-        </div>
-        <p class="explanation">{{review.continueNote}}</p>
-        <button id="startContinue" class="primary full" type="button">{{review.continueStart}}</button>
       </section>
     </aside>
     <aside id="helpPanel" class="settings-panel help-panel" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
