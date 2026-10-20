@@ -23,8 +23,8 @@ test("観戦 has one way in: its own button beside the colours, not a wide butto
   assert.match(row,/value="white">[^]*?<label class="choice-row watch-choice"><input type="radio" name="aiSide" value="watch"><span class="choice">観戦<\/span><small class="choice-note">/);
   // 対友人 shows the same row with 観戦 greyed out.
   assert.match(between('id="onlineSideRow"','</fieldset>'),/value="watch" disabled>/);
-  // With two COMs, the strength choices are greyed out and each COM's strength is set in 「COMの打ち方」.
-  assert.match(body("syncStrengthUi"),/\$\("aiStrengthChoices"\)\.disabled=off;/);
+  // With two COMs, the character choices are greyed out and each COM's character is set in 「COMの打ち方」.
+  assert.match(body("syncStrengthUi"),/\$\("aiCharacterChoices"\)\.disabled=off;/);
   assert.match(body("syncStrengthUi"),/TEXT\.ai\.strengthInAdvanced/);
 });
 
@@ -58,18 +58,23 @@ test("a watched game is saved and resumed as watched",()=>{
   assert.match(app,/watching=mode==="ai" && record\?\.watch===true;/);
 });
 
-test("each COM of a watched game plays with its own strength and personality",()=>{
+test("each COM of a watched game plays with its own character",()=>{
   // The move is chosen with the settings of the colour to play.
-  assert.match(body("finishAiMove"),/const com=watching\?watchAi\[game\.next===BLACK\?"black":"white"\]/);
-  assert.match(body("finishAiMove"),/invasion:com\.invasion,reinforcement:com\.reinforcement,strength:com\.strength/);
-  // 「COMの打ち方」 under the AIの強さ tab holds one card per COM, shown only for two COMs.
-  const advanced=between('id="aiOptions"','id="setupPanelBoard"');
+  assert.match(body("finishAiMove"),/const com=watching\?watchAi\[game\.next===BLACK\?"black":"white"\]:aiCom;/);
+  assert.match(body("finishAiMove"),/choosePolicyMove\(game,result\.policy,result\.passLogit,\{\s*\.\.\.com,/);
+  // 「COMの打ち方」 under the COMのキャラ tab holds one card per COM, shown only for two COMs:
+  // a character, and カスタム's strength and four style rows.
+  const advanced=between('id="watchAiOptions"','id="setupPanelBoard"');
   const cards=[...advanced.matchAll(/<fieldset class="com-card">([\s\S]*?)<\/fieldset>/g)].map(m=>m[1]);
   assert.equal(cards.length,2);
-  for(const [card,side] of [[cards[0],"Black"],[cards[1],"White"]])
+  for(const [card,side] of [[cards[0],"Black"],[cards[1],"White"]]){
+    assert.match(card,new RegExp('<select id="com'+side+'Character"'));
     assert.deepEqual([...card.matchAll(/name="(com[A-Za-z]+)"/g)].map(m=>m[1]).filter((v,i,a)=>a.indexOf(v)===i),
-      ["com"+side+"Strength","com"+side+"Invasion","com"+side+"Reinforcement"]);
+      ["Strength","Invasion","Stance","Height","Tenuki"].map(field=>"com"+side+field));
+  }
   assert.deepEqual(choices("comBlackStrength"),["beginner","easy","normal","strong"]);
+  assert.deepEqual([...cards[0].matchAll(/<option value="([a-z]+)"/g)].map(m=>m[1]),
+    ["chick","steady","raider","brawler","wide","serious","custom"]);
   assert.match(app,/\$\("watchAiOptions"\)\.hidden=!two;/);
   // The COM left playing after a take-over keeps its own settings.
   assert.match(body("takeOverWatchedGame"),/=watchAi\[color===BLACK\?"white":"black"\]/);

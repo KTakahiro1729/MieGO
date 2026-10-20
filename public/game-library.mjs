@@ -1,5 +1,5 @@
 import { parseGameSnapshot } from "./mode-state.mjs";
-import {normalizeStrength} from "./ai-strength.mjs";
+import {readCom} from "./ai-characters.mjs";
 import { TEXT } from "./texts.mjs";
 import { UserError } from "./user-error.mjs";
 
@@ -17,13 +17,10 @@ export function isQuotaError(error) {
     error?.code===22 || error?.code===1014;
 }
 
-const persona=value=>Number.isFinite(value)?value:50;
 /** Both COMs of a watched game, or null when they cannot be read. */
 export function cleanWatchAi(value) {
   if(!value?.black || !value?.white)return null;
-  const one=c=>({strength:normalizeStrength(c.strength),invasion:persona(c.invasion),
-    reinforcement:persona(c.reinforcement)});
-  return {black:one(value.black),white:one(value.white)};
+  return {black:readCom(value.black),white:readCom(value.white)};
 }
 export class GameLibrary {
   /** onRemove(record) runs after a game is deleted; keep() names games that must stay. */
@@ -101,7 +98,7 @@ export class GameLibrary {
     return updated;
   }
   save({id=null,mode,snapshot,roomId=null,lastPosition=null,humanColor=1,
-        aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null,watch=false,watchAi=null},expectedRevision=null) {
+        aiCom=null,aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null,watch=false,watchAi=null},expectedRevision=null) {
     const previous=id===null?null:this.load(id);
     // Nothing that cannot be read back is written.
     if(!MODES.has(mode) || !parseGameSnapshot(JSON.stringify(snapshot)) ||
@@ -111,6 +108,7 @@ export class GameLibrary {
     if(previous && expectedRevision!==null && previous.revision!==expectedRevision)
       throw new UserError(TEXT.history.otherTab);
     const timestamp=this.now();
+    const com=readCom(aiCom ?? {strength:aiStrength,invasion,reinforcement});
     const result={
       version:1,id:previous?.id||this.createId(),mode,
       roomId:mode==="online"?roomId:null,
@@ -120,10 +118,14 @@ export class GameLibrary {
       snapshot:JSON.parse(JSON.stringify(snapshot)),
       lastPosition:Number.isInteger(lastPosition)?lastPosition:null,
       humanColor:humanColor===-1?-1:1,
+      // The COM: a character, or カスタム with its own strength and style.
       // Records written before strength levels existed played at full policy.
-      aiStrength:normalizeStrength(aiStrength),
-      invasion:Number.isFinite(invasion)?invasion:50,
-      reinforcement:Number.isFinite(reinforcement)?reinforcement:50,
+      aiCom:com,
+      // The fields from before characters, for older copies of the app.
+      aiStrength:com.strength,
+      invasion:com.invasion,
+      // 守る was 補強 重視.
+      reinforcement:100-com.stance,
       // COM同士: the AI plays both colours and the player only watches.
       watch:mode==="ai" && watch===true,
       // Each colour's COM in a watched game: strength and personality.

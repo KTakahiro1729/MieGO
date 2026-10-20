@@ -65,7 +65,16 @@ import { interpolateOwnership } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
-import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
+import { DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
+import {
+  CUSTOM_CHARACTER,
+  DEFAULT_AI_CHARACTER,
+  characterLabel,
+  comSummary,
+  pickCharacter,
+  readCom,
+  setComValue,
+} from "./ai-characters.mjs";
 import { policyHints } from "./ai-assist.mjs";
 import {
   answerTakeback,
@@ -199,8 +208,10 @@ const {shownPalette,overlayOn,updateGradient}=appearance;
 let connected = false;
 // A first visit starts against the COM; later visits restore the saved mode.
 let gameMode = room ? "online" : "ai";
-let humanColor = BLACK, invasion = 50, reinforcement = 50;
-let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNotice = null;
+let humanColor = BLACK;
+// The COM opponent: a character, or カスタム with its own strength and style.
+let aiCom = readCom({character:DEFAULT_AI_CHARACTER});
+let aiHints = false, hints = null, takebackNotice = null;
 // What a friend's answer did to an end offer, shown once in the bar like takebackNotice.
 let endNotice = null;
 let aiSideChoice = "black";
@@ -210,8 +221,11 @@ let continueFrom = null;
 // moves, so each one can be followed; the player can pause and resume it.
 let watching = false, watchPaused = false, watchTimer = null, lastWatchMoveAt = 0;
 // Each colour's COM when two COMs play.
-const newCom = (strength=DEFAULT_AI_STRENGTH, invasion=50, reinforcement=50) =>
-  ({strength,invasion,reinforcement});
+const newCom = (com={character:DEFAULT_AI_CHARACTER}) => readCom(com,DEFAULT_AI_STRENGTH);
+// A saved game's COM. Games saved before characters kept strength, 侵入度 and
+// 補強度 on their own, and games from before strength levels played at full strength.
+const recordCom = record => readCom(record.aiCom ?? {strength:record.aiStrength,
+  invasion:record.invasion,reinforcement:record.reinforcement},"strong");
 let watchAi = {black:newCom(), white:newCom()};
 const WATCH_STEP_MS = 1100;
 // A tap on the board while watching steps in: the COMs wait while the viewer
@@ -446,19 +460,17 @@ function rememberSettings() {
     localStorage.setItem("miego-local-settings", JSON.stringify({
       aiHandicap,
       aiHints,
+      aiCom,
       aiSide:aiSideChoice,
-      aiStrength,
       boardSize,
       freeColor:freeColor===WHITE?"white":"black",
       gameRules,
       gomokuForbidden:gomokuForbiddenChoice,
       hideStones:hideStonesChoice,
       humanColor,
-      invasion,
       localHandicap,
       mode:gameMode,
       onlineHandicap,
-      reinforcement,
       watchAi,
     }));
   } catch {}
@@ -474,50 +486,48 @@ function nextGameOptions(handicap) {
     size:boardSize,
   };
 }
-// Step sliders name each stop under the bar and show the chosen stop's note below it.
-function syncStepSlider(id) {
-  const input=$(id),stops=[...$(id+"Row").querySelectorAll(".step-ticks span")];
-  const index=Math.round((Number(input.value)-Number(input.min))/Number(input.step));
-  stops.forEach((stop,i)=>stop.classList.toggle("is-current",i===index));
-  $(id+"Value").textContent=stops[index]?.textContent||"";
-  $(id+"Note").textContent=stops[index]?.dataset.note||"";
-}
-// Invasion and reinforcement have three stops; older saves with any 0-100 value snap to the nearest.
-const personaStep=value=>Math.round(Math.max(0,Math.min(100,Number(value??50)||0))/50)*50;
-const personaLabel=value=>value<50?TEXT.ai.persona.low:value>50?TEXT.ai.persona.high:TEXT.ai.persona.mid;
-// The sheet's sliders set the COM opponent. With two COMs, the strength choices are
-// greyed out and 「COMの打ち方」 holds a card of choices, strength included, for each colour's COM.
+// The sheet's choices set the COM opponent. With two COMs, the character choices are
+// greyed out and 「COMの打ち方」 holds a card for each colour's COM.
 // The sheet's side choice follows a watched game, so the choices always set
 // what the next game, and a running one, use.
 const editsWatchAi = () => aiSideChoice==="watch";
 const COM_SLOTS = {Black:"black", White:"white"};
-const COM_FIELDS = {Invasion:"invasion", Reinforcement:"reinforcement", Strength:"strength"};
+// Each value a カスタム COM sets, by the name suffix of its choices.
+const COM_FIELDS = {
+  Height:"height",
+  Invasion:"invasion",
+  Stance:"stance",
+  Strength:"strength",
+  Tenuki:"tenuki",
+};
+function checkComChoices(prefix, com) {
+  for(const [field,key] of Object.entries(COM_FIELDS)){
+    const input=document.querySelector('input[name="'+prefix+field+'"][value="'+com[key]+'"]');
+    if(input)input.checked=true;
+  }
+}
 function syncComCards() {
-  for(const [slot,side] of Object.entries(COM_SLOTS))
-    for(const [field,key] of Object.entries(COM_FIELDS)){
-      const input=document.querySelector('input[name="com'+slot+field+'"][value="'+watchAi[side][key]+'"]');
-      if(input)input.checked=true;
-    }
+  for(const [slot,side] of Object.entries(COM_SLOTS)){
+    $("com"+slot+"Character").value=watchAi[side].character;
+    $("com"+slot+"Custom").hidden=watchAi[side].character!==CUSTOM_CHARACTER;
+    checkComChoices("com"+slot,watchAi[side]);
+  }
 }
 function syncWatchSliderRows() {
   const two=editsWatchAi();
   $("watchAiOptions").hidden=!two;
-  $("aiPersonaRows").hidden=two;
+  // カスタム's own rows show only for the one COM it sets.
+  $("aiCustom").hidden=two || aiCom.character!==CUSTOM_CHARACTER;
   // Hints are for the player's own turn, which two COMs never have.
   $("aiHints").disabled=two;
 }
 function readWatchAi(value, fallback) {
   const clean=cleanWatchAi(value);
   if(!clean)return {black:{...fallback},white:{...fallback}};
-  for(const side of ["black","white"])
-    clean[side]={strength:normalizeStrength(clean[side].strength,DEFAULT_AI_STRENGTH),
-      invasion:personaStep(clean[side].invasion),reinforcement:personaStep(clean[side].reinforcement)};
-  return clean;
+  return {black:newCom(clean.black),white:newCom(clean.white)};
 }
 function updatePersonaUi() {
-  $("aiInvasion").value=String(invasion);
-  $("aiReinforcement").value=String(reinforcement);
-  syncStepSlider("aiInvasion");syncStepSlider("aiReinforcement");
+  checkComChoices("ai",aiCom);
   syncComCards();syncWatchSliderRows();
 }
 
@@ -849,14 +859,12 @@ function finishAiMove(result) {
     const passStage=valid?endgameAdvisor.observe(game,result.ownership):"playing";
     if(valid){endgameStage=passStage;rememberOwnership(game.board,result.ownership);}
     // Two COMs each play with their own settings.
-    const com=watching?watchAi[game.next===BLACK?"black":"white"]:newCom(aiStrength,invasion,reinforcement);
+    const com=watching?watchAi[game.next===BLACK?"black":"white"]:aiCom;
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
-      ownership:result.ownership,endgameStage:passStage,
-      invasion:com.invasion,reinforcement:com.reinforcement,strength:com.strength,
+      ...com,ownership:result.ownership,endgameStage:passStage,
       temperature:0.38
     });
-    $("aiMatchStatus").textContent = TEXT.ai.playingWith(AI_STRENGTHS[com.strength].label,personaLabel(com.invasion),
-      personaLabel(com.reinforcement));
+    $("aiMatchStatus").textContent = TEXT.ai.playingWith(characterLabel(com.character),comSummary(com));
     if(watching)lastWatchMoveAt=performance.now();
     submitMove(next,true);
   } catch(error) {
@@ -974,8 +982,6 @@ function show() {
   syncStartButtons();
   renderInviteButton();
   const spectating=isWatching();
-  $("aiInvasion").disabled=false;
-  $("aiReinforcement").disabled=false;
   $("turn").classList.toggle("white-to-play",game.next===WHITE);
   // Nobody is to move while scoring or after the game, so no turn stone.
   $("turn").classList.toggle("no-stone",game.status!=="playing" ||
@@ -1537,7 +1543,7 @@ function isCounting(){
 function save(){
   try {
     const record=gameLibrary.save({id:currentGameId,mode:room?"online":gameMode,
-      roomId:room||null,snapshot:game,lastPosition,humanColor,aiStrength,invasion,reinforcement,seat,
+      roomId:room||null,snapshot:game,lastPosition,humanColor,aiCom,seat,
       watch:gameMode==="ai" && watching,watchAi},currentRevision);
     currentGameId=record.id;currentRevision=record.revision;
     if(!room)gameLibrary.setActive(gameMode,record.id);
@@ -1555,9 +1561,8 @@ function savedGame(mode) {
   watching=mode==="ai" && record?.watch===true;watchPaused=false;intervening=false;watchReturning=false;
   if(mode==="ai" && record){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
-    aiStrength=normalizeStrength(record.aiStrength);
-    invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
-    if(watching)watchAi=readWatchAi(record.watchAi,newCom(aiStrength,invasion,reinforcement));
+    aiCom=recordCom(record);
+    if(watching)watchAi=readWatchAi(record.watchAi,aiCom);
   }
   return record?.snapshot||newGame(true,{size:boardSize});
 }
@@ -1780,7 +1785,7 @@ function syncStartButtons() {
   keepArmedLabel($("startLocal"));
 }
 function startLabel(kind){return continueFrom?TEXT.review.continue:!room && gameMode===kind?TEXT.ai.restart:TEXT.newGame.start;}
-// 自分の石, AIの強さ, 盤 and ルール are one row of underlined tabs, the colour first; the selected
+// 自分の石, COMのキャラ, 盤 and ルール are one row of underlined tabs, the colour first; the selected
 // tab's choices fill the one panel under it, one per line with a note beside it.
 const SETUP_TABS=["Side","Strength","Board","Rules"];
 function selectSetupTab(key, focus=false) {
@@ -2314,9 +2319,8 @@ function resumeSelectedReview(){
   watching=gameMode==="ai" && record.watch===true;watchPaused=false;intervening=false;watchReturning=false;
   if(gameMode==="ai"){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
-    invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
-    aiStrength=normalizeStrength(record.aiStrength);
-    if(watching)watchAi=readWatchAi(record.watchAi,newCom(aiStrength,invasion,reinforcement));
+    aiCom=recordCom(record);
+    if(watching)watchAi=readWatchAi(record.watchAi,aiCom);
     syncStrengthUi();
     // A random preference stays random; a fixed one follows the resumed game.
     if(aiSideChoice!=="random")aiSideChoice=watching?"watch":humanColor===WHITE?"white":"black";
@@ -2399,7 +2403,6 @@ $("startAi").onclick=()=>{
   // Otherwise: the same choices and the same random draw as a friend invitation.
   try{humanColor=watching || aiHandicap && gameRules!=="gomoku"?BLACK:selectColor(aiSideChoice);}
   catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
-  // The slider shows a watched game's 設定するCOM, so it only sets aiStrength otherwise.
   hints=null;takebackNotice=null;
   game=newGame(true,nextGameOptions(aiHandicap));currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;endNotice=null;
@@ -2424,7 +2427,7 @@ function takeOverWatchedGame(color) {
   stopAiTurn(); // A move being computed for the taken colour is dropped.
   watching=false;watchPaused=false;intervening=false;watchReturning=false;humanColor=color;hints=null;
   // The COM left playing keeps its settings.
-  ({strength:aiStrength,invasion,reinforcement}=watchAi[color===BLACK?"white":"black"]);
+  aiCom=watchAi[color===BLACK?"white":"black"];
   if(aiSideChoice!=="random")aiSideChoice=color===BLACK?"black":"white";
   syncSideUi();syncStrengthUi();updatePersonaUi();
   $("aiMatchStatus").textContent=TEXT.ai.tookOver(colorLabel(color));
@@ -2480,49 +2483,52 @@ function syncHandicapUi() {
     syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
-for(const [slot,side] of Object.entries(COM_SLOTS))
-for(const [field,key] of Object.entries(COM_FIELDS))
-for(const input of document.querySelectorAll('input[name="com'+slot+field+'"]')) {
+// A change to a COM applies from its next move.
+function comChanged(label) {
+  syncStrengthUi();
+  if(isWatching() || gameMode==="ai" && !editsWatchAi())save();else rememberSettings();
+  $("aiMatchStatus").textContent=label?TEXT.ai.nextCharacter(label):TEXT.ai.nextMove;
+}
+for(const [slot,side] of Object.entries(COM_SLOTS)){
+  $("com"+slot+"Character").onchange=e=>{
+    watchAi[side]=pickCharacter(watchAi[side],e.target.value);
+    comChanged();
+  };
+  for(const [field,key] of Object.entries(COM_FIELDS))
+  for(const input of document.querySelectorAll('input[name="com'+slot+field+'"]'))
+    input.onchange=e=>{
+      if(!e.target.checked)return;
+      watchAi[side]=setComValue(watchAi[side],key,e.target.value);
+      comChanged();
+    };
+}
+for(const input of document.querySelectorAll('input[name="aiCharacter"]')) {
   input.onchange=e=>{
     if(!e.target.checked)return;
-    watchAi[side][key]=key==="strength"?normalizeStrength(e.target.value,DEFAULT_AI_STRENGTH):
-      personaStep(e.target.value);
-    syncStrengthUi();
-    if(isWatching())save();else rememberSettings();
-    $("aiMatchStatus").textContent=TEXT.ai.nextMove;
+    aiCom=pickCharacter(aiCom,e.target.value);
+    comChanged(characterLabel(aiCom.character));
   };
 }
-for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]]) {
-  $(id).oninput=e=>{
-    const value=personaStep(e.target.value);
-    if(key==="invasion")invasion=value;else reinforcement=value;
-    updatePersonaUi();
-    if(isWatching())save();else rememberSettings();
-    $("aiMatchStatus").textContent=TEXT.ai.nextMove;
+for(const [field,key] of Object.entries(COM_FIELDS))
+for(const input of document.querySelectorAll('input[name="ai'+field+'"]')) {
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    aiCom=setComValue(aiCom,key,e.target.value);
+    comChanged();
   };
 }
-// The strength bar's stops follow AI_STRENGTHS from weakest to strongest.
+// The character list shows the one COM; two COMs are set in their cards.
 function syncStrengthUi() {
   const two=editsWatchAi(),off=newGameModeKind()!=="ai" || two;
-  // Two COMs take their strengths from 「COMの打ち方」, and the panel says so.
-  const input=document.querySelector('input[name="aiStrength"][value="'+aiStrength+'"]');
+  const input=document.querySelector('input[name="aiCharacter"][value="'+aiCom.character+'"]');
   if(input)input.checked=true;
-  $("aiStrengthChoices").disabled=off;
-  $("aiStrengthNote").textContent=two && newGameModeKind()==="ai"?TEXT.ai.strengthInAdvanced:"";
-  syncComCards();
+  $("aiCharacterChoices").disabled=off;
+  // Two COMs take their characters from 「COMの打ち方」, and the panel says so;
+  // one COM's line names its strength and the style it leans on.
+  $("aiStrengthNote").textContent=newGameModeKind()!=="ai"?"":two?TEXT.ai.strengthInAdvanced:comSummary(aiCom);
   $("aiHints").checked=aiHints;
-  syncWatchSliderRows();
+  updatePersonaUi();
   syncSetupValues();
-}
-// Strength applies from the next AI move, like the personality sliders.
-for(const input of document.querySelectorAll('input[name="aiStrength"]')) {
-  input.onchange=e=>{
-    if(!e.target.checked)return;
-    aiStrength=normalizeStrength(e.target.value,DEFAULT_AI_STRENGTH);
-    syncStrengthUi();
-    if(gameMode==="ai")save();else rememberSettings();
-    $("aiMatchStatus").textContent=TEXT.ai.nextStrength(AI_STRENGTHS[aiStrength].label);
-  };
 }
 $("aiHints").onchange=e=>{
   aiHints=e.target.checked;rememberSettings();
@@ -2580,7 +2586,6 @@ else try {
     // Older settings stored only the resolved color.
     aiSideChoice=SIDE_CHOICES.includes(settings.aiSide)?settings.aiSide:
       humanColor===WHITE?"white":"black";
-    aiStrength=normalizeStrength(settings.aiStrength,DEFAULT_AI_STRENGTH);
     aiHandicap=toHandicap(settings.aiHandicap);
     localHandicap=toHandicap(settings.localHandicap);
     onlineHandicap=toHandicap(settings.onlineHandicap);
@@ -2592,9 +2597,10 @@ else try {
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
     onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
     aiHints=settings.aiHints===true;
-    invasion=personaStep(settings.invasion);
-    reinforcement=personaStep(settings.reinforcement);
-    watchAi=readWatchAi(settings.watchAi,newCom(aiStrength,invasion,reinforcement));
+    // Settings from before characters kept strength, 侵入度 and 補強度 on their own.
+    aiCom=newCom(settings.aiCom ?? {strength:settings.aiStrength,invasion:settings.invasion,
+      reinforcement:settings.reinforcement});
+    watchAi=readWatchAi(settings.watchAi,aiCom);
   }
   game=savedGame(gameMode);endExpanded=!!game.endProposal;
 }catch{}

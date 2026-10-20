@@ -297,8 +297,10 @@ export const TEXT = {
     unavailableContinue: "ページを開き直してください。KataGoを読み込めず、AIと対局を続けられません。",
     waitingLoad: "KataGoの読み込みが終わるまでお待ちください。",
     thinking: "KataGoが着手を計算中…",
-    playingWith: (strength, invasion, reinforcement) => "強さ「" + strength + "」・侵入度「" + invasion +
-      "」・補強度「" + reinforcement + "」で対局中（探索なし）",
+    // The COM's strength and the axes it leans on, e.g. 強さ「やさしい」・侵入度「重視」・高さ「低い」.
+    comSummary: (strength, leans) => ["強さ「" + strength + "」",
+      ...leans.map(([name, value]) => name + "「" + value + "」")].join("・"),
+    playingWith: (character, summary) => "「" + character + "」と対局中（" + summary + "・探索なし）",
     playingGomoku: "五目並べのCOMは、並びの長さを数える簡単な読みで打ちます（強さの設定は使いません）。",
     ready: "KataGo準備完了。AI対局を開始できます。",
     startUnavailable: "AIを使えません",
@@ -313,9 +315,10 @@ export const TEXT = {
     nextHandicap: handicap => "置き石" + handicap + "子で次の対局を始めます（あなたは黒）。",
     nextEven: "互先で次の対局を始めます。",
     nextMove: "次のAI着手から反映します。",
-    strengthInAdvanced: "観戦では、黒と白のCOMの強さを下の「COMの打ち方」で決めます。",
-    nextStrength: strength => "次のAI着手から「" + strength + "」で打ちます。",
-    strengthLabel: "AIの強さ",
+    strengthInAdvanced: "観戦では、黒と白のCOMのキャラを下の「COMの打ち方」で決めます。",
+    nextCharacter: character => "次のAI着手から「" + character + "」で打ちます。",
+    characterShort: "キャラ",
+    strengthLabel: "COMのキャラ",
     strengthShort: "強さ",
     hints: "ヒントを表示",
     hintsNote: "あなたの番に、KataGoの候補手を1〜3で示します。",
@@ -609,7 +612,7 @@ export const TEXT = {
     rulesChoices: { chinese: "中国式", japanese: "日本式", gomoku: "五目並べ", free: "自由" },
     aiOptions: "COMの打ち方",
     rulesOptions: "ルールの追加設定",
-    // Under the AIの強さ tab while watching: each COM has its own strength.
+    // Under the COMのキャラ tab while watching: each COM has its own character.
     watchStrengthValue: "COMごと",
     setupTabs: "対局の設定",
     // Beside each choice under the 盤, ルール and 自分の石 tabs; two lines at most at 320px.
@@ -730,9 +733,11 @@ export const TEXT = {
       summary: "対COM",
       items: [
         "初回はAIの準備に時間がかかります。",
-        "強さは4段階です。段級位とは対応していません。",
-        "「AIの強さ」タブの「ヒントを表示」をオンにすると、あなたの番に候補手を1〜3の番号で示します。「侵入度」「補強度」でAIの打ち方の好みを変えられます。",
-        "「自分の石」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。黒と白それぞれのCOMの強さ・侵入度・補強度は「AIの強さ」タブで決めます。手の間に少し間を置き、「一時停止」でいつでも止められます。観戦中に盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。",
+        "「COMのキャラ」タブで相手を選びます。キャラごとに強さ（はじめて／やさしい／ふつう／つよい）と打ち方の好みが決まっています。強さは段級位とは対応していません。",
+        "打ち方の好みは4つです。侵入度は相手の地に入るか、攻守は相手の石を攻めるか自分の石を守るか、高さは序盤に低く地を取るか高く勢力を作るか、応じ方は相手の手の近くで応じるか離れて打つかです。キャラは読みをせず、KataGoの候補のうち好みに合う手を少し選びやすくするだけなので、違いは手の2〜3割に出ます。",
+        "「カスタム」を選ぶと、強さと4つの好みを自分で決められます。",
+        "「COMのキャラ」タブの「ヒントを表示」をオンにすると、あなたの番に候補手を1〜3の番号で示します。",
+        "「自分の石」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。黒と白それぞれのCOMのキャラは「COMのキャラ」タブで決めます。手の間に少し間を置き、「一時停止」でいつでも止められます。観戦中に盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。",
       ],
     },
     online: {
