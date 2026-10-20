@@ -24,6 +24,16 @@ Baseline: `main` commit `0fcfec229c3d6da4c10379d8490edbc4cc86e273`. This change 
 5. Each PR runs `npm test`, `node --check` for changed JS, and manual checks for capture preview, replay/SGF, local save and restore, P2P reconnect, scoring and AI fallback.
 6. Merge workstreams independently when their interfaces are unchanged; isolate contract changes to small integration PRs and rebase on latest `main`.
 
+## Sweeping changes
+
+A sweeping change rewrites many lines across many files without changing what the app does: moving wording into `texts.mjs`, renaming, reformatting, moving code between modules. Every branch open at the time conflicts with it, line by line (`4e5510b` took 8 conflicting files after the `texts.mjs` move in #47). So:
+
+1. A sweeping change is a PR of its own, with no feature or fix in it.
+2. Start it from the latest `main` and merge it within the hour: the longer it is open, the more branches it collides with.
+3. Say in the PR title that it is sweeping (for example `Sweep: …`), so open branches know to take `main` right after it merges.
+4. Open branches merge `main` straight after it lands, while the conflicts are still only about the moved lines.
+5. A feature that needs a sweep lands the sweep first, then the feature on top of it.
+
 ## Scope of this extraction
 
 `board-renderer.mjs` owns Canvas paint and its illegal-move cache. The parent supplies current state on every draw, so review frames cannot commit a provisional move. `history-panel.mjs` owns saved-list rendering, selected record/step and SGF file import/export; match resume/branch, WebRTC and game mutation remain coordinated in `app.mjs`. No page redesign, dependency change or game-rule changes are intended.
