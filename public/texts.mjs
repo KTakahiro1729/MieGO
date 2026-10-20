@@ -628,9 +628,9 @@ export const TEXT = {
     board: "盤",
     sizes: { 9: "9路", 13: "13路", 19: "19路" },
     mySide: "自分の石",
-    // 観戦 is a mode of its own: two COMs play, at the speed chosen under its first tab.
+    // 観戦 is a mode of its own: two COMs play, at the speed chosen under the 時間 tab.
     watch: "観戦",
-    watchSpeed: "速さ",
+    watchSpeedHead: "観戦の速さ",
     watchSpeeds: { slow: "ゆっくり", normal: "ふつう", fast: "はやい" },
     watchSpeedNotes: {
       slow: "一手ごとに2秒ほど置きます。",
@@ -666,9 +666,14 @@ export const TEXT = {
       random: "黒か白かを対局ごとにくじで決めます。",
       white: "あとから打ちます。",
       local: "1台で打つでは、黒と白を交互に打ちます。",
+      watch: "観戦では、黒も白もCOMが打ちます。",
     },
     hideStones: "石を隠す（地合いだけ表示）",
-    // 持ち時間 and 秒読み on one row at 320px; both なし plays without a clock.
+    // The 時間 tab: 持ち時間 and 秒読み on one row at 320px (both なし plays without a clock),
+    // then 観戦's speed. Under the tab's name, what the chosen mode uses.
+    time: "時間",
+    timeHead: "持ち時間と秒読み",
+    timeValue: (main, byoyomi) => !main && !byoyomi ? "なし" : !byoyomi ? main : !main ? "秒読み" + byoyomi : main + "+" + byoyomi,
     mainTime: "持ち時間",
     mainTimes: { 0: "なし", 60: "1分", 300: "5分", 600: "10分", 1200: "20分", 1800: "30分" },
     byoyomi: "秒読み",
@@ -779,7 +784,7 @@ export const TEXT = {
         "「最強」の名人は、対局を始めたときに強いKataGo（約100MB、9路は9路専用のもの）を読み込みます。ふだんは読まずにKataGoが一番よいとする手を打ち、形勢が悪いときだけ読みます。2目以上負けているなら候補手を8手打ってみて、6目以上なら上位5手それぞれに相手の応手3手まで読んで、目数差が一番よくなる手を選びます。打ち方の好みは使いません。",
         "打ち方の好みは4つです。侵入度は相手の地に入るか、攻守は相手の石を攻めるか自分の石を守るか、高さは序盤に低く地を取るか高く勢力を作るか、応じ方は相手の手の近くで応じるか離れて打つかです。キャラは読みをせず、KataGoの候補のうち好みに合う手を少し選びやすくするだけなので、違いは手の2〜3割に出ます。",
         "「カスタム」を選ぶと、強さと4つの好みを自分で決められます。",
-        "「新規対戦」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。黒と白それぞれのCOMのキャラは「COMのキャラ」タブで決めます。手の間に置く間は「速さ」タブで決め、「一時停止」でいつでも止められ、◁でさかのぼると一時停止して形勢グラフを見られます。「介入する」を押してから盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。",
+        "「新規対戦」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。黒と白それぞれのCOMのキャラは「COMのキャラ」タブで決めます。手の間に置く間は「時間」タブの「観戦の速さ」で決め、「一時停止」でいつでも止められ、◁でさかのぼると一時停止して形勢グラフを見られます。「介入する」を押してから盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。",
       ],
     },
     online: {

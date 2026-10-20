@@ -240,10 +240,11 @@
         </div>
         <div id="newGameSetup">
         <div class="setup-tabs" role="tablist" aria-label="{{newGame.setupTabs}}">
-          <button id="setupTabSide" class="setup-tab" type="button" role="tab" aria-selected="true" aria-controls="setupPanelSide"><span id="setupNameSide">{{newGame.mySide}}</span><small id="setupValueSide" class="setup-tab-value"></small></button>
+          <button id="setupTabSide" class="setup-tab" type="button" role="tab" aria-selected="true" aria-controls="setupPanelSide"><span>{{newGame.mySide}}</span><small id="setupValueSide" class="setup-tab-value"></small></button>
           <button id="setupTabStrength" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelStrength" tabindex="-1"><span>{{ai.strengthLabel}}</span><small id="setupValueStrength" class="setup-tab-value"></small></button>
           <button id="setupTabBoard" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelBoard" tabindex="-1"><span>{{newGame.board}}</span><small id="setupValueBoard" class="setup-tab-value"></small></button>
           <button id="setupTabRules" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelRules" tabindex="-1"><span>{{newGame.rules}}</span><small id="setupValueRules" class="setup-tab-value"></small></button>
+          <button id="setupTabTime" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelTime" tabindex="-1"><span>{{newGame.time}}</span><small id="setupValueTime" class="setup-tab-value"></small></button>
         </div>
         <div class="setup-panels">
           <div id="setupPanelSide" class="setup-panel" role="tabpanel" aria-labelledby="setupTabSide">
@@ -256,11 +257,6 @@
               <label class="choice-row"><input type="radio" name="onlineSide" value="black"><span class="choice">{{common.sideBlack}}</span><small class="choice-note">{{newGame.sideNotes.black}}</small></label>
               <label class="choice-row"><input type="radio" name="onlineSide" value="random" checked><span class="choice">{{common.random}}</span><small class="choice-note">{{newGame.sideNotes.random}}</small></label>
               <label class="choice-row"><input type="radio" name="onlineSide" value="white"><span class="choice">{{common.sideWhite}}</span><small class="choice-note">{{newGame.sideNotes.white}}</small></label>
-            </fieldset></div>
-            <div id="watchSpeedRow" hidden><fieldset class="choice-list speed-list">
-              <label class="choice-row"><input type="radio" name="watchSpeed" value="slow"><span class="choice">{{newGame.watchSpeeds.slow}}</span><small class="choice-note">{{newGame.watchSpeedNotes.slow}}</small></label>
-              <label class="choice-row"><input type="radio" name="watchSpeed" value="normal" checked><span class="choice">{{newGame.watchSpeeds.normal}}</span><small class="choice-note">{{newGame.watchSpeedNotes.normal}}</small></label>
-              <label class="choice-row"><input type="radio" name="watchSpeed" value="fast"><span class="choice">{{newGame.watchSpeeds.fast}}</span><small class="choice-note">{{newGame.watchSpeedNotes.fast}}</small></label>
             </fieldset></div>
             <p id="sideNote" class="explanation setup-note"></p>
           </div>
@@ -333,14 +329,23 @@
               </select>
             </div>
             <p id="handicapNote" class="explanation" hidden></p>
+            <div id="gomokuForbiddenRow" class="mode hide-stones"><div><strong>{{newGame.gomokuForbidden}}</strong><p>{{newGame.gomokuForbiddenNote}}</p></div><input id="gomokuForbidden" type="checkbox" aria-label="{{newGame.gomokuForbidden}}"></div>
+            <div id="hideStonesRow" class="mode hide-stones"><div><strong>{{newGame.hideStones}}</strong><p>{{newGame.hideStonesNote}}</p></div><input id="hideStones" type="checkbox" aria-label="{{newGame.hideStones}}"></div>
+            </div>
+          </div>
+          <div id="setupPanelTime" class="setup-panel" role="tabpanel" aria-labelledby="setupTabTime" hidden>
+            <div class="setup-more"><p class="setup-more-head">{{newGame.timeHead}}</p>
             <div id="timeControlSetup" class="advanced-row time-control"><label for="mainTime">{{newGame.mainTime}}</label>
               <select id="mainTime" class="handicap-select"><option value="0">{{newGame.mainTimes.0}}</option><option value="60">{{newGame.mainTimes.60}}</option><option value="300">{{newGame.mainTimes.300}}</option><option value="600">{{newGame.mainTimes.600}}</option><option value="1200">{{newGame.mainTimes.1200}}</option><option value="1800">{{newGame.mainTimes.1800}}</option></select>
               <label for="byoyomi">{{newGame.byoyomi}}</label>
               <select id="byoyomi" class="handicap-select"><option value="0">{{newGame.byoyomis.0}}</option><option value="10">{{newGame.byoyomis.10}}</option><option value="30">{{newGame.byoyomis.30}}</option><option value="60">{{newGame.byoyomis.60}}</option></select>
             </div>
-            <div id="gomokuForbiddenRow" class="mode hide-stones"><div><strong>{{newGame.gomokuForbidden}}</strong><p>{{newGame.gomokuForbiddenNote}}</p></div><input id="gomokuForbidden" type="checkbox" aria-label="{{newGame.gomokuForbidden}}"></div>
-            <div id="hideStonesRow" class="mode hide-stones"><div><strong>{{newGame.hideStones}}</strong><p>{{newGame.hideStonesNote}}</p></div><input id="hideStones" type="checkbox" aria-label="{{newGame.hideStones}}"></div>
             </div>
+            <div id="watchSpeedRow" class="setup-more"><p class="setup-more-head">{{newGame.watchSpeedHead}}</p><fieldset id="watchSpeedChoices" class="choice-list speed-list">
+              <label class="choice-row"><input type="radio" name="watchSpeed" value="slow"><span class="choice">{{newGame.watchSpeeds.slow}}</span><small class="choice-note">{{newGame.watchSpeedNotes.slow}}</small></label>
+              <label class="choice-row"><input type="radio" name="watchSpeed" value="normal" checked><span class="choice">{{newGame.watchSpeeds.normal}}</span><small class="choice-note">{{newGame.watchSpeedNotes.normal}}</small></label>
+              <label class="choice-row"><input type="radio" name="watchSpeed" value="fast"><span class="choice">{{newGame.watchSpeeds.fast}}</span><small class="choice-note">{{newGame.watchSpeedNotes.fast}}</small></label>
+            </fieldset></div>
           </div>
         </div>
         </div>
