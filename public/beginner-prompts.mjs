@@ -1,24 +1,38 @@
-import { BLACK, sizeOf, handicapOf, komiOf, isJapanese } from "./core.mjs";
+import {
+  BLACK,
+  handicapOf,
+  hasGomokuForbidden,
+  isFree,
+  isGomoku,
+  isJapanese,
+  komiOf,
+  sizeOf,
+} from "./core.mjs";
 import { formatBoardSection } from "./board-text.mjs";
 import { shareableReviewUrl } from "./sgf-link.mjs";
 import { TEXT } from "./texts.mjs";
 
 // Questions a beginner can paste into any AI chat. Like the forbidden-move
 // question they carry a public SGF replay URL at most, never a P2P room URL.
-const AS_BEGINNER=TEXT.prompts.asBeginner;
 const AFTERWARDS=TEXT.prompts.afterwards;
 
-function ruleLine(game) {
-  const handicap=handicapOf(game);
-  return TEXT.prompts.ruleLine(komiOf(game),handicap,isJapanese(game));
+// 自由に置く has no rules of its own, so its questions are about 囲碁 on that board.
+const asBeginner=game=>isGomoku(game)?TEXT.prompts.asBeginnerGomoku:TEXT.prompts.asBeginner;
+
+function playingLine(game) {
+  const size=sizeOf(game.board);
+  if(isGomoku(game))return TEXT.prompts.playingGomoku(size,hasGomokuForbidden(game));
+  if(isFree(game))return TEXT.prompts.playingFree(size);
+  return TEXT.prompts.playing(size,TEXT.prompts.ruleLine(komiOf(game),handicapOf(game),isJapanese(game)));
 }
 
 export function makeRulesPrompt(game) {
+  const gomoku=isGomoku(game);
   return [
-    AS_BEGINNER,
-    TEXT.prompts.playing(sizeOf(game.board),ruleLine(game)),
-    TEXT.prompts.rulesAsk,
-    ...TEXT.prompts.rulesTopics,
+    asBeginner(game),
+    playingLine(game),
+    gomoku?TEXT.prompts.rulesAskGomoku:TEXT.prompts.rulesAsk,
+    ...(gomoku?TEXT.prompts.rulesTopicsGomoku(hasGomokuForbidden(game)):TEXT.prompts.rulesTopics),
     AFTERWARDS
   ].join("\n");
 }
@@ -27,14 +41,17 @@ export function makeRulesPrompt(game) {
 export function makePositionPrompt(game,reviewUrl=null) {
   const url=reviewUrl===null?null:shareableReviewUrl(reviewUrl);
   const color=game.next===BLACK?TEXT.common.black:TEXT.common.white;
-  const state=game.status==="playing"?TEXT.prompts.turn(color,game.moveNumber):
+  // A free board has no turn: the players pick the colour of each stone.
+  const free=isFree(game);
+  const state=free?TEXT.prompts.stateFree(game.board.filter(Boolean).length):
+    game.status==="playing"?TEXT.prompts.turn(color,game.moveNumber):
     game.status==="scoring"?TEXT.prompts.stateScoring:TEXT.prompts.stateFinished;
-  const ask=game.status==="playing"?
-    TEXT.prompts.positionAskPlaying(color):
-    TEXT.prompts.positionAskEnded;
+  const ask=free?TEXT.prompts.positionAskFree:
+    game.status==="playing"?TEXT.prompts.positionAskPlaying(color):
+    isGomoku(game)?TEXT.prompts.positionAskEndedGomoku:TEXT.prompts.positionAskEnded;
   return [
-    AS_BEGINNER,
-    TEXT.prompts.playing(sizeOf(game.board),ruleLine(game)),
+    asBeginner(game),
+    playingLine(game),
     state,
     ask,
     TEXT.prompts.coordinates,

@@ -539,13 +539,19 @@ export const TEXT = {
 
   // Text copied for the user's own AI chat
   prompts: {
+    // Each question names the game on the board: 囲碁 (日本式・中国式), 五目並べ or 自由に置く.
     asBeginner: "私は囲碁を始めたばかりの初心者です。専門用語にはひと言説明を添え、短く、やさしく答えてください。",
+    asBeginnerGomoku: "私は五目並べを始めたばかりの初心者です。専門用語にはひと言説明を添え、短く、やさしく答えてください。",
     afterwards: "説明のあとで、私が次に試すとよいことを1つだけ教えてください。わからない点はこのあと質問します。",
     ruleLine: (komi, handicap, japanese = false) => (japanese ?
       "ルール：日本ルール（地とアゲハマの合計で数え、セキの地は数えない）、" :
       "ルール：中国ルール（盤上の石と地の合計で数える）、") +
       (handicap ? "置き石" + handicap + "子、コミ" + komi + "目" + (japanese ? "" : "＋置き石補正" + handicap + "目") : "コミ" + komi + "目"),
     playing: (size, ruleLine) => "囲碁アプリMieGOで" + size + "路盤を打っています。" + ruleLine + "。",
+    playingGomoku: (size, forbidden) => "囲碁アプリMieGOの" + size + "路盤で五目並べを打っています。ルール：" +
+      (forbidden ? "禁じ手あり（黒だけ三三・四四・長連を打てず、ちょうど5つで勝ち。白は5つ以上で勝ち）" :
+        "禁じ手なし（黒も白も縦・横・斜めに5つ以上並べると勝ち）") + "。盤が埋まると引き分けです。",
+    playingFree: size => "囲碁アプリMieGOの" + size + "路盤で、自由に石を置いて局面を並べています。この盤は勝敗や石を取るルールを判定せず、黒と白を好きな順に置けます。",
     rulesAsk: "囲碁の基本を順番に教えてください。",
     rulesTopics: [
       "1. 石を取るしくみ（呼吸点）",
@@ -553,11 +559,21 @@ export const TEXT = {
       "3. 地とは何か、勝ち負けの数え方",
       "4. いつ対局を終えればよいか（終局とパス）",
     ],
+    rulesAskGomoku: "五目並べの基本を順番に教えてください。",
+    rulesTopicsGomoku: forbidden => [
+      "1. 勝ち方（縦・横・斜めに5つ並べる）と、先手の黒が有利なわけ",
+      "2. 相手の「四」と「三」を止める考え方",
+      forbidden ? "3. 禁じ手（三三・四四・長連）とは何か、なぜ黒だけにあるのか" : "3. 禁じ手のない五目並べと、禁じ手のある連珠の違い",
+      "4. 序盤に石をどこへ置けばよいか",
+    ],
     turn: (color, move) => "手番：" + color + "。" + (move ? move + "手目まで打ちました。" : "まだ1手も打っていません。"),
     stateScoring: "いま採点中です。",
     stateFinished: "対局は終わっています。",
     positionAskPlaying: color => "この局面について、1. いまどちらが優勢そうか、2. " + color + "が気をつけること、3. 次に考えられる手、を教えてください。",
     positionAskEnded: "この局面について、どちらがどこを地にしているか、勝敗をどう数えるかを教えてください。",
+    positionAskEndedGomoku: "この局面について、どこで勝負が決まったか、負けた側はどこで防げたかを教えてください。",
+    stateFree: count => count ? "盤上に" + count + "子置いています。" : "まだ石を置いていません。",
+    positionAskFree: "この局面を囲碁として見て、1. どちらが優勢そうか、2. 黒と白それぞれが気をつけること、3. 次に考えられる手、を教えてください。",
     coordinates: "場所は「上から○行目・左から○列目」で示してください。",
     reviewUrl: href => "棋譜URL: " + href,
     currentBoard: "現在の盤面",
