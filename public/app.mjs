@@ -1890,14 +1890,6 @@ function selectVariationLine(){
   boardReview.display=replaySteps(line,boardReview.step);
   reviewFeedback("");show();requestReviewOwnership();
 }
-function previewReviewPass(){
-  if(!boardReview)return;
-  try{
-    boardReview.preview=proposeReviewStone(boardReview,game,null);
-    boardReview.previewPosition=null;
-    reviewFeedback(TEXT.review.passPreview);show();requestReviewOwnership();
-  }catch(error){reviewFeedback(messageFor(error,TEXT.common.retry));}
-}
 function saveReviewVariation(){
   if(!boardReview?.variation)return;
   try{
@@ -1928,8 +1920,6 @@ function renderBoardReview() {
   $("reviewConfirmStone").classList.toggle("white",boardReview.preview?.moves.at(-1)?.color===WHITE);
   $("reviewVariation").hidden=variationActive || !boardReview.variation;
   $("reviewSaveVariation").hidden=!boardReview.variation;
-  $("reviewPass").disabled=isPreview;
-  $("reviewPass").hidden=isGomoku(line); // 五目並べ has no pass.
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?TEXT.review.newMoves(updates):"";
@@ -2274,7 +2264,6 @@ new ResizeObserver(()=>{if(boardReview)renderScoreGraph();}).observe($("reviewGr
 $("reviewConfirm").onclick=confirmReviewPreview;
 $("reviewCancel").onclick=discardReviewPreview;
 $("reviewVariation").onclick=selectVariationLine;
-$("reviewPass").onclick=previewReviewPass;
 $("reviewSaveVariation").onclick=saveReviewVariation;
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && boardReview?.preview){discardReviewPreview();return;}
