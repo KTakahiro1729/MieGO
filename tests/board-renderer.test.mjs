@@ -204,3 +204,20 @@ test("an empty board shows sample stones only while its colours are edited",()=>
   drawPlayed();
   assert.equal(playedCalls.filter(c=>c.kind==="arc"&&c.args[2]===22).length,1,"a board with stones shows only its own");
 });
+
+test("一つの形 draws a group as one shape and keeps the stone being placed apart",()=>{
+  const game=newGame();
+  for(const p of [at(2,2),at(3,2),at(2,3),at(3,3)])game.board[p]=BLACK;
+  game.board[at(6,6)]=WHITE;
+  const candidate=play(game,at(4,2));
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),candidate,linkStones:"fused"}));
+  draw();
+  const single=calls.filter(c=>c.kind==="arc"&&c.args[2]===22);
+  assert.deepEqual(single.map(c=>[c.args[0],c.args[1],c.alpha]),[[250,150,.68]],"only the stone being placed is a single stone");
+  const bodies=calls.filter(c=>c.kind==="arc"&&c.args[2]===21.25);
+  assert.equal(bodies.length,5,"four black stones and the lone white one");
+  const bars=calls.filter(c=>c.kind==="path-rect");
+  // Each of the four bars and the square's middle, once for the rim and once for the body.
+  assert.equal(bars.length,10);
+  assert.ok(bars.some(c=>c.args[0]===150&&c.args[1]===150&&c.args[2]===50&&c.args[3]===50),"the square's middle is filled");
+});

@@ -193,7 +193,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const proposedBoard = boardReview?.preview?.board || (boardReview ? null : candidate?.board);
     const preview = boardReview ? boardReview.previewPosition :
       (candidate?.moves.at(-1)?.position ?? illegalCandidate?.position);
-    if(view.linkStones && !hidden)paintStoneLinks(theme,proposedBoard||display.board,gap,pad);
+    if(view.linkStones==="bridge" && !hidden)paintStoneLinks(theme,proposedBoard||display.board,gap,pad);
+    const shown=[];
     for(let i=0;i<display.board.length;i++) {
       const {color:committedColor,captured} = stoneForPreview(display.board, proposedBoard, i);
       // A forbidden point is selectable, but the stone is never committed.
@@ -203,12 +204,21 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       // Dead stones are off the board once the count is final, or filled under Japanese rules.
       if(!boardReview && (game.status==="finished" && !game.result?.endsWith("+R") ||
          prisonersFilled(game)) && game.dead?.includes(i))continue;
+      shown.push({i,color,alpha:captured ? 0.4 : i===preview ? 0.68 : 1});
+    }
+    // 一つの形: the solid stones are drawn group by group; the stone being
+    // placed and the ones it would take stay single, see-through stones.
+    const fused=view.linkStones==="fused" ? Array(display.board.length).fill(0) : null;
+    if(fused){
+      for(const {i,color,alpha} of shown)if(alpha===1)fused[i]=color;
+      paintFusedStones(theme,fused,gap,pad);
+    }
+    for(const {i,color,alpha} of shown) {
       const x=pad+(i%SIZE)*gap;
       const y=pad+Math.floor(i/SIZE)*gap;
       const r=gap*.44;
-      const alpha=captured ? 0.4 : i===preview ? 0.68 : 1;
       shownAlpha[i]=alpha;
-      paintStone(theme,color,x,y,r,alpha);
+      if(!fused?.[i])paintStone(theme,color,x,y,r,alpha);
 
       if(i===preview) {
         ctx.save();
@@ -256,6 +266,51 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       }
     }
     ctx.restore();
+  }
+
+  // 一つの形: every group is one shape, its stones' circles joined by bars
+  // as wide as a stone, with one rim around the whole. Four stones in a
+  // square also fill the gap in their middle. Each stone keeps a soft
+  // highlight, so a group still shows how many stones it has.
+  function paintFusedStones(theme,board,gap,pad) {
+    const r=gap*.44, rim=.75;
+    const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
+    const same=(i,j,color)=>j<board.length && board[j]===color;
+    function outline(color,grow){
+      const w=r+grow;
+      ctx.beginPath();
+      for(let i=0;i<board.length;i++){
+        if(board[i]!==color)continue;
+        const [x,y]=xy(i), right=i%SIZE<SIZE-1 && same(i,i+1,color), down=same(i,i+SIZE,color);
+        ctx.moveTo(x+w,y);ctx.arc(x,y,w,0,Math.PI*2);
+        if(right)ctx.rect(x,y-w,gap,2*w);
+        if(down)ctx.rect(x-w,y,2*w,gap);
+        if(right && down && same(i,i+SIZE+1,color))ctx.rect(x,y,gap,gap);
+      }
+    }
+    // Shaded white stones are lighter in the middle than at the edge; the
+    // body leans to the edge's tone, so each stone's highlight still shows.
+    const mid=(a,b)=>/^#[0-9a-f]{6}$/i.test(a+b.slice(1))?"#"+[1,3,5].map(k=>
+      Math.round(parseInt(a.slice(k,k+2),16)*.4+parseInt(b.slice(k,k+2),16)*.6).toString(16).padStart(2,"0")).join(""):a;
+    const clear=c=>/^#[0-9a-f]{6}$/i.test(c)?c+"00":null;
+    for(const [color,look] of [[BLACK,theme.stones.black],[WHITE,theme.stones.white]]){
+      if(!board.includes(color))continue;
+      ctx.save();
+      outline(color,rim);ctx.fillStyle=look.rim;ctx.fill();
+      outline(color,-rim);
+      ctx.fillStyle=theme.flatStones?look.outer:color===BLACK?look.outer:mid(look.inner,look.outer);
+      ctx.fill();
+      if(!theme.flatStones && clear(look.inner) && ctx.createRadialGradient){
+        for(let i=0;i<board.length;i++){
+          if(board[i]!==color)continue;
+          const [x,y]=xy(i), hx=x-r*.2, hy=y-r*.2;
+          const grad=ctx.createRadialGradient(hx,hy,2,hx,hy,r*.75);
+          grad.addColorStop(0,look.inner);grad.addColorStop(1,clear(look.inner));
+          ctx.fillStyle=grad;ctx.beginPath();ctx.arc(hx,hy,r*.75,0,Math.PI*2);ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
   }
 
   // 呼吸点の表示 on the board being played or replayed: the provisional

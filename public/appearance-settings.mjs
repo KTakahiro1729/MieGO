@@ -34,13 +34,18 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
   let boardTheme = isBoardTheme(storedBoardTheme) ? storedBoardTheme : DEFAULT_BOARD_THEME;
   const storedLiberties = stored("miego-liberties");
   let liberties = isLibertyMode(storedLiberties) ? storedLiberties : DEFAULT_LIBERTY_MODE;
-  let linkStones = stored("miego-link-stones")==="on";
-  $("linkStones").checked=linkStones;
-  $("linkStones").onchange=e=>{
-    linkStones=!!e.target.checked;
-    store("miego-link-stones",linkStones?"on":"off");
-    draw();
-  };
+  // つながった石: drawn apart ("off"), joined by a bar ("bridge") or as one shape ("fused").
+  const LINK_MODES=["off","bridge","fused"];
+  const storedLink = stored("miego-link-stones");
+  let linkStones = LINK_MODES.includes(storedLink) ? storedLink : storedLink==="on" ? "bridge" : "off";
+  document.querySelectorAll('input[name="linkStones"]').forEach(input => {
+    input.onchange = e => {
+      if (!e.target.checked) return;
+      linkStones=LINK_MODES.includes(e.target.value)?e.target.value:"off";
+      store("miego-link-stones",linkStones);
+      draw();
+    };
+  });
   const storedOpacity = stored("miego-opacity")===null ? NaN : Number(stored("miego-opacity"));
   let opacity = storedOpacity>=0 && storedOpacity<=1 ? storedOpacity : DEFAULT_OPACITY;
   // With the stones hidden the colours are all there is, so "表示しない" falls
@@ -191,8 +196,8 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     palette=DEFAULT_PALETTE;opacity=DEFAULT_OPACITY;boardTheme=DEFAULT_BOARD_THEME;
     liberties=DEFAULT_LIBERTY_MODE;
     store("miego-liberties",liberties);
-    linkStones=false;
-    store("miego-link-stones","off");
+    linkStones="off";
+    store("miego-link-stones",linkStones);
     store("miego-palette",palette);
     store("miego-opacity",String(opacity));
     store("miego-board",boardTheme);
@@ -255,7 +260,7 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     check("palette",palette);
     check("boardTheme",boardTheme);
     check("liberties",liberties);
-    $("linkStones").checked=linkStones;
+    check("linkStones",linkStones);
     check("opacityShape",opacityShape());
     fillColourInputs();
     $("opacity").value=String(Math.round(opacity*100));
