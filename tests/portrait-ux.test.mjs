@@ -117,7 +117,8 @@ test("solo prompt hides the second gold button without shifting the action row",
   assert.match(app,/\$\("actionRow"\)\.classList\.toggle\("end-prompt-open",localPrompt\)/);
   assert.match(css,/\.action-row\.end-prompt-open #confirm\{visibility:hidden\}/);
   // Opening the prompt drops any provisional stone; tapping the board means "keep playing".
-  assert.match(app,/candidate=null;illegalCandidate=null;illegalPromptCopied=false;[\s\S]{0,80}endExpanded=true;show\(\)/);
+  assert.match(app,/clearProvisional\(\);[\s\S]{0,80}endExpanded=true;show\(\)/);
+  assert.match(app,/function clearProvisional\(\) \{\s*candidate=null;illegalCandidate=null;illegalPromptCopied=false;/);
   assert.match(app,/if\(!room && endExpanded\)endExpanded=false;/);
 });
 test("AI scoring waits for a computing move instead of pausing the AI",()=>{

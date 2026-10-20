@@ -46,7 +46,7 @@ test("介入する steps in; only then the board takes a stone; ここに打つ 
   assert.match(intervene,/stopAiTurn\(\);[^\n]*\n\s*intervening=true;watchReturning=false;/);
   // ここに打つ hands the side to move to the viewer before the stone is played.
   assert.match(app,/if\(isWatching\(\) && intervening\)takeOverWatchedGame\(game\.next\);\s*submitMove\(position\);/);
-  assert.match(body("takeOverWatchedGame"),/stopAiTurn\(\);[\s\S]*watching=false;[\s\S]*humanColor=color;[\s\S]*save\(\);/);
+  assert.match(body("takeOverWatchedGame"),/stopAiTurn\(\);[\s\S]*setWatching\(false\);[\s\S]*humanColor=color;[\s\S]*save\(\);/);
   // × ends the step-in, with or without a provisional stone, and the COMs wait a little longer than between moves.
   assert.match(app,/intervening=false;watchReturning=!watchPaused;lastWatchMoveAt=performance\.now\(\)\+WATCH_RESUME_MS-watchStep\(\);/);
   assert.match(body("show"),/\$\("cancel"\)\.disabled=!provisional && !takeBack && !stepIn;/);
@@ -72,12 +72,12 @@ test("stepping back through a watched game pauses it and shows the score graph",
 
 test("a watched game is saved and resumed as watched",()=>{
   assert.match(app,/watch:gameMode==="ai" && watching,watchAi\}/);
-  assert.match(app,/watching=mode==="ai" && record\?\.watch===true;/);
+  assert.match(app,/setWatching\(mode==="ai" && record\?\.watch===true\);/);
 });
 
 test("each COM of a watched game plays with its own character",()=>{
   // The move is chosen with the settings of the colour to play.
-  assert.match(app,/const comToMove = \(\) => watching \? watchAi\[game\.next===BLACK\?"black":"white"\] : aiCom;/);
+  assert.match(app,/const comToMove = \(\) => watching \? watchAi\[sideKey\(game\.next\)\] : aiCom;/);
   assert.match(body("finishAiMove"),/const com=comToMove\(\);/);
   assert.match(body("finishAiMove"),/choosePolicyMove\(game,result\.policy,result\.passLogit,\{\s*\.\.\.com,/);
   // In 観戦 the COMのキャラ tab holds one card per COM in place of the character list:
