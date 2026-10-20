@@ -12,12 +12,14 @@ export const KOMI = 7.5;
  * Chinese area scoring (the default), Japanese territory scoring, or 五目並べ
  * (free-style gomoku, gomoku.mjs) played with the same stones on the same board.
  */
-export const RULESETS = Object.freeze(["chinese", "japanese", "gomoku"]);
+export const RULESETS = Object.freeze(["chinese", "japanese", "gomoku", "free"]);
 // Even-game komi per ruleset (KataGo's defaults; the Nihon Ki-in uses 6.5).
-export const RULES_KOMI = Object.freeze({ chinese: 7.5, japanese: 6.5, gomoku: 0 });
+export const RULES_KOMI = Object.freeze({ chinese: 7.5, japanese: 6.5, gomoku: 0, free: 0 });
 export const rulesOf = state => RULESETS.includes(state?.rules) ? state.rules : "chinese";
 export const isJapanese = state => rulesOf(state) === "japanese";
 export const isGomoku = state => rulesOf(state) === "gomoku";
+// 自由に置く: a board without rules for setting up and studying positions.
+export const isFree = state => rulesOf(state) === "free";
 /** 五目並べ with renju's forbidden moves for Black (三三・四四・長連). */
 export const hasGomokuForbidden = state => isGomoku(state) && state?.gomokuForbidden === true;
 export const BLACK = 1;
@@ -89,8 +91,10 @@ export const whiteCompensation = state => komiOf(state) + handicapBonusOf(state)
 // 五目並べ has no handicap stones. Its 禁じ手 choice, like hideStones, is
 // only written when set, so other games keep their shape.
 export function newGame(assisted = true, { gomokuForbidden = false, handicap = 0, size = SIZE, rules = "chinese", hideStones = false } = {}) {
-  const gomoku = rulesOf({ rules }) === "gomoku";
-  if (gomoku) handicap = 0;
+  const gomoku = rulesOf({ rules }) === "gomoku", free = rulesOf({ rules }) === "free";
+  // A free board takes no handicap, and its stones are what it is for, so they are never hidden.
+  if (gomoku || free) handicap = 0;
+  if (free) hideStones = false;
   const stones = handicapOf({ handicap }, size);
   const board = Array(size * size).fill(0);
   for (const p of handicapPoints(size, stones)) board[p] = BLACK;
@@ -111,6 +115,7 @@ export function play(state, position) {
   // A real move answers any pending 待った request by moving on.
   if (state.takebackRequest) { const { takebackRequest, ...rest } = state; state = rest; }
   const color = state.next;
+  if (isFree(state)) return playFree(state, position, color);
   if (position === "resign") return {
     ...state, status: "finished", endProposal: null, result: color === BLACK ? "W+R" : "B+R",
     moves: [...state.moves, { color, position: "resign" }]
@@ -171,6 +176,23 @@ function playGomoku(state, position, color) {
     ...(won || full ? { status: "finished", result: won ? (color === BLACK ? "B+" : "W+") : "0" } : {})
   };
 }
+/** 自由に置く: an empty point takes a stone of colour state.next, a stone is
+ * taken off. Nothing is captured. The colour to place is chosen by each player
+ * outside the game (playFreeStone), so next only follows the latest edit. */
+function playFree(state, position, color) {
+  if (!Number.isInteger(position) || position < 0 || position >= state.board.length ||
+      ![BLACK, WHITE].includes(color)) throw new Error("Only stones on points on a free board");
+  const board = [...state.board]; board[position] = board[position] ? 0 : color;
+  return {
+    ...state, board, passes: 0, moveNumber: state.moveNumber + 1,
+    history: [...state.history, boardHash(board)], moves: [...state.moves, { color, position }]
+  };
+}
+/** Places or takes off a stone on a free board in the colour the player chose. */
+export const playFreeStone = (state, position, color) => play({ ...state, next: color }, position);
+/** Replays one recorded move. On a free board the move's colour is chosen, not alternated. */
+export const replayMove = (state, { color, position }) =>
+  play(isFree(state) ? { ...state, next: color } : state, position);
 /** A proposed conclusion is not a Go move, a pass, or a scoring verdict.
  * Either color may offer, even when it is not their turn. The other side
  * must explicitly accept before entering dead-stone adjudication.

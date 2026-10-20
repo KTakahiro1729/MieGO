@@ -13,12 +13,14 @@ import {
   finalizeSoloScore,
   handicapOf,
   hasGomokuForbidden,
+  isFree,
   isGomoku,
   isJapanese,
   komiOf,
   maxHandicap,
   newGame,
   play,
+  playFreeStone,
   proposeEnd,
   resume,
   RULESETS,
@@ -180,6 +182,8 @@ let illegalPromptCopied = false;
 // next game, which carries it (so a friend's game shows it to both players).
 // A replayed board follows its game; a shared SGF shows its stones.
 let hideStonesChoice = false;
+// The colour a tap places on a free board (自由に置く), remembered for this player.
+let freeColor = BLACK;
 // 五目並べ's 禁じ手 (renju's forbidden moves for Black), for the next game.
 let gomokuForbiddenChoice = false;
 const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideStones===true;
@@ -326,6 +330,15 @@ function updateEndUi() {
     $("endgameBar").classList.toggle("is-calling",asked);
     return;
   }
+  // 自由に置く has no end: the bar only says how the board works.
+  if(isFree(game)){
+    $("endStatus").textContent=room && (!connected || color===null)?TEXT.endgame.offline:TEXT.endgame.free;
+    for(const id of ["endPropose","endAccept","endDecline"])$(id).hidden=true;
+    $("endgameBar").classList.remove("is-calling","has-illegal");
+    $("actionRow").classList.remove("end-prompt-open");
+    $("endHelp").dataset.help="rules";
+    return;
+  }
   const incoming=!!(offer && room && color!==null && offer.from!==color);
   const localPrompt=playing && !room && endExpanded && !offer;
   const waiting=!!(offer && !incoming);
@@ -393,7 +406,7 @@ function passNotice() {
 const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" &&
   (watching ? !intervening : game.next === -humanColor);
 const isHumanTurn = () => room
-  ? (connected && (myOnlineColor()!==null && game.next===myOnlineColor()))
+  ? (connected && (myOnlineColor()!==null && (isFree(game) || game.next===myOnlineColor())))
   // The player moves while KataGo is still loading, and the AI answers once it is ready.
   : (gameMode !== "ai" || ((isGomoku(game) || !fallbackMode) &&
     (watching ? intervening : game.next === humanColor)));
@@ -426,6 +439,7 @@ function rememberSettings() {
       aiSide:aiSideChoice,
       aiStrength,
       boardSize,
+      freeColor:freeColor===WHITE?"white":"black",
       gameRules,
       gomokuForbidden:gomokuForbiddenChoice,
       hideStones:hideStonesChoice,
@@ -919,7 +933,7 @@ function handleAnalysis(event) {
   if(context?.id===result.id && context.committed && !candidate &&
     context.number===game.moveNumber && context.hash===boardHash(game.board) &&
     result.engine==="katago") {
-    endgameStage=endgameAdvisor.observe(game,result.ownership);
+    if(!isFree(game))endgameStage=endgameAdvisor.observe(game,result.ownership);
     updateEndUi();
     if(gameMode==="ai" && !room && !watching && game.next===humanColor && Array.isArray(result.policy)) {
       hints={number:context.number,hash:context.hash,moves:policyHints(game,result.policy)};
@@ -964,7 +978,9 @@ function show() {
   $("turn").textContent=game.status==="finished"?TEXT.scoring.finishedResign:
     // The scoring step names itself here, so the score box keeps its one line for the instruction.
     game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
-    room?(connected?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):TEXT.game.waitingOpponent):
+    room && !connected?TEXT.game.waitingOpponent:
+    isFree(game)?(freeColor===BLACK?TEXT.game.freeBlack:TEXT.game.freeWhite):
+    room?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):
     gameMode==="ai"?(spectating?(game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite):
       gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
       fallbackMode?TEXT.game.aiStopped:
@@ -974,6 +990,7 @@ function show() {
     gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=TEXT.game.moveLabel(game.moveNumber);
+  $("moveLabel").disabled=!game.moves.length;
   $("hint").textContent=illegalCandidate?TEXT.game.hintIllegal:
     candidate?TEXT.game.hintCandidate:
     game.status==="scoring"?TEXT.game.hintScoring:
@@ -1008,7 +1025,8 @@ function show() {
   canvas.setAttribute("aria-label",TEXT.game.boardLabel(shownSize()));
   const japanese=isJapanese(game);
   const forbidden=hasGomokuForbidden(game);
-  $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,gomoku?"gomoku":japanese,forbidden);
+  $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,
+    isFree(game)?"free":gomoku?"gomoku":japanese,forbidden);
   $("ruleLabel").textContent=TEXT.game.ruleLabel(size,rulesOf(game),komiOf(game),handicap,forbidden);
   // Japanese territory scoring counts prisoners, so they sit under the ownership bar.
   $("captureCounts").hidden=!japanese;
@@ -1043,6 +1061,14 @@ function show() {
   if(gomoku)$("pass").disabled=true;
   $("confirm").hidden=isScoring || isFinished;
   $("copyIllegalPrompt").hidden=isScoring || isFinished || !blocked;
+  // 自由に置く: the colour to place takes the place of 投了, パス and ここに打つ.
+  const free=isFree(game);
+  $("freeColors").hidden=!free;
+  if(free){
+    for(const id of ["resign","pass","confirm"])$(id).hidden=true;
+    for(const input of document.querySelectorAll('input[name="freeColor"]'))
+      input.checked=input.value===(freeColor===WHITE?"white":"black");
+  }
   $("actionRow").classList.toggle("finished-actions",isFinished);
   // COM同士: one button pauses and resumes; stepping in shows × and ここに打つ instead.
   const watchingPlay=spectating && game.status==="playing";
@@ -1131,7 +1157,7 @@ function apply(action, remote=false, isAiMove=false) {
       if(action.number!==game.moveNumber+1) throw new Error("Move number mismatch");
       if(action.before!==boardHash(game.board)) throw new Error("Board mismatch before the move");
       const offerBefore=game.endProposal;
-      game=play(game,action.position);
+      game=isFree(game)?playFreeStone(game,action.position,action.color):play(game,action.position);
       if(remote && offerBefore?.from===myOnlineColor())
         endNotice={number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.cancelledByMove};
       if(action.after!==boardHash(game.board)) throw new Error("Board mismatch after the move");
@@ -1233,9 +1259,12 @@ function submitMove(position,fromAi=false){
   if(!fromAi && !isHumanTurn())return;
   if(fromAi && !isAiTurn())return;
   const before=boardHash(game.board);
+  // A free board's move carries the colour this player chose.
+  const free=isFree(game)?{color:freeColor}:{};
   let next;
-  try{next=play(game,position);}catch(error){showNotice(messageFor(error,TEXT.common.retry));return;}
-  apply({type:"move",position,number:game.moveNumber+1,before,after:boardHash(next.board)},false,fromAi);
+  try{next=free.color?playFreeStone(game,position,free.color):play(game,position);}
+  catch(error){showNotice(messageFor(error,TEXT.common.retry));return;}
+  apply({type:"move",position,...free,number:game.moveNumber+1,before,after:boardHash(next.board)},false,fromAi);
 }
 canvas.addEventListener("click",e=>{
   const SIZE=shownSize();
@@ -1273,6 +1302,8 @@ canvas.addEventListener("click",e=>{
     intervening=true;
   }
   if(game.status!=="playing" || !isHumanTurn())return;
+  // A free board places or takes off a stone at once; 待った undoes it.
+  if(isFree(game)){submitMove(position);return;}
   if(!room && endExpanded)endExpanded=false;
   // Occupied intersections cannot hold a provisional stone.
   if(game.board[position]!==0)return;
@@ -1340,6 +1371,13 @@ $("closeIllegalPromptFallback").onclick=()=>{
   $("illegalPromptFallbackPanel").hidden=true;
   $("copyIllegalPrompt").focus();
 };
+// Each player picks the colour to place on a free board; it is remembered, not shared.
+for(const input of document.querySelectorAll('input[name="freeColor"]'))
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    freeColor=e.target.value==="white"?WHITE:BLACK;
+    rememberSettings();show();
+  };
 // A mistaken pass is undone with 待った, so every mode passes on one tap.
 $("pass").onclick=()=>submitMove(null);
 // The armed label names the action ("投了？"): a bare "確定" reads like the
@@ -1741,6 +1779,9 @@ function showNewGameMode(kind) {
   $("watchCurrent").disabled=fallbackMode;
   syncSideUi();syncStrengthUi();updatePersonaUi();
   $("onlineSideRow").hidden=kind!=="online";
+  // 自由に置く has no computer opponent: under 対COM it is greyed out and the default rules apply.
+  $("freeRulesChoice").querySelector("input").disabled=kind==="ai";
+  if(kind==="ai" && gameRules==="free"){gameRules="chinese";rememberSettings();}
   $("modeHelp").dataset.help=kind;
   syncReturnButton(kind);
   syncHandicapUi();
@@ -1852,19 +1893,25 @@ function renderBoardReview() {
   $("reviewVariation").hidden=variationActive || !boardReview.variation;
   $("reviewSaveVariation").hidden=!boardReview.variation;
   $("reviewPass").disabled=isPreview;
+  $("reviewPass").hidden=isGomoku(line); // 五目並べ has no pass.
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?TEXT.review.newMoves(updates):"";
-  $("moveLabel").textContent=TEXT.review.moveLabel(variationActive,step,count);
-  $("moveLabel").setAttribute("aria-label",TEXT.review.stop);
+  // The move chip is the way back: to the latest move, the original line, or the game.
+  const back=variationActive?TEXT.review.backOriginal:source==="live"?TEXT.review.backLatest:TEXT.review.backGame;
+  $("moveLabel").textContent=back+" ›";
+  $("moveLabel").setAttribute("aria-label",back);$("moveLabel").title=back;
+  $("moveLabel").classList.add("is-returning");$("gamePanel").classList.add("is-reviewing");
+  $("moveLabel").disabled=false;
   $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
   $("turn").classList.remove("no-stone");
-  $("turn").textContent=isPreview?TEXT.review.provisional:variationActive?TEXT.history.statusVariation:TEXT.review.checking;
+  $("turn").textContent=isPreview?TEXT.review.trying(step+1):variationActive?TEXT.review.trying(step):TEXT.review.showing(step);
   $("gamePanel").classList.remove("is-scoring","is-finished");
   $("netStatus").textContent=source==="archive"?TEXT.game.savedGames:source==="url"?TEXT.review.sourceUrl:
     gameMode==="ai"?TEXT.common.modeAi:room?TEXT.review.sourceOnline:TEXT.common.modeLocal;
-  $("reviewResume").hidden=!canResumeSelectedReview();
-  $("reviewBack").textContent=variationActive?TEXT.review.backOriginal:source==="live"?TEXT.review.backLatest:TEXT.review.backGame;
+  // One primary slot: resume the saved game at its end, otherwise start from here.
+  $("reviewContinue").textContent=canResumeSelectedReview()?TEXT.review.resume:TEXT.review.continue;
+  $("reviewContinue").hidden=isPreview;
   $("actionRow").hidden=true;
   $("endgameBar").hidden=true;
   $("scoreBox").hidden=true;
@@ -1980,7 +2027,8 @@ function clearBoardReview() {
   const wasUrl=boardReview.source==="url";
   boardReview=null;reviewSequence++;
   if(wasUrl)clearImportedReviewUrl();
-  $("moveLabel").setAttribute("aria-label",TEXT.review.play);
+  $("moveLabel").classList.remove("is-returning");$("gamePanel").classList.remove("is-reviewing");
+  $("moveLabel").setAttribute("aria-label",TEXT.review.play);$("moveLabel").title=TEXT.review.play;
 }
 function leaveBoardReview() {
   if(!boardReview)return;
@@ -1995,15 +2043,42 @@ function clearImportedReviewUrl() {
   url.searchParams.delete("sgf");url.searchParams.delete("move");
   history.replaceState(null,"",url.pathname+url.search+url.hash);
 }
-function forkBoardReview() {
+// 「ここから打つ」: the shown position starts a new game record. The game it came
+// from is saved as it stands and stays in the saved-game list.
+// 五目並べ's COM is a small line counter and needs no KataGo.
+const canContinueWithAi=()=>!!boardReview && isGomoku(activeReviewSnapshot(boardReview,game)) || katagoReady && !fallbackMode;
+function continueChoice(name){return document.querySelector('input[name="'+name+'"]:checked')?.value;}
+function syncContinueSide(){$("continueSideRow").hidden=continueChoice("continueKind")!=="ai";}
+function openContinuePanel(){
+  if(!boardReview)return;
+  // The players default to those of the game being replayed.
+  // A 1台 game continues on one board; anything else (AI, friend, SGF, a shared URL) against the AI.
+  const live=boardReview.source==="live",record=live?null:boardReview.record;
+  const fromLocal=live?!room && gameMode==="local":record?.mode==="local" && record.source==="played";
+  const side=live && !room && gameMode==="ai"?humanColor:record?.mode==="ai"?record.humanColor:BLACK;
+  const ai=canContinueWithAi();
+  document.querySelector('input[name="continueKind"][value="ai"]').disabled=!ai;
+  document.querySelector('input[name="continueKind"][value="'+(ai && !fromLocal?"ai":"local")+'"]').checked=true;
+  document.querySelector('input[name="continueSide"][value="'+(side===WHITE?"white":"black")+'"]').checked=true;
+  syncContinueSide();
+  $("continueTitle").textContent=TEXT.review.continueTitle(boardReview.step);
+  setBackgroundInert(true);
+  $("settingsBackdrop").hidden=false;$("continuePanel").hidden=false;
+  $("closeContinue").focus();
+}
+function forkBoardReview(kind="local",side=BLACK) {
   if(!boardReview)return;
   let fork;
   try{fork=forkReview(activeReviewSnapshot(boardReview,game),boardReview.step);}
-  catch{$("reviewNotice").textContent=TEXT.review.branchFailed;return;}
-  if(room && connected && !confirmByRetap($("reviewBranch"),TEXT.confirm.leaveForReview))return;
+  catch{$("reviewNotice").textContent=TEXT.review.branchFailed;closePanels();return;}
+  if(kind==="ai" && !canContinueWithAi())return; // The choice is disabled meanwhile.
+  if(room && connected && !confirmByRetap($("startContinue"),TEXT.confirm.leaveForReview))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
-  stopAiTurn();gameMode="local";game=fork;
+  stopAiTurn();gameMode=kind;game=fork;
+  // 観戦 is not offered here yet, so a game continued from a watched one has a player.
+  watching=false;watchPaused=false;intervening=false;
+  if(kind==="ai"){humanColor=side;hints=null;takebackNotice=null;}
   currentGameId=null;currentRevision=null;
   const last=game.moves.at(-1)?.position;
   lastPosition=Number.isInteger(last)?last:null;
@@ -2012,8 +2087,8 @@ function forkBoardReview() {
   lastOfferKey=null;endNotice=null;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
   clearImportedReviewUrl();
-  boardReview=null;reviewSequence++;
-  save();show();requestAnalysis();
+  clearBoardReview();
+  save();closePanels();show();requestAnalysis();
 }
 // Everything in the share sheet works on the displayed board: the replayed
 // line and step while replaying, otherwise the live game as it stands.
@@ -2079,7 +2154,9 @@ function openSharePanel(){
 }
 $("moveLabel").onclick=()=>{
   if(boardReview){leaveBoardReview();return;}
-  try{enterBoardReview(game,game.moves.length,"live");}
+  // Opening the replay steps back one move at once, so the tap visibly changes the board.
+  if(!game.moves.length)return;
+  try{enterBoardReview(game,game.moves.length-1,"live");}
   catch{$("saveStatus").hidden=false;$("saveStatus").textContent=TEXT.history.replayFailed;}
 };
 $("reviewStepToggle").onclick=()=>{$("reviewMenu").open=true;$("reviewStepRange").focus();};
@@ -2088,7 +2165,6 @@ $("reviewPrevious").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step
 $("reviewNext").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
 $("reviewLast").onclick=()=>boardReview&&setBoardReviewStep(boardReview.snapshot.moves.length);
 $("reviewStepRange").oninput=e=>setBoardReviewStep(Number(e.target.value));
-$("reviewBack").onclick=leaveBoardReview;
 $("reviewConfirm").onclick=confirmReviewPreview;
 $("reviewCancel").onclick=discardReviewPreview;
 $("reviewOriginal").onclick=selectOriginalLine;
@@ -2099,7 +2175,11 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && boardReview?.preview){discardReviewPreview();return;}
   if(e.key==="Escape" && $("reviewMenu").open)$("reviewMenu").open=false;
 });
-$("reviewBranch").onclick=forkBoardReview;
+$("reviewContinue").onclick=()=>canResumeSelectedReview()?resumeSelectedReview():openContinuePanel();
+for(const input of document.querySelectorAll('input[name="continueKind"]'))input.onchange=syncContinueSide;
+$("closeContinue").onclick=closePanels;
+$("startContinue").onclick=()=>forkBoardReview(continueChoice("continueKind")==="ai"?"ai":"local",
+  continueChoice("continueSide")==="white"?WHITE:BLACK);
 $("shareLink").onclick=()=>void copyShareUrl(false);
 $("shareAiLink").onclick=()=>void copyShareUrl(true);
 $("shareSgf").onclick=exportSharedSGF;
@@ -2107,7 +2187,7 @@ function resumeSelectedReview(){
   if(!canResumeSelectedReview())return;
   const selected=boardReview.record;
   if(room && connected &&
-    !confirmByRetap($("reviewResume"),TEXT.confirm.leaveForArchive))return;
+    !confirmByRetap($("reviewContinue"),TEXT.confirm.leaveForArchive))return;
   // Reload the record before mutating anything; another tab may have advanced it.
   let record=gameLibrary.load(selected.id);
   if(!record || (record.revision!==selected.revision &&
@@ -2148,7 +2228,6 @@ function resumeSelectedReview(){
   clearBoardReview();rememberSettings();
   closePanels();show();requestAnalysis();
 }
-$("reviewResume").onclick=resumeSelectedReview;
 $("historyImportFile").onchange=e=>void importHistoryFile(e.target.files?.[0]);
 $("openHistory").onclick=openHistoryPanel;
 $("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
@@ -2169,6 +2248,7 @@ function closePanels() {
   $("sharePanel").hidden=true;
   shareImages.clear();
   $("modePanel").hidden=true;
+  $("continuePanel").hidden=true;
   $("helpPanel").hidden=true;
   $("helpToggle").setAttribute("aria-expanded","false");
   closeHelpPopover(false);
@@ -2275,11 +2355,12 @@ function syncHandicapUi() {
   const shown=ai?aiHandicap:kind==="online"?onlineHandicap:localHandicap;
   for(const option of $("handicap").options)option.disabled=Number(option.value)>maxHandicap(boardSize);
   // 五目並べ takes no handicap stones (newGame() drops them); 禁じ手 is its own choice.
-  $("handicapSetup").hidden=gameRules==="gomoku";
+  $("handicapSetup").hidden=gameRules==="gomoku" || gameRules==="free";
+  $("hideStonesRow").hidden=gameRules==="free";
   $("gomokuForbiddenRow").hidden=gameRules!=="gomoku";
   $("handicap").value=String(shown);
   // The note only appears when stones are placed, so an even game shows no extra text.
-  $("handicapNote").hidden=!shown || gameRules==="gomoku";
+  $("handicapNote").hidden=!shown || gameRules==="gomoku" || gameRules==="free";
   $("handicapNote").textContent=(ai?TEXT.handicap.noteAi:
     kind==="online"?TEXT.handicap.noteOnline:TEXT.handicap.noteLocal)+
     (gameRules==="japanese"?TEXT.handicap.noteRuleJapanese:TEXT.handicap.noteRule)+(boardSize===9?TEXT.handicap.note9:"");
@@ -2410,6 +2491,7 @@ else try {
     boardSize=toBoardSize(settings.boardSize);
     gameRules=toRules(settings.gameRules);
     gomokuForbiddenChoice=settings.gomokuForbidden===true;
+    freeColor=settings.freeColor==="white"?WHITE:BLACK;
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
     onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
