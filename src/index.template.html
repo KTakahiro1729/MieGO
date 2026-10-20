@@ -249,28 +249,13 @@
         </div>
         <div id="newGameSetup">
         <div class="setup-tabs" role="tablist" aria-label="{{newGame.setupTabs}}">
-          <button id="setupTabBoard" class="setup-tab" type="button" role="tab" aria-selected="true" aria-controls="setupPanelBoard">{{newGame.board}}</button>
-          <button id="setupTabRules" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelRules" tabindex="-1">{{newGame.rules}}</button>
-          <button id="setupTabSide" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelSide" tabindex="-1">{{newGame.mySide}}</button>
+          <button id="setupTabSide" class="setup-tab" type="button" role="tab" aria-selected="true" aria-controls="setupPanelSide">{{newGame.mySide}}</button>
           <button id="setupTabStrength" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelStrength" tabindex="-1">{{ai.strengthLabel}}</button>
+          <button id="setupTabBoard" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelBoard" tabindex="-1">{{newGame.board}}</button>
+          <button id="setupTabRules" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelRules" tabindex="-1">{{newGame.rules}}</button>
         </div>
         <div class="setup-panels">
-          <div id="setupPanelBoard" class="setup-panel" role="tabpanel" aria-labelledby="setupTabBoard">
-            <div class="choice-list board-list" role="radiogroup" aria-labelledby="setupTabBoard">
-              <label class="choice-row"><input type="radio" name="boardSize" value="9" checked><span class="choice"><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 7.00H22M7.00 2V22M2 12.00H22M12.00 2V22M2 17.00H22M17.00 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.9}}</span><small class="choice-note">{{newGame.boardNotes.9}}</small></label>
-              <label class="choice-row"><input type="radio" name="boardSize" value="13"><span class="choice"><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 5.33H22M5.33 2V22M2 8.67H22M8.67 2V22M2 12.00H22M12.00 2V22M2 15.33H22M15.33 2V22M2 18.67H22M18.67 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.13}}</span><small class="choice-note">{{newGame.boardNotes.13}}</small></label>
-              <label class="choice-row"><input type="radio" name="boardSize" value="19"><span class="choice"><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 4.22H22M4.22 2V22M2 6.44H22M6.44 2V22M2 8.67H22M8.67 2V22M2 10.89H22M10.89 2V22M2 13.11H22M13.11 2V22M2 15.33H22M15.33 2V22M2 17.56H22M17.56 2V22M2 19.78H22M19.78 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.19}}</span><small class="choice-note">{{newGame.boardNotes.19}}</small></label>
-            </div>
-          </div>
-          <div id="setupPanelRules" class="setup-panel" role="tabpanel" aria-labelledby="setupTabRules" hidden>
-            <div id="rulesRow" class="choice-list rules-list" role="radiogroup" aria-labelledby="setupTabRules">
-              <label class="choice-row"><input type="radio" name="gameRules" value="chinese" checked><span class="choice">{{newGame.rulesChoices.chinese}}</span><small class="choice-note">{{newGame.rulesChoiceNotes.chinese}}</small></label>
-              <label class="choice-row"><input type="radio" name="gameRules" value="japanese"><span class="choice">{{newGame.rulesChoices.japanese}}</span><small class="choice-note">{{newGame.rulesChoiceNotes.japanese}}</small></label>
-              <label class="choice-row"><input type="radio" name="gameRules" value="gomoku"><span class="choice">{{newGame.rulesChoices.gomoku}}</span><small class="choice-note">{{newGame.rulesChoiceNotes.gomoku}}</small></label>
-              <label class="choice-row" id="freeRulesChoice"><input type="radio" name="gameRules" value="free"><span class="choice">{{newGame.rulesChoices.free}}</span><small class="choice-note">{{newGame.rulesChoiceNotes.free}}</small></label>
-            </div>
-          </div>
-          <div id="setupPanelSide" class="setup-panel" role="tabpanel" aria-labelledby="setupTabSide" hidden>
+          <div id="setupPanelSide" class="setup-panel" role="tabpanel" aria-labelledby="setupTabSide">
             <div id="aiSideRow"><fieldset id="aiSideChoices" class="choice-list side-list">
               <label class="choice-row"><input type="radio" name="aiSide" value="black" checked><span class="choice">{{common.sideBlack}}</span><small class="choice-note">{{newGame.sideNotes.black}}</small></label>
               <label class="choice-row"><input type="radio" name="aiSide" value="random"><span class="choice">{{common.random}}</span><small class="choice-note">{{newGame.sideNotes.random}}</small></label>
@@ -293,6 +278,21 @@
               <label class="choice-row"><input type="radio" name="aiStrength" value="strong"><span class="choice">{{ai.strengths.strong}}</span><small class="choice-note">{{ai.strengthNotes.strong}}</small></label>
             </fieldset>
             <p class="strength-note"><span id="aiStrengthNote" class="explanation setup-note"></span><button class="help-button" type="button" data-help="ai" aria-label="{{common.helpFor(newGame.ai)}}" title="{{common.helpFor(newGame.ai)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></p></div>
+          </div>
+          <div id="setupPanelBoard" class="setup-panel" role="tabpanel" aria-labelledby="setupTabBoard" hidden>
+            <div class="choice-list board-list" role="radiogroup" aria-labelledby="setupTabBoard">
+              <label class="choice-row"><input type="radio" name="boardSize" value="9" checked><span class="choice"><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 7.00H22M7.00 2V22M2 12.00H22M12.00 2V22M2 17.00H22M17.00 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.9}}</span><small class="choice-note">{{newGame.boardNotes.9}}</small></label>
+              <label class="choice-row"><input type="radio" name="boardSize" value="13"><span class="choice"><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 5.33H22M5.33 2V22M2 8.67H22M8.67 2V22M2 12.00H22M12.00 2V22M2 15.33H22M15.33 2V22M2 18.67H22M18.67 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.13}}</span><small class="choice-note">{{newGame.boardNotes.13}}</small></label>
+              <label class="choice-row"><input type="radio" name="boardSize" value="19"><span class="choice"><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 4.22H22M4.22 2V22M2 6.44H22M6.44 2V22M2 8.67H22M8.67 2V22M2 10.89H22M10.89 2V22M2 13.11H22M13.11 2V22M2 15.33H22M15.33 2V22M2 17.56H22M17.56 2V22M2 19.78H22M19.78 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.19}}</span><small class="choice-note">{{newGame.boardNotes.19}}</small></label>
+            </div>
+          </div>
+          <div id="setupPanelRules" class="setup-panel" role="tabpanel" aria-labelledby="setupTabRules" hidden>
+            <div id="rulesRow" class="choice-list rules-list" role="radiogroup" aria-labelledby="setupTabRules">
+              <label class="choice-row"><input type="radio" name="gameRules" value="chinese" checked><span class="choice">{{newGame.rulesChoices.chinese}}</span><small class="choice-note">{{newGame.rulesChoiceNotes.chinese}}</small></label>
+              <label class="choice-row"><input type="radio" name="gameRules" value="japanese"><span class="choice">{{newGame.rulesChoices.japanese}}</span><small class="choice-note">{{newGame.rulesChoiceNotes.japanese}}</small></label>
+              <label class="choice-row"><input type="radio" name="gameRules" value="gomoku"><span class="choice">{{newGame.rulesChoices.gomoku}}</span><small class="choice-note">{{newGame.rulesChoiceNotes.gomoku}}</small></label>
+              <label class="choice-row" id="freeRulesChoice"><input type="radio" name="gameRules" value="free"><span class="choice">{{newGame.rulesChoices.free}}</span><small class="choice-note">{{newGame.rulesChoiceNotes.free}}</small></label>
+            </div>
           </div>
         </div>
         <details id="newGameAdvanced" class="info-disclosure new-game-advanced"><summary>{{newGame.advanced}}</summary>

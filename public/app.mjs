@@ -1769,9 +1769,9 @@ function openPanel(kind) {
 }
 // Every mode's start button reads the same: 設定して再戦 while that mode's game is on the board.
 function startLabel(kind){return !room && gameMode===kind?TEXT.ai.restart:TEXT.newGame.start;}
-// 盤, ルール, 自分の石 and AIの強さ are one row of underlined tabs; the selected
+// 自分の石, AIの強さ, 盤 and ルール are one row of underlined tabs, the colour first; the selected
 // tab's choices fill the one panel under it, one per line with a note beside it.
-const SETUP_TABS=["Board","Rules","Side","Strength"];
+const SETUP_TABS=["Side","Strength","Board","Rules"];
 function selectSetupTab(key, focus=false) {
   for(const other of SETUP_TABS){
     const tab=$("setupTab"+other),selected=other===key;
