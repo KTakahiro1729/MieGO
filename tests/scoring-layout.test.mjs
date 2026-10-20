@@ -72,6 +72,16 @@ function assertFits(view,phase,size){
   }
 }
 
+// Names the screen and what the page shows when a step never happens.
+async function step(page,size,label,action){
+  try{return await action();}catch(error){
+    const state=await page.evaluate(()=>["gamePanel","turn","moveLabel","endStatus","scoreInstruction"]
+      .map(id=>id+"="+JSON.stringify(id==="gamePanel"?document.getElementById(id).className:
+        document.getElementById(id).textContent)).join(" ")).catch(()=>"(page gone)");
+    throw Error(`${size.join("×")} ${label}: ${error.message.split("\n")[0]} | ${state}`);
+  }
+}
+
 test("scoring and the result fit above the action row on every screen",{skip,timeout:240000},async t=>{
   if(!browser)throw launchError||Error("Playwright is not installed");
   await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
@@ -80,17 +90,22 @@ test("scoring and the result fit above the action row on every screen",{skip,tim
   for(const size of VIEWPORTS){
     const page=await browser.newPage({viewport:{width:size[0],height:size[1]}});
     await page.goto(origin);
-    await page.locator("#pass").waitFor();
+    // The button is in the HTML before app.mjs has wired it up.
+    await step(page,size,"app start",()=>page.waitForFunction(()=>typeof document.getElementById("pass").onclick==="function"));
     const playing=await layout(page);
     assertFits(playing,"playing",size);
-    for(let i=0;i<2;i++)await page.locator("#pass").click();
-    await page.locator("#gamePanel.is-scoring").waitFor();
+    for(const pass of ["first pass","second pass"]){
+      const move=await page.locator("#moveLabel").textContent();
+      await page.locator("#pass").click();
+      await step(page,size,pass,()=>page.waitForFunction(text=>document.getElementById("moveLabel").textContent!==text,move));
+    }
+    await step(page,size,"scoring",()=>page.locator("#gamePanel.is-scoring").waitFor());
     const phases=[["決着手順",await layout(page)]];
     if(await page.locator("#settleSkip").isVisible())await page.locator("#settleSkip").click();
-    await page.waitForFunction(()=>!document.getElementById("agree").disabled,null,{timeout:60000});
+    await step(page,size,"dead-stone check",()=>page.waitForFunction(()=>!document.getElementById("agree").disabled,null,{timeout:60000}));
     phases.push(["死石の確認",await layout(page)]);
     await page.locator("#agree").click();
-    await page.locator("#gamePanel.is-finished").waitFor();
+    await step(page,size,"result",()=>page.locator("#gamePanel.is-finished").waitFor());
     phases.push(["対局終了",await layout(page)]);
     for(const [phase,view] of phases){
       assertFits(view,phase,size);
