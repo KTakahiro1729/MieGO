@@ -181,18 +181,38 @@ function favourites(state: ReadState, policy: number[], count: number) {
   }
   return moves;
 }
-async function readAhead(state: ReadState, policy: number[], depth: 1 | 2) {
+// How long one evaluation takes on this device, for the page's time estimate.
+let evalMs = 0;
+async function timedEvaluation(state: ReadState) {
+  const start = performance.now();
+  const result = await evaluateMovePolicy(state);
+  const took = performance.now() - start;
+  evalMs = evalMs ? evalMs * 0.7 + took * 0.3 : took;
+  return result;
+}
+/** Tells the page how far the read is, after each evaluation. */
+type ReadStep = (done: number, total: number) => void;
+async function readAhead(state: ReadState, policy: number[], depth: 1 | 2, step: ReadStep) {
   const moverLead = (black: number) => state.next === BLACK ? black : -black;
   let best: { position: number; lead: number } | null = null;
-  for (const { position, child } of favourites(state, policy, READ_WIDTH[depth])) {
+  const moves = favourites(state, policy, READ_WIDTH[depth]);
+  // Two deep, each move may have up to REPLY_WIDTH answers to evaluate.
+  const total = moves.length * (depth === 2 ? 1 + REPLY_WIDTH : 1);
+  let done = 0;
+  step(done, total);
+  for (const { position, child } of moves) {
     if (newest) return null;
-    const answer = await evaluateMovePolicy(child);
+    const answer = await timedEvaluation(child);
+    step(++done, total);
     let lead = moverLead(answer.lead);
     if (depth === 2) {
-      for (const reply of favourites(child, answer.policy, REPLY_WIDTH)) {
+      const replies = favourites(child, answer.policy, REPLY_WIDTH);
+      for (const reply of replies) {
         if (newest) return null;
-        lead = Math.min(lead, moverLead((await evaluateMovePolicy(reply.child)).lead));
+        lead = Math.min(lead, moverLead((await timedEvaluation(reply.child)).lead));
+        step(++done, total);
       }
+      done += REPLY_WIDTH - replies.length;
     }
     if (!best || lead > best.lead) best = { position, lead };
   }
@@ -217,8 +237,8 @@ async function drain() {
           const behind = state.next === BLACK ? -(result.lead as number) : result.lead as number;
           const depth = behind >= next.read.two ? 2 : behind >= next.read.one ? 1 : 0;
           if (depth) {
-            self.postMessage({ id: next.id, kind: "reading", depth });
-            const read = await readAhead(state, result.policy as number[], depth);
+            const read = await readAhead(state, result.policy as number[], depth, (done, total) =>
+              self.postMessage({ id: next.id, kind: "reading", depth, done, total, evalMs }));
             if (read) { result.readMove = read.position; result.readDepth = depth; }
           }
         }

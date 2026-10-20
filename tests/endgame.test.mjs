@@ -89,7 +89,7 @@ test("advice with no valid NN estimate is not reported as 'not near endgame'",()
   assert.equal(endgameHint(g,advisor),"終局の目安を確認中");
   assert.equal(endgameHint(g,advisor,{unavailable:true}),TEXT.endgame.unavailable);
   advisor.observe(g,Array(81).fill(0));
-  assert.equal(endgameHint(g,advisor),"終局まではまだまだです");
+  assert.equal(endgameHint(g,advisor),"終局はまだまだです");
   assert.equal(endgameHint({...g,moveNumber:5},advisor),"終局の目安を更新中");
   advisor.stage="near";
   assert.equal(endgameHint(g,advisor),"そろそろ終局です");

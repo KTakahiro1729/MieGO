@@ -47,6 +47,13 @@ button:hover:not(:disabled){border-color:#748094}
 .status-sub{display:flex;justify-content:center;gap:10px;min-width:0;max-width:100%;color:var(--muted);font-size:11px;line-height:14px}
 .turn{font-size:19px;font-weight:700;letter-spacing:.01em;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:24px}
 .turn::before{content:"";display:inline-block;vertical-align:-4px;margin-right:9px;width:22px;height:22px;box-sizing:border-box;background:radial-gradient(circle at 32% 28%,#56575c,#0c1013 72%);border:1px solid #6c7073;border-radius:50%;box-shadow:0 3px 9px #0008}
+/* 最強 is thinking: a small gold arc turns after the turn label, opposite the
+   stone, until it moves. .thinking-ring is the same arc on its own, for any
+   other spot that shows a side thinking. */
+.thinking-ring,.turn.is-waiting::after{display:inline-block;width:16px;height:16px;box-sizing:border-box;border:2px solid transparent;border-top-color:var(--accent-text);border-right-color:var(--accent-text);border-radius:50%;animation:thinking-spin .9s linear infinite}
+.turn.is-waiting::after{content:"";margin-left:9px;vertical-align:-2px}
+@keyframes thinking-spin{to{transform:rotate(1turn)}}
+@media(prefers-reduced-motion:reduce){.thinking-ring,.turn.is-waiting::after{animation-duration:3s}}
 .turn.white-to-play::before{background:radial-gradient(circle at 32% 27%,#fff,#deddd6 72%);border:1px solid #b7b6b0}
 /* While a game is played, the row names both players instead of the turn sentence, which stays for screen readers. */
 .status-main.has-players>.turn,.status-main.has-players>.status-sub{position:absolute!important;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
@@ -67,11 +74,13 @@ button:hover:not(:disabled){border-color:#748094}
 .player.is-turn .player-name{color:var(--gold);font-weight:700}
 .player.is-turn .player-stone{box-shadow:0 0 0 2px #0e1219,0 0 0 4px var(--gold)}
 .player.is-turn .player-detail{color:#d8dce2}
-/* A COM that is thinking: a turning ring after 考え中, on the side away from the stone. */
-.player-wait{flex:none;width:10px;height:10px;box-sizing:border-box;border-radius:50%;border:2px solid #f0c77333;border-top-color:var(--gold);animation:player-wait 1s linear infinite}
+/* A COM that is thinking: #87's turning arc after 考え中, on the side away from the stone. */
+.player-wait.thinking-ring{flex:none;width:11px;height:11px}
 .player-wait[hidden]{display:none}
-@keyframes player-wait{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.player-wait{animation-duration:3s}}
+/* 持ち時間 replaces a person's line; red in its last ten seconds. */
+.player .clock-time{font-size:13px;font-weight:700;color:#cfd3da;font-variant-numeric:tabular-nums}
+.player .clock-time[hidden]{display:none}
+.player .clock-time.is-low{color:#d84a3a}
 .players-move{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .connection-status{font-size:11px;color:#aeb6c0;white-space:nowrap;display:flex;align-items:center;gap:7px}
 .connection-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#7b8392;flex:none}
@@ -400,6 +409,7 @@ body{overflow:hidden}
 .board-frame{flex:1 1 0;min-height:0;width:auto;max-width:100%;max-height:min(675px,calc(100vw - 24px))}
 .status-sub .move-label{font-variant-numeric:tabular-nums;flex-shrink:0}
 .status-sub .connection-status{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.setup-more .time-control select{min-width:0;flex:1}
 .ownership-legend{margin-top:6px}
 .gradient{height:9px}
 .legend-labels{padding-top:3px;font-size:10px}
@@ -549,6 +559,9 @@ body{overflow:hidden}
 /* The AI question follows the reason text directly. It is drawn about one
    line tall to sit with the 14px text; ::after keeps a 44px tap target. */
 /* The reason wraps onto a second line inside the bar's fixed height (UX policy §3.5). */
+/* The scoring question keeps the endgame advice on a line above it. */
+.endgame-bar.is-asking .end-status{white-space:pre-line}
+@media(max-width:360px){.endgame-bar.is-asking .end-status{font-size:13px}}
 .endgame-bar.has-illegal .end-status{flex:0 1 auto;min-width:0;white-space:pre-line;overflow:hidden;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
 @media(max-width:360px){
