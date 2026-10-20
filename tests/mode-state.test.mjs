@@ -10,12 +10,12 @@ const panel=key=>{
   return sheet.slice(start,next>0?next:sheet.indexOf('</section>',start));
 };
 
-test("a 新規対戦 button opens one sheet with the modes as icon tabs, then 戻る and 対戦履歴を見る",()=>{
+test("a 新規対戦 button opens one sheet with the modes as icon tabs, then 戻る and 履歴を見る",()=>{
   assert.match(html,/<button id="newGameButton"[^>]*>新規対戦<\/button>/);
   assert.match(app,/\$\("newGameButton"\)\.onclick=\(\)=>openPanel\(room\?"online":gameMode\)/);
   assert.doesNotMatch(html,/<select id="modePicker"|<option value="history">/);
   // The modes form one row of icon tabs in one sheet, [対COM|観戦|対友人] [1台で打つ];
-  // under them, [現在の対局に戻る] [対戦履歴を見る].
+  // under them, [現在の対局に戻る] [履歴を見る].
   assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,5);
   const modes=between(sheet,'<div class="new-game-modes">','<div class="new-game-nav">');
   assert.deepEqual(modes.split('<div class="fused">').slice(1).map(group=>[...group.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1])),

@@ -97,10 +97,10 @@ test("confirm button uses the original shared gold-and-opacity disabled appearan
   assert.match(html,/id="confirm" class="primary" type="button" disabled/);
   assert.match(app,/\$\("confirm"\)\.disabled=!candidate \|\| !myTurn/);
 });
-test("solo endgame prompt names AI only in AI games",()=>{
+test("solo endgame prompt names the COM only in COM games",()=>{
   assert.match(app,/localPrompt\?\(unsettled\?TEXT\.endgame\.detailUnsettled:gameMode==="ai"\?TEXT\.endgame\.detailLocalAi:\s*TEXT\.endgame\.detailLocal\)/);
-  assert.match(TEXT.endgame.detailLocalAi,/AIが終局を承認するわけではありません/);
-  assert.doesNotMatch(TEXT.endgame.detailLocal,/AI/);
+  assert.match(TEXT.endgame.detailLocalAi,/COMが終局を承認するわけではありません/);
+  assert.doesNotMatch(TEXT.endgame.detailLocal,/COM/);
 });
 test("continue-style choices sit left of the advancing choice, in the bar and while scoring",()=>{
   const bar=html.slice(html.indexOf('id="endActions"'),html.indexOf('id="analysisStatus"'));
