@@ -609,6 +609,8 @@ export const TEXT = {
     title: "設定",
     close: "設定を閉じる",
     reset: "初期状態に戻す",
+    sound: "効果音",
+    soundNote: "石を打つ・取る、秒読み、終局で鳴らします",
     board: "碁盤",
     themes: { wood: "木目", light: "ライト", dark: "ダーク", custom: "カスタム" },
     boardColours: { board: "盤", line: "線", black: "黒石", white: "白石" },

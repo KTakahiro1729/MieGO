@@ -155,6 +155,7 @@ body.board-zoomed .board-bleed{opacity:1}
 .mode strong{font-size:13px}
 .mode p{font-size:11px;color:var(--muted);margin:5px 0 0}
 .mode input{min-width:23px;min-height:23px;accent-color:#e9c677}
+.settings-section.sound-settings .mode{margin:0}
 .explanation{font-size:12px;line-height:1.7;color:#aeb3be;margin:12px 0 0}
 
 .invite-details{display:flex;flex-direction:column;gap:6px;margin-top:12px}

@@ -77,6 +77,11 @@ import {
 import { createP2PTransport } from "./p2p-transport.mjs";
 import { interpolateOwnership, prisonerOutline } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
+import {
+  countdownSound,
+  createSoundEffects,
+  moveSound,
+} from "./sound.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
 import { playerSides } from "./player-row.mjs";
@@ -233,6 +238,8 @@ const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideSton
 const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingStones,isCounting,show,draw,
   onOverlayOn:()=>boardReview?requestReviewOwnership():requestAnalysis()});
 const {shownPalette,overlayOn,updateGradient}=appearance;
+// 効果音: off until the 設定 sheet turns them on.
+const sound = createSoundEffects({$});
 let connected = false;
 // A first visit starts against the COM; later visits restore the saved mode.
 let gameMode = room ? "online" : "ai";
@@ -1259,6 +1266,7 @@ function apply(action, remote=false, isAiMove=false) {
     if(remote && !isPeerAction(action,game,{peerColor:myOnlineColor()===null?null:-myOnlineColor(),
       peerIsOwner:p2pRole==="guest"}))throw new Error("Not the peer's action");
     const wasScoring=game.status==="scoring";
+    const before=game;
     if(action.type==="move"){
       if(action.number!==game.moveNumber+1) throw new Error("Move number mismatch");
       if(action.before!==boardHash(game.board)) throw new Error("Board mismatch before the move");
@@ -1351,6 +1359,8 @@ function apply(action, remote=false, isAiMove=false) {
     // A watched COM同士 game keeps the zoom the viewer chose.
     if(action.type==="move" && (remote || isAiMove && !watching))boardZoom.reset();
     candidate=null;save();show();
+    const cue=moveSound(before,game,action.type==="move"?action.position:null);
+    if(cue)sound.play(cue);
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
        (action.type==="end_answer" && game.status==="scoring") ||
@@ -1652,6 +1662,7 @@ function timeOut(side) {
   stopAiTurn();candidate=null;
   game=loseOnTime(game,side);
   save();show();
+  sound.play("end");
 }
 gameClock.onTimeout(timeOut);
 // Each person's time under their name in the turn row: the side to move counts down.
@@ -1672,6 +1683,14 @@ function renderClock() {
   }
 }
 gameClock.subscribe(renderClock);
+// 秒読み: one beep for each of the last seconds of the running clock.
+let lastCountdown=null;
+gameClock.subscribe(reading=>{
+  const cue=countdownSound(reading);
+  const key=cue && reading.side+":"+game.moveNumber+":"+clockSeconds(reading.left);
+  if(cue && key!==lastCountdown)sound.play(cue);
+  lastCountdown=key;
+});
 function finishedTitle(){
   const mine=room?myOnlineColor():gameMode==="ai" && !isWatching()?humanColor:null;
   const winner=resultWinner(game.result);
