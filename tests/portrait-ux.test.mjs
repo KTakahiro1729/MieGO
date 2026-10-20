@@ -75,6 +75,10 @@ test("finished view exposes next match and history without hidden menus",()=>{
   assert.match(app,/\$\("newMatchSheet"\)\.hidden=!isFinished/);
   assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished \|\| !!room/);
   assert.match(app,/\$\("openHistory"\)\.hidden=!isFinished/);
+  // 共有 sits beside 履歴 and opens the share sheet for the game just played.
+  assert.match(html,/<button id="openShare" class="secondary" type="button" aria-label="この試合を共有する"[^>]*hidden>共有<\/button>/);
+  assert.match(app,/\$\("openShare"\)\.hidden=!isFinished/);
+  assert.match(app,/\$\("openShare"\)\.onclick=openSharePanel/);
 });
 
 test("AI scoring uses human-only confirmation, and remote scoring retains two-player consent",()=>{

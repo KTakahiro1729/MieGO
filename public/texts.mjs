@@ -489,6 +489,8 @@ export const TEXT = {
     title: "共有",
     close: "共有を閉じる",
     open: "共有を開く",
+    // After a game the row offers 共有 next to 履歴, for the game just played.
+    thisGame: "この試合を共有する",
     image: "画像",
     imageKind: "画像の種類",
     still: "静止画",
