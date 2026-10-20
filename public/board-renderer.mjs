@@ -218,9 +218,50 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     });
   }
 
+  /**
+   * 決着手順: KataGo's playout over the real position. Stones it adds are
+   * drawn slightly translucent with a thin ring; real stones it captured
+   * stay as faint ghosts with a red cross, the way they will be marked dead.
+   */
+  function paintSettle(theme,view,gap,pad) {
+    const {board,base,last,ownership}=view.settle;
+    if(ownership && ownership.length===board.length && showsOwnership(view.palette))
+      paintOverlay(ownership,view.palette,view.opacity,view.boardTheme,gap,pad,true);
+    paintStarPoints(theme,gap,pad);
+    const r=gap*.44;
+    for(let i=0;i<board.length;i++){
+      const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
+      if(board[i]){
+        const added=board[i]!==base[i];
+        paintStone(theme,board[i],x,y,r,added?.82:1);
+        if(added){
+          ctx.save();ctx.strokeStyle=board[i]===BLACK?"#f5d58bcc":"#8a6a2acc";
+          ctx.lineWidth=Math.max(1.5,gap*.04);
+          ctx.beginPath();ctx.arc(x,y,r*.55,0,Math.PI*2);ctx.stroke();ctx.restore();
+        }
+      }else if(base[i]){
+        paintStone(theme,base[i],x,y,r,.28);
+        ctx.save();ctx.strokeStyle="#d95a4e";ctx.lineWidth=3;ctx.beginPath();
+        ctx.moveTo(x-r*.4,y-r*.4);ctx.lineTo(x+r*.4,y+r*.4);
+        ctx.moveTo(x+r*.4,y-r*.4);ctx.lineTo(x-r*.4,y+r*.4);ctx.stroke();ctx.restore();
+      }
+    }
+    if(Number.isInteger(last)){
+      const x=pad+(last%SIZE)*gap,y=pad+Math.floor(last/SIZE)*gap;
+      ctx.fillStyle="#d0b25c";ctx.fillRect(x-4,y-4,8,8);
+    }
+  }
+
   function draw() {
     const view=getView();
     const {game,boardReview}=view;
+    if(view.settle && !boardReview){
+      SIZE=sizeOf(view.settle.board);
+      const theme=boardTheme(view.boardTheme), d=canvas.width, gap=d/(SIZE+1);
+      paintGrid(theme,d,gap,gap);
+      paintSettle(theme,view,gap,gap);
+      return;
+    }
     const display=boardReview?.display||game;
     SIZE=sizeOf(display.board);
     const theme=boardTheme(view.boardTheme);

@@ -144,6 +144,10 @@ export const TEXT = {
     reviewModifiedJapanese: "数字は地。点数を確認してください",
     reviewUnavailable: "AI判定不可。石をタップして指定",
     reviewChecking: "死石を確認しています…",
+    settling: moves => "AIが最善手で決着をつけています（" + moves + "手）",
+    settleDone: moves => moves ? "決着後の盤面（" + moves + "手）。取られた石を死石にします" : "打つ手がなく、そのまま判定します",
+    settleSkip: "スキップ",
+    settleReplay: "決着手順を再生",
     // Each row: { area, detail, total } from scoreRows.
     breakdown: (black, white) => "黒：" + (black.detail ? black.detail + "＝" : "") + black.total +
       "\n白：" + (white.detail ? white.detail + "＝" : "") + white.total,
