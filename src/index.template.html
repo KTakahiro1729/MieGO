@@ -78,7 +78,7 @@
           <button id="stepBack" class="icon-button step-button" type="button" aria-label="{{review.previous}}" title="{{review.previous}}" disabled><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
           <div class="status-main">
             <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
-            <div class="status-sub"><span id="moveLabel" class="move-label">{{game.moveLabel(0)}}</span><span id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</span></div>
+            <div class="status-sub"><span id="moveLabel" class="move-label">{{game.moveLabel(0)}}</span><span id="gameClock" class="game-clock" aria-label="{{game.clockLabel}}" hidden><span class="clock-stone black" aria-hidden="true"></span><span id="clockBlack" class="clock-time"></span><span class="clock-stone white" aria-hidden="true"></span><span id="clockWhite" class="clock-time"></span></span><span id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</span></div>
           </div>
           <button id="stepForward" class="icon-button step-button" type="button" aria-label="{{review.next}}" title="{{review.next}}" disabled><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
         </div>
@@ -332,6 +332,11 @@
               </select>
             </div>
             <p id="handicapNote" class="explanation" hidden></p>
+            <div id="timeControlSetup" class="advanced-row time-control"><label for="mainTime">{{newGame.mainTime}}</label>
+              <select id="mainTime" class="handicap-select"><option value="0">{{newGame.mainTimes.0}}</option><option value="60">{{newGame.mainTimes.60}}</option><option value="300">{{newGame.mainTimes.300}}</option><option value="600">{{newGame.mainTimes.600}}</option><option value="1200">{{newGame.mainTimes.1200}}</option><option value="1800">{{newGame.mainTimes.1800}}</option></select>
+              <label for="byoyomi">{{newGame.byoyomi}}</label>
+              <select id="byoyomi" class="handicap-select"><option value="0">{{newGame.byoyomis.0}}</option><option value="10">{{newGame.byoyomis.10}}</option><option value="30">{{newGame.byoyomis.30}}</option><option value="60">{{newGame.byoyomis.60}}</option></select>
+            </div>
             <div id="gomokuForbiddenRow" class="mode hide-stones"><div><strong>{{newGame.gomokuForbidden}}</strong><p>{{newGame.gomokuForbiddenNote}}</p></div><input id="gomokuForbidden" type="checkbox" aria-label="{{newGame.gomokuForbidden}}"></div>
             <div id="hideStonesRow" class="mode hide-stones"><div><strong>{{newGame.hideStones}}</strong><p>{{newGame.hideStonesNote}}</p></div><input id="hideStones" type="checkbox" aria-label="{{newGame.hideStones}}"></div>
             </div>
