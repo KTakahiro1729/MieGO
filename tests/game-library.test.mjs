@@ -147,3 +147,10 @@ test("a watched COM同士 game is remembered as watched; other games never are",
  assert.equal(lib.save({mode:"ai",snapshot:newGame()}).watch,false);
  assert.equal(lib.save({mode:"local",snapshot:newGame(),watch:true}).watch,false);
 });
+test("a watched game keeps each colour's COM; others keep none",()=>{
+ const {lib}=setup();
+ const watchAi={black:{strength:"beginner",invasion:100,reinforcement:0},white:{strength:"strong",invasion:50,reinforcement:50}};
+ assert.deepEqual(lib.load(lib.save({mode:"ai",snapshot:newGame(),watch:true,watchAi}).id).watchAi,watchAi);
+ assert.equal(lib.save({mode:"ai",snapshot:newGame(),watchAi}).watchAi,null);
+ assert.equal(lib.save({mode:"ai",snapshot:newGame(),watch:true,watchAi:{black:{}}}).watchAi,null);
+});

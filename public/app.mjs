@@ -69,7 +69,7 @@ import { scoreBreakdown, scoreRows, PRISONER_OUTLINE } from "./scoring-regions.m
 import { createBoardZoom } from "./board-zoom.mjs";
 import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
-import { GameLibrary } from "./game-library.mjs";
+import { cleanWatchAi, GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { createShareImages, downloadBlob } from "./share-images.mjs";
 import { OwnershipStore } from "./ownership-store.mjs";
@@ -185,6 +185,10 @@ let aiSideChoice = "black";
 // COM同士 (aiSide "watch"): the AI plays both colours with a pause between
 // moves, so each one can be followed; the player can pause and resume it.
 let watching = false, watchPaused = false, watchTimer = null, lastWatchMoveAt = 0;
+// Each colour's COM when two COMs play; 設定するCOM picks which one the sheet's sliders set.
+const newCom = (strength=DEFAULT_AI_STRENGTH, invasion=50, reinforcement=50) =>
+  ({strength,invasion,reinforcement});
+let watchAi = {black:newCom(), white:newCom()}, comTarget = "black";
 const WATCH_STEP_MS = 1100;
 let aiHandicap = 0, localHandicap = 0, onlineHandicap = 0;
 // The ruleset for the next new game, shared by every mode like the board size.
@@ -387,6 +391,7 @@ function rememberSettings() {
       mode:gameMode,
       onlineHandicap,
       reinforcement,
+      watchAi,
     }));
   } catch {}
 }
@@ -411,9 +416,21 @@ function syncStepSlider(id) {
 // Invasion and reinforcement have three stops; older saves with any 0-100 value snap to the nearest.
 const personaStep=value=>Math.round(Math.max(0,Math.min(100,Number(value??50)||0))/50)*50;
 const personaLabel=value=>value<50?TEXT.ai.persona.low:value>50?TEXT.ai.persona.high:TEXT.ai.persona.mid;
+// The sheet's sliders set one COM of a watched game, or else the COM opponent.
+const editsWatchAi = () => aiSideChoice==="watch" || isWatching();
+const sliderCom = () => editsWatchAi() ? watchAi[comTarget] : newCom(aiStrength,invasion,reinforcement);
+function readWatchAi(value, fallback) {
+  const clean=cleanWatchAi(value);
+  if(!clean)return {black:{...fallback},white:{...fallback}};
+  for(const side of ["black","white"])
+    clean[side]={strength:normalizeStrength(clean[side].strength,DEFAULT_AI_STRENGTH),
+      invasion:personaStep(clean[side].invasion),reinforcement:personaStep(clean[side].reinforcement)};
+  return clean;
+}
 function updatePersonaUi() {
-  $("aiInvasion").value=String(invasion);
-  $("aiReinforcement").value=String(reinforcement);
+  const com=sliderCom();
+  $("aiInvasion").value=String(com.invasion);
+  $("aiReinforcement").value=String(com.reinforcement);
   syncStepSlider("aiInvasion");syncStepSlider("aiReinforcement");
 }
 
@@ -698,13 +715,15 @@ function finishAiMove(result) {
       result.ownership.every(v=>Number.isFinite(v)&&Math.abs(v)<=1.001);
     const passStage=valid?endgameAdvisor.observe(game,result.ownership):"playing";
     if(valid){endgameStage=passStage;rememberOwnership(game.board,result.ownership);}
+    // Two COMs each play with their own settings.
+    const com=watching?watchAi[game.next===BLACK?"black":"white"]:newCom(aiStrength,invasion,reinforcement);
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
       ownership:result.ownership,endgameStage:passStage,
-      invasion,reinforcement,strength:aiStrength,
+      invasion:com.invasion,reinforcement:com.reinforcement,strength:com.strength,
       temperature:0.38
     });
-    $("aiMatchStatus").textContent = TEXT.ai.playingWith(AI_STRENGTHS[aiStrength].label,personaLabel(invasion),
-      personaLabel(reinforcement));
+    $("aiMatchStatus").textContent = TEXT.ai.playingWith(AI_STRENGTHS[com.strength].label,personaLabel(com.invasion),
+      personaLabel(com.reinforcement));
     if(watching)lastWatchMoveAt=performance.now();
     submitMove(next,true);
   } catch(error) {
@@ -1317,7 +1336,7 @@ function save(){
   try {
     const record=gameLibrary.save({id:currentGameId,mode:room?"online":gameMode,
       roomId:room||null,snapshot:game,lastPosition,humanColor,aiStrength,invasion,reinforcement,seat,
-      watch:gameMode==="ai" && watching},currentRevision);
+      watch:gameMode==="ai" && watching,watchAi},currentRevision);
     currentGameId=record.id;currentRevision=record.revision;
     if(!room)gameLibrary.setActive(gameMode,record.id);
     if(room)persistOnline();
@@ -1336,6 +1355,7 @@ function savedGame(mode) {
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     aiStrength=normalizeStrength(record.aiStrength);
     invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
+    if(watching)watchAi=readWatchAi(record.watchAi,newCom(aiStrength,invasion,reinforcement));
   }
   return record?.snapshot||newGame(true,{size:boardSize});
 }
@@ -1564,6 +1584,7 @@ function showNewGameMode(kind) {
   $("watchCurrent").hidden=kind!=="ai" || !!room || gameMode!=="ai" || watching ||
     game.status!=="playing" || !!boardReview;
   $("watchCurrent").disabled=fallbackMode;
+  syncSideUi();syncStrengthUi();updatePersonaUi();
   $("onlineSideRow").hidden=kind!=="online";
   $("modeHelp").dataset.help=kind;
   syncReturnButton(kind);
@@ -1953,7 +1974,9 @@ function resumeSelectedReview(){
   if(gameMode==="ai"){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
-    aiStrength=normalizeStrength(record.aiStrength);syncStrengthUi();
+    aiStrength=normalizeStrength(record.aiStrength);
+    if(watching)watchAi=readWatchAi(record.watchAi,newCom(aiStrength,invasion,reinforcement));
+    syncStrengthUi();
     // A random preference stays random; a fixed one follows the resumed game.
     if(aiSideChoice!=="random")aiSideChoice=watching?"watch":humanColor===WHITE?"white":"black";
     syncSideUi();
@@ -2032,7 +2055,8 @@ $("startAi").onclick=()=>{
   // Otherwise: the same choices and the same random draw as a friend invitation.
   try{humanColor=watching || aiHandicap?BLACK:selectColor(aiSideChoice);}
   catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
-  aiStrength=strengthAt($("aiStrength").value);
+  // The slider shows a watched game's 設定するCOM, so it only sets aiStrength otherwise.
+  if(!watching)aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
   game=newGame(true,nextGameOptions(aiHandicap));currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
@@ -2043,18 +2067,30 @@ const SIDE_CHOICES=["random","black","white","watch"];
 function syncSideUi() {
   const input=document.querySelector('input[name="aiSide"][value="'+aiSideChoice+'"]');
   if(input)input.checked=true;
+  const target=document.querySelector('input[name="comTarget"][value="'+comTarget+'"]');
+  if(target)target.checked=true;
+  $("comTargetRow").hidden=newGameModeKind()!=="ai" || !editsWatchAi();
 }
 for (const input of document.querySelectorAll('input[name="aiSide"]')) {
   input.onchange=e=>{
     if(!e.target.checked)return;
     aiSideChoice=SIDE_CHOICES.includes(e.target.value)?e.target.value:"black";
-    rememberSettings();show();
+    rememberSettings();syncSideUi();syncStrengthUi();updatePersonaUi();show();
+  };
+}
+for (const input of document.querySelectorAll('input[name="comTarget"]')) {
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    comTarget=e.target.value==="white"?"white":"black";
+    syncStrengthUi();updatePersonaUi();
   };
 }
 // この対局を観戦する: a running AI game hands the player's colour to the COM too.
 function watchCurrentGame() {
   if(room || gameMode!=="ai" || watching || game.status!=="playing" || boardReview)return;
   watching=true;watchPaused=false;hints=null;
+  // The player's colour goes to a COM like the one already playing.
+  watchAi={black:newCom(aiStrength,invasion,reinforcement),white:newCom(aiStrength,invasion,reinforcement)};
   candidate=null;illegalCandidate=null;endExpanded=false;
   lastWatchMoveAt=performance.now();
   $("aiMatchStatus").textContent=TEXT.ai.watchStarted;
@@ -2066,6 +2102,9 @@ function takeOverWatchedGame(color) {
   if(!isWatching() || game.status!=="playing")return;
   stopAiTurn(); // A move being computed for the taken colour is dropped.
   watching=false;watchPaused=false;humanColor=color;hints=null;
+  // The COM left playing keeps its settings.
+  ({strength:aiStrength,invasion,reinforcement}=watchAi[color===BLACK?"white":"black"]);
+  syncSideUi();syncStrengthUi();updatePersonaUi();
   $("aiMatchStatus").textContent=TEXT.ai.tookOver(colorLabel(color));
   save();show();requestAnalysis();
 }
@@ -2116,8 +2155,10 @@ function syncHandicapUi() {
 for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]]) {
   $(id).oninput=e=>{
     const value=personaStep(e.target.value);
-    if(key==="invasion")invasion=value;else reinforcement=value;
-    updatePersonaUi();rememberSettings();
+    if(editsWatchAi())watchAi[comTarget][key]=value;
+    else if(key==="invasion")invasion=value;else reinforcement=value;
+    updatePersonaUi();
+    if(isWatching())save();else rememberSettings();
     $("aiMatchStatus").textContent=TEXT.ai.nextMove;
   };
 }
@@ -2125,15 +2166,17 @@ for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforceme
 const STRENGTH_ORDER=Object.keys(AI_STRENGTHS);
 const strengthAt=index=>normalizeStrength(STRENGTH_ORDER[Number(index)],DEFAULT_AI_STRENGTH);
 function syncStrengthUi() {
-  $("aiStrength").value=String(STRENGTH_ORDER.indexOf(aiStrength));
+  $("aiStrength").value=String(STRENGTH_ORDER.indexOf(sliderCom().strength));
   syncStepSlider("aiStrength");
   $("aiHints").checked=aiHints;
 }
 // Strength applies from the next AI move, like the personality sliders.
 $("aiStrength").oninput=e=>{
-  aiStrength=strengthAt(e.target.value);syncStepSlider("aiStrength");
+  const strength=strengthAt(e.target.value);
+  if(editsWatchAi())watchAi[comTarget].strength=strength;else aiStrength=strength;
+  syncStepSlider("aiStrength");
   if(gameMode==="ai")save();else rememberSettings();
-  $("aiMatchStatus").textContent=TEXT.ai.nextStrength(AI_STRENGTHS[aiStrength].label);
+  $("aiMatchStatus").textContent=TEXT.ai.nextStrength(AI_STRENGTHS[strength].label);
 };
 $("aiHints").onchange=e=>{
   aiHints=e.target.checked;rememberSettings();
@@ -2203,6 +2246,7 @@ else try {
     aiHints=settings.aiHints===true;
     invasion=personaStep(settings.invasion);
     reinforcement=personaStep(settings.reinforcement);
+    watchAi=readWatchAi(settings.watchAi,newCom(aiStrength,invasion,reinforcement));
   }
   game=savedGame(gameMode);endExpanded=!!game.endProposal;
 }catch{}
