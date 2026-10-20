@@ -202,9 +202,19 @@ body.board-zoomed .board-bleed{opacity:1}
 .board-swatch.custom{background-color:var(--sw-board)}
 /* カスタム's colours: a row of swatches per colour, then "＋" for any other.
    Only "＋" opens the device's colour picker. */
-#customBoardColours[hidden]{display:none}
-.colour-row{display:flex;align-items:center;gap:7px;margin:0 0 9px}
-.colour-row-label{width:34px;flex:none;font-size:12px;color:#ccd0da}
+/* Changing カスタム's colours shrinks the sheet to just those swatches, with
+   no dimming, so the board above shows the colours as they change. */
+.custom-colours[hidden]{display:none}
+.settings-panel.is-editing>:not(.has-editing),.settings-panel.is-editing .has-editing>:not(.custom-colours){display:none}
+.settings-panel.is-editing .has-editing{border:0;margin:0;padding:0}
+.settings-panel.is-editing .custom-colours{margin-top:0}
+body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:none}
+.custom-colours-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;font-size:15px;color:#e6e8ee}
+.done-button{min-height:44px;padding:6px 18px;border:1px solid #edc77c;border-radius:999px;background:none;color:#edc77c;font-size:13px;cursor:pointer}
+.edit-colours{display:block;width:100%;min-height:44px;margin:0 0 14px;border:1px solid #505766;border-radius:12px;background:#222937;color:#e6e8ee;font-size:13px;cursor:pointer}
+.edit-colours[hidden]{display:none}
+.colour-row{display:flex;align-items:center;gap:6px;margin:0 0 9px}
+.colour-row-label{width:3.2em;flex:none;font-size:12px;color:#ccd0da;white-space:nowrap}
 .colour-chip{width:26px;height:26px;min-width:0;min-height:0;flex:none;padding:0;border:1px solid #ffffff3a;border-radius:50%;cursor:pointer;position:relative}
 .colour-chip[aria-checked="true"],.colour-other.is-chosen{box-shadow:0 0 0 2px #181e2a,0 0 0 4px #edc77c}
 .colour-chip:focus-visible,.colour-other:focus-within{outline:3px solid #f2c875;outline-offset:3px}
@@ -729,13 +739,8 @@ body{overflow:hidden}
 .ramp-track{position:relative;height:44px;margin:10px 15px 2px}
 .ramp-preview{position:absolute;left:-15px;right:-15px;top:2px;height:40px;border-radius:10px;box-shadow:inset 0 0 0 1px #0004,0 2px 8px #0006}
 .ramp-neutral{position:absolute;left:50%;top:-3px;width:2px;height:50px;margin-left:-1px;border-radius:2px;background:#ffffff59}
-.ramp-track .ramp-stop{position:absolute;left:var(--at);top:7px;display:block;width:30px;height:30px;margin:0;line-height:0;transform:translateX(-50%);cursor:pointer}
-.ramp-stop input{display:block;width:30px;height:30px;padding:0;margin:0;border:3px solid #f4f1ea;border-radius:50%;background:none;cursor:pointer;-webkit-appearance:none;appearance:none;box-shadow:0 2px 8px #000a;transition:transform .15s}
-.ramp-stop input:hover,.ramp-stop input:focus-visible{transform:scale(1.12)}
-.ramp-stop input:focus-visible{outline:3px solid #f2c875;outline-offset:2px}
-.ramp-stop input::-webkit-color-swatch-wrapper{padding:0}
-.ramp-stop input::-webkit-color-swatch{border:0;border-radius:50%}
-.ramp-stop input::-moz-color-swatch{border:0;border-radius:50%}
+/* The dots mark where each colour sits; カスタム edits them in the rows below. */
+.ramp-track .ramp-stop{position:absolute;left:var(--at);top:7px;display:block;width:30px;height:30px;margin:0;box-sizing:border-box;border:3px solid #f4f1ea;border-radius:50%;box-shadow:0 2px 8px #000a;transform:translateX(-50%)}
 .ramp-captions{position:relative;height:14px;margin:4px 15px 0;font-size:10px;color:#8f97a5}
 .ramp-captions span{position:absolute;left:var(--at);transform:translateX(-50%);white-space:nowrap}
 .shape-choices .fused span{display:grid;justify-items:center;gap:2px;padding:9px 6px;font-size:13px;font-weight:650;color:#c9ced8;transition:background .15s,color .15s}

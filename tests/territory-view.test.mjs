@@ -84,7 +84,8 @@ test("colour-map choices: presets, custom and hiding the overlay; old choices mi
   assert.equal(normalizePalette("custom"),"custom");
   const html=source("index.html");
   for(const name of [...Object.keys(PALETTES),"custom","none"])assert.match(html,new RegExp(`name="palette" value="${name}"`));
-  for(const key of COLOUR_KEYS)assert.match(html,new RegExp(`type="color" id="colour-${key}"`));
+  // Each colour has a dot on the ramp and a row of swatches for カスタム.
+  for(const key of COLOUR_KEYS)assert.match(html,new RegExp(`id="colour-${key}"[^>]*>[^]*id="paletteColour-${key}"`));
   assert.match(html,/name="opacityShape" value="V"/);
   assert.match(html,/name="opacityShape" value="U"/);
 });

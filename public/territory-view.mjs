@@ -42,6 +42,14 @@ export function setCustomColours(value) {
   custom = colours(...list);
   return true;
 }
+// The swatches offered for each colour of the custom map, from the presets
+// and ColorBrewer's diverging schemes; any other colour can still be picked.
+export const PALETTE_COLOUR_CHOICES = Object.freeze({
+  whiteSettled:Object.freeze(["#e66101","#00b373","#f6f9ff","#d7301f","#1b7837","#b35806"]),
+  whiteLeaning:Object.freeze(["#fdb863","#74ca97","#f6f9ff","#fc8d59","#a6dba0","#f1a340"]),
+  blackLeaning:Object.freeze(["#92c5de","#ffbdf4","#161a22","#91bfdb","#c2a5cf","#998ec3"]),
+  blackSettled:Object.freeze(["#0571b0","#ca69c8","#161a22","#4575b4","#762a83","#542788"])
+});
 export const OPACITY_SHAPES = Object.freeze(["V","U"]);
 export const DEFAULT_OPACITY_SHAPE = "V";
 let shape = DEFAULT_OPACITY_SHAPE;
