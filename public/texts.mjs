@@ -251,12 +251,14 @@ export const TEXT = {
       easy: "やさしい",
       normal: "ふつう",
       strong: "つよい",
+      strongest: "最強",
     },
     strengthNotes: {
       beginner: "囲碁を覚えたての人向け。形の悪い手をよく打ちます。",
       easy: "ルールに慣れた人向け。ときどき大きく緩めます。",
       normal: "少し手ごたえがあります。緩める手は控えめです。",
       strong: "手加減なし。KataGoの候補手どおりに打ちます。",
+      strongest: "対局を始めると、強いKataGo（約100MB）を読み込みます。",
     },
     persona: { low: "控える", mid: "ふつう", high: "重視" },
     invasionNotes: {
@@ -273,6 +275,10 @@ export const TEXT = {
     unavailableContinue: "ページを開き直してください。KataGoを読み込めず、AIと対局を続けられません。",
     waitingLoad: "KataGoの読み込みが終わるまでお待ちください。",
     thinking: "KataGoが着手を計算中…",
+    strongestLoading: percent => "最強のKataGoを読み込み中… " + percent + "%",
+    strongestReading: "最強のKataGoが悩んでいます…",
+    strongestFailed: "最強のKataGoを読み込めなかったため、小さいKataGoで打っています。",
+    playingStrongest: depth => "強さ「最強」（大きいKataGo・" + (depth ? "形勢が悪いので" + depth + "手読み" : "読みなし") + "）で対局中",
     playingWith: (strength, invasion, reinforcement) => "強さ「" + strength + "」・侵入度「" + invasion +
       "」・補強度「" + reinforcement + "」で対局中（探索なし）",
     playingGomoku: "五目並べのCOMは、並びの長さを数える簡単な読みで打ちます（強さの設定は使いません）。",
@@ -708,7 +714,7 @@ export const TEXT = {
       summary: "対COM",
       items: [
         "初回はAIの準備に時間がかかります。",
-        "強さは4段階です。段級位とは対応していません。",
+        "強さは5段階です。段級位とは対応していません。「最強」は、対局を始めたときに強いKataGo（約100MB、9路は9路専用のもの）を読み込みます。ふだんは読まずにKataGoが一番よいとする手を打ち、形勢が悪いときだけ読みます。2目以上負けているなら候補手を8手打ってみて、6目以上なら上位5手それぞれに相手の応手3手まで読んで、目数差が一番よくなる手を選びます。",
         "「AIの強さ」タブの「ヒントを表示」をオンにすると、あなたの番に候補手を1〜3の番号で示します。「侵入度」「補強度」でAIの打ち方の好みを変えられます。",
         "「自分の石」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。黒と白それぞれのCOMの強さ・侵入度・補強度は「AIの強さ」タブで決めます。手の間に少し間を置き、「一時停止」でいつでも止められます。観戦中に盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。",
       ],
