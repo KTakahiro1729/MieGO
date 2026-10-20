@@ -204,9 +204,11 @@ let watchAi = {black:newCom(), white:newCom()};
 const WATCH_STEP_MS = 1100;
 // A tap on the board while watching steps in: the COMs wait while the viewer
 // places a provisional stone for the side to move. ここに打つ takes that colour
-// over; × goes back to watching after a slightly longer pause.
+// over; × goes back to watching after a slightly longer pause, which the turn line announces.
 let intervening = false;
 const WATCH_RESUME_MS = 1800;
+// True during that pause, so the turn line says watching is about to resume.
+let watchReturning = false;
 let aiHandicap = 0, localHandicap = 0, onlineHandicap = 0;
 // The ruleset for the next new game, shared by every mode like the board size.
 let gameRules = "chinese";
@@ -409,7 +411,7 @@ function watchDue() {
   if(!watching)return true;
   if(watchPaused){$("aiMatchStatus").textContent=TEXT.ai.watchPaused;return false;}
   const wait=lastWatchMoveAt+WATCH_STEP_MS-performance.now();
-  if(wait<=0)return true;
+  if(wait<=0){watchReturning=false;return true;}
   watchTimer=setTimeout(requestAnalysis,wait);
   return false;
 }
@@ -957,12 +959,15 @@ function show() {
   $("aiReinforcement").disabled=false;
   $("turn").classList.toggle("white-to-play",game.next===WHITE);
   // Nobody is to move while scoring or after the game, so no turn stone.
-  $("turn").classList.toggle("no-stone",game.status!=="playing");
+  $("turn").classList.toggle("no-stone",game.status!=="playing" ||
+    isWatching() && watchReturning && !watchPaused && !intervening);
   $("turn").textContent=game.status==="finished"?TEXT.scoring.finishedResign:
     // The scoring step names itself here, so the score box keeps its one line for the instruction.
     game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
     room?(connected?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):TEXT.game.waitingOpponent):
-    gameMode==="ai"?(spectating?(game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite):
+    // COM同士 shows whose move it is; 「COM同士」 under it says who plays.
+    gameMode==="ai"?(spectating?(watchReturning && !watchPaused && !intervening?TEXT.game.watchReturning:
+        game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite):
       gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
       fallbackMode?TEXT.game.aiStopped:!katagoReady?TEXT.game.aiPreparing:
       isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
@@ -1269,7 +1274,7 @@ canvas.addEventListener("click",e=>{
   if(game.status==="playing" && isWatching() && !intervening && (isGomoku(game) || katagoReady && !fallbackMode) &&
      game.board[position]===0){
     stopAiTurn(); // The COM's move being computed waits for the viewer's decision.
-    intervening=true;
+    intervening=true;watchReturning=false;
   }
   if(game.status!=="playing" || !isHumanTurn())return;
   if(!room && endExpanded)endExpanded=false;
@@ -1303,7 +1308,7 @@ $("cancel").onclick=()=>{
   $("illegalPromptFallbackPanel").hidden=true;
   if(isWatching() && intervening){
     // Back to watching: the COMs resume after a pause a little longer than a move's.
-    intervening=false;lastWatchMoveAt=performance.now()+WATCH_RESUME_MS-WATCH_STEP_MS;
+    intervening=false;watchReturning=true;lastWatchMoveAt=performance.now()+WATCH_RESUME_MS-WATCH_STEP_MS;
   }
   show();requestAnalysis();
 };
@@ -1504,7 +1509,7 @@ function savedGame(mode) {
   try{record=gameLibrary.active(mode);}catch(error){storageError(error);}
   currentGameId=record?.id||null;currentRevision=record?.revision||null;
   lastPosition=record?.lastPosition??null;
-  watching=mode==="ai" && record?.watch===true;watchPaused=false;intervening=false;
+  watching=mode==="ai" && record?.watch===true;watchPaused=false;intervening=false;watchReturning=false;
   if(mode==="ai" && record){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     aiStrength=normalizeStrength(record.aiStrength);
@@ -2153,7 +2158,7 @@ function resumeSelectedReview(){
   gameMode=record.mode;game=JSON.parse(JSON.stringify(record.snapshot));
   currentGameId=record.id;currentRevision=record.revision;
   lastPosition=record.lastPosition;candidate=null;
-  watching=gameMode==="ai" && record.watch===true;watchPaused=false;intervening=false;
+  watching=gameMode==="ai" && record.watch===true;watchPaused=false;intervening=false;watchReturning=false;
   if(gameMode==="ai"){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
@@ -2233,7 +2238,7 @@ $("startAi").onclick=()=>{
   clearBoardReview();
   stopAiTurn();
   gameMode="ai";
-  watching=aiSideChoice==="watch";watchPaused=false;intervening=false;
+  watching=aiSideChoice==="watch";watchPaused=false;intervening=false;watchReturning=false;
   // The empty board shows for a moment before the first watched move.
   lastWatchMoveAt=performance.now();
   // Handicap stones always belong to the human, who therefore plays Black.
@@ -2263,7 +2268,7 @@ for (const input of document.querySelectorAll('input[name="aiSide"]')) {
 // この対局を観戦する: a running AI game hands the player's colour to the COM too.
 function watchCurrentGame() {
   if(room || gameMode!=="ai" || watching || game.status!=="playing" || boardReview)return;
-  watching=true;watchPaused=false;intervening=false;hints=null;
+  watching=true;watchPaused=false;intervening=false;watchReturning=false;hints=null;
   // The player's colour goes to a COM like the one already playing.
   watchAi={black:newCom(aiStrength,invasion,reinforcement),white:newCom(aiStrength,invasion,reinforcement)};
   aiSideChoice="watch";rememberSettings();syncSideUi();syncStrengthUi();updatePersonaUi();
@@ -2277,7 +2282,7 @@ $("watchCurrent").onclick=watchCurrentGame;
 function takeOverWatchedGame(color) {
   if(!isWatching() || game.status!=="playing")return;
   stopAiTurn(); // A move being computed for the taken colour is dropped.
-  watching=false;watchPaused=false;intervening=false;humanColor=color;hints=null;
+  watching=false;watchPaused=false;intervening=false;watchReturning=false;humanColor=color;hints=null;
   // The COM left playing keeps its settings.
   ({strength:aiStrength,invasion,reinforcement}=watchAi[color===BLACK?"white":"black"]);
   if(aiSideChoice!=="random")aiSideChoice=color===BLACK?"black":"white";
