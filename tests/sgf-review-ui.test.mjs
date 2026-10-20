@@ -108,12 +108,14 @@ test("◁ steps back one move at once; the replay row holds the way back",()=>{
 test("one primary slot in the replay row starts a game from the shown position",()=>{
   const row=html.slice(html.indexOf('class="review-navigation"'),html.indexOf('id="reviewMenu"'));
   assert.match(row,/id="reviewContinue" class="primary review-continue"[^>]*>ここから打つ</);
-  const sheet=html.slice(html.indexOf('<aside id="continuePanel"'),html.indexOf('<aside id="helpPanel"'));
-  for(const value of ["ai","local"])assert.match(sheet,new RegExp('name="continueKind" value="'+value+'"'));
-  for(const value of ["black","white"])assert.match(sheet,new RegExp('name="continueSide" value="'+value+'"'));
-  assert.equal((sheet.match(/class="primary/g)||[]).length,1);
-  assert.match(app,/forkBoardReview\(continueChoice\("continueKind"\)==="ai"\?"ai":"local"/);
-  assert.match(app,/if\(kind==="ai"\)\{humanColor=side;/);
+  // It opens the 新規対戦 sheet itself: same modes, same 自分の石 (観戦 included).
+  assert.doesNotMatch(html,/id="continuePanel"|name="continueKind"/);
+  assert.match(app,/openPanel\(fromLocal \|\| !canContinueWithAi\(\)\?"local":"ai"\)/);
+  assert.match(app,/if\(continueFrom\)\{forkBoardReview\("ai"\);return;\}/);
+  assert.match(app,/watching=ai && aiSideChoice==="watch";/);
+  // The record fixes the board and rules; a friend game and 履歴 cannot start from a position.
+  assert.match(app,/input\.value==="online" \|\| input\.value==="history"/);
+  assert.match(app,/\["boardSize",sizeOf\(line\.board\)\],\["gameRules",rulesOf\(line\)\]/);
   assert.equal(TEXT.review.continueTitle(28),"28手目から打つ");
   assert.equal(TEXT.review.resume,"続きを打つ");
 });
