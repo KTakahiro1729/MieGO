@@ -37,5 +37,5 @@ test("share and export use the chosen variation instead of silently exporting ma
  assert.match(app,/variationForSharing\(boardReview,game\)/);
  assert.match(app,/makeReviewUrl\(location\.origin,\{snapshot,sgfMeta:metadata\},step\)/);
  assert.match(app,/exportSGF\(\{snapshot:details\.snapshot,sgfMeta:details\.metadata\}\)/);
- assert.match(app,/gameLibrary\.save\(\{mode:"local",snapshot:boardReview\.variation\.snapshot,source:"variation"\}\)/);
+ assert.match(app,/gameLibrary\.save\(\{mode:"local",snapshot:boardReview\.variation\.snapshot,source:"variation",\s*hideStones:hidingStones\(\)\}\)/);
 });

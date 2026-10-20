@@ -592,7 +592,7 @@ export const TEXT = {
     mySide: "自分の石",
     advanced: "詳細設定",
     hideStones: "石を隠す（地合いだけ表示）",
-    hideStonesNote: "対局中と再生中は石を描かず、地合いの色だけで盤面を読みます。整地になると石が現れます。",
+    hideStonesNote: "石を描かず、地合いの色だけで盤面を読みます。この対局の間は変えられず、整地になると石が現れます。",
     start: "対局を始める",
   },
 
