@@ -257,6 +257,17 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
 
+  // While the player edits カスタム's colours on an empty board, a few stones
+  // in the middle (the last with its move mark) show the chosen stone colours.
+  // They are only painted: the game and its record never hold them.
+  function paintSampleStones(theme,gap,pad) {
+    const c=Math.floor(SIZE/2), r=gap*.44;
+    const stones=[[c-1,c-1,BLACK],[c,c-1,WHITE],[c-1,c,WHITE],[c,c,BLACK],[c+1,c,WHITE]];
+    for(const [x,y,color] of stones)paintStone(theme,color,pad+x*gap,pad+y*gap,r,1);
+    const [x,y,color]=stones.at(-1);
+    paintMoveMark(theme,color,true,pad+x*gap,pad+y*gap,gap);
+  }
+
   // A live move that removed stones starts them fading from the alpha they were last shown at.
   function noteCaptures(game,live) {
     const before=lastLive;
@@ -342,6 +353,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     if(scoring)paintPrisonerFill(theme,fill,view.palette,gap,pad);
     if(scoring)paintRegionLabels(scoring.regions,gap,pad);
     paintLastMove(theme,view,display,gap,pad);
+    if(view.sampleStones && !counting && !view.candidate && !view.illegalCandidate && display.board.every(v=>!v))
+      paintSampleStones(theme,gap,pad);
   }
   return {draw};
 }

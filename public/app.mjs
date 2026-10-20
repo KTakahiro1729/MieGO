@@ -77,6 +77,11 @@ import {
 import { createP2PTransport } from "./p2p-transport.mjs";
 import { interpolateOwnership, prisonerOutline } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
+import {
+  countdownSound,
+  createSoundEffects,
+  moveSound,
+} from "./sound.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
 import { playerSides } from "./player-row.mjs";
@@ -233,6 +238,8 @@ const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideSton
 const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingStones,isCounting,show,draw,
   onOverlayOn:()=>boardReview?requestReviewOwnership():requestAnalysis()});
 const {shownPalette,overlayOn,updateGradient}=appearance;
+// 効果音: off until the 設定 sheet turns them on.
+const sound = createSoundEffects({$});
 let connected = false;
 // A first visit starts against the COM; later visits restore the saved mode.
 let gameMode = room ? "online" : "ai";
@@ -685,6 +692,7 @@ const boardRenderer = createBoardRenderer({
     lastPosition,
     opacity:appearance.opacity(),
     palette:shownPalette(),
+    sampleStones:appearance.editingBoard(),
     settle:settleView(),
   })
 });
@@ -801,7 +809,10 @@ function requestOwnership() {
   analysisTimer=setTimeout(()=>postToWorker({id,state,board:state.board}),180);
 }
 // 五目並べ has no territory to estimate, and its computer player needs no KataGo.
-const GOMOKU_AI_DELAY_MS=420;
+// The COM answers no sooner than this after a person's move, so the stone
+// (and its sound) lands as a reply rather than on top of the person's own.
+const AI_REPLY_MS=800;
+let personMovedAt=0;
 function requestGomokuTurn() {
   pending=++seq;
   displayedOwnership=null;
@@ -819,7 +830,7 @@ function requestGomokuTurn() {
     if(!isAiTurn() || game.moveNumber!==job.number || boardHash(game.board)!==job.hash){show();return;}
     lastWatchMoveAt=performance.now();
     submitMove(gomokuMove(game.board,game.next,Math.random,{forbidden:hasGomokuForbidden(game)}),true);
-  },GOMOKU_AI_DELAY_MS);
+  },AI_REPLY_MS);
 }
 /** The automatic dead-stone job still belongs to the position on the board. */
 function scoringJobCurrent(job) {
@@ -961,6 +972,9 @@ function finishAiMove(result) {
   }
   // A paused COM同士 stops at once: the move is asked for again on 再開.
   if(watching && watchPaused){requestAnalysis();return;}
+  // The job stays open while it waits, so a new position or 待った drops the move.
+  const wait=watching?0:personMovedAt+AI_REPLY_MS-performance.now();
+  if(wait>0){aiThinking=true;aiJob=job;setTimeout(()=>finishAiMove(result),wait);return;}
   try {
     // This is an NN evaluation of the committed position, not a preview.
     const valid=Array.isArray(result.ownership) &&
@@ -1269,6 +1283,7 @@ function apply(action, remote=false, isAiMove=false) {
     if(remote && !isPeerAction(action,game,{peerColor:myOnlineColor()===null?null:-myOnlineColor(),
       peerIsOwner:p2pRole==="guest"}))throw new Error("Not the peer's action");
     const wasScoring=game.status==="scoring";
+    const before=game;
     if(action.type==="move"){
       if(action.number!==game.moveNumber+1) throw new Error("Move number mismatch");
       if(action.before!==boardHash(game.board)) throw new Error("Board mismatch before the move");
@@ -1282,6 +1297,7 @@ function apply(action, remote=false, isAiMove=false) {
         endNotice={number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.cancelledByMove};
       if(action.after!==boardHash(game.board)) throw new Error("Board mismatch after the move");
       lastPosition=Number.isInteger(action.position)?action.position:null;
+      if(!remote && !isAiMove)personMovedAt=performance.now();
       if(isAiMove && aiPassAsks()){
         candidate=null;illegalCandidate=null;illegalPromptCopied=false;
         $("illegalPromptFallbackPanel").hidden=true;
@@ -1366,6 +1382,8 @@ function apply(action, remote=false, isAiMove=false) {
     // A watched COM同士 game keeps the zoom the viewer chose.
     if(action.type==="move" && (remote || isAiMove && !watching))boardZoom.reset();
     candidate=null;save();show();
+    const cue=moveSound(before,game,action.type==="move"?action.position:null);
+    if(cue)sound.play(cue);
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
        (action.type==="end_answer" && game.status==="scoring") ||
@@ -1508,15 +1526,29 @@ $("resign").onclick=()=>{
   if(!confirmByRetap($("resign"),null,TEXT.game.resignConfirmAria))return;
   submitMove("resign");
 };
+/**
+ * Called whenever `game` is replaced by another position (a new or resumed game,
+ * a rewind, a fork): nothing computed for the previous one may carry over, late
+ * analysis results and a running territory animation included. A scoring game
+ * resumed with dead stones or an agreement already marked keeps them as edited.
+ */
+function resetPositionState() {
+  clearTimeout(analysisTimer);analysisTimer=null;
+  pending=++seq;analysisContext=null;
+  if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
+  transitionFrame=null;displayedOwnership=null;
+  clearProvisional();
+  restoreEndgameAdvice();endExpanded=!!game.endProposal || aiPassAsks();
+  endNotice=null;takebackNotice=null;
+  deadReview=game.status==="scoring" &&
+    (game.dead.length || game.agreed.black || game.agreed.white)?"modified":"idle";
+  deadReviewTouched=deadReview==="modified";deadEvaluation=null;
+}
 // Signals computed for the abandoned line must not survive a rewind.
 function afterTakeback() {
   const last=game.moves.at(-1)?.position;
   lastPosition=Number.isInteger(last)?last:null;
-  candidate=null;illegalCandidate=null;
-  if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
-  transitionFrame=null;displayedOwnership=null;
-  endgameAdvisor.reset();endExpanded=false;endNotice=null;
-  deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
+  resetPositionState();
   takebackNotice={number:game.moveNumber,hash:boardHash(game.board),
     text:TEXT.takeback.done(game.moveNumber)};
 }
@@ -1531,17 +1563,8 @@ function takeBackMove() {
 /** A new empty local board, by default with the sheet's choices (callers save first). */
 function freshLocalBoard(fresh=freshLocalGame(game,nextGameOptions(localHandicap))) {
   resetArmedButtons();
-  clearTimeout(analysisTimer);
-  analysisTimer=null;
-  // Discard late analysis results and animation frames belonging to the old board.
-  pending=++seq;analysisContext=null;
-  if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
-  transitionFrame=null;displayedOwnership=null;
-  candidate=null;lastPosition=null;
-  // New endgame/dead-stone signals must not survive a local board reset.
-  endgameAdvisor.reset();endExpanded=false;endNotice=null;
-  deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  game=fresh;currentGameId=null;currentRevision=null;
+  game=fresh;currentGameId=null;currentRevision=null;lastPosition=null;
+  resetPositionState();
   save();show();requestAnalysis();
 }
 /** 新規対戦 → 1台で打つ: leaves an AI or friend match (kept in the library). */
@@ -1671,6 +1694,7 @@ function timeOut(side) {
   stopAiTurn();candidate=null;
   game=loseOnTime(game,side);
   save();show();
+  sound.play("end");
 }
 gameClock.onTimeout(timeOut);
 // Each person's time under their name in the turn row: the side to move counts down.
@@ -1691,6 +1715,14 @@ function renderClock() {
   }
 }
 gameClock.subscribe(renderClock);
+// 秒読み: one beep for each of the last seconds of the running clock.
+let lastCountdown=null;
+gameClock.subscribe(reading=>{
+  const cue=countdownSound(reading);
+  const key=cue && reading.side+":"+game.moveNumber+":"+clockSeconds(reading.left);
+  if(cue && key!==lastCountdown)sound.play(cue);
+  lastCountdown=key;
+});
 function finishedTitle(){
   const mine=room?myOnlineColor():gameMode==="ai" && !isWatching()?humanColor:null;
   const winner=resultWinner(game.result);
@@ -1767,8 +1799,7 @@ function resumeModeGame(mode) {
   if(room)leaveOnlineRoom();
   clearBoardReview();
   stopAiTurn();gameMode=mode;
-  game=savedGame(mode);candidate=null;
-  restoreEndgameAdvice();endExpanded=!!game.endProposal || aiPassAsks();
+  game=savedGame(mode);resetPositionState();
   save();closePanels();show();requestAnalysis();
 }
 /**
@@ -1916,10 +1947,9 @@ async function beginOnlineRoom(){
   clearBoardReview();
   gameMode="online";stopAiTurn();
   // A friend game has no clock yet: each side's time would have to agree over the connection.
-  game=newGame(true,{...nextGameOptions(onlineHandicap),timeControl:null});candidate=null;lastPosition=null;
+  game=newGame(true,{...nextGameOptions(onlineHandicap),timeControl:null});lastPosition=null;
   currentGameId=null;currentRevision=null;
-  deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
-  endgameAdvisor.reset();endExpanded=false;endNotice=null;
+  resetPositionState();
   history.replaceState(null,"",roomUrl(location.origin,room));
   save();show();requestAnalysis();
   void joinRoom();return showInviteLink();
@@ -2421,13 +2451,11 @@ function forkBoardReview(kind="local") {
   // 観戦 lets the two COMs set in the sheet play on from the shown position.
   setWatching(ai && watchChoice);
   if(watching)lastWatchMoveAt=performance.now();
-  if(ai){humanColor=side;takebackNotice=null;}
+  if(ai)humanColor=side;
   currentGameId=null;currentRevision=null;
   const last=game.moves.at(-1)?.position;
   lastPosition=Number.isInteger(last)?last:null;
-  candidate=null;displayedOwnership=null;
-  endgameAdvisor.reset();endExpanded=false;endNotice=null;
-  deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
+  resetPositionState();
   clearImportedReviewUrl();
   clearBoardReview();
   save();closePanels();show();requestAnalysis();
@@ -2561,7 +2589,7 @@ function resumeSelectedReview(){
   stopAiTurn();
   gameMode=record.mode;game=JSON.parse(JSON.stringify(record.snapshot));
   currentGameId=record.id;currentRevision=record.revision;
-  lastPosition=record.lastPosition;candidate=null;
+  lastPosition=record.lastPosition;resetPositionState();
   setWatching(gameMode==="ai" && record.watch===true);
   if(gameMode==="ai"){
     restoreAiOptions(record);
@@ -2572,11 +2600,8 @@ function resumeSelectedReview(){
     syncSideUi();
     updatePersonaUi();
   }
-  restoreEndgameAdvice();endExpanded=!!game.endProposal || aiPassAsks();
-  endNotice=null;deadReview=game.status==="scoring" &&
-    (game.dead.length || game.agreed.black || game.agreed.white)?"modified":"idle";
-  deadEvaluation=null;deadReviewTouched=deadReview==="modified";
-  displayedOwnership=null;
+  // Who passed is known only once the resumed game's sides are back.
+  endExpanded=!!game.endProposal || aiPassAsks();
   try{gameLibrary.setActive(gameMode,currentGameId);}
   catch(error){storageError(error);return;}
   clearBoardReview();rememberSettings();
@@ -2652,9 +2677,8 @@ function startAiGame(fresh, watch, side) {
   // Otherwise: the same choices and the same random draw as a friend invitation.
   try{humanColor=watching || fresh.handicap?BLACK:selectColor(side);}
   catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
-  takebackNotice=null;
-  game=fresh;currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
-  endgameAdvisor.reset();endExpanded=false;endNotice=null;
+  game=fresh;currentGameId=null;currentRevision=null;lastPosition=null;
+  resetPositionState();
   $("aiMatchStatus").textContent=watching?TEXT.ai.watchStarted:TEXT.ai.started(colorLabel(humanColor));
   save();closePanels();show();requestAnalysis();
 }
