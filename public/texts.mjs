@@ -159,9 +159,9 @@ export const TEXT = {
     reviewModifiedJapanese: "数字は地。点数を確認してください",
     reviewUnavailable: "死石をタップで指定してください。自動判定なし",
     reviewChecking: "死石を確認しています…",
-    settling: moves => "石をタップで修正。COMが残りを打ち進め中（" + moves + "手）",
+    settling: moves => "石をタップで修正。打ち進め中（" + moves + "手）",
     settleCut: moves => "上限の" + moves + "手で停止。取られた石を死石にします",
-    settleDone: moves => moves ? moves + "手打ち進めました。取られた石を死石にします" : "打つ手がなく、そのまま判定します",
+    settleDone: moves => moves ? moves + "手で決着。取られた石を死石にします" : "打つ手がなく、そのまま判定します",
     settleSkip: "スキップ",
     settleReplay: "決着手順を再生",
     // Each row: { area, detail, total } from scoreRows.
@@ -191,7 +191,7 @@ export const TEXT = {
     // While 最強 thinks: the turn label, and what it is doing on the line under it.
     aiThinking: "COMが考え中です",
     // The line is about 165px wide on a 320px phone, so these stay short.
-    thinkDownloading: percent => "COMをダウンロード中 " + percent + "%",
+    thinkDownloading: percent => "COMを読み込み中 " + percent + "%",
     thinkPreparing: "COMを準備中",
     thinkMove: "次の一手を計算中",
     thinkReading: (depth, percent, seconds) => depth + "手先を読み中 " + percent + "%" + (seconds ? "・約" + seconds + "秒" : ""),
