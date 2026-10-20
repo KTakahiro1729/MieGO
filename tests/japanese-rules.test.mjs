@@ -1,0 +1,170 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { BLACK, WHITE, at, newGame, initialGame, play, areaScore, territoryScore, sekiStones,
+  whiteCompensation, komiOf, toSGF, beginSoloScoring, finalizeSoloScore, confirmDeadSolo } from "../public/core.mjs";
+import { parseSGF, exportSGF, replaySteps } from "../public/sgf.mjs";
+import { scoreRows, scoreBreakdown, scoringRegions } from "../public/scoring-regions.mjs";
+import { TEXT } from "../public/texts.mjs";
+
+const japanese = (extra = {}) => ({ ...newGame(true, { rules: "japanese" }), status: "scoring", ...extra });
+
+test("Japanese games default to 6.5 komi; handicap games get 0.5 and no per-stone bonus", () => {
+  const even = newGame(true, { rules: "japanese" });
+  assert.equal(even.rules, "japanese");
+  assert.equal(komiOf(even), 6.5);
+  const handicap = newGame(true, { rules: "japanese", handicap: 3 });
+  assert.equal(whiteCompensation(handicap), 0.5);
+  assert.equal(whiteCompensation(newGame(true, { handicap: 3 })), 3.5);
+  assert.equal(newGame().rules, "chinese");
+  assert.equal(initialGame(even).rules, "japanese");
+  // Records saved before rules existed stay Chinese.
+  const { rules, ...legacy } = newGame();
+  assert.equal(komiOf(legacy), 7.5);
+  assert.equal(areaScore({ ...legacy, status: "scoring" }).white, 7.5 + 0);
+});
+
+test("territory counts empty points and prisoners, not stones on the board", () => {
+  // Black owns columns 0-3 (walls on column 3), White columns 5-8 (wall on 5); column 4 is dame.
+  const board = Array(81).fill(0);
+  for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(5, y)] = WHITE; }
+  const game = japanese({ board, captures: { black: 2, white: 1 } });
+  const score = territoryScore(game);
+  assert.deepEqual(score.territory, { black: 27, white: 27 });
+  assert.deepEqual(score.prisoners, { black: 2, white: 1 });
+  assert.equal(score.black, 29);
+  assert.equal(score.white, 27 + 1 + 6.5);
+  assert.equal(areaScore(game).difference, score.difference);
+  // A dead white stone in Black's area is a prisoner and its point is territory.
+  board[at(1, 1)] = WHITE;
+  const withDead = territoryScore(japanese({ board, dead: [at(1, 1)], captures: { black: 2, white: 1 } }));
+  assert.equal(withDead.territory.black, 27);
+  assert.equal(withDead.prisoners.black, 3);
+  assert.deepEqual(sekiStones(japanese({ board, dead: [at(1, 1)] })), []);
+});
+
+test("points enclosed by stones in seki are not territory", () => {
+  // One eye each and one shared liberty in the top-left corner.
+  //   x: 0 1 2 3
+  // y0:  . B . W .        (0,0) Black eye, (2,0) shared, (4,0) White eye
+  // y1:  B B W W W ...
+  const g = Array(81).fill(0);
+  const p = (c, ...pts) => pts.forEach(([x, y]) => g[at(x, y)] = c);
+  p(BLACK, [1, 0], [0, 1], [1, 1], [2, 1]);
+  p(WHITE, [3, 0], [3, 1], [4, 1], [5, 1], [5, 0]);
+  // Outside: White surrounds Black from below, Black surrounds White from below.
+  p(WHITE, [0, 2], [1, 2], [2, 2]);
+  p(BLACK, [3, 2], [4, 2], [5, 2], [6, 1], [6, 0]);
+  // Black (1,0),(0,1),(1,1),(2,1) liberties: (0,0) eye, (2,0) shared  -> 2
+  // White (3,0),(3,1),(4,1),(5,1),(5,0) liberties: (2,0) shared, (4,0) eye -> 2
+  const game = japanese({ board: g });
+  const inSeki = new Set(sekiStones(game));
+  assert.ok(inSeki.has(at(1, 0)) && inSeki.has(at(3, 0)));
+  const owned = territoryScore(game).owned;
+  assert.equal(owned[at(0, 0)], 0, "Black's eye in seki is not territory");
+  assert.equal(owned[at(4, 0)], 0, "White's eye in seki is not territory");
+  assert.equal(owned[at(2, 0)], 0);
+  // Under Chinese area scoring the same eyes do count.
+  assert.equal(areaScore({ ...game, rules: "chinese" }).owned[at(0, 0)], BLACK);
+});
+
+test("ordinary dame next to healthy groups is not mistaken for seki", () => {
+  const board = Array(81).fill(0);
+  for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(4, y)] = WHITE; }
+  assert.deepEqual(sekiStones(japanese({ board })), []);
+});
+
+test("scoreboard rows and labels follow territory scoring", () => {
+  const board = Array(81).fill(0);
+  for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(5, y)] = WHITE; }
+  const game = japanese({ board, captures: { black: 2, white: 1 } });
+  assert.deepEqual(scoreRows(game), {
+    black: { area: 27, detail: "27＋アゲハマ2", total: 29 },
+    white: { area: 27, detail: "27＋アゲハマ1＋コミ6.5", total: 34.5 }, leader: "white" });
+  assert.equal(scoreBreakdown(game), "黒：27＋アゲハマ2＝29\n白：27＋アゲハマ1＋コミ6.5＝34.5");
+  const labels = scoringRegions(game).regions.map(r => r.count).sort((a, b) => a - b);
+  assert.deepEqual(labels, [27, 27]);
+});
+
+test("captures, finishing and SGF keep the Japanese ruleset", () => {
+  let game = newGame(true, { rules: "japanese" });
+  // Black captures a white stone at (0,0).
+  for (const p of [at(1, 0), at(0, 0), at(0, 1)]) game = play(game, p);
+  assert.equal(game.captures.black, 1);
+  const done = finalizeSoloScore(confirmDeadSolo(beginSoloScoring(game)));
+  assert.match(done.result, /^[BW]\+/);
+  assert.match(toSGF(done), /RU\[Japanese\]KM\[6\.5\]|KM\[6\.5\]RU\[Japanese\]/);
+  const sgf = exportSGF(done);
+  assert.match(sgf, /RU\[Japanese\]/);
+  const parsed = parseSGF(sgf);
+  assert.equal(parsed.snapshot.rules, "japanese");
+  assert.equal(replaySteps(parsed.snapshot).captures.black, 1);
+  assert.equal(parseSGF("(;GM[1]FF[4]SZ[9]RU[Chinese];B[ee])").snapshot.rules, "chinese");
+});
+
+test("rule texts describe the Japanese choice", () => {
+  assert.match(TEXT.game.ruleSummary(9, 6.5, 0, true), /日本式ルール · コミ6.5/);
+  assert.match(TEXT.prompts.ruleLine(6.5, 0, true), /日本ルール.*アゲハマ/);
+  assert.equal(TEXT.newGame.rulesChoices.japanese, "日本式");
+});
+
+test("prisoners fill the territory of the side they came from, as one outlined block", async () => {
+  const { prisonerFill, PRISONER_OUTLINE } = await import("../public/scoring-regions.mjs");
+  const { neighbors } = await import("../public/core.mjs");
+  const board = Array(81).fill(0);
+  for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(5, y)] = WHITE; }
+  board[at(1, 1)] = WHITE; // dead, inside Black's area
+  const dead = japanese({ board, dead: [at(1, 1)], captures: { black: 4, white: 2 } });
+  // Nothing is filled until the dead stones are agreed.
+  assert.deepEqual(prisonerFill(dead), { black: [], white: [] });
+  const game = { ...dead, scoringStep: "count" };
+  const fill = prisonerFill(game);
+  // Black holds 4 captured + 1 dead White stones; they go back into White's territory.
+  assert.equal(fill.white.length, 5);
+  assert.ok(fill.white.every(p => p % 9 > 5));
+  assert.equal(fill.black.length, 2);
+  assert.ok(fill.black.every(p => p % 9 < 3));
+  // Stones kept from the settle playout stay clear.
+  const avoid = new Set(fill.black);
+  assert.ok(prisonerFill(game, { avoid }).black.every(p => !avoid.has(p)));
+  // Each block is connected.
+  for (const points of [fill.white, fill.black]) {
+    const set = new Set(points), seen = new Set([points[0]]), queue = [points[0]];
+    while (queue.length) for (const n of neighbors(queue.pop(), 9)) if (set.has(n) && !seen.has(n)) { seen.add(n); queue.push(n); }
+    assert.equal(seen.size, points.length);
+  }
+  assert.notEqual(PRISONER_OUTLINE.black, PRISONER_OUTLINE.white);
+  // Chinese games and resignations fill nothing.
+  assert.deepEqual(prisonerFill({ ...game, rules: "chinese" }), { black: [], white: [] });
+  assert.deepEqual(prisonerFill({ ...game, status: "finished", result: "B+R" }), { black: [], white: [] });
+  // More prisoners than territory: what there is gets filled.
+  assert.equal(prisonerFill({ ...game, captures: { black: 200, white: 0 } }).white.length, 27);
+});
+
+test("after the dead stones are agreed, the count is the territory the prisoners leave", async () => {
+  const { scoreRows, scoringRegions, prisonerFill } = await import("../public/scoring-regions.mjs");
+  const { agreeDead, agreeScore, scoringStepOf, toggleDead } = await import("../public/core.mjs");
+  const board = Array(81).fill(0);
+  for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(5, y)] = WHITE; }
+  board[at(1, 1)] = WHITE;
+  let game = japanese({ board, dead: [at(1, 1)], captures: { black: 2, white: 1 } });
+  assert.equal(scoringStepOf(game), "dead");
+  assert.throws(() => agreeScore(game, BLACK));
+  game = agreeDead(game, BLACK);
+  assert.equal(scoringStepOf(game), "dead");
+  game = agreeDead(game, WHITE);
+  assert.equal(scoringStepOf(game), "count");
+  assert.deepEqual(game.agreed, { black: false, white: false });
+  // Black: 27 territory less White's 1 prisoner; White: 27 less Black's 3, plus komi.
+  assert.deepEqual(scoreRows(game), {
+    black: { area: 26, detail: "", total: 26 },
+    white: { area: 24, detail: "24＋コミ6.5", total: 30.5 }, leader: "white" });
+  const fill = prisonerFill(game);
+  const labels = scoringRegions(game, { prisonerPoints: new Set([...fill.black, ...fill.white]) })
+    .regions.map(r => r.count).sort((a, b) => a - b);
+  assert.deepEqual(labels, [24, 26]);
+  // The difference, and so the result, is the same as territory plus prisoners.
+  const finished = agreeScore(agreeScore(game, BLACK), WHITE);
+  assert.equal(finished.result, "W+4.5");
+  // Changing a dead stone goes back to the first step.
+  assert.equal(scoringStepOf(toggleDead(game, at(1, 1))), "dead");
+});

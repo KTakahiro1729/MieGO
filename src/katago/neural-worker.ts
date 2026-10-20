@@ -10,12 +10,12 @@ import { parseKataGoModelV8 } from "../../vendor/web-katrain/src/engine/katago/l
 import { KataGoModelV8Tf } from "../../vendor/web-katrain/src/engine/katago/modelV8";
 import { postprocessKataGoV8 } from "../../vendor/web-katrain/src/engine/katago/evalV8";
 import { toKataGoPosition } from "./position.mjs";
-import { whiteCompensation } from "../../public/core.mjs";
+import { whiteCompensation, rulesOf } from "../../public/core.mjs";
 
 let model: KataGoModelV8Tf | null = null;
 let boot: Promise<void> | null = null;
 let backend = "uninitialized";
-let newest: { id: number; state: unknown; kind?: "move" | "analyze" | "scoring" } | null = null;
+let newest: { id: number; state: unknown; kind?: "move" | "analyze" | "scoring" | "settle" } | null = null;
 let busy = false;
 
 async function prepare() {
@@ -65,7 +65,8 @@ async function evaluate(state: unknown) {
     ...pos,
     // KataGo's NN komi input already includes the handicap bonus (selfKomi).
     komi: whiteCompensation(state),
-    rules: "chinese",
+    // Japanese games use KataGo's "japanese" ruleset: territory scoring, seki tax.
+    rules: rulesOf(state),
     conservativePassAndIsRoot: true,
     outSpatial: spatialFeatures,
     outGlobal: globalFeatures
@@ -109,12 +110,13 @@ async function evaluate(state: unknown) {
     if (output) for (const t of Object.values(output)) t.dispose();
   }
 }
-async function evaluateMovePolicy(state: unknown) {
+/** Policy for the next move; the settle playout (決着手順) asks the same way. */
+async function evaluateMovePolicy(state: unknown, settle = false) {
   if (!model) throw new Error("KataGo model not initialized");
   const { size, pos, spatialFeatures, globalFeatures } = encode(state);
   const area = size * size;
   fillInputsV7FastForPosition({
-    ...pos, komi: whiteCompensation(state), rules: "chinese",
+    ...pos, komi: whiteCompensation(state), rules: rulesOf(state),
     conservativePassAndIsRoot: true,
     outSpatial: spatialFeatures, outGlobal: globalFeatures
   });
@@ -138,7 +140,7 @@ async function evaluateMovePolicy(state: unknown) {
     const ownership = Array.from(rawOwnership, v => Math.tanh(v * scale) * sign);
     if (ownership.length !== area || !ownership.every(Number.isFinite))
       throw new Error("KataGo ownership output is invalid");
-    return { kind:"move", engine:"katago", backend, policy, passLogit:pass[0], ownership };
+    return { kind: settle ? "settle" : "move", engine:"katago", backend, policy, passLogit:pass[0], ownership };
   } finally {
     spatial.dispose(); global.dispose();
     if (output) for (const t of Object.values(output)) t.dispose();
@@ -154,7 +156,8 @@ async function drain() {
       try {
         await prepare();
         if (newest) continue; // superseded while the model was initializing
-        const result = next.kind === "move" ? await evaluateMovePolicy(next.state) : await evaluate(next.state);
+        const result = next.kind === "move" || next.kind === "settle"
+          ? await evaluateMovePolicy(next.state, next.kind === "settle") : await evaluate(next.state);
         if (!newest) self.postMessage({ id: next.id, kind: next.kind || "analyze", ...result });
       } catch (error) {
         if (!newest) self.postMessage({
@@ -169,7 +172,7 @@ async function drain() {
 self.onmessage = event => {
   if (!event.data || !Number.isSafeInteger(event.data.id)) return;
   newest = { id: event.data.id, state: event.data.state,
-    kind: event.data.kind === "move" ? "move" :
+    kind: event.data.kind === "move" ? "move" : event.data.kind === "settle" ? "settle" :
       event.data.kind === "scoring" ? "scoring" : "analyze" };
   void drain();
 };

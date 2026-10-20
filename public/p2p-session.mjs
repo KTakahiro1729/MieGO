@@ -1,4 +1,4 @@
-import { BLACK, WHITE, boardHash, handicapOf, komiOf, areaScore } from "./core.mjs";
+import { BLACK, WHITE, boardHash, handicapOf, rulesOf, komiOf, areaScore } from "./core.mjs";
 import { parseGameSnapshot } from "./mode-state.mjs";
 import { replaySteps } from "./sgf.mjs";
 import { TEXT } from "./texts.mjs";
@@ -54,9 +54,9 @@ export function saveCheckpoint(storage, room, value) {
 }
 // Actions a peer may only take in its own name, those only the room owner sends,
 // and those of games without a friend.
-const OWN_COLOR_ACTIONS=new Set(["agree","end_offer","end_answer","takeback_request","takeback_answer"]);
+const OWN_COLOR_ACTIONS=new Set(["agree","agree_dead","end_offer","end_answer","takeback_request","takeback_answer"]);
 const OWNER_ACTIONS=new Set(["dead_auto","dead_unavailable"]);
-const SOLO_ACTIONS=new Set(["solo_scoring","solo_score"]);
+const SOLO_ACTIONS=new Set(["solo_scoring","solo_score","solo_dead"]);
 /** A peer plays only on its own turn and offers, answers or agrees only for its own color. */
 export function isPeerAction(action, game, {peerColor, peerIsOwner=false}) {
   if(![BLACK,WHITE].includes(peerColor))return false;
@@ -117,10 +117,10 @@ export function reconcileGame(localGame, localRevision, incomingGame, incomingRe
   if (localRevision > 0 && incomingRevision > localRevision &&
       claimsLocalPlayer(localGame, incoming, localColor)) return {kind:"conflict"};
   // A guest that has not received the match yet holds a default empty board;
-  // before the first move the inviter's board size, handicap and 石を隠す decide the game.
+  // before the first move the inviter's board size, handicap, rules and 石を隠す decide the game.
   if (localRevision === 0 && incomingRevision === 0 && !localGame.moves.length &&
       !incoming.moves.length && (localGame.board.length !== incoming.board.length ||
-      handicapOf(localGame) !== handicapOf(incoming) ||
+      handicapOf(localGame) !== handicapOf(incoming) || rulesOf(localGame) !== rulesOf(incoming) ||
       (localGame.hideStones === true) !== (incoming.hideStones === true)))
     return localIsOwner ? {kind:"send"} : {kind:"adopt",game:incoming,revision:0};
   // An accepted 待った shortens the move list. The side that applied more

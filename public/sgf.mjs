@@ -1,4 +1,4 @@
-import { BLACK, WHITE, BOARD_SIZES, isBoardSize, sizeOf, handicapPoints, maxHandicap, newGame, initialGame, handicapOf, komiOf, play, resume, boardHash } from "./core.mjs";
+import { BLACK, rulesOf, WHITE, BOARD_SIZES, isBoardSize, sizeOf, handicapPoints, maxHandicap, newGame, initialGame, handicapOf, komiOf, play, resume, boardHash } from "./core.mjs";
 import { TEXT } from "./texts.mjs";
 import { UserError } from "./user-error.mjs";
 
@@ -93,7 +93,9 @@ export function parseSGF(text) {
     throw new UserError(TEXT.sgf.handicap(maxHandicap(size)));
   if(first(root,"PL")!==null && first(root,"PL")!==(handicap?"W":"B"))
     throw new UserError(TEXT.sgf.player);
-  let state=newGame(true,{handicap,size}),seen=0;
+  // Japanese (and Korean) territory rules are replayed as Japanese; anything else as Chinese.
+  const rules=/^\s*(japanese|korean|jp|ja|kr)\b/i.test(first(root,"RU")??"")?"japanese":"chinese";
+  let state=newGame(true,{handicap,size,rules}),seen=0;
   for(const node of nodes){
     if(("B" in node)&&("W" in node))throw broken();
     const key="B" in node?"B":"W" in node?"W":null;
@@ -109,7 +111,7 @@ export function parseSGF(text) {
   const result=first(root,"RE");
   const metadata={
     komi:first(root,"KM")??String(komiOf(state)),
-    rules:first(root,"RU")??"Chinese",
+    rules:first(root,"RU")??(rules==="japanese"?"Japanese":"Chinese"),
     result:result||null,
     blackName:first(root,"PB")||null,
     whiteName:first(root,"PW")||null
@@ -163,6 +165,6 @@ export function exportSGF(record) {
   const setup=handicap?"HA["+handicap+"]AB"+handicapPoints(size,handicap)
     .map(p=>"["+coord(p,size)+"]").join(""):"";
   return "(;GM[1]FF[4]CA[UTF-8]SZ["+size+"]KM["+esc(meta.komi??komiOf(snapshot))+"]RU["+
-    esc(meta.rules??"Chinese")+"]"+setup+label("PB",meta.blackName)+
+    esc(meta.rules??(rulesOf(snapshot)==="japanese"?"Japanese":"Chinese"))+"]"+setup+label("PB",meta.blackName)+
     label("PW",meta.whiteName)+label("RE",result)+moves+")";
 }

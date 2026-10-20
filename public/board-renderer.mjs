@@ -2,7 +2,7 @@ import {SIZE as DEFAULT_SIZE, BLACK, WHITE, sizeOf, starPoints} from "./core.mjs
 import {ownershipPixel,showsOwnership,countingPalette,countingOpacity,NEUTRAL_MARK} from "./territory-view.mjs";
 import {boardTheme} from "./board-theme.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
-import {scoringRegions} from "./scoring-regions.mjs";
+import {scoringRegions,prisonerFill,prisonersFilled,PRISONER_OUTLINE} from "./scoring-regions.mjs";
 
 /**
  * Draws the current board without modifying the match. Each draw reads one
@@ -103,6 +103,35 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     ctx.restore();
   }
 
+  // A filled-in stone that is not a real stone on the board: the AI's
+  // provisional playout moves and the prisoners filled into territory.
+  function paintFillStone(theme,color,x,y,gap) {
+    paintStone(theme,color,x,y,gap*.3,.55);
+  }
+
+  /** 日本式: prisoners filled into territory, each block outlined in its counter colour. */
+  function paintPrisonerFill(theme,fill,gap,pad) {
+    for(const [key,color] of [["white",WHITE],["black",BLACK]]){
+      const points=new Set(fill[key]);
+      if(!points.size)continue;
+      for(const i of points)paintFillStone(theme,color,pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap,gap);
+      // The block's outer edge: every cell side that does not touch another filled cell.
+      ctx.save();
+      ctx.strokeStyle=PRISONER_OUTLINE[key];ctx.lineWidth=Math.max(2,gap*.05);ctx.lineCap="round";
+      ctx.beginPath();
+      const h=gap/2;
+      for(const i of points){
+        const x=i%SIZE,y=Math.floor(i/SIZE),cx=pad+x*gap,cy=pad+y*gap;
+        const has=(dx,dy)=>x+dx>=0&&x+dx<SIZE&&y+dy>=0&&y+dy<SIZE&&points.has(i+dx+dy*SIZE);
+        if(!has(0,-1)){ctx.moveTo(cx-h,cy-h);ctx.lineTo(cx+h,cy-h);}
+        if(!has(0,1)){ctx.moveTo(cx-h,cy+h);ctx.lineTo(cx+h,cy+h);}
+        if(!has(-1,0)){ctx.moveTo(cx-h,cy-h);ctx.lineTo(cx-h,cy+h);}
+        if(!has(1,0)){ctx.moveTo(cx+h,cy-h);ctx.lineTo(cx+h,cy+h);}
+      }
+      ctx.stroke();ctx.restore();
+    }
+  }
+
   function paintCountingArea(view,score,gap,pad){
     const values=score.owned.map(owner=>owner===BLACK?1:owner===WHITE?-1:0);
     paintOverlay(values,countingPalette(view.palette),countingOpacity(view.opacity),
@@ -154,8 +183,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       const color=!boardReview && illegalCandidate?.position===i && display.board[i]===0
         ? game.next : committedColor;
       if(!color || hidden && i!==preview)continue;
-      if(!boardReview && game.status==="finished" &&
-         !game.result?.endsWith("+R") && game.dead?.includes(i))continue;
+      // Dead stones are off the board once the count is final, or filled under Japanese rules.
+      if(!boardReview && (game.status==="finished" && !game.result?.endsWith("+R") ||
+         prisonersFilled(game)) && game.dead?.includes(i))continue;
       const x=pad+(i%SIZE)*gap;
       const y=pad+Math.floor(i/SIZE)*gap;
       const r=gap*.44;
@@ -221,9 +251,45 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     });
   }
 
+  /**
+   * 決着手順: KataGo's playout over the real position. Stones it adds are
+   * provisional, drawn as small translucent fill stones; real stones it captured
+   * stay as faint ghosts with a red cross, the way they will be marked dead.
+   */
+  function paintSettle(theme,view,gap,pad) {
+    const {board,base,last,ownership}=view.settle;
+    if(ownership && ownership.length===board.length && showsOwnership(view.palette))
+      paintOverlay(ownership,view.palette,view.opacity,view.boardTheme,gap,pad,true);
+    paintStarPoints(theme,gap,pad);
+    const r=gap*.44;
+    for(let i=0;i<board.length;i++){
+      const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
+      if(board[i]){
+        if(board[i]===base[i])paintStone(theme,board[i],x,y,r,1);
+        else paintFillStone(theme,board[i],x,y,gap);
+      }else if(base[i]){
+        paintStone(theme,base[i],x,y,r,.28);
+        ctx.save();ctx.strokeStyle="#d95a4e";ctx.lineWidth=3;ctx.beginPath();
+        ctx.moveTo(x-r*.4,y-r*.4);ctx.lineTo(x+r*.4,y+r*.4);
+        ctx.moveTo(x+r*.4,y-r*.4);ctx.lineTo(x-r*.4,y+r*.4);ctx.stroke();ctx.restore();
+      }
+    }
+    if(Number.isInteger(last)){
+      const x=pad+(last%SIZE)*gap,y=pad+Math.floor(last/SIZE)*gap;
+      ctx.fillStyle="#d0b25c";ctx.fillRect(x-4,y-4,8,8);
+    }
+  }
+
   function draw() {
     const view=getView();
     const {game,boardReview}=view;
+    if(view.settle && !boardReview){
+      SIZE=sizeOf(view.settle.board);
+      const theme=boardTheme(view.boardTheme), d=canvas.width, gap=d/(SIZE+1);
+      paintGrid(theme,d,gap,gap);
+      paintSettle(theme,view,gap,gap);
+      return;
+    }
     const display=boardReview?.display||game;
     SIZE=sizeOf(display.board);
     const theme=boardTheme(view.boardTheme);
@@ -231,12 +297,19 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     paintGrid(theme,d,gap,pad);
     paintOwnership(view,gap,pad);
     const scoredFinished=game.status==="finished" && !game.result?.endsWith("+R");
-    const scoring=!boardReview && (game.status==="scoring" || scoredFinished)?
-      scoringRegions(game):null;
+    // Stones kept from the settle playout, and the prisoners filled around them.
+    const kept=!boardReview && Array.isArray(view.keptPlayout) ? view.keptPlayout : [];
+    const counting=!boardReview && (game.status==="scoring" || scoredFinished);
+    const fill=counting?prisonerFill(game,{avoid:new Set(kept.map(k=>k.position))}):null;
+    const scoring=counting?scoringRegions(game,prisonersFilled(game)?
+      {prisonerPoints:new Set([...fill.black,...fill.white])}:{}):null;
     if(scoring)paintCountingArea(view,scoring,gap,pad);
     paintStarPoints(theme,gap,pad);
     if(scoring)paintNeutralPoints(game,scoring,gap,pad);
     paintStones(theme,view,display,gap,pad);
+    for(const {position,color} of kept)
+      paintFillStone(theme,color,pad+(position%SIZE)*gap,pad+Math.floor(position/SIZE)*gap,gap);
+    if(scoring)paintPrisonerFill(theme,fill,gap,pad);
     if(scoring)paintRegionLabels(scoring.regions,gap,pad);
     paintLastMove(view,display,gap,pad);
     if(!boardReview)paintHints(view,display,gap,pad);

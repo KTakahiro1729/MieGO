@@ -102,7 +102,7 @@ test("direct game controls replace hidden action menus; new local games start fr
  assert.doesNotMatch(html,/id="openHistorySettings"|id="openCurrentMode"/);
  assert.match(app,/if \(room \|\| gameMode!=="local"\) return;/);
  assert.match(app,/\$\("startLocal"\)\.onclick=startLocalGame/);
- assert.match(app,/game=freshLocalGame\(game,localHandicap,boardSize,hideStonesChoice\);currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
+ assert.match(app,/game=freshLocalGame\(game,localHandicap,boardSize,hideStonesChoice,gameRules\);currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
 });
 test("settings button shows a toothed gear and is labeled",()=>{
   const gear=html.slice(html.indexOf('id="settingsToggle"'),html.indexOf('</button>',html.indexOf('id="settingsToggle"')));

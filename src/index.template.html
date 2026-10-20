@@ -49,6 +49,7 @@
           <div class="gradient" id="gradient" aria-hidden="true"></div>
           <div class="legend-labels"><span id="legendWhite">{{common.whiteArea}}</span><span id="legendNeutral" hidden>{{common.neutral}}</span><span id="legendBlack">{{common.blackArea}}</span></div>
         </div>
+        <div id="captureCounts" class="capture-counts" role="status" hidden><span id="whitePrisonerPill" class="prisoner-pill"><span class="capture-stone white" aria-hidden="true"></span><span id="whitePrisoners">0</span></span><span class="capture-label">{{game.capturesLabel}}</span><span id="blackPrisonerPill" class="prisoner-pill"><span class="capture-stone black" aria-hidden="true"></span><span id="blackPrisoners">0</span></span></div>
         <div id="endgameBar" class="endgame-bar" aria-label="{{header.endBar}}">
           <span id="endStatus" class="end-status" role="status" aria-live="polite">{{endgame.playing}}</span>
           <button id="copyIllegalPrompt" class="secondary accent-outline illegal-prompt-action" type="button" aria-label="{{game.illegalPromptAria}}" title="{{game.illegalPromptTitle}}" hidden><span>{{game.askAi}}</span><svg class="copy-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><svg class="copied-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></button>
@@ -65,6 +66,7 @@
         <div id="scoreBox" class="score-box hidden">
           <div class="score-head"><span id="scoreStone" class="score-stone" aria-hidden="true"></span><strong>{{scoring.title}}</strong><button class="help-button" type="button" data-help="scoring" aria-label="{{common.helpFor(help.scoringCheck)}}" title="{{common.helpFor(help.scoringCheck)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></div>
           <p id="scoreInstruction">{{scoring.instruction}}</p>
+          <div class="settle-actions"><button id="settleSkip" class="secondary" type="button" hidden>{{scoring.settleSkip}}</button><button id="settleReplay" class="secondary" type="button" hidden>{{scoring.settleReplay}}</button></div>
           <div id="scoreText" class="score-table" role="group"></div>
         </div>
         <div id="actionRow" class="action-row">
@@ -77,6 +79,7 @@
           <button id="pass" class="secondary" type="button">{{common.pass}}</button>
           <div id="scoringActions" class="inline-score-actions" hidden>
             <button id="resume" class="secondary" type="button">{{scoring.resume}}</button>
+            <button id="backToDead" class="secondary" type="button" hidden>{{scoring.backToDead}}</button>
             <button id="agree" class="primary" type="button" disabled>{{scoring.agree}}</button>
           </div>
           <button id="openHistory" class="secondary" type="button" hidden>{{help.history.summary}}</button>
@@ -214,6 +217,9 @@
               <label><input type="radio" name="boardSize" value="13"><span><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 5.33H22M5.33 2V22M2 8.67H22M8.67 2V22M2 12.00H22M12.00 2V22M2 15.33H22M15.33 2V22M2 18.67H22M18.67 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.13}}</span></label>
               <label><input type="radio" name="boardSize" value="19"><span><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 4.22H22M4.22 2V22M2 6.44H22M6.44 2V22M2 8.67H22M8.67 2V22M2 10.89H22M10.89 2V22M2 13.11H22M13.11 2V22M2 15.33H22M15.33 2V22M2 17.56H22M17.56 2V22M2 19.78H22M19.78 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.19}}</span></label>
             </div>
+          </div>
+          <div id="rulesRow" class="setup-row"><span class="setup-label">{{newGame.rules}}</span>
+            <div class="ai-color-choices rules-choices"><label><input type="radio" name="gameRules" value="chinese" checked><span>{{newGame.rulesChoices.chinese}}</span></label><label><input type="radio" name="gameRules" value="japanese"><span>{{newGame.rulesChoices.japanese}}</span></label></div>
           </div>
           <div id="aiSideRow" class="setup-row" hidden><span class="setup-label">{{newGame.mySide}}</span>
             <div class="ai-color-choices side-choices"><label><input type="radio" name="aiSide" value="random"><span>{{common.random}}</span></label><label><input type="radio" name="aiSide" value="black" checked><span>{{common.sideBlack}}</span></label><label><input type="radio" name="aiSide" value="white"><span>{{common.sideWhite}}</span></label></div>

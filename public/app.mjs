@@ -1,5 +1,6 @@
-import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, boardHash, handicapOf, komiOf, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
+import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, boardHash, handicapOf, komiOf, isJapanese, areaScore, scoringStepOf, agreeDead, confirmDeadSolo, backToDead, rulesOf, RULESETS, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
+import { settleLimit, settleStart, pickSettleMove, settleStep, deadFromPlayout, replayPlayout } from "./settle-playout.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
 import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame, isPeerAction, storageKey, roomUrl, newPeerSignins } from "./p2p-session.mjs";
@@ -11,7 +12,7 @@ import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-stren
 import { policyHints } from "./ai-assist.mjs";
 import { takebackCut, takeBack, requestTakeback, answerTakeback } from "./takeback.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
-import { scoreBreakdown, scoreRows } from "./scoring-regions.mjs";
+import { scoreBreakdown, scoreRows, PRISONER_OUTLINE } from "./scoring-regions.mjs";
 import { createBoardZoom } from "./board-zoom.mjs";
 import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
@@ -77,7 +78,8 @@ const myOnlineColor=()=>ownerColor===null?null:playerColor(p2pRole,ownerColor);
 const currentSideSelection=()=>document.querySelector('input[name="onlineSide"]:checked')?.value||"random";
 // Before play starts, a changed side, board size or handicap calls for a new invitation.
 const inviteMatchesChoice=()=>issuedSide===currentSideSelection() &&
-  (connected || game.moveNumber>0 || (sizeOf(game.board)===boardSize && handicapOf(game)===onlineHandicap));
+  (connected || game.moveNumber>0 || (sizeOf(game.board)===boardSize && handicapOf(game)===onlineHandicap &&
+    rulesOf(game)===gameRules));
 // The player's own seat link moves the game to another device; it never sits in the address bar.
 function ownSeatLink() {
   try{return room && inviteKey ? (p2pRole==="owner"?ownUrl:guestUrl)(location.origin,room,inviteKey) : null;}
@@ -129,6 +131,9 @@ let humanColor = BLACK, invasion = 50, reinforcement = 50;
 let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNotice = null;
 let aiSideChoice = "black";
 let aiHandicap = 0, localHandicap = 0, onlineHandicap = 0;
+// The ruleset for the next new game, shared by every mode like the board size.
+let gameRules = "chinese";
+const toRules = value => RULESETS.includes(value) ? value : "chinese";
 // Up to nine stones; newGame() caps the count for the chosen board (9x9: five).
 const toHandicap = value => handicapOf({handicap:Number(value)},19);
 // The board size for the next new game in any mode; a running game keeps its own.
@@ -140,6 +145,11 @@ const endgameAdvisor = new EndgameAdvisor();
 let endgameStage = "playing", endExpanded = false, analysisContext = null;
 let lastOfferKey = null, endHintSuppressedUntil = -1;
 let deadEvaluation=null, deadReview="idle", deadReviewTouched=false;
+// 決着手順: KataGo's playout shown on the board while it settles the dead
+// stones (settle), and the last playout kept for 再生 (settlePlayout).
+let settle=null, settlePlayout=null, settleShow=null;
+const SETTLE_STEP_MS=360, SETTLE_HOLD_MS=1100;
+const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 function scoringReviewAction(type, extra={}) {
   return {type,number:game.moveNumber,before:boardHash(game.board),
     deadBefore:deadSignature(game.dead),...extra};
@@ -293,7 +303,7 @@ function rememberSettings() {
   try {
     localStorage.setItem("miego-local-settings", JSON.stringify({
       mode:gameMode,humanColor,aiSide:aiSideChoice,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap,onlineHandicap,boardSize,
-      hideStones:hideStonesChoice
+      hideStones:hideStonesChoice,gameRules
     }));
   } catch {}
 }
@@ -322,7 +332,8 @@ const boardZoom=createBoardZoom({
 const boardRenderer = createBoardRenderer({
   canvas,
   getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette:shownPalette(),opacity,boardTheme,
-    hideStones:hidingStones(),humanTurn:isHumanTurn(),hints:visibleHints()})
+    hideStones:hidingStones(),humanTurn:isHumanTurn(),hints:visibleHints(),
+    settle:settleView(),keptPlayout:keptPlayout()})
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
 // Hints belong to one committed position and are only drawn on the human's turn.
@@ -380,7 +391,7 @@ function requestAnalysis() {
     const id=pending;
     deadEvaluation={id,number:game.moveNumber,hash:boardHash(game.board),
       dead:deadSignature(game.dead)};
-    postToWorker({id,kind:"scoring",state:game});
+    startSettle(id);
     show();return;
   }
   if(game.status!=="playing") {
@@ -429,6 +440,131 @@ function requestAnalysis() {
   analysisContext={id,number:state.moveNumber,hash:boardHash(state.board),committed:!candidate};
   if(overlayOn())$("analysisStatus").textContent=fallbackMode?TEXT.analysis.updatingFallback:TEXT.analysis.updating;
   analysisTimer=setTimeout(()=>postToWorker({id,state,board:state.board}),180);
+}
+/** The automatic dead-stone job still belongs to the position on the board. */
+function scoringJobCurrent(job) {
+  return !!job && game.status==="scoring" && game.moveNumber===job.number &&
+    boardHash(game.board)===job.hash && deadSignature(game.dead)===job.dead &&
+    !deadReviewTouched && !game.agreed.black && !game.agreed.white;
+}
+function startSettle(id) {
+  stopSettleShow();
+  settle={id,state:settleStart(game),positions:[],ownership:null,initialOwnership:null,shownAt:0,timer:null};
+  postToWorker({id,kind:"settle",state:settle.state});
+}
+function cancelSettle() {
+  if(settle?.timer)clearTimeout(settle.timer);
+  settle=null;
+}
+/** One KataGo answer during the playout: play its best move, or finish. */
+function continueSettle(result) {
+  const job=deadEvaluation;
+  if(!settle || settle.id!==result.id || !job || job.id!==result.id || !scoringJobCurrent(job)) {
+    cancelSettle();draw();return;
+  }
+  if(result.error || result.engine!=="katago" || !Array.isArray(result.ownership) ||
+     result.ownership.length!==game.board.length || !result.ownership.every(Number.isFinite)) {
+    cancelSettle();deadEvaluation=null;reviewUnavailable();return;
+  }
+  settle.ownership=result.ownership;
+  settle.initialOwnership??=result.ownership;
+  const limit=settleLimit(sizeOf(game.board));
+  if(settle.state.status!=="playing" || settle.positions.length>=limit)return finishSettle();
+  const position=pickSettleMove(settle.state,result.policy,result.passLogit,result.ownership);
+  const step=settle.skip || reducedMotion()?0:SETTLE_STEP_MS;
+  const wait=Math.max(0,settle.shownAt+step-performance.now());
+  settle.timer=setTimeout(()=>{
+    if(!settle || settle.id!==result.id)return;
+    settle.timer=null;
+    settle.state=settleStep(settle.state,position);
+    settle.positions.push(position);settle.shownAt=performance.now();
+    show();
+    postToWorker({id:settle.id,kind:"settle",state:settle.state});
+  },wait);
+}
+/** The playout is over: hold its final board briefly, then mark the dead stones. */
+function finishSettle() {
+  const run=settle;
+  let positions;
+  try {
+    // Groups the playout captured, plus the conservative estimate on the real board.
+    const marked=new Set([...deadFromPlayout(game,run.state.board,run.ownership),
+      ...suggestDeadStones(game,run.initialOwnership)]);
+    positions=[...marked].sort((a,b)=>a-b);
+  }catch(error) {
+    console.error("KataGo dead-stone candidates",error);
+    cancelSettle();deadEvaluation=null;reviewUnavailable();return;
+  }
+  run.dead=positions;run.finished=true;show();
+  run.timer=setTimeout(()=>commitSettle(run),run.skip || reducedMotion()?0:SETTLE_HOLD_MS);
+}
+function commitSettle(run) {
+  if(settle!==run)return;
+  const job=deadEvaluation;
+  settle=null;deadEvaluation=null;
+  if(!scoringJobCurrent(job)){show();return;}
+  settlePlayout={number:game.moveNumber,hash:boardHash(game.board),positions:run.positions,
+    board:run.state.board};
+  apply(scoringReviewAction("dead_auto",{positions:run.dead,playout:run.positions}));
+}
+/** 再生: the kept playout again, without asking KataGo. */
+function skipSettle() {
+  if(!settle)return;
+  settle.skip=true;
+  if(settle.timer && !settle.finished){
+    // The pending move plays at once; later ones follow without the pause.
+    clearTimeout(settle.timer);settle.timer=null;
+    postToWorker({id:settle.id,kind:"settle",state:settle.state});
+  } else if(settle.finished){
+    clearTimeout(settle.timer);
+    commitSettle(settle);
+  }
+}
+function replaySettle() {
+  if(!currentPlayout() || settle)return;
+  const frames=replayPlayout(game,settlePlayout.positions);
+  if(!frames)return;
+  stopSettleShow();
+  const run={frames,index:0,timer:null};settleShow=run;
+  const tick=()=>{
+    if(settleShow!==run)return;
+    if(run.index>=frames.length-1 || game.status!=="scoring"){
+      run.finished=true;show();
+      run.timer=setTimeout(()=>{if(settleShow===run){settleShow=null;show();}},SETTLE_HOLD_MS);
+      return;
+    }
+    run.index++;show();
+    run.timer=setTimeout(tick,reducedMotion()?0:SETTLE_STEP_MS);
+  };
+  show();run.timer=setTimeout(tick,SETTLE_STEP_MS);
+}
+function stopSettleShow() {
+  if(settleShow?.timer)clearTimeout(settleShow.timer);
+  settleShow=null;
+}
+const currentPlayout=()=>settlePlayout && game.status==="scoring" &&
+  settlePlayout.number===game.moveNumber && settlePlayout.hash===boardHash(game.board) &&
+  settlePlayout.positions.length ? settlePlayout : null;
+/** The stones the playout placed stay on the board, as fill stones, until the count is over. */
+function keptPlayout() {
+  if(boardReview || settle || settleShow || !settlePlayout?.board)return null;
+  const counted=game.status==="scoring" || game.status==="finished" && !game.result?.endsWith("+R");
+  if(!counted || settlePlayout.number!==game.moveNumber || settlePlayout.hash!==boardHash(game.board))return null;
+  const kept=[];
+  settlePlayout.board.forEach((color,i)=>{if(color && !game.board[i])kept.push({position:i,color});});
+  return kept;
+}
+/** What the board shows during a playout: its position over the real stones. */
+function settleView() {
+  if(boardReview || game.status!=="scoring")return null;
+  if(settle)return {board:settle.state.board,base:game.board,last:settle.positions.at(-1)??null,
+    moves:settle.positions.length,ownership:settle.ownership,finished:!!settle.finished};
+  if(settleShow && currentPlayout()){
+    const frame=settleShow.frames[settleShow.index];
+    return {board:frame.board,base:game.board,last:frame.moves.at(-1)?.position??null,
+      moves:settleShow.index,ownership:null,finished:!!settleShow.finished};
+  }
+  return null;
 }
 function finishAiMove(result) {
   const job=aiJob;
@@ -499,6 +635,10 @@ function handleAnalysis(event) {
     return;
   }
   if(result.id!==pending)return;
+  if(result.kind==="settle") {
+    continueSettle(result);
+    return;
+  }
   if(result.kind==="scoring") {
     const job=deadEvaluation;
     deadEvaluation=null;
@@ -610,7 +750,21 @@ function show() {
   updateGradient();
   const handicap=handicapOf(game),size=sizeOf(game.board);
   canvas.setAttribute("aria-label",TEXT.game.boardLabel(shownSize()));
-  $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap);
+  const japanese=isJapanese(game);
+  $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,japanese);
+  // Japanese territory scoring counts prisoners, so they sit under the ownership bar.
+  $("captureCounts").hidden=!japanese;
+  // While counting, the dead stones taken off the board are prisoners too.
+  const counted=game.status==="scoring" || game.status==="finished" && !game.result?.endsWith("+R");
+  const prisoners=japanese && counted?
+    areaScore(game).prisoners:{black:game.captures?.black||0,white:game.captures?.white||0};
+  // Black's prisoners are White stones: that pill shows White stones, in the
+  // outline colour of the White stones filled into White's territory.
+  $("whitePrisoners").textContent=String(prisoners.black);
+  $("blackPrisoners").textContent=String(prisoners.white);
+  $("whitePrisonerPill").style.borderColor=PRISONER_OUTLINE.white;
+  $("blackPrisonerPill").style.borderColor=PRISONER_OUTLINE.black;
+  $("captureCounts").setAttribute("aria-label",TEXT.game.capturesAria(prisoners.black,prisoners.white));
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
   $("gamePanel").classList.toggle("is-scoring",isScoring);
   $("gamePanel").classList.toggle("is-finished",isFinished);
@@ -629,15 +783,23 @@ function show() {
   $("confirm").hidden=isScoring || isFinished;
   $("copyIllegalPrompt").hidden=isScoring || isFinished || !blocked;
   $("actionRow").classList.toggle("finished-actions",isFinished);
-  $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:TEXT.scoring.title;
-  $("scoreInstruction").textContent=isFinished?
-    (game.result?.endsWith("+R")?TEXT.scoring.finishedResign:TEXT.scoring.finishedScore):
+  $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:
+    scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
+  const playout=settleView();
+  $("settleSkip").hidden=!playout;
+  $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout();
+  $("scoreInstruction").textContent=playout?
+    (playout.finished?TEXT.scoring.settleDone(playout.moves):TEXT.scoring.settling(playout.moves)):
+    isFinished?
+    (game.result?.endsWith("+R")?TEXT.scoring.finishedResign:
+      japanese?TEXT.scoring.finishedScoreJapanese:TEXT.scoring.finishedScore):
     deadReview==="pending"?TEXT.scoring.reviewPending:
     deadReview==="loading"?TEXT.scoring.reviewLoading:
     deadReview==="awaiting"?TEXT.scoring.reviewAwaiting:
-    deadReview==="complete"?TEXT.scoring.reviewComplete:
-    deadReview==="none"?TEXT.scoring.reviewNone:
-    deadReview==="modified"?TEXT.scoring.reviewModified:
+    scoringStepOf(game)==="count"?TEXT.scoring.countStep:
+    deadReview==="complete"?(japanese?TEXT.scoring.reviewCompleteJapanese:TEXT.scoring.reviewComplete):
+    deadReview==="none"?(japanese?TEXT.scoring.reviewNoneJapanese:TEXT.scoring.reviewNone):
+    deadReview==="modified"?(japanese?TEXT.scoring.reviewModifiedJapanese:TEXT.scoring.reviewModified):
     deadReview==="unavailable"?TEXT.scoring.reviewUnavailable:
     TEXT.scoring.reviewChecking;
   // The scoring controls live in the existing sticky action row.
@@ -650,7 +812,10 @@ function show() {
     const agreeing=room?(myOnlineColor()===WHITE?"white":"black"):
       gameMode==="ai"?(humanColor===BLACK?"black":"white"):"black";
     $("agree").textContent=game.agreed[agreeing]?TEXT.scoring.agreedWaiting:
-      ready?TEXT.scoring.agree:TEXT.scoring.waitingDead;
+      !ready?TEXT.scoring.waitingDead:
+      scoringStepOf(game)==="dead"?TEXT.scoring.agreeDead:TEXT.scoring.agree;
+    $("backToDead").hidden=scoringStepOf(game)!=="count";
+    $("backToDead").disabled=room&&!connected;
     if(game.agreed[agreeing])$("agree").disabled=true;
     $("resume").disabled=room&&!connected;
   }
@@ -710,6 +875,13 @@ function apply(action, remote=false, isAiMove=false) {
     } else if(action.type==="dead_auto" || action.type==="dead_unavailable") {
       if(!canApplyAutomatedReview(game,deadReviewTouched,action))return;
       if(action.type==="dead_auto")game=setDeadCandidates(game,action.positions);
+      // The friend who ran the playout sends it along, so both boards can replay it.
+      if(action.type==="dead_auto" && Array.isArray(action.playout) && replayPlayout(game,action.playout)) {
+        const frames=replayPlayout(game,action.playout);
+        settlePlayout={number:game.moveNumber,hash:boardHash(game.board),positions:[...action.playout],
+          board:frames.at(-1).board};
+        if(remote)setTimeout(replaySettle,0);
+      }
       deadReview=action.type==="dead_unavailable"?"unavailable":
         action.positions.length?"complete":"none";
     }
@@ -718,6 +890,13 @@ function apply(action, remote=false, isAiMove=false) {
       if(!canApproveScoring(game,deadReview,room,connected))return;
       game=agreeScore(game,action.color);
     }
+    else if(action.type==="agree_dead" || action.type==="solo_dead") {
+      // 日本式: the dead stones are agreed first; then the prisoners fill territory.
+      // The button checks this too; a peer may agree before our review ends.
+      if(!canApproveScoring(game,deadReview,room,connected))return;
+      game=action.type==="solo_dead"?confirmDeadSolo(game):agreeDead(game,action.color);
+    }
+    else if(action.type==="back_to_dead") game=backToDead(game);
     else if(action.type==="resume") game=resume(game);
     // "mode" (the removed per-game overlay switch) from older peers is ignored below.
     else if(action.type==="end_offer") {
@@ -794,6 +973,9 @@ canvas.addEventListener("click",e=>{
     if(room&&!connected)return;
     // Counting stones are drawn on empty territory; only real stones can be marked dead.
     if(!game.board[position])return;
+    // A tap during the playout ends the replay, or skips ahead to its result.
+    if(settleShow){stopSettleShow();show();return;}
+    if(settle){skipSettle();return;}
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
   if(game.status!=="playing" || !isHumanTurn())return;
@@ -965,7 +1147,7 @@ function freshLocalBoard() {
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
   lastOfferKey=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  game=freshLocalGame(game,localHandicap,boardSize,hideStonesChoice);currentGameId=null;currentRevision=null;
+  game=freshLocalGame(game,localHandicap,boardSize,hideStonesChoice,gameRules);currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
 }
 /** 新規対戦 → 1台で打つ: leaves an AI or friend match (kept in the library). */
@@ -987,10 +1169,12 @@ $("agree").onclick=()=>{
   if(!canApproveScoring(game,deadReview,room,connected))return;
   const color=room?myOnlineColor():gameMode==="ai"?humanColor:BLACK;
   if(game.agreed[color===BLACK?"black":"white"])return;
-  if(!room)apply({type:"solo_score"});
-  else apply({type:"agree",color});
+  const deadStep=scoringStepOf(game)==="dead";
+  if(!room)apply({type:deadStep?"solo_dead":"solo_score"});
+  else apply({type:deadStep?"agree_dead":"agree",color});
 };
 $("resume").onclick=()=>apply({type:"resume"});
+$("backToDead").onclick=()=>apply({type:"back_to_dead"});
 $("endPropose").onclick=()=>{
   if(game.status!=="playing" || game.endProposal || game.takebackRequest)return;
   const color=myColorForEnd();
@@ -1360,7 +1544,7 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;seenPeerSignins=0;linkKey=null;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  game=newGame(true,{handicap:onlineHandicap,size:boardSize,hideStones:hideStonesChoice});candidate=null;lastPosition=null;
+  game=newGame(true,{handicap:onlineHandicap,size:boardSize,hideStones:hideStonesChoice,rules:gameRules});candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
@@ -1428,6 +1612,13 @@ for(const input of document.querySelectorAll('input[name="boardSize"]')) {
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
+    syncHandicapUi();rememberSettings();renderInviteButton();
+  };
+}
+for(const input of document.querySelectorAll('input[name="gameRules"]')) {
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    gameRules=toRules(e.target.value);
     syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
@@ -2059,6 +2250,11 @@ document.addEventListener("keydown",e=>{
   if(!$("helpPanel").hidden)closeHelp();else closePanels();
 });
 $("newGameButton").onclick=()=>openPanel(room?"online":gameMode);
+$("settleSkip").onclick=()=>{
+  if(settleShow){stopSettleShow();show();}
+  else skipSettle();
+};
+$("settleReplay").onclick=replaySettle;
 $("startAi").onclick=()=>{
   if(!katagoReady || fallbackMode)return; // The button is disabled meanwhile.
   if(room && connected &&
@@ -2074,7 +2270,7 @@ $("startAi").onclick=()=>{
   catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
   aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
-  game=newGame(true,{handicap:aiHandicap,size:boardSize,hideStones:hideStonesChoice});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
+  game=newGame(true,{handicap:aiHandicap,size:boardSize,hideStones:hideStonesChoice,rules:gameRules});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   $("aiMatchStatus").textContent=TEXT.ai.started(colorLabel(humanColor));
   save();closePanels();show();requestAnalysis();
@@ -2094,6 +2290,8 @@ for (const input of document.querySelectorAll('input[name="aiSide"]')) {
 function syncHandicapUi() {
   const sizeChoice=document.querySelector('input[name="boardSize"][value="'+boardSize+'"]');
   if(sizeChoice)sizeChoice.checked=true;
+  const rulesChoice=document.querySelector('input[name="gameRules"][value="'+gameRules+'"]');
+  if(rulesChoice)rulesChoice.checked=true;
   // One set of handicap buttons shows the stored choice of the selected mode.
   const kind=newGameModeKind(),ai=kind==="ai";
   const shown=ai?aiHandicap:kind==="online"?onlineHandicap:localHandicap;
@@ -2103,7 +2301,7 @@ function syncHandicapUi() {
   $("handicapNote").hidden=!shown;
   $("handicapNote").textContent=(ai?TEXT.handicap.noteAi:
     kind==="online"?TEXT.handicap.noteOnline:TEXT.handicap.noteLocal)+
-    TEXT.handicap.noteRule+(boardSize===9?TEXT.handicap.note9:"");
+    (gameRules==="japanese"?TEXT.handicap.noteRuleJapanese:TEXT.handicap.noteRule)+(boardSize===9?TEXT.handicap.note9:"");
   // With handicap the human is Black; the saved side preference returns afterwards.
   for(const input of document.querySelectorAll('input[name="aiSide"]'))
     input.disabled=!!aiHandicap && input.value!=="black";
@@ -2206,6 +2404,7 @@ else try {
     aiHandicap=toHandicap(settings.aiHandicap);localHandicap=toHandicap(settings.localHandicap);
     onlineHandicap=toHandicap(settings.onlineHandicap);
     boardSize=toBoardSize(settings.boardSize);
+    gameRules=toRules(settings.gameRules);
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
     onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
