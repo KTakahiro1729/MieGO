@@ -106,3 +106,30 @@ test("rule texts describe the Japanese choice", () => {
   assert.match(TEXT.prompts.ruleLine(6.5, 0, true), /日本ルール.*アゲハマ/);
   assert.equal(TEXT.newGame.rulesChoices.japanese, "日本式");
 });
+
+test("prisoners fill the territory of the side they came from, as one outlined block", async () => {
+  const { prisonerFill, PRISONER_OUTLINE } = await import("../public/scoring-regions.mjs");
+  const { neighbors } = await import("../public/core.mjs");
+  const board = Array(81).fill(0);
+  for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(5, y)] = WHITE; }
+  board[at(1, 1)] = WHITE; // dead, inside Black's area
+  const game = japanese({ board, dead: [at(1, 1)], captures: { black: 4, white: 2 } });
+  const fill = prisonerFill(game);
+  // Black holds 4 captured + 1 dead White stones; they go back into White's territory.
+  assert.equal(fill.white.length, 5);
+  assert.ok(fill.white.every(p => p % 9 > 5));
+  assert.equal(fill.black.length, 2);
+  assert.ok(fill.black.every(p => p % 9 < 3 && p !== at(1, 1)), "a dead stone still on the board stays clear");
+  // Each block is connected.
+  for (const points of [fill.white, fill.black]) {
+    const set = new Set(points), seen = new Set([points[0]]), queue = [points[0]];
+    while (queue.length) for (const n of neighbors(queue.pop(), 9)) if (set.has(n) && !seen.has(n)) { seen.add(n); queue.push(n); }
+    assert.equal(seen.size, points.length);
+  }
+  assert.notEqual(PRISONER_OUTLINE.black, PRISONER_OUTLINE.white);
+  // Chinese games and resignations fill nothing.
+  assert.deepEqual(prisonerFill({ ...game, rules: "chinese" }), { black: [], white: [] });
+  assert.deepEqual(prisonerFill({ ...game, status: "finished", result: "B+R" }), { black: [], white: [] });
+  // More prisoners than territory: what there is gets filled.
+  assert.equal(prisonerFill({ ...game, captures: { black: 200, white: 0 } }).white.length, 27);
+});

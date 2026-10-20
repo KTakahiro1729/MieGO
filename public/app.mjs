@@ -1,4 +1,4 @@
-import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, boardHash, handicapOf, komiOf, isJapanese, rulesOf, RULESETS, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
+import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, boardHash, handicapOf, komiOf, isJapanese, areaScore, rulesOf, RULESETS, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
 import { settleLimit, settleStart, pickSettleMove, settleStep, deadFromPlayout, replayPlayout } from "./settle-playout.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
@@ -12,7 +12,7 @@ import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-stren
 import { policyHints } from "./ai-assist.mjs";
 import { takebackCut, takeBack, requestTakeback, answerTakeback } from "./takeback.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
-import { scoreBreakdown, scoreRows } from "./scoring-regions.mjs";
+import { scoreBreakdown, scoreRows, PRISONER_OUTLINE } from "./scoring-regions.mjs";
 import { createBoardZoom } from "./board-zoom.mjs";
 import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
@@ -723,9 +723,17 @@ function show() {
   $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,japanese);
   // Japanese territory scoring counts prisoners, so they sit under the ownership bar.
   $("captureCounts").hidden=!japanese;
-  $("capturesBlack").textContent=String(game.captures?.black||0);
-  $("capturesWhite").textContent=String(game.captures?.white||0);
-  $("captureCounts").setAttribute("aria-label",TEXT.game.capturesAria(game.captures?.black||0,game.captures?.white||0));
+  // While counting, the dead stones taken off the board are prisoners too.
+  const counted=game.status==="scoring" || game.status==="finished" && !game.result?.endsWith("+R");
+  const prisoners=japanese && counted?
+    areaScore(game).prisoners:{black:game.captures?.black||0,white:game.captures?.white||0};
+  // Black's prisoners are White stones: that pill shows White stones, in the
+  // outline colour of the White stones filled into White's territory.
+  $("whitePrisoners").textContent=String(prisoners.black);
+  $("blackPrisoners").textContent=String(prisoners.white);
+  $("whitePrisonerPill").style.borderColor=PRISONER_OUTLINE.white;
+  $("blackPrisonerPill").style.borderColor=PRISONER_OUTLINE.black;
+  $("captureCounts").setAttribute("aria-label",TEXT.game.capturesAria(prisoners.black,prisoners.white));
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
   $("gamePanel").classList.toggle("is-scoring",isScoring);
   $("gamePanel").classList.toggle("is-finished",isFinished);

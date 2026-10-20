@@ -50,7 +50,7 @@
           <div class="gradient" id="gradient" aria-hidden="true"></div>
           <div class="legend-labels"><span id="legendWhite">白の地</span><span id="legendNeutral" hidden>中立</span><span id="legendBlack">黒の地</span></div>
         </div>
-        <div id="captureCounts" class="capture-counts" role="status" hidden><span class="capture-stone white" aria-hidden="true"></span><span id="capturesWhite">0</span><span class="capture-label">アゲハマ</span><span id="capturesBlack">0</span><span class="capture-stone black" aria-hidden="true"></span></div>
+        <div id="captureCounts" class="capture-counts" role="status" hidden><span id="whitePrisonerPill" class="prisoner-pill"><span class="capture-stone white" aria-hidden="true"></span><span id="whitePrisoners">0</span></span><span class="capture-label">アゲハマ</span><span id="blackPrisonerPill" class="prisoner-pill"><span class="capture-stone black" aria-hidden="true"></span><span id="blackPrisoners">0</span></span></div>
         <div id="endgameBar" class="endgame-bar" aria-label="終局の相談">
           <span id="endStatus" class="end-status" role="status" aria-live="polite">終局まではまだまだです</span>
           <button id="copyIllegalPrompt" class="secondary accent-outline illegal-prompt-action" type="button" aria-label="禁止手についてAIに質問する文章をコピー" title="コピーした文章を好きなAIに貼り付けて質問できます" hidden><span>AIに質問</span><svg class="copy-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><svg class="copied-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></button>
@@ -354,7 +354,7 @@
         <details id="help-rules" class="info-disclosure help-topic" name="helpTopic"><summary>ルールと置き石</summary>
           <ul class="help-list">
             <li>新規対戦でルールを選べます。中国ルール（既定）は、盤上の自分の石と地の合計で勝敗を決めます。互先のコミは7.5目です。</li>
-            <li>日本ルールは、地（囲んだ空き点）とアゲハマ（対局中に取った石と、終局時に取り除いた死石）の合計で勝敗を決めます。互先のコミは6.5目です。セキの中の空き点は地に数えません。アゲハマは地合いのバーの下に表示されます。</li>
+            <li>日本ルールは、地（囲んだ空き点）とアゲハマ（対局中に取った石と、終局時に取り除いた死石）の合計で勝敗を決めます。互先のコミは6.5目です。セキの中の空き点は地に数えません。アゲハマは地合いのバーの下に表示されます。採点中は、アゲハマを元の持ち主の地に小さな石で埋めて示します。まとまりの外枠の色は、アゲハマ表示の枠の色と同じです。</li>
             <li>置き碁は新規対戦の「詳細設定」で選べます。白が先に打ち、コミは0.5目です。中国ルールでは白に置き石の数だけ加点します（日本ルールでは加点しません）。</li>
           </ul>
           <p class="explanation">現在の対局：<span id="ruleSummary">9路盤 · 中国式ルール · コミ7.5</span></p>

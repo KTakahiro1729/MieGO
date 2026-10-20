@@ -1,4 +1,7 @@
 import {BLACK,WHITE,areaScore,neighbors,isBoardSize,sizeOf,komiOf,handicapBonusOf,isJapanese} from "./core.mjs";
+
+/** Outline colours of the filled-in prisoners, shared by the board and the アゲハマ counter. */
+export const PRISONER_OUTLINE=Object.freeze({black:"#e0a03a",white:"#3aaec4"});
 import { TEXT } from "./texts.mjs";
 
 /** Area-scoring overlay: connected same-color groups AFTER adding owned
@@ -68,4 +71,54 @@ export function scoreRows(state) {
     white:row("white",score.white),
     leader:score.difference>0?"black":score.difference<0?"white":null
   };
+}
+
+/**
+ * 日本式の整地: each side's prisoners go back into the territory of the side
+ * they came from (White stones Black took fill White's territory, and the
+ * other way round), packed as one compact block per region where possible.
+ * Points still holding a stone (dead stones while they are being marked) stay
+ * clear. Returns the filled points per prisoner colour; a side with more
+ * prisoners than visible territory fills what there is.
+ */
+export function prisonerFill(state) {
+  if(!isJapanese(state) || !["scoring","finished"].includes(state.status) ||
+     state.result?.endsWith("+R"))return {black:[],white:[]};
+  const score=areaScore(state),size=sizeOf(state.board);
+  const regions=scoringRegions(state).regions;
+  const free=i=>score.owned[i]&&(state.status==="finished"||!state.board[i]);
+  const fill=(color,count)=>{
+    const placed=[];
+    // Largest territory first; each block grows from the region point farthest
+    // from its count label, always next to points already filled.
+    const own=regions.filter(r=>r.color===color)
+      .map(r=>r.positions.filter(i=>!state.board[i]||state.dead?.includes(i)).filter(free))
+      .filter(points=>points.length).sort((a,b)=>b.length-a.length);
+    for(const points of own){
+      if(placed.length>=count)break;
+      const inRegion=new Set(points),label=regions.find(r=>r.positions.includes(points[0]))?.position;
+      const dist=(a,b)=>(a%size-b%size)**2+(Math.floor(a/size)-Math.floor(b/size))**2;
+      const seed=Number.isInteger(label)?points.reduce((best,p)=>dist(p,label)>dist(best,label)?p:best,points[0]):points[0];
+      const taken=new Set([seed]),frontier=new Set();placed.push(seed);
+      const grow=p=>{for(const n of neighbors(p,size))if(inRegion.has(n)&&!taken.has(n))frontier.add(n);};
+      grow(seed);
+      while(placed.length<count && frontier.size){
+        const next=[...frontier].sort((a,b)=>dist(a,seed)-dist(b,seed)||a-b)[0];
+        frontier.delete(next);taken.add(next);placed.push(next);grow(next);
+      }
+      // A region of several separate empty areas continues from its next area.
+      for(const p of points){
+        if(placed.length>=count)break;
+        if(taken.has(p))continue;
+        taken.add(p);placed.push(p);grow(p);
+        while(placed.length<count && frontier.size){
+          const next=[...frontier].sort((a,b)=>dist(a,p)-dist(b,p)||a-b)[0];
+          frontier.delete(next);taken.add(next);placed.push(next);grow(next);
+        }
+      }
+    }
+    return placed.slice(0,count).sort((a,b)=>a-b);
+  };
+  // Black's prisoners are White stones, so they fill White's territory.
+  return {white:fill(WHITE,score.prisoners.black),black:fill(BLACK,score.prisoners.white)};
 }

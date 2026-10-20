@@ -2,7 +2,7 @@ import {SIZE as DEFAULT_SIZE, BLACK, WHITE, sizeOf, starPoints} from "./core.mjs
 import {ownershipPixel,showsOwnership,countingPalette,countingOpacity,NEUTRAL_MARK} from "./territory-view.mjs";
 import {boardTheme} from "./board-theme.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
-import {scoringRegions} from "./scoring-regions.mjs";
+import {scoringRegions,prisonerFill,PRISONER_OUTLINE} from "./scoring-regions.mjs";
 
 /**
  * Draws the current board without modifying the match. Each draw reads one
@@ -101,6 +101,36 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     ctx.lineWidth=1.5;
     ctx.stroke();
     ctx.restore();
+  }
+
+  // A filled-in stone that is not a real stone on the board: the AI's
+  // provisional playout moves and the prisoners filled into territory.
+  function paintFillStone(theme,color,x,y,gap) {
+    paintStone(theme,color,x,y,gap*.3,.55);
+  }
+
+  /** 日本式: prisoners filled into territory, each block outlined in its counter colour. */
+  function paintPrisonerFill(theme,game,gap,pad) {
+    const fill=prisonerFill(game);
+    for(const [key,color] of [["white",WHITE],["black",BLACK]]){
+      const points=new Set(fill[key]);
+      if(!points.size)continue;
+      for(const i of points)paintFillStone(theme,color,pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap,gap);
+      // The block's outer edge: every cell side that does not touch another filled cell.
+      ctx.save();
+      ctx.strokeStyle=PRISONER_OUTLINE[key];ctx.lineWidth=Math.max(2,gap*.05);ctx.lineCap="round";
+      ctx.beginPath();
+      const h=gap/2;
+      for(const i of points){
+        const x=i%SIZE,y=Math.floor(i/SIZE),cx=pad+x*gap,cy=pad+y*gap;
+        const has=(dx,dy)=>x+dx>=0&&x+dx<SIZE&&y+dy>=0&&y+dy<SIZE&&points.has(i+dx+dy*SIZE);
+        if(!has(0,-1)){ctx.moveTo(cx-h,cy-h);ctx.lineTo(cx+h,cy-h);}
+        if(!has(0,1)){ctx.moveTo(cx-h,cy+h);ctx.lineTo(cx+h,cy+h);}
+        if(!has(-1,0)){ctx.moveTo(cx-h,cy-h);ctx.lineTo(cx-h,cy+h);}
+        if(!has(1,0)){ctx.moveTo(cx+h,cy-h);ctx.lineTo(cx+h,cy+h);}
+      }
+      ctx.stroke();ctx.restore();
+    }
   }
 
   function paintCountingArea(view,score,gap,pad){
@@ -220,7 +250,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
 
   /**
    * 決着手順: KataGo's playout over the real position. Stones it adds are
-   * drawn slightly translucent with a thin ring; real stones it captured
+   * provisional, drawn as small translucent fill stones; real stones it captured
    * stay as faint ghosts with a red cross, the way they will be marked dead.
    */
   function paintSettle(theme,view,gap,pad) {
@@ -232,13 +262,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     for(let i=0;i<board.length;i++){
       const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
       if(board[i]){
-        const added=board[i]!==base[i];
-        paintStone(theme,board[i],x,y,r,added?.82:1);
-        if(added){
-          ctx.save();ctx.strokeStyle=board[i]===BLACK?"#f5d58bcc":"#8a6a2acc";
-          ctx.lineWidth=Math.max(1.5,gap*.04);
-          ctx.beginPath();ctx.arc(x,y,r*.55,0,Math.PI*2);ctx.stroke();ctx.restore();
-        }
+        if(board[i]===base[i])paintStone(theme,board[i],x,y,r,1);
+        else paintFillStone(theme,board[i],x,y,gap);
       }else if(base[i]){
         paintStone(theme,base[i],x,y,r,.28);
         ctx.save();ctx.strokeStyle="#d95a4e";ctx.lineWidth=3;ctx.beginPath();
@@ -275,6 +300,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     paintStarPoints(theme,gap,pad);
     if(scoring)paintNeutralPoints(game,scoring,gap,pad);
     paintStones(theme,view,display,gap,pad);
+    if(scoring)paintPrisonerFill(theme,game,gap,pad);
     if(scoring)paintRegionLabels(scoring.regions,gap,pad);
     paintLastMove(view,display,gap,pad);
     if(!boardReview)paintHints(view,display,gap,pad);
