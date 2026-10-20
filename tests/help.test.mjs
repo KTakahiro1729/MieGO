@@ -35,7 +35,11 @@ test("every local help button names an existing topic",()=>{
   // Context-dependent buttons only ever switch between topics that exist.
   assert.match(app,/\$\("modeHelp"\)\.dataset\.help=kind;/);
   for(const kind of ["local","ai","online","history"])assert.ok(topics.has(kind),kind);
-  assert.match(app,/\$\("endHelp"\)\.dataset\.help=playing && illegalCandidate\?"illegal":"endgame";/);
+  assert.match(app,/\$\("endHelp"\)\.dataset\.help=isGomoku\(game\)\?"rules":playing && illegalCandidate\?"illegal":"endgame";/);
+  assert.match(app,/dataset\.help=gomoku\?"rules":"scoring";/);
+  for(const topic of ["rules","scoring"])assert.ok(topics.has(topic),topic);
+  // The rules shown above the board are plain text with the usual ? beside them.
+  assert.match(html,/<span id="ruleLabel" class="rule-label">[^<]+<\/span><button class="help-button" type="button" data-help="rules"/);
 });
 
 test("help stacks above the open sheet and Escape closes it first",()=>{

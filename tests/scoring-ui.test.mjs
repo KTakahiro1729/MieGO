@@ -7,7 +7,8 @@ const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 
 test("AI mode starts from the 新規対戦 sheet with a readiness-gated start",()=>{
   assert.match(html,/name="newGameMode" value="ai"/);
-  assert.match(app,/\$\("startAi"\)\.disabled=!katagoReady \|\| fallbackMode/);
+  // 五目並べ's computer needs no KataGo; every Go game waits for it.
+  assert.match(app,/\$\("startAi"\)\.disabled=needsKatago && \(!katagoReady \|\| fallbackMode\)/);
   assert.match(app,/function leaveOnlineRoom\(\)/);
   assert.doesNotMatch(html,/id="aiMenu"/);
 });

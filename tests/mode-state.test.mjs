@@ -13,10 +13,10 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   for(const size of [9,13,19])assert.match(sheet,new RegExp('name="boardSize" value="'+size+'"'));
   const handicap=sheet.slice(sheet.indexOf('<select id="handicap"'),sheet.indexOf('</select>',sheet.indexOf('<select id="handicap"')));
   for(const stones of [0,2,3,4,5,6,7,8,9])assert.match(handicap,new RegExp('<option value="'+stones+'"'));
-  // The three modes and 履歴 form a 2x2 grid of icon tabs in one sheet.
+  // The three modes and 履歴 form one row of icon tabs in one sheet.
   assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,4);
   assert.match(sheet,/id="openHistoryFromNew" type="radio" name="newGameMode" value="history"/);
-  // 対COM and 対友人 on the top row, 1台で and 履歴 below; 対COM is the first-visit default.
+  // 対COM first, 履歴 last; 対COM is the first-visit default.
   assert.deepEqual([...sheet.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1]),["ai","online","local","history"]);
   assert.match(sheet,/name="newGameMode" value="ai" checked>/);
   assert.match(app,/let gameMode = room \? "online" : "ai";/);
@@ -25,7 +25,7 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   assert.match(app,/function openHistoryPanel\(\)\{openPanel\("history"\);\}/);
   assert.equal((sheet.match(/name="boardSize"[^>]*><span><svg class="size-icon"/g)||[]).length,3);
   // Handicap and the AI's style live under 詳細設定; the sampling-variance setting is gone.
-  const advanced=sheet.slice(sheet.indexOf('<details id="newGameAdvanced"'),sheet.indexOf('</details>'));
+  const advanced=sheet.slice(sheet.indexOf('<details id="newGameAdvanced"'),sheet.indexOf('</details>',sheet.indexOf('<details id="newGameAdvanced"')));
   for(const id of ["handicap","aiInvasion","aiReinforcement","aiHints"])assert.match(advanced,new RegExp('id="'+id+'"'));
   // Strength stays outside 詳細設定 as a four-stop bar; the style sliders have three stops.
   assert.doesNotMatch(advanced,/id="aiStrength"/);
@@ -36,6 +36,11 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
     assert.equal((sheet.slice(sheet.indexOf('id="'+id+'Row"')).split('</div>')[0].match(/data-note=/g)||[]).length,id==="aiStrength"?4:3);
   assert.doesNotMatch(html+app,/aiLevel/);
   for(const id of ["startLocal","startAi","copy","openHistoryFromNew"])assert.match(sheet,new RegExp('id="'+id+'"'));
+  // The way back tops the sheet, then the start button, then the mode tabs and options.
+  for(const id of ["startLocal","startAi","copy"]) {
+    assert.ok(sheet.indexOf('id="returnToGame"')<sheet.indexOf('id="'+id+'"'),id);
+    assert.ok(sheet.indexOf('id="'+id+'"')<sheet.indexOf('name="newGameMode"'),id);
+  }
   assert.match(app,/\$\("newGameButton"\)\.onclick=\(\)=>openPanel\(room\?"online":gameMode\)/);
 });
 test("settings is presentation-only and has no board rotation",()=>{

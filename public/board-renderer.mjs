@@ -1,4 +1,4 @@
-import {SIZE as DEFAULT_SIZE, BLACK, WHITE, sizeOf, starPoints} from "./core.mjs";
+import {SIZE as DEFAULT_SIZE, BLACK, WHITE, isGomoku, sizeOf, starPoints} from "./core.mjs";
 import {ownershipPixel,showsOwnership,countingPalette,countingOpacity,NEUTRAL_MARK} from "./territory-view.mjs";
 import {boardTheme} from "./board-theme.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
@@ -296,7 +296,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const d=canvas.width, gap=d/(SIZE+1), pad=gap;
     paintGrid(theme,d,gap,pad);
     paintOwnership(view,gap,pad);
-    const scoredFinished=game.status==="finished" && !game.result?.endsWith("+R");
+    // 五目並べ ends without a count, like a resignation.
+    const scoredFinished=game.status==="finished" && !game.result?.endsWith("+R") && !isGomoku(game);
     // Stones kept from the settle playout, and the prisoners filled around them.
     const kept=!boardReview && Array.isArray(view.keptPlayout) ? view.keptPlayout : [];
     const counting=!boardReview && (game.status==="scoring" || scoredFinished);
