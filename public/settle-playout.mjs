@@ -9,6 +9,9 @@ import { BLACK, WHITE, group, neighbors, play, resume, sizeOf } from "./core.mjs
 
 /** At most this many playout moves: a third of the board (27, 56 or 120). */
 export const settleLimit = size => Math.round(size * size / 3);
+/** The pause between shown playout moves: 360ms on 9x9, shorter on bigger
+ * boards so a full-length playout takes about ten seconds (at most 15 on 19x19). */
+export const settleStepMs = size => Math.min(360, Math.max(120, Math.round(9000 / settleLimit(size))));
 
 /** A scratch position to play out from: the scoring position, playable again. */
 export function settleStart(game) {

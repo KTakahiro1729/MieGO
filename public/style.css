@@ -417,6 +417,11 @@ body{overflow:hidden}
 .endgame-bar .end-buttons{display:flex;align-items:center;justify-content:flex-end;flex:0 0 auto;min-width:0;gap:5px}
 .endgame-bar .end-action{flex:0 0 auto;min-height:var(--control-h);height:var(--control-h);font-size:12px;font-weight:650;padding:5px 10px}
 .endgame-bar .end-action[hidden]{display:none!important}
+/* The bar asks this player for a decision (an offer, the other side's pass,
+   the advice to end): its text turns gold and the bar glows twice. */
+.endgame-bar.is-calling{border-radius:var(--radius-sm);animation:end-call 1.1s ease-out 2}
+.endgame-bar.is-calling .end-status{color:var(--gold)}
+@keyframes end-call{0%{box-shadow:0 0 0 0 #f0c77355}100%{box-shadow:0 0 0 9px #f0c77300}}
 
 /* Replay row: replaces the action row at the same height. */
 .review-panel{display:block;flex:none;margin:auto -2px 0;padding:4px 2px max(6px,env(safe-area-inset-bottom));
