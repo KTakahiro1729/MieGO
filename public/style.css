@@ -819,6 +819,30 @@ body{overflow:hidden}
 .action-row,.review-panel{box-sizing:border-box;
   height:calc(var(--action-h) + var(--action-pad-top) + max(6px,env(safe-area-inset-bottom)))}
 
+/* PC幅: the phone's column, only bigger. The header moves out of the column to
+   the side slots, so the board gains its height; the board, the rows under it
+   and its column share one width; and the sheets open in the right slot, beside
+   the board instead of over it. The header spans column and both slots, so its
+   buttons end where the sheets do. Narrower or squarer screens keep the
+   floating sheet, since their slots would leave the board smaller than now. */
+@media(min-width:1200px) and (min-aspect-ratio:3/2){
+  :root{
+    /* Under the board: legend, prisoner pills, info panel and action row with
+       their margins, then the column's padding. The rows keep fixed heights. */
+    --under-board:calc(6px + 32px + 6px + 23px + 114px + 4px + var(--action-h) + var(--action-pad-top) + 6px + 20px);
+    --col:min(calc(100dvh - var(--under-board)),calc(100vw - 724px),675px);
+    --side:min(422px,calc((100vw - var(--col))/2));
+    --side-gap:16px;
+  }
+  .app-shell{max-width:none;--topbar-height:0px}
+  .topbar{position:absolute;top:0;left:0;right:0;z-index:4;width:calc(var(--col) + 2*var(--side));margin:0 auto;padding:8px var(--side-gap);pointer-events:none}
+  .topbar>*{pointer-events:auto}
+  .game-layout{width:var(--col);max-width:none;padding:12px 0 8px}
+  .board-frame{max-height:var(--col)}
+  .settings-panel{top:68px;right:calc((100vw - var(--col))/2 - var(--side) + var(--side-gap));width:calc(var(--side) - 2*var(--side-gap));max-height:calc(100dvh - 68px - var(--side-gap))}
+  .mode-panel{height:min(calc(100dvh - 68px - var(--side-gap)),640px)}
+}
+
 /* Motion: only where it shows where something came from or went, or that a tap
    took. prefers-reduced-motion turns all of it off (the rule after the 700px block). */
 /* Sheets rise from the bottom edge on a phone and drop from the header on wider
