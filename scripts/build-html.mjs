@@ -7,7 +7,7 @@ import { textAt } from "../public/texts.mjs";
 // in src/index.template.html, then run `node scripts/build-html.mjs`.
 //   {{help.title}}            a string
 //   {{game.moveLabel(0)}}     a function, called with numbers or other keys
-//   {{help.basics.items}}     an array, rendered as <li> lines
+//   {{help.local.items}}      an array, rendered as <li> lines
 const TEMPLATE = resolve("src/index.template.html");
 const OUTPUT = resolve("public/index.html");
 const NOTICE = "<!-- Generated from src/index.template.html and public/texts.mjs. Do not edit. -->\n";

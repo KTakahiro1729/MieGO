@@ -16,7 +16,7 @@ test("the header reads 新規対戦, share, help, then the settings gear at the 
 
 test("explanations live in the help sheet instead of being scattered",()=>{
   assert.match(sheet,/role="dialog" aria-modal="true" aria-labelledby="helpTitle"/);
-  for(const topic of ["beginner","basics","moves","endgame","scoring","illegal","ownership","rules","local","ai","online","history","about"])
+  for(const topic of ["beginner","endgame","scoring","illegal","ownership","rules","local","ai","online","history","about"])
     assert.ok(topics.has(topic),topic);
   // The long notes that used to sit in settings and the AI options are gone from there.
   const outside=html.replace(sheet,"");
