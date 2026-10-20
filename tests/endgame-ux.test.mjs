@@ -46,12 +46,12 @@ test("a playout runs to two passes, with no stop to carry it on",()=>{
   assert.equal(TEXT.scoring.settleExtend,undefined);
   assert.match(settle,/limit:settleMax\(sizeOf\(game\.board\)\)/);
 });
-test("starting scoring before the board has settled says the result can still swing",()=>{
+test("starting scoring before the board has settled says open areas count for nobody",()=>{
   assert.match(app,/const unsettled=localPrompt && hint===TEXT\.endgame\.playing;/);
   // The same question as always, under the advice the bar already showed.
   assert.match(app,/localPrompt\?\(unsettled\?hint\+"\\n"\+TEXT\.endgame\.askLocal:TEXT\.endgame\.askLocal\)/);
   assert.match(app,/\$\("endgameBar"\)\.classList\.toggle\("is-asking",localPrompt\);/);
-  assert.match(TEXT.endgame.detailUnsettled,/結果が大きく動く/);
+  assert.match(TEXT.endgame.detailUnsettled,/どちらの地にもなりません/);
 });
 test("the COM's pass opens the same question as 採点を始める, and 採点へ進む is the player's pass",()=>{
   assert.match(TEXT.endgame.askAiPassed,/採点を始めますか？$/);
