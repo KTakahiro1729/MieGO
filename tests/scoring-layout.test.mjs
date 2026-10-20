@@ -84,7 +84,7 @@ function assertFits(view,phase,where){
     assert.ok(button.top>=0 && button.bottom<=view.height+0.5 && button.left>=0 && button.right<=view.width+0.5,
       `${at}: button "${button.id}" is off the screen`);
     // UX policy §3.2: every button outside the exceptions is at least 44px tall.
-    if(!/\b(help-button|icon-button|move-history-toggle)\b/.test(button.className))assert.ok(button.height>=43.5,
+    if(!/\b(help-button|icon-button)\b/.test(button.className))assert.ok(button.height>=43.5,
       `${at}: button "${button.id}" is ${button.height}px tall`);
   }
 }

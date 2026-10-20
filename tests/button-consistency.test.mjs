@@ -36,7 +36,7 @@ test("the same action has the same name and glyph wherever it appears",()=>{
   assert.match(app,/const cancelLabel=provisional\?TEXT\.takeback\.undoProvisional/);
   assert.equal(TEXT.takeback.undoProvisional,"仮置きを戻す");
   // Both entries to the saved-game sheet carry the sheet's own title.
-  assert.match(html,/id="openHistory"[^>]*>保存した棋譜<\/button>/);
+  assert.match(html,/id="openHistory"[^>]*>履歴<\/button>/);
   assert.match(html,/id="shareSgf" class="secondary full described" type="button"><span>SGFを保存<\/span>/);
   // Sheet close buttons draw the same SVG × rather than a text glyph.
   assert.doesNotMatch(html,/>×<\/button>/);
@@ -55,9 +55,6 @@ test("related buttons fuse into one group; the primary stays apart (UX policy §
   const moves=group("move-controls");
   for(const id of ["cancel","resign","pass"])assert.match(moves,new RegExp('id="'+id+'"'));
   assert.doesNotMatch(moves,/id="confirm"|class="primary/);
-  const steps=group("review-steps");
-  for(const id of ["reviewPrevious","reviewStepToggle","reviewNext"])assert.match(steps,new RegExp('id="'+id+'"'));
-  assert.doesNotMatch(steps,/review-back|reviewConfirm/);
   for(const cls of ["ai-color-choices board-size-choices","ai-color-choices rules-choices","ai-color-choices side-choices"])group(cls);
   assert.equal((html.slice(html.indexOf('class="new-game-modes"'),html.indexOf('id="newGameSetup"')).match(/class="fused"/g)||[]).length,3);
   assert.doesNotMatch(html,/class="fused[^"]*"[^>]*>\s*<button[^>]*class="[^"]*primary/);

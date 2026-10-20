@@ -46,7 +46,10 @@ test("a tap while watching steps in; ここに打つ takes the colour over and �
   assert.match(app,/if\(isWatching\(\) && intervening\)takeOverWatchedGame\(game\.next\);\s*submitMove\(position\);/);
   assert.match(body("takeOverWatchedGame"),/stopAiTurn\(\);[\s\S]*watching=false;[\s\S]*humanColor=color;[\s\S]*save\(\);/);
   // × ends the step-in, and the COMs wait a little longer than between moves.
-  assert.match(app,/intervening=false;lastWatchMoveAt=performance\.now\(\)\+WATCH_RESUME_MS-WATCH_STEP_MS;/);
+  assert.match(app,/intervening=false;watchReturning=true;lastWatchMoveAt=performance\.now\(\)\+WATCH_RESUME_MS-WATCH_STEP_MS;/);
+  // During that pause the turn line says watching is about to resume, until the next COM move is asked for.
+  assert.match(app,/spectating\?\(watchReturning && !watchPaused && !intervening\?TEXT\.game\.watchReturning:/);
+  assert.match(body("watchDue"),/if\(wait<=0\)\{watchReturning=false;return true;\}/);
 });
 
 test("a watched game is saved and resumed as watched",()=>{

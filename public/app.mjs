@@ -208,9 +208,11 @@ let watchAi = {black:newCom(), white:newCom()};
 const WATCH_STEP_MS = 1100;
 // A tap on the board while watching steps in: the COMs wait while the viewer
 // places a provisional stone for the side to move. ここに打つ takes that colour
-// over; × goes back to watching after a slightly longer pause.
+// over; × goes back to watching after a slightly longer pause, which the turn line announces.
 let intervening = false;
 const WATCH_RESUME_MS = 1800;
+// True during that pause, so the turn line says watching is about to resume.
+let watchReturning = false;
 let aiHandicap = 0, localHandicap = 0, onlineHandicap = 0;
 // The ruleset for the next new game, shared by every mode like the board size.
 let gameRules = "chinese";
@@ -425,7 +427,7 @@ function watchDue() {
   if(!watching)return true;
   if(watchPaused){$("aiMatchStatus").textContent=TEXT.ai.watchPaused;return false;}
   const wait=lastWatchMoveAt+WATCH_STEP_MS-performance.now();
-  if(wait<=0)return true;
+  if(wait<=0){watchReturning=false;return true;}
   watchTimer=setTimeout(requestAnalysis,wait);
   return false;
 }
@@ -975,14 +977,17 @@ function show() {
   $("aiReinforcement").disabled=false;
   $("turn").classList.toggle("white-to-play",game.next===WHITE);
   // Nobody is to move while scoring or after the game, so no turn stone.
-  $("turn").classList.toggle("no-stone",game.status!=="playing");
+  $("turn").classList.toggle("no-stone",game.status!=="playing" ||
+    isWatching() && watchReturning && !watchPaused && !intervening);
   $("turn").textContent=game.status==="finished"?TEXT.scoring.finishedResign:
     // The scoring step names itself here, so the score box keeps its one line for the instruction.
     game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
     room && !connected?TEXT.game.waitingOpponent:
     isFree(game)?(freeColor===BLACK?TEXT.game.freeBlack:TEXT.game.freeWhite):
     room?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):
-    gameMode==="ai"?(spectating?(game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite):
+    // COM同士 shows whose move it is; 「COM同士」 under it says who plays.
+    gameMode==="ai"?(spectating?(watchReturning && !watchPaused && !intervening?TEXT.game.watchReturning:
+        game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite):
       gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
       fallbackMode?TEXT.game.aiStopped:
       isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
@@ -991,7 +996,9 @@ function show() {
     gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=TEXT.game.moveLabel(game.moveNumber);
-  $("moveLabel").disabled=!game.moves.length;
+  // ◁ opens the replay one move back; ▷ only moves within a replay, so it rests disabled here.
+  $("stepBack").disabled=!game.moves.length;
+  $("stepForward").disabled=true;
   $("hint").textContent=illegalCandidate?TEXT.game.hintIllegal:
     candidate?TEXT.game.hintCandidate:
     game.status==="scoring"?TEXT.game.hintScoring:
@@ -1019,8 +1026,8 @@ function show() {
   $("resign").disabled=!myTurn || game.status!=="playing";
   updateGradient();
   // 五目並べ has no territory, so no ownership bar.
-  $("ownershipLegend").hidden=gomoku;
-  // No colours are on the board yet, so the legend stays in place but faint.
+  $("ownershipLegend").classList.toggle("no-territory",gomoku);
+  // No colours are on the board yet, so the bar stays in place but faint.
   $("ownershipLegend").classList.toggle("is-preparing",!katagoReady && !fallbackMode && !gomoku);
   const handicap=handicapOf(game),size=sizeOf(game.board);
   canvas.setAttribute("aria-label",TEXT.game.boardLabel(shownSize()));
@@ -1300,7 +1307,7 @@ canvas.addEventListener("click",e=>{
   if(game.status==="playing" && isWatching() && !intervening && (isGomoku(game) || katagoReady && !fallbackMode) &&
      game.board[position]===0){
     stopAiTurn(); // The COM's move being computed waits for the viewer's decision.
-    intervening=true;
+    intervening=true;watchReturning=false;
   }
   if(game.status!=="playing" || !isHumanTurn())return;
   // A free board places or takes off a stone at once; 待った undoes it.
@@ -1336,7 +1343,7 @@ $("cancel").onclick=()=>{
   $("illegalPromptFallbackPanel").hidden=true;
   if(isWatching() && intervening){
     // Back to watching: the COMs resume after a pause a little longer than a move's.
-    intervening=false;lastWatchMoveAt=performance.now()+WATCH_RESUME_MS-WATCH_STEP_MS;
+    intervening=false;watchReturning=true;lastWatchMoveAt=performance.now()+WATCH_RESUME_MS-WATCH_STEP_MS;
   }
   show();requestAnalysis();
 };
@@ -1544,7 +1551,7 @@ function savedGame(mode) {
   try{record=gameLibrary.active(mode);}catch(error){storageError(error);}
   currentGameId=record?.id||null;currentRevision=record?.revision||null;
   lastPosition=record?.lastPosition??null;
-  watching=mode==="ai" && record?.watch===true;watchPaused=false;intervening=false;
+  watching=mode==="ai" && record?.watch===true;watchPaused=false;intervening=false;watchReturning=false;
   if(mode==="ai" && record){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     aiStrength=normalizeStrength(record.aiStrength);
@@ -1903,20 +1910,17 @@ function renderBoardReview() {
   const line=activeReviewSnapshot(boardReview,game),count=line.moves.length;
   const variationActive=boardReview.activeLine==="variation" && !!boardReview.variation;
   const isPreview=!!boardReview.preview;
-  $("ownershipLegend").hidden=isGomoku(line);
+  $("ownershipLegend").classList.toggle("no-territory",isGomoku(line));
   $("reviewTitle").textContent=variationActive?TEXT.review.checkingVariation:source==="url"?TEXT.review.checkingShared:TEXT.review.checking;
-  $("reviewStepText").textContent=TEXT.review.step(step,count);
+  $("moveLabel").textContent=TEXT.review.step(step,count);
   $("reviewStepRange").max=String(count);
   $("reviewStepRange").value=String(step);
   $("reviewFirst").disabled=step===0 || isPreview;
-  $("reviewPrevious").disabled=step===0 || isPreview;
-  $("reviewNext").disabled=step>=count || isPreview;
+  $("stepBack").disabled=step===0 || isPreview;
+  $("stepForward").disabled=step>=count || isPreview;
   $("reviewLast").disabled=step>=count || isPreview;
   $("reviewStepRange").disabled=isPreview;
-  $("reviewStepToggle").disabled=isPreview;
-  $("reviewPrevious").hidden=isPreview;
-  $("reviewNext").hidden=isPreview;
-  $("reviewStepToggle").hidden=isPreview;
+  $("reviewBack").hidden=isPreview;
   $("reviewPlayActions").hidden=!isPreview;
   $("reviewConfirmStone").classList.toggle("white",boardReview.preview?.moves.at(-1)?.color===WHITE);
   $("reviewOriginal").hidden=!variationActive;
@@ -1927,12 +1931,8 @@ function renderBoardReview() {
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?TEXT.review.newMoves(updates):"";
-  // The move chip is the way back: to the latest move, the original line, or the game.
-  const back=variationActive?TEXT.review.backOriginal:source==="live"?TEXT.review.backLatest:TEXT.review.backGame;
-  $("moveLabel").textContent=back+" ›";
-  $("moveLabel").setAttribute("aria-label",back);$("moveLabel").title=back;
-  $("moveLabel").classList.add("is-returning");$("gamePanel").classList.add("is-reviewing");
-  $("moveLabel").disabled=false;
+  // The way back: to the latest move, the original line, or the game.
+  $("reviewBack").firstChild.textContent=variationActive?TEXT.review.backOriginal:source==="live"?TEXT.review.backLatest:TEXT.review.backGame;
   $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
   $("turn").classList.remove("no-stone");
   $("turn").textContent=isPreview?TEXT.review.trying(step+1):variationActive?TEXT.review.trying(step):TEXT.review.showing(step);
@@ -2057,15 +2057,13 @@ function clearBoardReview() {
   const wasUrl=boardReview.source==="url";
   boardReview=null;reviewSequence++;
   if(wasUrl)clearImportedReviewUrl();
-  $("moveLabel").classList.remove("is-returning");$("gamePanel").classList.remove("is-reviewing");
-  $("moveLabel").setAttribute("aria-label",TEXT.review.play);$("moveLabel").title=TEXT.review.play;
 }
 function leaveBoardReview() {
   if(!boardReview)return;
   if(boardReview.activeLine==="variation"){selectOriginalLine();return;}
   clearBoardReview();
   show();requestAnalysis();
-  $("moveLabel").focus();
+  $("stepBack").focus();
 }
 function clearImportedReviewUrl() {
   const url=new URL(location.href);
@@ -2155,7 +2153,7 @@ function openSavedBoard(record) {
     if(boardReview?.source==="url")clearImportedReviewUrl();
     closePanels();
     enterBoardReview(record.snapshot,count,"archive",record.sgfMeta,record);
-    $("moveLabel").focus();
+    $("reviewBack").focus();
   }catch(error){
     $("historySaveNotice").textContent=TEXT.history.showFailed;
     if($("historySetup").hidden)openHistoryPanel();
@@ -2182,17 +2180,17 @@ function openSharePanel(){
   $("shareCopyFallback").hidden=true;
   void shareImages.prepare();
 }
-$("moveLabel").onclick=()=>{
-  if(boardReview){leaveBoardReview();return;}
-  // Opening the replay steps back one move at once, so the tap visibly changes the board.
+// ◁ in the live game opens the replay one move back; stepping ▷ onto the
+// latest move of the live game leaves it again (setBoardReviewStep).
+$("stepBack").onclick=()=>{
+  if(boardReview){setBoardReviewStep(boardReview.step-1);return;}
   if(!game.moves.length)return;
   try{enterBoardReview(game,game.moves.length-1,"live");}
   catch{$("saveStatus").hidden=false;$("saveStatus").textContent=TEXT.history.replayFailed;}
 };
-$("reviewStepToggle").onclick=()=>{$("reviewMenu").open=true;$("reviewStepRange").focus();};
+$("stepForward").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
+$("reviewBack").onclick=leaveBoardReview;
 $("reviewFirst").onclick=()=>setBoardReviewStep(0);
-$("reviewPrevious").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step-1);
-$("reviewNext").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
 $("reviewLast").onclick=()=>boardReview&&setBoardReviewStep(boardReview.snapshot.moves.length);
 $("reviewStepRange").oninput=e=>setBoardReviewStep(Number(e.target.value));
 $("reviewConfirm").onclick=confirmReviewPreview;
@@ -2236,7 +2234,7 @@ function resumeSelectedReview(){
   gameMode=record.mode;game=JSON.parse(JSON.stringify(record.snapshot));
   currentGameId=record.id;currentRevision=record.revision;
   lastPosition=record.lastPosition;candidate=null;
-  watching=gameMode==="ai" && record.watch===true;watchPaused=false;intervening=false;
+  watching=gameMode==="ai" && record.watch===true;watchPaused=false;intervening=false;watchReturning=false;
   if(gameMode==="ai"){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
@@ -2316,7 +2314,7 @@ $("startAi").onclick=()=>{
   clearBoardReview();
   stopAiTurn();
   gameMode="ai";
-  watching=aiSideChoice==="watch";watchPaused=false;intervening=false;
+  watching=aiSideChoice==="watch";watchPaused=false;intervening=false;watchReturning=false;
   // The empty board shows for a moment before the first watched move.
   lastWatchMoveAt=performance.now();
   // Handicap stones always belong to the human, who therefore plays Black.
@@ -2347,7 +2345,7 @@ for (const input of document.querySelectorAll('input[name="aiSide"]')) {
 function takeOverWatchedGame(color) {
   if(!isWatching() || game.status!=="playing")return;
   stopAiTurn(); // A move being computed for the taken colour is dropped.
-  watching=false;watchPaused=false;intervening=false;humanColor=color;hints=null;
+  watching=false;watchPaused=false;intervening=false;watchReturning=false;humanColor=color;hints=null;
   // The COM left playing keeps its settings.
   ({strength:aiStrength,invasion,reinforcement}=watchAi[color===BLACK?"white":"black"]);
   if(aiSideChoice!=="random")aiSideChoice=color===BLACK?"black":"white";
