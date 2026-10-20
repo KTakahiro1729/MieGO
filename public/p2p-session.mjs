@@ -1,4 +1,13 @@
-import { BLACK, WHITE, boardHash, handicapOf, rulesOf, komiOf, areaScore } from "./core.mjs";
+import {
+  areaScore,
+  BLACK,
+  boardHash,
+  handicapOf,
+  isFree,
+  komiOf,
+  rulesOf,
+  WHITE,
+} from "./core.mjs";
 import { parseGameSnapshot } from "./mode-state.mjs";
 import { replaySteps } from "./sgf.mjs";
 import { TEXT } from "./texts.mjs";
@@ -57,10 +66,11 @@ export function saveCheckpoint(storage, room, value) {
 const OWN_COLOR_ACTIONS=new Set(["agree","agree_dead","end_offer","end_answer","takeback_request","takeback_answer"]);
 const OWNER_ACTIONS=new Set(["dead_auto","dead_unavailable"]);
 const SOLO_ACTIONS=new Set(["solo_scoring","solo_score","solo_dead"]);
-/** A peer plays only on its own turn and offers, answers or agrees only for its own color. */
+/** A peer plays only on its own turn and offers, answers or agrees only for its own color.
+ * On a free board either player places either colour, or takes a stone off, at any time. */
 export function isPeerAction(action, game, {peerColor, peerIsOwner=false}) {
   if(![BLACK,WHITE].includes(peerColor))return false;
-  if(action?.type==="move")return game.next===peerColor;
+  if(action?.type==="move")return isFree(game)?[BLACK,WHITE].includes(action.color):game.next===peerColor;
   if(OWN_COLOR_ACTIONS.has(action?.type))return action.color===peerColor;
   if(OWNER_ACTIONS.has(action?.type))return peerIsOwner===true;
   return !SOLO_ACTIONS.has(action?.type);
@@ -97,6 +107,8 @@ function commonPrefix(a,b) {
  * that has synced before rejects a snapshot that claims it did either elsewhere. */
 function claimsLocalPlayer(localGame, incoming, localColor) {
   if(!isColor(localColor))return false;
+  // Both players place both colours on a free board, and nobody agrees to a count.
+  if(isFree(incoming))return false;
   const added=incoming.moves.slice(commonPrefix(localGame.moves,incoming.moves));
   if(added.some(move=>move?.color===localColor))return true;
   const key=localColor===BLACK?"black":"white";
@@ -130,6 +142,10 @@ export function reconcileGame(localGame, localRevision, incomingGame, incomingRe
   if (incomingTakebacks > localTakebacks && incomingRevision > localRevision)
     return {kind:"adopt",game:incoming,revision:incomingRevision};
   if (localTakebacks > incomingTakebacks && localRevision > incomingRevision) return {kind:"send"};
+  // Two edits made at the same moment on a free board: the inviter's board stands.
+  if (!sameMoves(localGame,incoming) && isFree(localGame) && isFree(incoming))
+    return localIsOwner ? {kind:"send"} :
+      {kind:"adopt",game:incoming,revision:Math.max(localRevision,incomingRevision)};
   if (!sameMoves(localGame,incoming)) return {kind:"conflict"};
   // Local validation rejects inconsistent board data even when move lists match.
   if (localGame.moves.length === incoming.moves.length &&

@@ -81,6 +81,7 @@
           <button id="resign" class="secondary resign-control" type="button">{{common.resign}}</button>
           <button id="pass" class="secondary" type="button">{{common.pass}}</button>
           </div>
+          <div id="freeColors" class="fused ai-color-choices free-colors" role="radiogroup" aria-label="{{game.freeColorLabel}}" hidden><label><input type="radio" name="freeColor" value="black" checked><span>{{common.sideBlack}}</span></label><label><input type="radio" name="freeColor" value="white"><span>{{common.sideWhite}}</span></label></div>
           <div id="scoringActions" class="inline-score-actions" hidden>
             <div class="fused">
               <button id="resume" class="secondary" type="button">{{scoring.resume}}</button>
@@ -255,7 +256,7 @@
             </div>
           </div>
           <div id="rulesRow" class="setup-row"><span class="setup-label">{{newGame.rules}}</span>
-            <div class="fused ai-color-choices rules-choices"><label><input type="radio" name="gameRules" value="chinese" checked><span>{{newGame.rulesChoices.chinese}}</span></label><label><input type="radio" name="gameRules" value="japanese"><span>{{newGame.rulesChoices.japanese}}</span></label><label><input type="radio" name="gameRules" value="gomoku"><span>{{newGame.rulesChoices.gomoku}}</span></label></div>
+            <div class="fused ai-color-choices rules-choices"><label><input type="radio" name="gameRules" value="chinese" checked><span>{{newGame.rulesChoices.chinese}}</span></label><label><input type="radio" name="gameRules" value="japanese"><span>{{newGame.rulesChoices.japanese}}</span></label><label><input type="radio" name="gameRules" value="gomoku"><span>{{newGame.rulesChoices.gomoku}}</span></label><label id="freeRulesChoice"><input type="radio" name="gameRules" value="free"><span>{{newGame.rulesChoices.free}}</span></label></div>
           </div>
           <div id="aiSideRow" class="setup-row" hidden><span class="setup-label">{{newGame.mySide}}</span>
             <div class="fused ai-color-choices side-choices ai-side-choices"><label><input type="radio" name="aiSide" value="random"><span>{{common.random}}</span></label><label><input type="radio" name="aiSide" value="black" checked><span>{{common.sideBlack}}</span></label><label><input type="radio" name="aiSide" value="white"><span>{{common.sideWhite}}</span></label><label><input type="radio" name="aiSide" value="watch"><span>{{newGame.sideWatch}}</span></label></div>
