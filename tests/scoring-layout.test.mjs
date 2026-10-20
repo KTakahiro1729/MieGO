@@ -12,7 +12,7 @@ import {availableParallelism} from "node:os";
 const root=fileURLToPath(new URL("../public/",import.meta.url));
 const TYPES={".html":"text/html",".mjs":"text/javascript",".js":"text/javascript",".css":"text/css",
   ".json":"application/json",".wasm":"application/wasm",".svg":"image/svg+xml",".txt":"text/plain"};
-// Portrait phones from docs/UX_POLICY_DRAFT.md §6, then tablet and desktop.
+// Portrait phones from docs/UX_SPEC.md §6, then tablet and desktop.
 const VIEWPORTS=[[320,568],[375,667],[390,844],[430,932],[768,1024],[1280,720]];
 // UX policy §2: the board's size comes first on a portrait screen, so the
 // score box has to fit where the endgame bar was, without shrinking the
@@ -71,7 +71,7 @@ function assertFits(view,phase,where){
   assert.equal(view.scrolled,0,`${at}: the game panel scrolled`);
   assert.ok(view.board.top>=view.topbar-0.5,`${at}: the board is under the header`);
   assert.ok(view.actions.bottom<=view.height+0.5,`${at}: the action row runs off the screen`);
-  // UX policy §1: the score box is not a card, so its frame never adds lines
+  // UX principles §1: the score box is not a card, so its frame never adds lines
   // next to the prisoner pills or the action row.
   assert.equal(view.scoreCard,false,`${at}: the score box is drawn as a card`);
   // UX policy §3.5: text fits its slot; nothing hides behind an ellipsis.
