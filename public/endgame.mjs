@@ -2,7 +2,7 @@ import { group } from "./core.mjs";
 import { OWNERSHIP_BANDS } from "./territory-view.mjs";
 import { TEXT } from "./texts.mjs";
 
-/** Non-authoritative endgame advice for 9x9 Chinese rules.
+/** Non-authoritative endgame advice, the same on every board size.
  * Evaluations must be from committed positions (never sandbox/preview moves).
  * Stable ownership is only a necessary hint, not a life-and-death proof.
  */
@@ -22,8 +22,6 @@ export function endgameHint(state,advisor,{unavailable=false,suppressedUntil=-1}
   if(advisor.stage==="ready" || advisor.stage==="near")return ENDGAME_HINTS.near;
   return ENDGAME_HINTS.playing;
 }
-/** Board area relative to 9x9 (kept for callers that scale move counts). */
-export const boardScale = points => Number.isFinite(points) && points>0 ? points/81 : 1;
 /** The advice reads the feel of the position, not move or stone counts: how
  * many points one stone moves in the estimate. Σ|Δv|/2 over the board is the
  * number of points that change hands (v going from -1 to +1 is one point).
