@@ -46,6 +46,17 @@ export class EndgameAdvisor {
     this.held = true;
     this.fresh = 0;
   }
+  /** Picks the advice up again for a restored game: the last positions'
+   * kept estimates (ownershipOf(state) or null), oldest first, so a pass
+   * right after a reload is weighed like one during play. */
+  restore(states, ownershipOf) {
+    this.reset();
+    for (const state of states.slice(-(ENDGAME_SWING.window + 1))) {
+      const ownership = ownershipOf(state);
+      if (ownership) this.observe(state, ownership);
+    }
+    return this.stage;
+  }
   observe(state, ownership) {
     if (state.status !== "playing") { this.reset(); return this.stage; }
     if (!Array.isArray(ownership) || ownership.length !== state.board.length ||

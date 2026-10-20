@@ -133,7 +133,7 @@ test("direct game controls replace hidden action menus; new local games start fr
  assert.doesNotMatch(html,/id="openHistorySettings"|id="openCurrentMode"/);
  assert.match(app,/\$\("startLocal"\)\.onclick=\(\)=>continueFrom\?forkBoardReview\("local"\):startLocalGame\(\);/);
  assert.match(app,/function freshLocalBoard\(fresh=freshLocalGame\(game,nextGameOptions\(localHandicap\)\)\)/);
- assert.match(app,/game=fresh;currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
+ assert.match(app,/game=fresh;currentGameId=null;currentRevision=null;lastPosition=null;\s*resetPositionState\(\);\s*save\(\);show\(\);requestAnalysis\(\);/);
 });
 test("settings button shows a toothed gear and is labeled",()=>{
   const gear=html.slice(html.indexOf('id="settingsToggle"'),html.indexOf('</button>',html.indexOf('id="settingsToggle"')));
@@ -143,12 +143,22 @@ test("settings button shows a toothed gear and is labeled",()=>{
   assert.match(gear,/<circle cx="11\.5" cy="12\.5"/);
 });
 
-test("reset discards endgame and dead-stone hints",()=>{
-  const block=app.slice(app.indexOf("function freshLocalBoard("),app.indexOf("function startLocalGame()"));
-  assert.match(block,/endgameAdvisor\.reset\(\)/);
-  assert.match(block,/deadReview="idle"/);
-  assert.match(block,/deadEvaluation=null/);
-  assert.match(block,/analysisContext=null/);
+test("replacing the game discards every signal of the previous position",()=>{
+  const reset=app.slice(app.indexOf("function resetPositionState()"),app.indexOf("function afterTakeback()"));
+  for(const signal of [/pending=\+\+seq;analysisContext=null/,/cancelAnimationFrame\(transitionFrame\)/,
+    // The endgame advice starts again from the new game's own kept estimates.
+    /displayedOwnership=null/,/clearProvisional\(\)/,/restoreEndgameAdvice\(\)/,
+    /endNotice=null;takebackNotice=null/,/deadEvaluation=null/])
+    assert.match(reset,signal);
+  // A resumed scoring game keeps the dead stones already marked.
+  assert.match(reset,/game\.dead\.length \|\| game\.agreed\.black \|\| game\.agreed\.white\)\?"modified":"idle"/);
+  // Every place that puts another game on the board goes through it.
+  for(const name of ["afterTakeback","freshLocalBoard","resumeModeGame","beginOnlineRoom",
+    "forkBoardReview","startAiGame"]){
+    const start=app.indexOf("function "+name+"(");
+    assert.match(app.slice(start,app.indexOf("\n}",start)),/resetPositionState\(\)/,name);
+  }
+  assert.match(app,/lastPosition=record\.lastPosition;resetPositionState\(\);/);
 });
 test("the 新規対戦 sheet offers a way back to the current or an unfinished saved game",()=>{
   assert.match(sheet,/id="returnToGame"[^>]*>現在の対局に戻る<\/button>/);
@@ -182,7 +192,7 @@ test("the 時間 tab holds the clock and 観戦's speed, each greyed out where t
   assert.ok(time.indexOf('id="timeControlSetup"')>=0 && time.indexOf('id="timeControlSetup"')<time.indexOf('id="watchSpeedRow"'));
   assert.doesNotMatch(panel("Rules"),/id="mainTime"|id="byoyomi"/);
   assert.doesNotMatch(panel("Side"),/name="watchSpeed"/);
-  assert.match(app,/const untimedRules=kind=>gameRules==="free" \|\| kind==="online" \|\| kind==="ai" && watchChoice;/);
+  assert.match(app,/const untimedRules=kind=>gameRules==="free" \|\| kind==="ai" && watchChoice;/);
   // 観戦 runs without a clock; its tab value is the speed.
   assert.match(app,/startAiGame\(newGame\(true,\{\.\.\.nextGameOptions\(aiHandicap\),\.\.\.\(watchChoice\?\{timeControl:null\}:\{\}\)\}\),watchChoice,aiSideChoice\);/);
   assert.equal(TEXT.newGame.timeValue("","") ,"なし");

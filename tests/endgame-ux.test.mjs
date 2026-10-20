@@ -51,3 +51,14 @@ test("starting scoring before the board has settled says the result can still sw
   assert.match(app,/\$\("endgameBar"\)\.classList\.toggle\("is-asking",localPrompt\);/);
   assert.match(TEXT.endgame.detailUnsettled,/結果が大きく動く/);
 });
+test("the COM's pass opens the same question as 採点を始める, and 採点へ進む is the player's pass",()=>{
+  assert.match(TEXT.endgame.askAiPassed,/採点を始めますか？$/);
+  assert.equal(TEXT.endgame.askAiPassed.split("\n").at(-1),TEXT.endgame.askLocal);
+  assert.doesNotMatch(TEXT.endgame.detailAiPassed,/承認するわけではありません/);
+  // Only against a COM, never while watching two COMs.
+  assert.match(app,/const aiPassAsks = \(\) => !room && gameMode === "ai" && !watching/);
+  assert.match(app,/if\(action\.type==="move"\)endExpanded=isAiMove && aiPassAsks\(\);/);
+  assert.match(app,/if\(!room && endExpanded && aiPassAsks\(\)\)\{\n    endExpanded=false;submitMove\(null\);return;/);
+  // A reloaded game asks again rather than leaving the pass unanswered.
+  assert.equal(app.match(/endExpanded=!!game\.endProposal \|\| aiPassAsks\(\);/g).length,3);
+});

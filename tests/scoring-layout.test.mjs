@@ -7,6 +7,7 @@ import {createServer} from "node:http";
 import {readFile} from "node:fs/promises";
 import {extname,join,normalize} from "node:path";
 import {fileURLToPath} from "node:url";
+import {availableParallelism} from "node:os";
 
 const root=fileURLToPath(new URL("../public/",import.meta.url));
 const TYPES={".html":"text/html",".mjs":"text/javascript",".js":"text/javascript",".css":"text/css",
@@ -107,7 +108,14 @@ test("scoring and the result fit above the action row on every screen",{skip,tim
   t.after(async()=>{await browser.close();server.close();});
   const origin=`http://127.0.0.1:${server.address().port}/`;
   // Japanese rules add the prisoner pills above the score box.
-  for(const {rules,board} of [{rules:"chinese",board:"9"},{rules:"chinese",board:"19"},{rules:"japanese",board:"19"}])for(const size of VIEWPORTS){
+  const queue=[{rules:"chinese",board:"9"},{rules:"chinese",board:"19"},{rules:"japanese",board:"19"}]
+    .flatMap(game=>VIEWPORTS.map(size=>({...game,size})));
+  // Each screen is its own page whose KataGo runs on one CPU thread, so
+  // several play at once: one after another took three minutes on CI.
+  await Promise.all(Array.from({length:Math.min(availableParallelism(),queue.length)},async()=>{
+    while(queue.length)await playThrough(queue.shift());
+  }));
+  async function playThrough({rules,board,size}){
     const at=`${size.join("×")} ${rules} ${board}路`;
     const page=await browser.newPage({viewport:{width:size[0],height:size[1]}});
     await page.goto(origin);
