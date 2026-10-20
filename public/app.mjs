@@ -18,6 +18,7 @@ import {
   isGomoku,
   isJapanese,
   komiOf,
+  loseOnTime,
   maxHandicap,
   newGame,
   play,
@@ -45,6 +46,15 @@ import {
   settleStepMs,
 } from "./settle-playout.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
+import {
+  BYOYOMI_CHOICES,
+  clockSeconds,
+  clockText,
+  createGameClock,
+  MAIN_TIME_CHOICES,
+  readClock,
+  spendTime,
+} from "./game-clock.mjs";
 import { copyInviteText } from "./invite.mjs";
 import {
   colorLabel,
@@ -202,6 +212,9 @@ let hideStonesChoice = false;
 let freeColor = BLACK;
 // 五目並べ's 禁じ手 (renju's forbidden moves for Black), for the next game.
 let gomokuForbiddenChoice = false;
+// The next game's 持ち時間 and 秒読み in seconds (0: none); both 0 plays without a clock.
+let mainTimeChoice = 0, byoyomiChoice = 0;
+const toSeconds = (value, choices) => choices.includes(Number(value)) ? Number(value) : 0;
 const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideStones===true;
 const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingStones,isCounting,show,draw,
   onOverlayOn:()=>boardReview?requestReviewOwnership():requestAnalysis()});
@@ -528,12 +541,14 @@ function rememberSettings() {
       aiCom,
       aiSide:aiSideChoice,
       boardSize,
+      byoyomi:byoyomiChoice,
       freeColor:freeColor===WHITE?"white":"black",
       gameRules,
       gomokuForbidden:gomokuForbiddenChoice,
       hideStones:hideStonesChoice,
       humanColor,
       localHandicap,
+      mainTime:mainTimeChoice,
       mode:gameMode,
       onlineHandicap,
       watch:watchChoice,
@@ -551,6 +566,7 @@ function nextGameOptions(handicap) {
     hideStones:hideStonesChoice,
     rules:gameRules,
     size:boardSize,
+    timeControl:{main:mainTimeChoice,byoyomi:byoyomiChoice},
   };
 }
 // The sheet's choices set the COM opponent. In 観戦, the COMのキャラ tab holds a
@@ -1011,6 +1027,8 @@ function handleAnalysis(event) {
 }
 worker.onmessage=onWorkerMessage;
 function show() {
+  // A replay leaves the game's clock running.
+  syncClock();
   if(boardReview){renderBoardReview();return;}
   // The forbidden stone is a provisional UI selection, never part of game state.
   if(illegalCandidate && (illegalCandidate.source!==game || game.status!=="playing")) {
@@ -1151,7 +1169,7 @@ function show() {
     (playout.finished?(playout.cut?TEXT.scoring.settleCut(playout.moves):TEXT.scoring.settleDone(playout.moves)):
       TEXT.scoring.settling(playout.moves)):
     isFinished?
-    (game.result?.endsWith("+R")?TEXT.scoring.finishedResign:
+    (endedEarly(game.result)?TEXT.scoring.finishedResign:
       gomoku?(game.result==="0"?TEXT.scoring.finishedGomokuDraw:TEXT.scoring.finishedGomoku):
       japanese?TEXT.scoring.finishedScoreJapanese:TEXT.scoring.finishedScore):
     peerAgreed()?(scoringStepOf(game)==="dead"?TEXT.scoring.peerAgreedDead:TEXT.scoring.peerAgreed):
@@ -1187,7 +1205,7 @@ function show() {
     $("scoreBox").querySelector("strong").textContent=resultLabel(result)||TEXT.scoring.ended;
     const winner=resultWinner(result);
     if(winner)$("scoreStone").classList.add(winner==="B"?"black":"white");
-    if(result?.endsWith("+R") || gomoku) {
+    if(endedEarly(result) || gomoku) {
       $("scoreText").hidden=true;
     } else {
       renderScoreboard();
@@ -1216,7 +1234,11 @@ function apply(action, remote=false, isAiMove=false) {
       if(action.number!==game.moveNumber+1) throw new Error("Move number mismatch");
       if(action.before!==boardHash(game.board)) throw new Error("Board mismatch before the move");
       const offerBefore=game.endProposal;
+      // The mover's clock pays for the move; one that ran out first loses instead.
+      const clock=chargeClock();
+      if(clock===false){timeOut(game.next);return;}
       game=isFree(game)?playFreeStone(game,action.position,action.color):play(game,action.position);
+      if(clock)game={...game,clock};
       if(remote && offerBefore?.from===myOnlineColor())
         endNotice={number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.cancelledByMove};
       if(action.after!==boardHash(game.board)) throw new Error("Board mismatch after the move");
@@ -1564,8 +1586,62 @@ $("endDecline").onclick=()=>{
     number:game.moveNumber,before:boardHash(game.board)});
 };
 $("hideStones").onchange=e=>{hideStonesChoice=e.target.checked;rememberSettings();};
+$("mainTime").onchange=e=>{mainTimeChoice=toSeconds(e.target.value,MAIN_TIME_CHOICES);rememberSettings();};
+$("byoyomi").onchange=e=>{byoyomiChoice=toSeconds(e.target.value,BYOYOMI_CHOICES);rememberSettings();};
 $("gomokuForbidden").onchange=e=>{gomokuForbiddenChoice=e.target.checked;rememberSettings();renderInviteButton();};
 // A player reads their own result first; a 1台 game or COM同士 has no "you".
+// A resignation or a loss on time ends the game before any count.
+const endedEarly = result => /\+[RT]$/.test(result||"");
+// 持ち時間: only a person's clock runs. COMs, a watched game, a friend game
+// (for now) and a free board play without one.
+const gameClock=createGameClock();
+let clockMoves=null;
+function clockedSide() {
+  if(!game.timeControl || game.status!=="playing" || room || isFree(game))return null;
+  if(gameMode==="ai" && (watching || game.next!==humanColor))return null;
+  return game.next;
+}
+// The clock follows the position: a new move, 待った or another game restarts it.
+function syncClock() {
+  const side=clockedSide();
+  if(!side){if(gameClock.running)gameClock.stop();clockMoves=null;renderClock();return;}
+  if(clockMoves!==game.moves || gameClock.running?.side!==side){
+    clockMoves=game.moves;
+    gameClock.run(game,side);
+  }
+  renderClock();
+}
+/** The clock after the side to move's move, null with no clock, false when its time ran out. */
+function chargeClock() {
+  const running=gameClock.running;
+  if(!running || clockMoves!==game.moves || running.side!==game.next)return null;
+  clockMoves=null;
+  return spendTime(game,running.side,gameClock.stop()) || false;
+}
+function timeOut(side) {
+  clockMoves=null;
+  if(clockedSide()!==side)return;
+  stopAiTurn();candidate=null;
+  game=loseOnTime(game,side);
+  save();show();
+}
+gameClock.onTimeout(timeOut);
+// Each side's time beside the move count: the side to move counts down.
+function renderClock() {
+  const box=$("gameClock");
+  box.hidden=!game.timeControl || !!boardReview || room!==null || isFree(game);
+  if(box.hidden)return;
+  const running=gameClock.reading();
+  for(const side of [BLACK,WHITE]){
+    const reading=running?.side===side?running:readClock(game,side);
+    const cell=$(side===BLACK?"clockBlack":"clockWhite");
+    cell.textContent=reading.main>0?clockText(reading.main):
+      reading.byoyomi===null?clockText(0):TEXT.game.byoyomi(clockSeconds(reading.byoyomi));
+    cell.classList.toggle("is-running",running?.side===side);
+    cell.classList.toggle("is-low",running?.side===side && reading.left<=10000);
+  }
+}
+gameClock.subscribe(renderClock);
 function finishedTitle(){
   const mine=room?myOnlineColor():gameMode==="ai" && !isWatching()?humanColor:null;
   const winner=resultWinner(game.result);
@@ -1788,7 +1864,8 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;seenPeerSignins=0;linkKey=null;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  game=newGame(true,nextGameOptions(onlineHandicap));candidate=null;lastPosition=null;
+  // A friend game has no clock yet: each side's time would have to agree over the connection.
+  game=newGame(true,{...nextGameOptions(onlineHandicap),timeControl:null});candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;endNotice=null;
@@ -2225,7 +2302,8 @@ function syncContinueSheet(){
       for(const input of document.querySelectorAll('input[name="'+name+'"]')){
         input.disabled=true;input.checked=input.value===String(value);
       }
-    for(const [row,input] of [["handicapSetup","handicap"],["hideStonesRow","hideStones"],["gomokuForbiddenRow","gomokuForbidden"]]){
+    for(const [row,input] of [["handicapSetup","handicap"],["hideStonesRow","hideStones"],["gomokuForbiddenRow","gomokuForbidden"],
+      ["timeControlSetup","mainTime"],["timeControlSetup","byoyomi"]]){
       $(input).disabled=true;$(row).classList.add("is-off");
     }
     // Handicap stones are already on the board or not, so every side stays open.
@@ -2541,6 +2619,10 @@ function syncHandicapUi() {
     ["hideStonesRow","hideStones",gameRules==="free"],["gomokuForbiddenRow","gomokuForbidden",gameRules!=="gomoku"]]){
     $(input).disabled=off;$(row).classList.toggle("is-off",off);
   }
+  // A free board has no turns to time, and a friend game no clock yet.
+  const untimed=gameRules==="free" || kind==="online";
+  for(const input of ["mainTime","byoyomi"])$(input).disabled=untimed;
+  $("timeControlSetup").classList.toggle("is-off",untimed);
   $("handicap").value=String(shown);
   // The note only appears when stones are placed, so an even game shows no extra text.
   $("handicapNote").hidden=!shown || gameRules==="gomoku" || gameRules==="free";
@@ -2679,6 +2761,8 @@ else try {
     boardSize=toBoardSize(settings.boardSize);
     gameRules=toRules(settings.gameRules);
     gomokuForbiddenChoice=settings.gomokuForbidden===true;
+    mainTimeChoice=toSeconds(settings.mainTime,MAIN_TIME_CHOICES);
+    byoyomiChoice=toSeconds(settings.byoyomi,BYOYOMI_CHOICES);
     freeColor=settings.freeColor==="white"?WHITE:BLACK;
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
@@ -2695,6 +2779,8 @@ updatePersonaUi();syncStrengthUi();syncHandicapUi();
 appearance.syncControls();
 $("hideStones").checked=hideStonesChoice;
 $("gomokuForbidden").checked=gomokuForbiddenChoice;
+$("mainTime").value=String(mainTimeChoice);
+$("byoyomi").value=String(byoyomiChoice);
 if(!room && currentGameId===null)save();
 if(!room && params.has("sgf")){
   try{

@@ -1,6 +1,7 @@
 import { TEXT } from "./texts.mjs";
 import { UserError } from "./user-error.mjs";
 import { forbiddenReason, makesFive } from "./gomoku.mjs";
+import { timeControlOf } from "./game-clock.mjs";
 // Occupied points, suicide and ko are the rule messages players read (illegal
 // previews, SGF import). The other errors mean a caller or a peer acted out of
 // turn; the UI never offers those actions, so their messages are for developers.
@@ -91,12 +92,15 @@ export const whiteCompensation = state => komiOf(state) + handicapBonusOf(state)
 // hideStones ("石を隠す") is part of the game: replays, 待った and the
 // opponent's copy keep it. It is only written when set, so other games are unchanged.
 // 五目並べ has no handicap stones. Its 禁じ手 choice, like hideStones, is
-// only written when set, so other games keep their shape.
-export function newGame(assisted = true, { gomokuForbidden = false, handicap = 0, size = SIZE, rules = "chinese", hideStones = false } = {}) {
+// only written when set, so other games keep their shape. So is the 持ち時間
+// (timeControl, game-clock.mjs); each side's time left goes in state.clock.
+export function newGame(assisted = true, { gomokuForbidden = false, handicap = 0, size = SIZE, rules = "chinese", hideStones = false, timeControl = null } = {}) {
   const gomoku = rulesOf({ rules }) === "gomoku", free = rulesOf({ rules }) === "free";
   // A free board takes no handicap, and its stones are what it is for, so they are never hidden.
   if (gomoku || free) handicap = 0;
   if (free) hideStones = false;
+  // Nobody takes turns on a free board, so it has no clock.
+  const clock = free ? null : timeControlOf(timeControl);
   const stones = handicapOf({ handicap }, size);
   const board = Array(size * size).fill(0);
   for (const p of handicapPoints(size, stones)) board[p] = BLACK;
@@ -106,12 +110,19 @@ export function newGame(assisted = true, { gomokuForbidden = false, handicap = 0
     komi: stones ? HANDICAP_KOMI : RULES_KOMI[rulesOf({ rules })],
     dead: [], agreed: { black: false, white: false }, endProposal: null, result: null,
     ...(hideStones ? { hideStones: true } : {}),
-    ...(gomoku && gomokuForbidden ? { gomokuForbidden: true } : {}) };
+    ...(gomoku && gomokuForbidden ? { gomokuForbidden: true } : {}),
+    ...(clock ? { timeControl: clock } : {}) };
 }
 /** The empty-or-handicap starting position a record's moves are replayed from. */
 export const initialGame = state => newGame(state?.assisted !== false,
   { handicap: handicapOf(state), size: sizeOf(state?.board), rules: rulesOf(state),
-    hideStones: state?.hideStones === true, gomokuForbidden: hasGomokuForbidden(state) });
+    hideStones: state?.hideStones === true, gomokuForbidden: hasGomokuForbidden(state),
+    timeControl: state?.timeControl ?? null });
+/** `color` ran out of time: the game ends there, like a resignation but with no move. */
+export function loseOnTime(state, color) {
+  if (state.status !== "playing") return state;
+  return { ...state, status: "finished", endProposal: null, result: color === BLACK ? "W+T" : "B+T" };
+}
 export function play(state, position) {
   if (state.status !== "playing") throw new Error("Not playing");
   // A real move answers any pending 待った request by moving on.

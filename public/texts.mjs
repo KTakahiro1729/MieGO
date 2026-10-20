@@ -188,6 +188,9 @@ export const TEXT = {
     watchIntervene: "介入する",
     watchBack: "観戦に戻る",
     moveLabel: move => move + "手目",
+    // Each side's 持ち時間 beside the move count; 秒読み counts each move's seconds.
+    clockLabel: "持ち時間",
+    byoyomi: seconds => "秒読み" + seconds,
     localPractice: "ローカル練習",
     boardLabel: size => size + "路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。",
     ruleSummary: (size, komi, handicap, japanese = false, forbidden = false) => japanese === "free" ?
@@ -659,6 +662,11 @@ export const TEXT = {
       local: "1台で打つでは、黒と白を交互に打ちます。",
     },
     hideStones: "石を隠す（地合いだけ表示）",
+    // 持ち時間 and 秒読み on one row at 320px; both なし plays without a clock.
+    mainTime: "持ち時間",
+    mainTimes: { 0: "なし", 60: "1分", 300: "5分", 600: "10分", 1200: "20分", 1800: "30分" },
+    byoyomi: "秒読み",
+    byoyomis: { 0: "なし", 10: "10秒", 30: "30秒", 60: "60秒" },
     gomokuForbidden: "禁じ手あり（五目並べ）",
     gomokuForbiddenNote: "黒だけ三三・四四・長連を打てなくなります。先手の黒が強すぎるのを抑える連珠のルールです。",
     hideStonesNote: "石を描かず、地合いの色だけで盤面を読みます。この対局の間は変えられず、対友人では相手の画面も同じになります。整地になると石が現れます。",
