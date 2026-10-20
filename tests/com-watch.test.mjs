@@ -19,11 +19,12 @@ test("観戦 is a mode beside 対COM; its first tab is the speed of the moves",(
   // 観戦 starts a COM game, so the sheet treats it as 対COM, with the choice kept apart from the colour.
   assert.match(app,/return kind==="watch"\?"ai":kind;/);
   assert.match(app,/watchChoice=e\.target\.value==="watch";rememberSettings\(\);/);
-  // The 自分の石 tab becomes 速さ: three paces, applied to a running game too.
+  // 観戦's speed sits under the 時間 tab: three paces, applied to a running game too.
   assert.deepEqual(choices("watchSpeed"),["slow","normal","fast"]);
   assert.match(app,/const WATCH_STEP_MS = \{fast:250, normal:1100, slow:2200\};/);
   assert.match(body("watchDue"),/lastWatchMoveAt\+watchStep\(\)-performance\.now\(\)/);
-  assert.match(body("showNewGameMode"),/\$\("setupNameSide"\)\.textContent=watch\?TEXT\.newGame\.watchSpeed:TEXT\.newGame\.mySide;/);
+  assert.match(body("showNewGameMode"),/\$\("watchSpeedChoices"\)\.disabled=!watch;/);
+  assert.match(html,/id="setupPanelTime"[^>]*>[\s\S]*id="timeControlSetup"[\s\S]*id="watchSpeedRow"/);
   // Settings saved while 観戦 was a side choice open as 観戦.
   assert.match(app,/watchChoice=settings\.watch===true \|\| settings\.aiSide==="watch";/);
 });
@@ -46,7 +47,7 @@ test("介入する steps in; only then the board takes a stone; ここに打つ 
   assert.match(intervene,/stopAiTurn\(\);[^\n]*\n\s*intervening=true;watchReturning=false;/);
   // ここに打つ hands the side to move to the viewer before the stone is played.
   assert.match(app,/if\(isWatching\(\) && intervening\)takeOverWatchedGame\(game\.next\);\s*submitMove\(position\);/);
-  assert.match(body("takeOverWatchedGame"),/stopAiTurn\(\);[\s\S]*watching=false;[\s\S]*humanColor=color;[\s\S]*save\(\);/);
+  assert.match(body("takeOverWatchedGame"),/stopAiTurn\(\);[\s\S]*setWatching\(false\);[\s\S]*humanColor=color;[\s\S]*save\(\);/);
   // × ends the step-in, with or without a provisional stone, and the COMs wait a little longer than between moves.
   assert.match(app,/intervening=false;watchReturning=!watchPaused;lastWatchMoveAt=performance\.now\(\)\+WATCH_RESUME_MS-watchStep\(\);/);
   assert.match(body("show"),/\$\("cancel"\)\.disabled=!provisional && !takeBack && !stepIn;/);
@@ -72,12 +73,12 @@ test("stepping back through a watched game pauses it and shows the score graph",
 
 test("a watched game is saved and resumed as watched",()=>{
   assert.match(app,/watch:gameMode==="ai" && watching,watchAi\}/);
-  assert.match(app,/watching=mode==="ai" && record\?\.watch===true;/);
+  assert.match(app,/setWatching\(mode==="ai" && record\?\.watch===true\);/);
 });
 
 test("each COM of a watched game plays with its own character",()=>{
   // The move is chosen with the settings of the colour to play.
-  assert.match(app,/const comToMove = \(\) => watching \? watchAi\[game\.next===BLACK\?"black":"white"\] : aiCom;/);
+  assert.match(app,/const comToMove = \(\) => watching \? watchAi\[sideKey\(game\.next\)\] : aiCom;/);
   assert.match(body("finishAiMove"),/const com=comToMove\(\);/);
   assert.match(body("finishAiMove"),/choosePolicyMove\(game,result\.policy,result\.passLogit,\{\s*\.\.\.com,/);
   // In 観戦 the COMのキャラ tab holds one card per COM in place of the character list:

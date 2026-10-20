@@ -17,7 +17,7 @@ test("replay ignores a provisional move and paints the replay marker",()=>{
   assert.deepEqual(stones[0].args.slice(0,2),[350,350]);
   assert.equal(stones[0].alpha,1);
   assert.equal(calls.some(c=>c.kind==="arc"&&c.args[2]===26),false,"no dashed preview marker");
-  assert.ok(calls.some(c=>c.kind==="arc"&&c.args.slice(0,3).join(",")==="350,350,10"),"last-move ring");
+  assert.ok(calls.some(c=>c.kind==="arc"&&c.args[0]===350&&c.args[1]===350&&Math.abs(c.args[2]-14)<1e-9),"last-move ring");
 });
 
 test("forbidden points are unmarked until selected and draw a provisional stone without commits",()=>{
