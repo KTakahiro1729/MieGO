@@ -126,8 +126,13 @@
       </section>
     </main>
     <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
-    <aside id="settingsPanel" class="settings-panel" role="dialog" aria-modal="true" aria-label="表示設定" hidden>
+    <aside id="settingsPanel" class="settings-panel" role="dialog" aria-modal="true" aria-label="設定" hidden>
       <div class="settings-head"><h2>設定</h2><button id="closeSettings" class="icon-button" type="button" aria-label="設定を閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <section class="settings-section" aria-label="対局と棋譜の操作">
+        <h3>対局と棋譜</h3>
+        <button id="openHistorySettings" class="secondary full" type="button">保存した棋譜</button>
+        <button id="openCurrentMode" class="secondary full" type="button" hidden>AIの設定・再戦</button>
+      </section>
       <section class="settings-section">
         <h3>碁盤</h3>
         <fieldset class="palette-choices board-choices" aria-label="碁盤">
@@ -171,12 +176,9 @@
           <div class="range-labels"><span>薄い</span><span>濃い</span></div>
           <span id="opacityValue" class="visually-hidden" aria-live="polite">55%</span>
         </fieldset>
-        <button id="resetAppearance" class="secondary full" type="button">表示を初期状態に戻す</button>
       </section>
-      <section class="settings-section" aria-label="対局と棋譜の操作">
-        <h3>対局と棋譜</h3>
-        <button id="openHistorySettings" class="secondary full" type="button">保存した棋譜</button>
-        <button id="openCurrentMode" class="secondary full" type="button" hidden>AIの設定・再戦</button>
+      <section class="settings-section settings-reset">
+        <button id="resetAppearance" class="secondary full" type="button">表示を初期状態に戻す</button>
       </section>
     </aside>
     <aside id="sharePanel" class="settings-panel share-panel" role="dialog" aria-modal="true" aria-label="共有" hidden>
