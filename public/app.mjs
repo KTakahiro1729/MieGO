@@ -75,7 +75,11 @@ import {
   DOPA_VOICES,
   moveSound,
 } from "./sound.mjs";
-import { createDopaMode, dopaEvent } from "./dopa-mode.mjs";
+import {
+  createDopaMode,
+  dopaEvent,
+  goodMove,
+} from "./dopa-mode.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
 import { playerSides } from "./player-row.mjs";
@@ -242,10 +246,12 @@ const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingSto
 const {shownPalette,overlayOn,updateGradient}=appearance;
 // 効果音: off until the 設定 sheet turns them on. ドパガキモード swaps in louder voices.
 const sound = createSoundEffects({$,voices:()=>dopa.level()==="off"?CALM_VOICES:DOPA_VOICES});
-const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),reducedMotion:()=>reducedMotion(),
+const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),graph:$("reviewGraph"),
   score:()=>$("scoreBox").querySelector("strong")});
 // Whom ドパガキモード cheers for a win: the player's own colour, or either side
 // when watching the COMs or sharing one board.
+// The policy KataGo gave the position on the board, kept for judging the move played from it.
+let positionPolicy=null;
 const dopaViewer = () => isWatching() || (gameMode!=="ai" && !room) ? null : room ? myOnlineColor() : humanColor;
 let connected = false;
 // A first visit starts against the COM; later visits restore the saved mode.
@@ -929,6 +935,10 @@ function handleAnalysis(event) {
   if(context?.id===result.id && context.committed && !candidate &&
     context.number===game.moveNumber && context.hash===boardHash(game.board))
     rememberOwnership(game.board,result.ownership);
+  // ドパガキモード judges the player's next move by this position's policy.
+  if(context?.id===result.id && context.committed && result.engine==="katago" &&
+    context.number===game.moveNumber && context.hash===boardHash(game.board))
+    positionPolicy={number:context.number,hash:context.hash,policy:result.policy};
   // Sandbox positions and stale asynchronous results must never generate advice.
   if(context?.id===result.id && context.committed && !candidate &&
     context.number===game.moveNumber && context.hash===boardHash(game.board) &&
@@ -1002,6 +1012,12 @@ function show() {
     isAiTurn()?TEXT.game.hintAiThinking:"";
   const blocked=!!illegalCandidate;
   $("confirm").disabled=!candidate || !myTurn || blocked;
+  // While it cannot be pressed, the button says why instead of showing a dim ここに打つ.
+  $("confirmLabel").textContent=blocked?TEXT.game.confirmBlocked:
+    !myTurn?(gameMode==="ai" && !gomoku && fallbackMode?TEXT.ai.startUnavailable:
+      gameMode==="ai" && !gomoku && (!katagoReady || waiting && strongWorkers.current().state==="loading")?
+      TEXT.game.confirmPreparing:TEXT.game.confirmWait):
+    candidate?TEXT.common.playHere:TEXT.game.confirmPick;
   // The stone on the button shows the colour that will be placed.
   $("confirmStone").classList.toggle("white",game.next===WHITE);
   $("copyIllegalPrompt").hidden=!blocked;
@@ -1266,14 +1282,21 @@ function apply(action, remote=false, isAiMove=false) {
     candidate=null;save();show();
     const cue=moveSound(before,game,action.type==="move"?action.position:null);
     const cheer=dopaEvent(before,game,dopaViewer());
+    // Only this device's own move, judged from the position it was played in.
+    const good=action.type==="move" && !remote && !isAiMove && !isFree(before) &&
+      positionPolicy?.number===before.moveNumber && positionPolicy.hash===boardHash(before.board) &&
+      goodMove(positionPolicy.policy,before.board,action.position);
     if(cue)sound.play(cue,cheer?.kind==="capture"?{count:cheer.count}:undefined);
-    dopa.celebrate(cheer);
+    if(good)sound.play("good");
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
        (action.type==="end_answer" && game.status==="scoring") ||
        (hadCandidate && game.status==="playing"))
       requestAnalysis();
     if(!remote&&room)p2pTransport.sendAction(action);
+    // Show last: an effect must never keep the move from being analysed or sent.
+    if(good)dopa.praise();
+    dopa.celebrate(cheer);
   }catch(error){
     // The UI offers only actions that apply, so a failure is a peer out of
     // step (or a bug): the position is resynchronised, not explained.
@@ -1595,6 +1618,7 @@ const clockShown = side => !!game.timeControl && !boardReview && !isFree(game) &
   !(gameMode==="ai" && (isWatching() || side!==humanColor));
 function renderClock() {
   const running=gameClock.reading();
+  const hurry=dopa.countdown(running && clockShown(running.side) ? running : null);
   for(const side of [BLACK,WHITE]){
     const cell=$(side===BLACK?"clockBlack":"clockWhite");
     cell.hidden=!clockShown(side);
@@ -1605,6 +1629,7 @@ function renderClock() {
       reading.byoyomi===null?clockText(0):TEXT.game.byoyomi(clockSeconds(reading.byoyomi));
     cell.classList.toggle("is-running",running?.side===side);
     cell.classList.toggle("is-low",running?.side===side && reading.left<=10000);
+    cell.classList.toggle("dopa-hurry",running?.side===side && hurry);
   }
 }
 gameClock.subscribe(renderClock);
@@ -2251,10 +2276,12 @@ function setBoardReviewStep(step) {
   if(!Number.isInteger(step)||step<0||step>snapshot.moves.length)return;
   try{
     const display=replaySteps(snapshot,step);
+    const moved=step!==boardReview.step;
     boardReview.display=display;boardReview.step=step;
     boardReview.preview=null;boardReview.previewPosition=null;
     reviewFeedback("");$("reviewNotice").textContent="";
     show();requestReviewOwnership();
+    if(moved && scoreGraphShown() && scoreGraph?.marks.includes(step)){dopa.don();sound.play("don");}
   }catch(error){$("reviewNotice").textContent=TEXT.history.replayFailed;}
 }
 function clearBoardReview() {

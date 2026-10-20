@@ -128,7 +128,7 @@
             <button id="agree" class="primary" type="button" disabled>{{scoring.agree}}</button>
           </div>
           <button id="openHistory" class="secondary" type="button" hidden>{{help.history.summary}}</button>
-          <button id="confirm" class="primary" type="button" disabled><span id="confirmStone" class="button-stone" aria-hidden="true"></span>{{common.playHere}}</button>
+          <button id="confirm" class="primary" type="button" disabled><span id="confirmStone" class="button-stone" aria-hidden="true"></span><span id="confirmLabel">{{game.confirmPick}}</span></button>
           <!-- One fused button, two ways to the next game: choose its settings, or keep this one's. -->
           <div class="fused next-game">
             <button id="newMatchSheet" class="secondary" type="button" aria-label="{{game.newGameAria}}" title="{{game.newGameAria}}" hidden><span>{{header.newGame}}</span><small aria-hidden="true">{{game.newGameNote}}</small></button>
@@ -165,7 +165,7 @@
       <div class="settings-head"><h2>{{settings.title}}</h2><button id="resetAppearance" class="reset-button" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span>{{settings.reset}}</span></button><button id="closeSettings" class="icon-button" type="button" aria-label="{{settings.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <section class="settings-section sound-settings">
         <div class="mode"><div><strong>{{settings.sound}}</strong><p>{{settings.soundNote}}</p></div><input id="soundEffects" type="checkbox" aria-label="{{settings.sound}}"></div>
-        <div class="mode"><div><strong>{{settings.dopa}}</strong><p>{{settings.dopaNote}}</p></div><select id="dopaMode" aria-label="{{settings.dopa}}"><option value="off">{{settings.dopaLevels.off}}</option><option value="on">{{settings.dopaLevels.on}}</option><option value="ultra">{{settings.dopaLevels.ultra}}</option></select></div>
+        <div class="mode"><div><strong>{{settings.dopa}}</strong><p>{{settings.dopaNote}}</p></div><input id="dopaMode" type="checkbox" aria-label="{{settings.dopa}}"></div>
       </section>
       <section class="settings-section">
         <h3>{{settings.board}}</h3>
