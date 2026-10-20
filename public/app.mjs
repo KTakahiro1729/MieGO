@@ -197,7 +197,7 @@ function updateEndUi() {
   $("endHelp").dataset.help=playing && illegalCandidate?"illegal":"endgame";
   if(playing && illegalCandidate){
     $("endStatus").textContent=illegalCandidate.reason===ILLEGAL_KO?
-      "コウのため打てません":"自殺手なので打てません";
+      "コウのため打てません":"自殺手のため打てません";
   }
 }
 
@@ -495,11 +495,10 @@ function show() {
     isAiTurn()?"AIが着手を計算しています":"";
   const blocked=!!illegalCandidate;
   $("confirm").disabled=!candidate || !myTurn || blocked;
-  $("confirm").hidden=blocked;
   // The stone on the button shows the colour that will be placed.
   $("confirmStone").classList.toggle("white",game.next===WHITE);
   $("copyIllegalPrompt").hidden=!blocked;
-  $("copyIllegalPrompt").textContent=illegalPromptCopied?"コピーしました":"AIへの質問をコピー";
+  $("copyIllegalPrompt").classList.toggle("is-copied",illegalPromptCopied);
   // With a provisional stone the button discards it; otherwise it is 待った.
   const provisional=!!candidate || blocked;
   const takeBack=!provisional && canTakeBack();
@@ -535,7 +534,7 @@ function show() {
   if(isFinished)$("analysisStatus").textContent="";
   $("scoringActions").hidden=!isScoring;
   for(const id of ["cancel","pass"])$(id).hidden=isScoring || isFinished;
-  $("confirm").hidden=isScoring || isFinished || blocked;
+  $("confirm").hidden=isScoring || isFinished;
   $("copyIllegalPrompt").hidden=isScoring || isFinished || !blocked;
   $("actionRow").classList.toggle("finished-actions",isFinished);
   $("scoreBox").querySelector("strong").textContent=isFinished?"対局結果":"死石を確認";
@@ -779,7 +778,7 @@ $("copyIllegalPrompt").onclick=async()=>{
     await writeClipboard(question);
     if(illegalCandidate===selected){
       illegalPromptCopied=true;
-      $("copyIllegalPrompt").textContent="コピーしました";
+      $("copyIllegalPrompt").classList.add("is-copied");
       $("illegalPromptFallbackPanel").hidden=true;
     }
   }catch(error){

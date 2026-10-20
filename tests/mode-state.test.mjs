@@ -91,7 +91,7 @@ test("direct game controls replace hidden action menus; new local games start fr
  // away from ここに打つ so a slip never lands on it.
  const order=id=>row.indexOf('id="'+id+'"');
  assert.ok(order("resign")<order("pass") && order("pass")<order("confirm"));
- assert.ok(order("confirm")<order("copyIllegalPrompt"));
+ assert.equal(order("copyIllegalPrompt"),-1,"the AI question sits in the status line");
  assert.ok(order("openHistory")<order("newMatch"));
  assert.ok(order("newMatch")>order("confirm"),"no button follows the last primary");
  assert.match(row,/id="newMatch"/);
