@@ -502,8 +502,8 @@ body{overflow:hidden}
 /* Floats above the tools so a notice never pushes the board smaller. */
 .review-tools>p{position:absolute;bottom:calc(100% + 4px);left:4px;right:4px;margin:0 auto;padding:5px 10px;width:max-content;max-width:calc(100% - 8px);border-radius:9px;background:#272e3e;border:1px solid #645842;color:#efd398;font-size:12px;line-height:1.5;z-index:5}
 .review-tools>p:empty{display:none}
-.review-scrubber{display:flex;gap:8px;align-items:center}
-.review-scrubber>button{flex:0 0 44px;height:44px;padding:4px;display:grid;place-items:center;border-radius:var(--radius-sm)}
+/* ◁▷ in the status row step one move; the slider is the only other way to move. */
+.review-scrubber{display:flex;align-items:center;height:44px;padding:0 8px}
 .review-new-moves{font-size:10px;color:#efc47b}
 .review-navigation .review-play-actions{display:flex;flex:1;gap:7px;min-width:0;align-items:stretch}
 .review-navigation .review-play-actions[hidden]{display:none}

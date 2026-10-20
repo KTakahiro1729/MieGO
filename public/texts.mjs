@@ -415,8 +415,6 @@ export const TEXT = {
     previous: "1手戻る",
     next: "1手進む",
     menu: "棋譜の操作",
-    first: "最初の局面",
-    last: "最後の局面",
     range: "表示する手数",
     showVariation: "試し打ちを見る",
     tryPass: "パスを試す",

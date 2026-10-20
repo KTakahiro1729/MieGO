@@ -1881,10 +1881,8 @@ function renderBoardReview() {
   $("moveLabel").textContent=TEXT.review.step(step,count);
   $("reviewStepRange").max=String(count);
   $("reviewStepRange").value=String(step);
-  $("reviewFirst").disabled=step===0 || isPreview;
   $("stepBack").disabled=step===0 || isPreview;
   $("stepForward").disabled=step>=count || isPreview;
-  $("reviewLast").disabled=step>=count || isPreview;
   $("reviewStepRange").disabled=isPreview;
   // One way back: at the live game's latest move 続きを打つ already returns to it.
   $("reviewBack").hidden=isPreview || atLiveLatest();
@@ -2158,8 +2156,6 @@ $("stepBack").onclick=()=>{
 };
 $("stepForward").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
 $("reviewBack").onclick=leaveBoardReview;
-$("reviewFirst").onclick=()=>setBoardReviewStep(0);
-$("reviewLast").onclick=()=>boardReview&&setBoardReviewStep(boardReview.snapshot.moves.length);
 $("reviewStepRange").oninput=e=>setBoardReviewStep(Number(e.target.value));
 $("reviewConfirm").onclick=confirmReviewPreview;
 $("reviewCancel").onclick=discardReviewPreview;

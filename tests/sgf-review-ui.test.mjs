@@ -8,12 +8,14 @@ const html=source("index.html"),app=source("app.mjs"),renderer=source("board-ren
 test("replay keeps one action row; its other tools sit above the turn, with no menu",()=>{
  const review=html.slice(html.indexOf('<section id="reviewPanel"'),html.indexOf('<p id="saveStatus"'));
  const tools=html.slice(html.indexOf('id="reviewTools"'),html.indexOf('id="statusRow"'));
- for(const id of ["reviewBack","reviewFirst","reviewLast",
+ for(const id of ["reviewBack",
    "reviewStepRange","reviewContinue"])
    assert.match(review+tools,new RegExp('id="'+id+'"'));
  assert.match(review,/class="review-navigation"/);
  assert.match(review,/id="reviewPlayActions"/);
  assert.match(tools,/class="review-scrubber"/);
+ // ◁▷ step one move; no second pair of arrows repeats them.
+ assert.doesNotMatch(html,/id="reviewFirst"|id="reviewLast"/);
  assert.doesNotMatch(html,/id="reviewMenu"|review-menu-popover/);
  assert.match(app,/\$\("actionRow"\)\.hidden=true/);
  assert.match(app,/\$\("reviewPanel"\)\.hidden=true/);
