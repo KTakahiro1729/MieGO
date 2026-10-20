@@ -59,6 +59,7 @@ button:hover:not(:disabled){border-color:#748094}
 .rule-line .help-button svg{width:16px;height:16px}
 .board-frame{width:min(100%,675px);min-width:0;align-self:center;aspect-ratio:1;padding:5px;background:linear-gradient(135deg,#b28751,#e4c587 35%,#956c43 100%);border:1px solid #d3b078;border-radius:14px;box-shadow:0 2px 1px #ffffff13 inset,0 15px 40px #0008,0 0 0 1px #f2d69422;position:relative;isolation:isolate;transition:box-shadow .3s,border-color .3s}
 /* Board looks (board-theme.mjs): the frame matches the canvas. */
+.board-frame[data-board-theme="custom"]{background:linear-gradient(135deg,#ffffff26,#0000 35%,#00000040),var(--board-colour);border-color:#ffffff30}
 .board-frame[data-board-theme="light"]{background:#a9aeb6;border-color:#c9cdd3;box-shadow:0 15px 40px #0008}
 .board-frame[data-board-theme="dark"]{background:linear-gradient(135deg,#ffffff30,#ffffff08 40%,#ffffff18);border-color:#ffffff40;box-shadow:0 1px 0 #ffffff30 inset,0 15px 40px #000a,0 0 0 1px #9fc4e022;backdrop-filter:blur(6px)}
 .board-viewport{width:100%;height:100%;overflow:hidden;border-radius:8px}
@@ -163,7 +164,16 @@ body.board-zoomed .board-bleed{opacity:1}
 .palette-choice:has(input:focus-visible){outline:3px solid #f2c875;outline-offset:2px}
 .swatch{width:100%;height:45px;border-radius:8px;box-shadow:0 1px 4px #0005;border:1px solid #9a9a9a55}
 .palette-choices:not(.board-choices){grid-template-columns:repeat(2,minmax(0,1fr))}
-.board-choices{margin-bottom:16px}
+.board-choices{margin-bottom:16px;grid-template-columns:repeat(4,minmax(0,1fr))}
+/* The custom board's swatch takes its colours from the pickers. */
+.board-swatch.custom{background-color:var(--sw-board)}
+.board-colours{display:flex;justify-content:space-around;gap:8px}
+.settings-section .colour-stop{display:flex;flex-direction:column;align-items:center;gap:5px;margin:0;font-size:11px;color:#ccd0da;cursor:pointer}
+.colour-stop input{display:block;width:30px;height:30px;padding:0;margin:0;border:3px solid #f4f1ea;border-radius:50%;background:none;cursor:pointer;-webkit-appearance:none;appearance:none;box-shadow:0 2px 8px #000a}
+.colour-stop input:focus-visible{outline:3px solid #f2c875;outline-offset:2px}
+.colour-stop input::-webkit-color-swatch-wrapper{padding:0}
+.colour-stop input::-webkit-color-swatch{border:0;border-radius:50%}
+.colour-stop input::-moz-color-swatch{border:0;border-radius:50%}
 /* Swatch colours follow the chosen board and are set from territory-view. */
 .swatch{background-color:#e5c58c}
 .board-swatch{width:100%;height:45px;border-radius:8px;box-shadow:0 1px 4px #0005;border:1px solid #9a9a9a55;

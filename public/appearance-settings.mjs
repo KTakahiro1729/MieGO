@@ -1,5 +1,14 @@
 import { isPaletteChoice, normalizePalette, showsOwnership, countingPalette, paletteGradient, countingGradient, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
-import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss, boardTheme as boardLook } from "./board-theme.mjs";
+import {
+  BOARD_COLOUR_KEYS,
+  BOARD_CUSTOM,
+  boardColours,
+  boardTheme as boardLook,
+  DEFAULT_BOARD_THEME,
+  isBoardTheme,
+  setCustomBoardColours,
+  surfaceCss,
+} from "./board-theme.mjs";
 
 // The 設定 sheet's 碁盤 and 地合いの表示 groups: the board look, the colour
 // map, its opacity and curve, kept in localStorage, plus the legend and the
@@ -11,6 +20,8 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
   // The player's own colours and the opacity curve live in territory-view.
   try{setCustomColours(JSON.parse(localStorage.getItem("miego-custom-colours")||"null"));}catch{}
   setOpacityShape(localStorage.getItem("miego-opacity-shape"));
+  // The player's own board colours live in board-theme.
+  try{setCustomBoardColours(JSON.parse(localStorage.getItem("miego-board-colours")||"null"));}catch{}
   const storedBoardTheme = localStorage.getItem("miego-board");
   let boardTheme = isBoardTheme(storedBoardTheme) ? storedBoardTheme : DEFAULT_BOARD_THEME;
   const storedOpacity = Number(localStorage.getItem("miego-opacity"));
@@ -36,9 +47,24 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
       if (!e.target.checked) return;
       boardTheme=isBoardTheme(e.target.value)?e.target.value:DEFAULT_BOARD_THEME;
       try{localStorage.setItem("miego-board",boardTheme);}catch{}
-      updateGradient();draw();
+      fillBoardColourInputs();updateGradient();draw();
     };
   });
+  // The board pickers show the chosen board; editing one turns it into "カスタム".
+  function fillBoardColourInputs(){
+    const shown=boardColours(boardTheme);
+    for(const key of BOARD_COLOUR_KEYS)$("boardColour-"+key).value=shown[key];
+  }
+  for(const key of BOARD_COLOUR_KEYS)$("boardColour-"+key).oninput=()=>{
+    const chosen=Object.fromEntries(BOARD_COLOUR_KEYS.map(k=>[k,$("boardColour-"+k).value]));
+    if(!setCustomBoardColours(chosen))return;
+    try{localStorage.setItem("miego-board-colours",JSON.stringify(chosen));}catch{}
+    boardTheme=BOARD_CUSTOM;
+    try{localStorage.setItem("miego-board",boardTheme);}catch{}
+    const radio=document.querySelector('input[name="boardTheme"][value="custom"]');
+    if(radio)radio.checked=true;
+    updateGradient();draw();
+  };
   // The colour pickers show the chosen map; editing one turns it into "カスタム".
   function fillColourInputs(){
     const shown=paletteColours(showsOwnership(palette)?palette:PALETTE_CUSTOM);
@@ -84,7 +110,7 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     try{localStorage.setItem("miego-opacity-shape",DEFAULT_OPACITY_SHAPE);}catch{}
     const shapeRadio=document.querySelector('input[name="opacityShape"][value="'+DEFAULT_OPACITY_SHAPE+'"]');
     if(shapeRadio)shapeRadio.checked=true;
-    fillColourInputs();
+    fillColourInputs();fillBoardColourInputs();
     updateGradient();show();
     if(!wasOn)onOverlayOn();
   };
@@ -123,7 +149,14 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
       swatch.style.backgroundColor=surface;
       swatch.style.backgroundImage=onBoardStrip(showsOwnership(name)?paletteGradient(name,opacity):null);
     });
-    canvas.closest(".board-frame")?.setAttribute("data-board-theme",boardTheme);
+    const custom=boardColours(BOARD_CUSTOM),swatch=$("customBoardSwatch");
+    swatch.style.setProperty("--sw-board",custom.board);
+    swatch.style.setProperty("--sw-line",custom.line);
+    swatch.style.setProperty("--sw-black",custom.black);
+    swatch.style.setProperty("--sw-white",custom.white);
+    const frame=canvas.closest(".board-frame");
+    frame?.setAttribute("data-board-theme",boardTheme);
+    frame?.style.setProperty("--board-colour",custom.board);
   }
   // The controls start on the remembered choices.
   function syncControls(){
@@ -133,7 +166,7 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     if(selectedBoardTheme)selectedBoardTheme.checked=true;
     {const shapeRadio=document.querySelector('input[name="opacityShape"][value="'+opacityShape()+'"]');
     if(shapeRadio)shapeRadio.checked=true;}
-    fillColourInputs();
+    fillColourInputs();fillBoardColourInputs();
     $("opacity").value=String(Math.round(opacity*100));
     $("opacityValue").textContent=Math.round(opacity*100)+"%";
     updateGradient();
