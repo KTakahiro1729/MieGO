@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {newGame,play,at,areaScore,sizeOf,handicapPoints,starPoints,initialGame,toSGF,BLACK,WHITE}
+import {newGame,play,at,areaScore,sizeOf,handicapPoints,starPoints,initialGame,BLACK,WHITE}
   from "../public/core.mjs";
 import {scoringRegions} from "../public/scoring-regions.mjs";
 import {legalAiMoves} from "../public/ai-opponent.mjs";
 import {formatBoardForAi} from "../public/board-text.mjs";
 import {parseGameSnapshot} from "../public/mode-state.mjs";
-import {replaySteps} from "../public/sgf.mjs";
+import {exportSGF,replaySteps} from "../public/sgf.mjs";
 
 test("new games are created at 9, 13 or 19 and other sizes are not restored",()=>{
   for(const size of [9,13,19]){
@@ -57,5 +57,5 @@ test("scoring, AI candidates, text boards and replays scale to the board",()=>{
   assert.equal(text[0].split(" ").length,13);
   assert.equal(initialGame(g).board.length,169);
   assert.equal(replaySteps(g).board.join(""),g.board.join(""));
-  assert.match(toSGF(g),/SZ\[13\].*;B\[gg\]/);
+  assert.match(exportSGF(g),/SZ\[13\].*;B\[gg\]/);
 });
