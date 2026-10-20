@@ -61,14 +61,26 @@ export function scoreGraphSvg(raw, {width=300, height=48, step=0, marks=[], minS
   const scale=Math.max(minScale,...known.map(v=>Math.abs(v)));
   const x=s=>num(s/last*width);
   const y=v=>num(height/2-v/scale*(height/2-2));
-  const parts=[`<line class="score-graph-axis" x1="0" y1="${num(height/2)}" x2="${width}" y2="${num(height/2)}"/>`];
+  const mid=num(height/2);
   // Gaps where no estimate is kept yet break the line instead of bridging it.
-  let d="", open=false;
+  const runs=[];
   series.forEach((v,s)=>{
-    if(v===null){open=false;return;}
-    d+=(open?"L":"M")+x(s)+" "+y(v);
-    open=true;
+    if(v===null){runs.push([]);return;}
+    if(!runs.length)runs.push([]);
+    runs.at(-1).push([x(s),y(v)]);
   });
+  const filled=runs.filter(run=>run.length);
+  const d=filled.map(run=>run.map(([px,py],i)=>(i?"L":"M")+px+" "+py).join("")).join("");
+  // The area between the line and the axis: black where Black leads, white below.
+  const area=filled.map(run=>"M"+run[0][0]+" "+mid+run.map(([px,py])=>"L"+px+" "+py).join("")+"L"+run.at(-1)[0]+" "+mid+"Z").join("");
+  const parts=[];
+  if(area){
+    parts.push(`<clipPath id="score-graph-up"><rect width="${width}" height="${mid}"/></clipPath>`,
+      `<clipPath id="score-graph-down"><rect y="${mid}" width="${width}" height="${mid}"/></clipPath>`,
+      `<path class="score-graph-black" d="${area}" clip-path="url(#score-graph-up)"/>`,
+      `<path class="score-graph-white" d="${area}" clip-path="url(#score-graph-down)"/>`);
+  }
+  parts.push(`<line class="score-graph-axis" x1="0" y1="${mid}" x2="${width}" y2="${mid}"/>`);
   if(d)parts.push(`<path class="score-graph-line" d="${d}" fill="none"/>`);
   for(const s of marks){
     const v=series[s];

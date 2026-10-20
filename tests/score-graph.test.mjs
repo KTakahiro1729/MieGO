@@ -65,3 +65,11 @@ test("the graph takes the step slider's place and keeps the range for keyboards"
   const scrubber=html.match(/<div class="review-scrubber">[\s\S]*?<\/div>\s*<\/div>/)?.[0]??"";
   assert.match(scrubber,/id="reviewGraph"[\s\S]*id="reviewGraphPlot"[\s\S]*id="reviewStepRange"/);
 });
+
+test("the area to the axis is filled black above and white below, per run",()=>{
+  const svg=scoreGraphSvg([0,10,null,-10],{width:300,height:48});
+  const area="M0 24L0 24L100 2L100 24ZM300 24L300 46L300 24Z";
+  assert.match(svg,new RegExp(`class="score-graph-black" d="${area}" clip-path="url\\(#score-graph-up\\)"`));
+  assert.match(svg,new RegExp(`class="score-graph-white" d="${area}" clip-path="url\\(#score-graph-down\\)"`));
+  assert.doesNotMatch(scoreGraphSvg([null,null]),/score-graph-black/,"nothing estimated, nothing filled");
+});

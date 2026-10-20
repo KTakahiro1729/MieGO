@@ -359,7 +359,9 @@ body{overflow:hidden}
 .review-graph.no-graph .review-graph-plot{display:none}
 .review-graph.no-graph>#reviewStepRange{opacity:1;pointer-events:auto}
 .score-graph-axis{stroke:var(--edge);stroke-width:1}
-.score-graph-line{stroke:#d9dce2;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+.score-graph-black{fill:#000}
+.score-graph-white{fill:#f8f6ee}
+.score-graph-line{stroke:#9aa0a8;stroke-width:1.4;stroke-linejoin:round;stroke-linecap:round}
 .score-graph-mark{fill:#e08a5f;stroke:#0d1018;stroke-width:1}
 .score-graph-step{stroke:var(--gold);stroke-width:2}
 #reviewNotice{margin:0;color:#efca90;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
