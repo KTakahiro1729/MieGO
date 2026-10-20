@@ -422,6 +422,8 @@ const gameUsesStrongest = () => !room && gameMode==="ai" && game.status==="playi
 // started only once a game against it is under way. If it cannot load, the
 // COM plays on with the small network instead.
 const strongNets = {};
+// Below these win rates for the side to move, 最強 reads one or two moves ahead.
+const STRONG_READ = {one:0.4,two:0.2};
 const strongNet = () => {
   const key=strongNetworkFor(sizeOf(game.board));
   return strongNets[key] ??= {key,worker:null,state:"idle",progress:0};
@@ -454,6 +456,10 @@ function onStrongMessage(net, event) {
     if(!result.available){strongFailed(net,result.error || TEXT.analysis.initFailed);return;}
     net.state="ready";
     if(net===strongNet() && isAiTurn())requestAnalysis();
+    return;
+  }
+  if(result?.kind==="reading") {
+    if(aiJob?.id===result.id)$("aiMatchStatus").textContent=TEXT.ai.strongestReading(result.depth);
     return;
   }
   if(result?.kind==="move") {
@@ -683,7 +689,7 @@ function requestAnalysis() {
     aiJob={id,number:game.moveNumber,hash:boardHash(game.board),strong};
     $("analysisStatus").textContent = TEXT.analysis.thinking;
     $("aiMatchStatus").textContent = TEXT.ai.thinking;
-    if(strong)net.worker.postMessage({id,kind:"move",state:game});
+    if(strong)net.worker.postMessage({id,kind:"move",state:game,read:STRONG_READ});
     else postToWorker({id,kind:"move",state:game});
     show();return;
   }
@@ -902,10 +908,10 @@ function finishAiMove(result) {
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
       ownership:result.ownership,endgameStage:passStage,
       invasion:com.invasion,reinforcement:com.reinforcement,strength:com.strength,
-      temperature:0.38
+      readMove:result.readMove,temperature:0.38
     });
     $("aiMatchStatus").textContent = com.strength==="strongest" ?
-      (job.strong?TEXT.ai.playingStrongest:TEXT.ai.strongestFailed) :
+      (job.strong?TEXT.ai.playingStrongest(result.readDepth):TEXT.ai.strongestFailed) :
       TEXT.ai.playingWith(AI_STRENGTHS[com.strength].label,personaLabel(com.invasion),personaLabel(com.reinforcement));
     if(watching)lastWatchMoveAt=performance.now();
     submitMove(next,true);

@@ -10,13 +10,13 @@ import { parseKataGoModelV8 } from "../../vendor/web-katrain/src/engine/katago/l
 import { KataGoModelV8Tf } from "../../vendor/web-katrain/src/engine/katago/modelV8";
 import { postprocessKataGoV8 } from "../../vendor/web-katrain/src/engine/katago/evalV8";
 import { toKataGoPosition } from "./position.mjs";
-import { whiteCompensation, rulesOf } from "../../public/core.mjs";
+import { whiteCompensation, rulesOf, play, BLACK } from "../../public/core.mjs";
 import { STRONG_NETWORKS } from "../../public/strong-networks.mjs";
 
 let model: KataGoModelV8Tf | null = null;
 let boot: Promise<void> | null = null;
 let backend = "uninitialized";
-let newest: { id: number; state: unknown; kind?: "move" | "analyze" | "scoring" | "settle" } | null = null;
+let newest: { id: number; state: unknown; kind?: "move" | "analyze" | "scoring" | "settle"; read?: { one: number; two: number } } | null = null;
 let busy = false;
 
 // The page starts a second worker with ?net=<key> for 最強; it only plays moves.
@@ -155,8 +155,9 @@ async function evaluateMovePolicy(state: unknown, settle = false) {
   let output: ReturnType<KataGoModelV8Tf["forward"]> | undefined;
   try {
     output = model.forward(spatial, global);
-    const [raw, pass, rawOwnership] = await Promise.all([
-      output.policy.data(), output.policyPass.data(), output.ownership.data()
+    const [raw, pass, rawOwnership, values, scores] = await Promise.all([
+      output.policy.data(), output.policyPass.data(), output.ownership.data(),
+      output.value.data(), output.scoreValue.data()
     ]);
     const channels = model.policyOutChannels;
     if (raw.length !== area * channels || !pass.length)
@@ -170,11 +171,50 @@ async function evaluateMovePolicy(state: unknown, settle = false) {
     const ownership = Array.from(rawOwnership, v => Math.tanh(v * scale) * sign);
     if (ownership.length !== area || !ownership.every(Number.isFinite))
       throw new Error("KataGo ownership output is invalid");
-    return { kind: settle ? "settle" : "move", engine:"katago", backend, policy, passLogit:pass[0], ownership };
+    const winRate = postprocessKataGoV8({
+      nextPlayer: pos.currentPlayer, valueLogits: values, scoreValue: scores,
+      postProcessParams: model.postProcessParams, modelVersion: model.modelVersion
+    }).blackWinProb;
+    return { kind: settle ? "settle" : "move", engine:"katago", backend, policy, passLogit:pass[0], ownership, winRate };
   } finally {
     spatial.dispose(); global.dispose();
     if (output) for (const t of Object.values(output)) t.dispose();
   }
+}
+/**
+ * 最強's read when it is behind: play the network's favourite legal moves,
+ * evaluate the position after each, and keep the move that leaves the best
+ * win rate for the side to move. Two moves deep, each move is judged by the
+ * opponent's best of its favourite answers. A newer request stops the read.
+ */
+const READ_WIDTH = { 1: 8, 2: 5 } as const;
+const REPLY_WIDTH = 3;
+type ReadState = { next: number; board: number[] };
+function favourites(state: ReadState, policy: number[], count: number) {
+  const moves: { position: number; child: ReadState }[] = [];
+  for (const { p } of policy.map((logit, p) => ({ p, logit })).sort((a, b) => b.logit - a.logit)) {
+    if (moves.length >= count) break;
+    if (state.board[p]) continue;
+    try { moves.push({ position: p, child: play(state, p) }); } catch {}
+  }
+  return moves;
+}
+async function readAhead(state: ReadState, policy: number[], depth: 1 | 2) {
+  const moverWins = (black: number) => state.next === BLACK ? black : 1 - black;
+  let best: { position: number; winRate: number } | null = null;
+  for (const { position, child } of favourites(state, policy, READ_WIDTH[depth])) {
+    if (newest) return null;
+    const answer = await evaluateMovePolicy(child);
+    let winRate = moverWins(answer.winRate);
+    if (depth === 2) {
+      for (const reply of favourites(child, answer.policy, REPLY_WIDTH)) {
+        if (newest) return null;
+        winRate = Math.min(winRate, moverWins((await evaluateMovePolicy(reply.child)).winRate));
+      }
+    }
+    if (!best || winRate > best.winRate) best = { position, winRate };
+  }
+  return best;
 }
 async function drain() {
   if (busy) return;
@@ -186,8 +226,19 @@ async function drain() {
       try {
         await prepare();
         if (newest) continue; // superseded while the model was initializing
-        const result = next.kind === "move" || next.kind === "settle"
+        const result: Record<string, unknown> = next.kind === "move" || next.kind === "settle"
           ? await evaluateMovePolicy(next.state, next.kind === "settle") : await evaluate(next.state);
+        // 最強 reads only when the side to move is behind, deeper the further behind.
+        const state = next.state as ReadState;
+        if (strong && next.kind === "move" && next.read) {
+          const mover = state.next === BLACK ? result.winRate as number : 1 - (result.winRate as number);
+          const depth = mover < next.read.two ? 2 : mover < next.read.one ? 1 : 0;
+          if (depth) {
+            self.postMessage({ id: next.id, kind: "reading", depth });
+            const read = await readAhead(state, result.policy as number[], depth);
+            if (read) { result.readMove = read.position; result.readDepth = depth; }
+          }
+        }
         if (!newest) self.postMessage({ id: next.id, kind: next.kind || "analyze", ...result });
       } catch (error) {
         if (!newest) self.postMessage({
@@ -203,7 +254,9 @@ self.onmessage = event => {
   if (!event.data || !Number.isSafeInteger(event.data.id)) return;
   newest = { id: event.data.id, state: event.data.state,
     kind: event.data.kind === "move" ? "move" : event.data.kind === "settle" ? "settle" :
-      event.data.kind === "scoring" ? "scoring" : "analyze" };
+      event.data.kind === "scoring" ? "scoring" : "analyze",
+    read: Number.isFinite(event.data.read?.one) && Number.isFinite(event.data.read?.two)
+      ? { one: event.data.read.one, two: event.data.read.two } : undefined };
   void drain();
 };
 

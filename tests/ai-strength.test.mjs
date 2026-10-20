@@ -90,6 +90,13 @@ test("最強 plays the network's top move whatever the personality, and passes o
   assert.equal(choosePolicyMove(state,logits,5,{strength:"strongest",endgameStage:"playing"}),at(2,6));
 });
 
+test("最強 plays the move its read found best, unless that move is not a legal candidate",()=>{
+  const state=newGame(),logits=flatPolicy(at(2,6));
+  assert.equal(choosePolicyMove(state,logits,-50,{strength:"strongest",readMove:at(6,6)}),at(6,6));
+  const taken=play(state,at(6,6));
+  assert.equal(choosePolicyMove(taken,logits,-50,{strength:"strongest",readMove:at(6,6)}),at(2,6));
+});
+
 test("最強 plays 9路 with the 9x9 network and larger boards with the b18 network",()=>{
   assert.equal(normalizeStrength("strongest"),"strongest");
   assert.equal(strongNetworkFor(9),"kata9x9");
