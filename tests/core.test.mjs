@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, play, group, at, boardHash, areaScore, toggleDead, resume, agreeScore } from "../public/core.mjs";
+import {
+  agreeScore,
+  areaScore,
+  at,
+  boardHash,
+  group,
+  groups,
+  newGame,
+  play,
+  resume,
+  toggleDead,
+} from "../public/core.mjs";
 import { exportSGF } from "../public/sgf.mjs";
 
 test("initial game and alternating moves", () => {
@@ -50,4 +61,11 @@ test("dead marks from a resumed count do not carry into the next count", () => {
   g = play(play(g, null), null);
   assert.equal(g.status, "scoring");
   assert.deepEqual(g.dead, []);
+});
+
+test("groups yields every group of stones once, with its colour and liberties", () => {
+  const board = Array(81).fill(0);
+  board[at(0, 0, 9)] = 1; board[at(1, 0, 9)] = 1; board[at(0, 1, 9)] = -1; board[at(4, 4, 9)] = 1;
+  const found = [...groups(board)].map(({ color, stones, liberties }) => [color, [...stones].sort((a, b) => a - b), liberties.size]);
+  assert.deepEqual(found, [[1, [0, 1], 2], [-1, [9], 2], [1, [40], 4]]);
 });

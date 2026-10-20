@@ -1,4 +1,4 @@
-import { group, BLACK, WHITE } from "./core.mjs";
+import { groups, BLACK, WHITE } from "./core.mjs";
 
 /** Conservatively propose dead *groups* from KataGo NN ownership.
  * These are not proven dead stones, and are never accepted as final without
@@ -9,12 +9,10 @@ export function suggestDeadStones(state, ownership) {
       ownership.some(v=>!Number.isFinite(v) || Math.abs(v)>1.001)) {
     throw new Error("Invalid KataGo ownership");
   }
-  const result=new Set(),visited=new Set();
-  for(let i=0;i<state.board.length;i++) {
-    const color=state.board[i];
-    if((color!==BLACK && color!==WHITE) || visited.has(i))continue;
-    const g=group(state.board,i);
-    for(const p of g.stones)visited.add(p);
+  const result=new Set();
+  for(const g of groups(state.board)) {
+    const color=g.color;
+    if(color!==BLACK && color!==WHITE)continue;
     const control=[...g.stones].map(p=>color*ownership[p]);
     const avg=control.reduce((x,y)=>x+y,0)/control.length;
     // Mark only groups strongly predicted to belong to the *opponent*.

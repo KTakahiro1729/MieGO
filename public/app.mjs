@@ -15,6 +15,7 @@ import {
   HANDICAP_KOMI,
   handicapOf,
   hasGomokuForbidden,
+  initialGame,
   isFree,
   isGomoku,
   isJapanese,
@@ -198,7 +199,7 @@ function renderInviteButton() {
     input.disabled=locked;
     if(locked && issuedSide!==null)input.checked=input.value===issuedSide;
   }
-  $("copy").textContent=!room?TEXT.online.prepareInvite:
+  $("copy").textContent=!room?TEXT.newGame.start:
     issuedSide!==null && !inviteMatchesChoice()?
       TEXT.online.renewInvite:TEXT.online.copyInvite;
   keepArmedLabel($("copy"));
@@ -1144,8 +1145,10 @@ function show() {
   $("scoreBox").classList.toggle("hidden",!isScoring && !isFinished);
   $("endgameBar").hidden=isScoring || isFinished;
   $("resign").hidden=isScoring || isFinished;
-  $("newMatch").hidden=!isFinished;
-  $("newMatch").textContent=room?TEXT.game.newMatchOnline:TEXT.game.newMatchLocal;
+  $("newMatchSheet").hidden=!isFinished;
+  // A friend's game is played again from a new invitation, so it only offers 新規対戦.
+  $("newMatch").hidden=!isFinished || !!room;
+  $("newMatch").disabled=gameMode==="ai" && !canRematchAi();
   $("openHistory").hidden=!isFinished;
   if(isScoring)$("analysisStatus").textContent=TEXT.scoring.title;
   if(isFinished)$("analysisStatus").textContent="";
@@ -1499,14 +1502,8 @@ function takeBackMove() {
   if(gameMode==="ai")$("aiMatchStatus").textContent=TEXT.takeback.doneAi;
   save();show();requestAnalysis();
 }
-function resetLocalBoard() {
-  if (room || gameMode!=="local") return;
-  // The current match stays in the saved-game library; no modal is needed.
-  if(!save())return;
-  freshLocalBoard();
-}
-/** A new empty local board with the chosen size and handicap (callers save first). */
-function freshLocalBoard() {
+/** A new empty local board, by default with the sheet's choices (callers save first). */
+function freshLocalBoard(fresh=freshLocalGame(game,nextGameOptions(localHandicap))) {
   resetArmedButtons();
   clearTimeout(analysisTimer);
   analysisTimer=null;
@@ -1518,7 +1515,7 @@ function freshLocalBoard() {
   // New endgame/dead-stone signals must not survive a local board reset.
   endgameAdvisor.reset();endExpanded=false;endNotice=null;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  game=freshLocalGame(game,nextGameOptions(localHandicap));currentGameId=null;currentRevision=null;
+  game=fresh;currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
 }
 /** 新規対戦 → 1台で打つ: leaves an AI or friend match (kept in the library). */
@@ -1531,11 +1528,21 @@ function startLocalGame() {
   freshLocalBoard();closePanels();
 }
 $("startLocal").onclick=()=>continueFrom?forkBoardReview("local"):startLocalGame();
+// After a game: 新規対戦 opens the sheet on this mode; もう一局 starts the same game again at once,
+// with the finished game's board, rules and options (and, against the COM, the same COM and side).
+$("newMatchSheet").onclick=()=>openPanel(room?"online":gameMode);
 $("newMatch").onclick=()=>{
-  if(room){openPanel("online");return;}
-  if(gameMode==="ai"){$("startAi").click();return;}
-  resetLocalBoard();
+  if(room || game.status!=="finished")return;
+  if(gameMode==="ai"){
+    if(!canRematchAi())return;
+    startAiGame(initialGame(game),watching,aiSideChoice==="random"?"random":sideKey(humanColor));
+    return;
+  }
+  if(!save())return;
+  clearBoardReview();freshLocalBoard(initialGame(game));
 };
+// The KataGo opponent must be ready; 五目並べ's needs none.
+function canRematchAi(){return isGomoku(game) || katagoReady && !fallbackMode;}
 $("agree").onclick=()=>{
   if(!canApproveScoring(game,deadReview,room,connected))return;
   const color=room?myOnlineColor():gameMode==="ai"?humanColor:BLACK;
@@ -1914,18 +1921,18 @@ function openPanel(kind) {
   const panel=kind==="settings"?$("settingsPanel"):kind==="share"?$("sharePanel"):$("modePanel");
   panel.querySelector(".settings-head .icon-button").focus();
 }
-// Every mode's start button reads the same: 新しい対局を始める while that mode's game is on the board.
+// Every mode's start button reads the same 新しい対局を始める (ここから打つ when continuing a replay).
 function syncStartButtons() {
   // The 五目並べ computer needs no KataGo, so it can start at once.
   const needsKatago=continueFrom?!isGomoku(continueFrom.line):gameRules!=="gomoku";
   $("startAi").disabled=needsKatago && (!katagoReady || fallbackMode);
   $("startAi").textContent=needsKatago && fallbackMode?TEXT.ai.startUnavailable:
-    needsKatago && !katagoReady?TEXT.ai.startLoading:startLabel("ai");
+    needsKatago && !katagoReady?TEXT.ai.startLoading:startLabel();
   keepArmedLabel($("startAi"));
-  $("startLocal").textContent=startLabel("local");
+  $("startLocal").textContent=startLabel();
   keepArmedLabel($("startLocal"));
 }
-function startLabel(kind){return continueFrom?TEXT.review.continue:!room && gameMode===kind?TEXT.ai.restart:TEXT.newGame.start;}
+function startLabel(){return continueFrom?TEXT.review.continue:TEXT.newGame.start;}
 // 自分の石, COMのキャラ, 盤 and ルール are one row of underlined tabs, the colour first; the selected
 // tab's choices fill the one panel under it, one per line with a note beside it.
 const SETUP_TABS=["Side","Strength","Board","Rules"];
@@ -1977,7 +1984,7 @@ function showNewGameMode(kind) {
   if(choice)choice.checked=true;
   if(watch)kind="ai";
   $("localSetup").hidden=kind!=="local";
-  $("onlineSetup").hidden=kind!=="online";
+  $("onlineSetup").hidden=$("onlineStart").hidden=kind!=="online";
   $("aiSetup").hidden=kind!=="ai";
   // 履歴 swaps the game options for the saved-game list in the same sheet.
   $("historySetup").hidden=$("historyActions").hidden=kind!=="history";
@@ -2525,7 +2532,7 @@ function closePanels() {
   $("helpToggle").setAttribute("aria-expanded","false");
   closeHelpPopover(false);
   $("historySetup").hidden=$("historyActions").hidden=true;
-  $("onlineSetup").hidden=true;
+  $("onlineSetup").hidden=$("onlineStart").hidden=true;
   $("aiSetup").hidden=true;
   $("localSetup").hidden=true;
   $("settingsToggle").setAttribute("aria-expanded","false");
@@ -2554,24 +2561,28 @@ $("startAi").onclick=()=>{
   if(gameRules!=="gomoku" && (!katagoReady || fallbackMode))return;
   if(room && connected &&
      !confirmByRetap($("startAi"),TEXT.confirm.leaveForAi))return;
+  startAiGame(newGame(true,nextGameOptions(aiHandicap)),watchChoice,aiSideChoice);
+};
+/** A new AI game from the empty board `fresh`: watched, or with the human's side drawn from `side`. */
+function startAiGame(fresh, watch, side) {
   if(!save())return;
   if(room)leaveOnlineRoom();
   clearBoardReview();
   stopAiTurn();
   gameMode="ai";
-  setWatching(watchChoice);
+  setWatching(watch);
   // The empty board shows for a moment before the first watched move.
   lastWatchMoveAt=performance.now();
   // Handicap stones always belong to the human, who therefore plays Black.
   // Otherwise: the same choices and the same random draw as a friend invitation.
-  try{humanColor=watching || aiHandicap && gameRules!=="gomoku"?BLACK:selectColor(aiSideChoice);}
+  try{humanColor=watching || fresh.handicap?BLACK:selectColor(side);}
   catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
   takebackNotice=null;
-  game=newGame(true,nextGameOptions(aiHandicap));currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
+  game=fresh;currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endExpanded=false;endNotice=null;
   $("aiMatchStatus").textContent=watching?TEXT.ai.watchStarted:TEXT.ai.started(colorLabel(humanColor));
   save();closePanels();show();requestAnalysis();
-};
+}
 const SIDE_CHOICES=["black","random","white"];
 function syncSideUi() {
   const input=document.querySelector('input[name="aiSide"][value="'+aiSideChoice+'"]');
