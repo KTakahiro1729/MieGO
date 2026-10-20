@@ -77,10 +77,13 @@ import { createP2PTransport } from "./p2p-transport.mjs";
 import { interpolateOwnership, prisonerOutline } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
 import {
+  CALM_VOICES,
   countdownSound,
   createSoundEffects,
+  DOPA_VOICES,
   moveSound,
 } from "./sound.mjs";
+import { createDopaMode, dopaEvent } from "./dopa-mode.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
 import { playerSides } from "./player-row.mjs";
@@ -245,8 +248,13 @@ const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideSton
 const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingStones,isCounting,show,draw,
   onOverlayOn:()=>boardReview?requestReviewOwnership():requestAnalysis()});
 const {shownPalette,overlayOn,updateGradient}=appearance;
-// 効果音: off until the 設定 sheet turns them on.
-const sound = createSoundEffects({$});
+// 効果音: off until the 設定 sheet turns them on. ドパガキモード swaps in louder voices.
+const sound = createSoundEffects({$,voices:()=>dopa.level()==="off"?CALM_VOICES:DOPA_VOICES});
+const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),reducedMotion:()=>reducedMotion(),
+  score:()=>$("scoreBox").querySelector("strong")});
+// Whom ドパガキモード cheers for a win: the player's own colour, or either side
+// when watching the COMs or sharing one board.
+const dopaViewer = () => isWatching() || (gameMode!=="ai" && !room) ? null : room ? myOnlineColor() : humanColor;
 let connected = false;
 // A first visit starts against the COM; later visits restore the saved mode.
 let gameMode = room ? "online" : "ai";
@@ -683,6 +691,7 @@ const boardRenderer = createBoardRenderer({
   getView:()=>({
     boardReview,
     boardTheme:appearance.boardTheme(),
+    burst:dopa.level(),
     candidate,
     displayedOwnership,
     game,
@@ -1391,7 +1400,9 @@ function apply(action, remote=false, isAiMove=false) {
     if(action.type==="move" && (remote || isAiMove && !watching))boardZoom.reset();
     candidate=null;save();show();
     const cue=moveSound(before,game,action.type==="move"?action.position:null);
-    if(cue)sound.play(cue);
+    const cheer=dopaEvent(before,game,dopaViewer());
+    if(cue)sound.play(cue,cheer?.kind==="capture"?{count:cheer.count}:undefined);
+    dopa.celebrate(cheer);
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
        (action.type==="end_answer" && game.status==="scoring") ||
