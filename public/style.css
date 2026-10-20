@@ -229,29 +229,28 @@ body.board-zoomed .board-bleed{opacity:1}
 .setup-tab.is-unused{color:#5d6472}
 .setup-tab.is-unused[aria-selected="true"]{color:#8a8273;box-shadow:inset 0 -2px 0 #6b6352}
 .setup-panels{padding-top:12px}
-.setup-panel{min-height:232px}
+.setup-panel{min-height:220px}
 .setup-panel[hidden]{display:none}
-/* Each tab lists its choices top to bottom in one frame: the name on the left, its note on the right, a check on the chosen row. */
-.choice-list{display:grid;min-width:0;margin:0;padding:0;border:1px solid #454c5a;border-radius:var(--radius);overflow:hidden;background:#232a35}
-.choice-list .choice-row{display:grid;grid-template-columns:64px minmax(0,1fr) 16px;align-items:center;gap:10px;min-height:48px;margin:0;padding:4px 12px;cursor:pointer;position:relative}
+/* Each tab lists its choices top to bottom: a radio dot, the name, then its note; thin lines between rows. */
+.choice-list{display:grid;min-width:0;margin:0;padding:0;border:0}
+.choice-list .choice-row{display:grid;grid-template-columns:18px 64px minmax(0,1fr);align-items:center;gap:10px;min-height:48px;margin:0;padding:4px;cursor:pointer;position:relative}
 .choice-list .choice-row+.choice-row{border-top:1px solid #343b49}
-.choice-row::after{content:"";font-size:15px;color:#efcb81;text-align:right}
+.choice-row::before{content:"";width:16px;height:16px;border:2px solid #6e7584;border-radius:50%;box-sizing:border-box}
 .choice-row input{position:absolute;opacity:0}
 .choice{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:650;white-space:nowrap}
 .choice-note{font-size:12px;line-height:1.5;color:#aeb3be}
-.choice-row:has(input:checked){background:#38342d}
-.choice-row:has(input:checked)::after{content:"✓"}
+.choice-row:has(input:checked)::before{border-color:#efcb81;background:radial-gradient(circle,#efcb81 0 4px,transparent 4.5px)}
 .choice-row input:checked+.choice,.choice-row input:checked+.choice .size-icon{color:#f8ddac}
 .choice-row input:checked~.choice-note{color:#e2d5bd}
-.choice-row:has(input:focus-visible){outline:3px solid #f2c875;outline-offset:-3px}
+.choice-row:has(input:focus-visible){outline:3px solid #f2c875;outline-offset:-3px;border-radius:var(--radius-sm)}
+.choice-row:has(input:disabled)::before{border-color:#454b57}
+.choice-row:has(input:checked:disabled)::before{border-color:#6b6352;background:radial-gradient(circle,#6b6352 0 4px,transparent 4.5px)}
 .choice-row input:disabled+.choice{color:#6b7180}
-.choice-row:has(input:checked:disabled){background:#2b2a29}
-.choice-row:has(input:checked:disabled)::after{color:#8a8273}
 .choice-row input:checked:disabled+.choice{color:#8a8273}
 .choice-row input:disabled~.choice-note{color:#646b78}
 .choice-row:has(input:disabled){cursor:not-allowed}
-/* 観戦 is not a colour, so a thicker line sets it a little apart from 黒・ランダム・白. */
-.choice-list .choice-row.watch-choice{border-top:4px solid #1b212b}
+/* 観戦 is not a colour, so it sits a little apart from 黒・ランダム・白. */
+.choice-list .watch-choice{margin-top:6px}
 .setup-panels .setup-note{margin:8px 0 0}
 .strength-note{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin:0}
 .strength-note .setup-note{margin-top:8px}
