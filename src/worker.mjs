@@ -33,6 +33,8 @@ async function verifyHuman(token, request, env) {
     return data.success === true && data.hostname === new URL(request.url).hostname && data.action === "miego_p2p";
   } catch { return false; }
 }
+// How many times each seat was taken over by another device.
+const signinsOf = meta => ({ owner: Number(meta.signins?.owner) || 0, guest: Number(meta.signins?.guest) || 0 });
 const roomStub = (env, room) => env.ROOMS.get(env.ROOMS.idFromName(room));
 const callRoom = (stub, path, data) => stub.fetch(new Request("https://room.internal" + path, {
   method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data)
@@ -157,10 +159,18 @@ export class GameRoom extends DurableObject {
         if (!["owner","guest"].includes(data.role) || typeof data.key!=="string" || data.key.length!==48) return inputError();
         if (await hash(data.key)!==meta[data.role+"KeyHash"]) return json({error:"Invalid invitation"},403);
         const session=random();
+        // A seat that already had a device is now signed in elsewhere: the
+        // other player is told (now, or when it next joins), as is every device.
+        const replaced=Boolean(meta[data.role+"SessionHash"]);
         meta[data.role+"SessionHash"]=await hash(session);
+        meta.signins=signinsOf(meta);
+        if(replaced)meta.signins[data.role]++;
         await this.ctx.storage.put("meta",meta);
         // A new claim replaces any existing device's session for that seat.
-        for(const peer of this.peers())if(peer.info.role===data.role)try{peer.ws.close(4001,"New sign-in");}catch{}
+        for(const peer of this.peers()){
+          if(peer.info.role===data.role)try{peer.ws.close(4001,"New sign-in");}catch{}
+          else if(replaced)try{peer.ws.send(JSON.stringify({type:"signin",signins:meta.signins}));}catch{}
+        }
         return json({session,role:data.role,ownerColor:meta.ownerColor});
       }
       if (!this.allowed("ticket",30)) return json({error:"Reconnect rate exceeded"},429);
@@ -192,7 +202,7 @@ export class GameRoom extends DurableObject {
     const pair=new WebSocketPair(),client=pair[0],server=pair[1];
     this.ctx.acceptWebSocket(server);
     server.serializeAttachment({role:claim.role});
-    server.send(JSON.stringify({type:"joined",role:claim.role,ownerColor:meta.ownerColor}));
+    server.send(JSON.stringify({type:"joined",role:claim.role,ownerColor:meta.ownerColor,signins:signinsOf(meta)}));
     this.broadcastRoster();
     return new Response(null,{status:101,webSocket:client});
   }

@@ -123,6 +123,7 @@
           </div>
         </section>
         <p id="saveStatus" class="save-status" role="alert" hidden></p>
+        <p id="seatNotice" class="save-status" role="alert" hidden></p>
       </section>
     </main>
     <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
@@ -272,6 +273,12 @@
         </div>
         <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
         <p id="roomInfo" class="explanation"></p>
+        <details id="seatLinkBox" class="info-disclosure" hidden><summary>別の端末で続ける</summary>
+          <p class="explanation">自分用の再入室リンクです。別の端末で開くと、あなたの席で続きを打てます（この端末の接続は切れます）。持っている人は誰でもあなたの席に入れるので、相手やほかの人には送らないでください。</p>
+          <button id="copySeatLink" class="secondary full" type="button">自分用の再入室リンクをコピー</button>
+          <input id="seatLinkFallback" type="text" readonly hidden autocomplete="off" spellcheck="false" aria-label="自分用の再入室リンク">
+          <p id="seatLinkStatus" class="invite-status" role="status" aria-live="polite"></p>
+        </details>
       </section>
       <section id="aiSetup" class="settings-section" hidden>
         <button id="startAi" class="primary full" type="button" disabled>準備中…</button>
@@ -368,6 +375,8 @@
             <li>「招待リンクを準備する」を押し、もう一度押すと招待URLをコピーできます。友人に送って開いてもらえば対局が始まります。</li>
             <li>対局中に招待URLをもう一度見るときは、設定（歯車）の「招待URLを表示」を開きます。</li>
             <li>新しい対局を作るときなどに、本人確認が出ることがあります。</li>
+            <li>アドレスバーのURLには参加用の鍵を残しません。同じブラウザなら開き直すだけで続きから再開できます。別の端末で続けるときは「別の端末で続ける」から自分用の再入室リンクをコピーしてください。</li>
+            <li>相手の席に別の端末から参加があると、お知らせが出ます。相手が端末を替えたのでなければ、招待URLがほかの人に渡っていないか確認してください。</li>
           </ul>
         </details>
         <details id="help-history" class="info-disclosure help-topic" name="helpTopic"><summary>保存した棋譜</summary>

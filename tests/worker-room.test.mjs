@@ -88,3 +88,22 @@ test("a JSON body that is not an object is rejected, not thrown", async () => {
   const r = await created();
   assert.equal((await r.room.fetch(new Request("https://room.internal/ticket", { method: "POST", body: "null" }))).status, 400);
 });
+
+test("a seat signed in on another device is counted and the other player told", async () => {
+  const r = await created();
+  const sent = [], closed = [];
+  r.sockets.push({ deserializeAttachment: () => ({ role: "owner" }), send: m => sent.push(JSON.parse(m)), close: c => closed.push(c) });
+  const claim = () => post(r.room, "/claim", { role: "guest", key: "g".repeat(48) });
+  assert.equal((await claim()).status, 200);
+  assert.deepEqual(sent, [], "a guest's first sign-in is not a takeover");
+  assert.deepEqual(r.items.get("meta").signins, { owner: 0, guest: 0 });
+  assert.equal((await claim()).status, 200);
+  assert.deepEqual(sent, [{ type: "signin", signins: { owner: 0, guest: 1 } }]);
+  assert.deepEqual(closed, [], "only the replaced seat's own device is closed");
+  // The owner's seat link opened on a new device replaces the creator's session.
+  r.sockets.length = 0;
+  r.sockets.push({ deserializeAttachment: () => ({ role: "owner" }), send: () => {}, close: c => closed.push(c) });
+  await post(r.room, "/claim", { role: "owner", key: "k".repeat(48) });
+  assert.deepEqual(closed, [4001]);
+  assert.deepEqual(r.items.get("meta").signins, { owner: 1, guest: 1 });
+});

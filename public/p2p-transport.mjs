@@ -1,7 +1,8 @@
 import {postP2PJson,reconnectDelay,isTerminalTicketFailure,signalingUrl} from "./p2p-network.mjs";
 
 // Signaling and WebRTC transport. Game rules and UI belong to app.mjs.
-export function createP2PTransport({verify,onSession,onSync,onAction,onConnected,onDisconnected,onError,getSnapshot}) {
+// onSignins({owner,guest}) reports how often each seat moved to another device.
+export function createP2PTransport({verify,onSession,onSync,onAction,onConnected,onDisconnected,onError,getSnapshot,onSignins=()=>{}}) {
   let current=null, socket=null, peer=null, channel=null, timer=null, generation=0, attempt=0;
   let pendingIce=[],ready=false;
   const post=postP2PJson;
@@ -69,7 +70,9 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
     if(epoch!==generation||!current)return;
     try{
       const {room,role,session}=current;
-      const ticket=await post("/api/rooms/"+room+"/ticket",{role,session});
+      let ticket;
+      try{ticket=await post("/api/rooms/"+room+"/ticket",{role,session});}
+      catch(error){error.stage="ticket";throw error;}
       if(epoch!==generation)return;
       closeRTC();
       const s=new WebSocket(signalingUrl(location,room,ticket.ticket));
@@ -79,6 +82,7 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
         if(epoch!==generation||socket!==s)return;
         let msg;try{msg=JSON.parse(event.data);}catch{return;}
         try{
+          if((msg.type==="joined"||msg.type==="signin") && msg.signins)onSignins(msg.signins);
           if(msg.type==="roster"&&msg.count===2&&role==="owner"&&!ready)await startRTC(epoch);
           if(msg.type==="offer"&&role==="guest"){
             if(!peer)await startRTC(epoch);
@@ -113,7 +117,7 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
     const epoch=generation;
     current={room,role,session};
     if(!current.session){
-      if(!inviteKey)throw Error("招待URLの参加情報がありません");
+      if(!inviteKey)throw Error("この端末には参加情報がありません。招待URLから開いてください");
       const token=await verify();
       const claim=await post("/api/rooms/"+room+"/claim",{role,key:inviteKey,turnstileToken:token});
       if(epoch!==generation)return;

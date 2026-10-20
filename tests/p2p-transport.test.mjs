@@ -53,3 +53,24 @@ test("first guest claim verifies once and stale socket events cannot reconnect o
   assert.equal(actions,0);
   assert.equal(sockets.length,1,"leaving must invalidate old event callbacks");
 });
+
+test("sign-in counts reach the app, and a refused ticket is reported once without retrying",async t=>{
+  const {sockets}=fixture(t);
+  const seen=[];
+  const transport=createP2PTransport({...settings,verify:async()=>"x",onSession:()=>{},onSignins:s=>seen.push(s)});
+  await transport.join({room:"1".repeat(32),role:"owner",session:"2".repeat(48)});
+  await sockets[0].onmessage({data:JSON.stringify({type:"joined",role:"owner",signins:{owner:0,guest:1}})});
+  await sockets[0].onmessage({data:JSON.stringify({type:"signin",signins:{owner:0,guest:2}})});
+  assert.deepEqual(seen,[{owner:0,guest:1},{owner:0,guest:2}]);
+  transport.leave();
+
+  globalThis.fetch=async()=>({ok:false,status:403,json:async()=>({error:"Session expired"})});
+  const errors=[];
+  const refused=createP2PTransport({...settings,verify:async()=>"x",onSession:()=>{},onError:e=>errors.push(e)});
+  await refused.join({room:"1".repeat(32),role:"guest",session:"2".repeat(48)});
+  assert.equal(errors.length,1);
+  assert.equal(errors[0].stage,"ticket");
+  assert.equal(errors[0].status,403);
+  assert.equal(sockets.length,1,"no socket is opened for a refused seat");
+  refused.leave();
+});

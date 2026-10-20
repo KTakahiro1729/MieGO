@@ -24,6 +24,17 @@ export function ownUrl(origin, room, key) {
   if (!ROOM_PATTERN.test(room) || !TOKEN_PATTERN.test(key)) throw Error("Invalid invitation");
   return new URL("/?room=" + room + "#role=owner&key=" + key, origin).href;
 }
+/** The address bar shows only the room; seat keys stay in this browser's storage. */
+export function roomUrl(origin, room) {
+  if (!ROOM_PATTERN.test(room)) throw Error("Invalid invitation");
+  return new URL("/?room=" + room, origin).href;
+}
+/** The seat whose sign-ins on another device this player should hear about. */
+export function newPeerSignins(signins, role, seen) {
+  const count = signins?.[role === "owner" ? "guest" : "owner"];
+  if (!Number.isInteger(count) || count < 0) return {seen, notify:false};
+  return {seen:count, notify:Number.isInteger(seen) && count > seen};
+}
 export function readCheckpoint(storage, room) {
   if (!ROOM_PATTERN.test(room)) return null;
   try {

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { newGame, play, agreeScore, answerEndProposal, proposeEnd, BLACK, WHITE } from "../public/core.mjs";
-import { selectColor, playerColor, readCheckpoint, saveCheckpoint, reconcileGame, guestUrl, ownUrl, isPeerAction, isConsistentSnapshot } from "../public/p2p-session.mjs";
+import { selectColor, playerColor, readCheckpoint, saveCheckpoint, reconcileGame, guestUrl, ownUrl, isPeerAction, isConsistentSnapshot, roomUrl, newPeerSignins } from "../public/p2p-session.mjs";
 
 test("creator's choice fixes color and guest receives opposite color",()=>{
   assert.equal(selectColor("black"),BLACK);
@@ -106,4 +106,20 @@ test("a device that has synced rejects stones or agreements claimed in its name"
   const agreedForBlack = agreeScore(agreeScore(counting, WHITE), BLACK);
   assert.equal(reconcileGame(counting, 3, agreedForBlack, 5, { localColor: BLACK }).kind, "conflict");
   assert.equal(reconcileGame(agreeScore(counting, BLACK), 4, agreedForBlack, 5, { localColor: BLACK }).kind, "adopt");
+});
+
+test("the address bar names only the room; seat keys never appear in it", () => {
+  const room = "1".repeat(32);
+  assert.equal(roomUrl("https://miego.example", room), "https://miego.example/?room=" + room);
+  assert.throws(() => roomUrl("https://miego.example", "bad"));
+});
+
+test("only new sign-ins of the other seat on another device are reported", () => {
+  // A device that has never seen the count records it without a notice.
+  assert.deepEqual(newPeerSignins({ owner: 2, guest: 1 }, "owner", null), { seen: 1, notify: false });
+  assert.deepEqual(newPeerSignins({ owner: 2, guest: 1 }, "owner", 1), { seen: 1, notify: false });
+  assert.deepEqual(newPeerSignins({ owner: 2, guest: 2 }, "owner", 1), { seen: 2, notify: true });
+  // The guest hears about the owner's seat, not its own.
+  assert.deepEqual(newPeerSignins({ owner: 3, guest: 9 }, "guest", 2), { seen: 3, notify: true });
+  assert.deepEqual(newPeerSignins({ owner: "x" }, "guest", 2), { seen: 2, notify: false });
 });

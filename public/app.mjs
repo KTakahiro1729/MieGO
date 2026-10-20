@@ -2,7 +2,7 @@ import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDe
 import { suggestDeadStones } from "./dead-stones.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
-import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame, isPeerAction, storageKey } from "./p2p-session.mjs";
+import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame, isPeerAction, storageKey, roomUrl, newPeerSignins } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
 import { isPaletteChoice, normalizePalette, showsOwnership, paletteGradient, countingGradient, interpolateOwnership, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
 import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss, boardTheme as boardLook } from "./board-theme.mjs";
@@ -65,14 +65,24 @@ let room = params.get("room"), seat = room ? null : "host";
 const inviteFragment=new URLSearchParams(location.hash.slice(1));
 let p2pRole=inviteFragment.get("role")==="guest"?"guest":"owner";
 let inviteKey=inviteFragment.get("key");
+// A seat link opened on this page may take the seat over once if a stored session no longer works.
+let linkKey=inviteKey;
 let ownerColor=null,onlineSession=null,guestInviteKey=null,issuedSide=null,onlineRevision=0;
+// The other seat's count of sign-ins on another device that this player has seen.
+let seenPeerSignins=null;
 let p2pTransport;
 const myOnlineColor=()=>ownerColor===null?null:playerColor(p2pRole,ownerColor);
 const currentSideSelection=()=>document.querySelector('input[name="onlineSide"]:checked')?.value||"random";
 // Before play starts, a changed side, board size or handicap calls for a new invitation.
 const inviteMatchesChoice=()=>issuedSide===currentSideSelection() &&
   (connected || game.moveNumber>0 || (sizeOf(game.board)===boardSize && handicapOf(game)===onlineHandicap));
+// The player's own seat link moves the game to another device; it never sits in the address bar.
+function ownSeatLink() {
+  try{return room && inviteKey ? (p2pRole==="owner"?ownUrl:guestUrl)(location.origin,room,inviteKey) : null;}
+  catch{return null;}
+}
 function renderInviteButton() {
+  $("seatLinkBox").hidden=!ownSeatLink();
   $("copy").disabled=!!room && p2pRole!=="owner";
   $("copy").textContent=!room?"招待リンクを準備する":
     issuedSide!==null && !inviteMatchesChoice()?
@@ -81,7 +91,7 @@ function renderInviteButton() {
 function persistOnline(){
   if(!room || !ROOM_PATTERN.test(room))return;
   if(!saveCheckpoint(roomingStorage,room,{role:p2pRole,ownerColor,session:onlineSession,
-    inviteKey,guestInviteKey,issuedSide,revision:onlineRevision,game,lastPosition}))
+    inviteKey,guestInviteKey,issuedSide,revision:onlineRevision,game,lastPosition,seenPeerSignins}))
     storageError(Error("再接続用の局面を保存できません"));
 }
 let game = newGame(), candidate = null, illegalCandidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
@@ -180,6 +190,11 @@ function clearStorageError() {
 function showNotice(message) {
   $("saveStatus").hidden=false;
   $("saveStatus").textContent=message;
+}
+// Seat notices stay until tapped: a save does not clear them.
+function showSeatNotice(message) {
+  $("seatNotice").hidden=false;
+  $("seatNotice").textContent=message+"（タップで閉じる）";
 }
 function myColorForEnd() {
   if(room)return myOnlineColor();
@@ -1151,6 +1166,7 @@ function leaveOnlineRoom() {
   const oldUrl=new URL(location.href);oldUrl.searchParams.delete("room");oldUrl.hash="";
   room=null;seat="host";connected=false;ownerColor=null;onlineSession=null;
   inviteKey=null;guestInviteKey=null;issuedSide=null;onlineRevision=0;p2pRole="owner";
+  linkKey=null;seenPeerSignins=null;
   history.replaceState(null,"",oldUrl.pathname+oldUrl.search);
   $("inviteDetails").classList.add("hidden");
   $("inviteStatus").textContent="";
@@ -1240,14 +1256,31 @@ function onPeerSync(message){
 p2pTransport=createP2PTransport({
   verify:verifyP2P,
   onSession:({session,ownerColor:chosen,role})=>{
-    onlineSession=session;p2pRole=role;ownerColor=chosen==="black"?BLACK:WHITE;
+    onlineSession=session;p2pRole=role;ownerColor=chosen==="black"?BLACK:WHITE;linkKey=null;
     seat=role==="owner"?"host":"guest";persistOnline();show();
+  },
+  onSignins:signins=>{
+    linkKey=null; // The stored session worked.
+    const {seen,notify}=newPeerSignins(signins,p2pRole,seenPeerSignins);
+    if(notify)showSeatNotice("相手の席に、別の端末から参加がありました。相手が端末を替えたのでなければ、招待URLがほかの人に渡っていないか相手に確認してください。");
+    if(seen!==seenPeerSignins){seenPeerSignins=seen;persistOnline();}
   },
   onSync:onPeerSync,
   onAction:action=>apply(action,true),
   onConnected:()=>{connected=true;$("netStatus").textContent="P2P接続中";show();},
   onDisconnected:message=>{connected=false;$("netStatus").textContent=message;show();},
-  onError:error=>{$("netStatus").textContent=error.message||"接続エラー";console.warn("P2P",error);show();},
+  onError:error=>{
+    console.warn("P2P",error);
+    if(error.stage==="ticket" && error.status===403){
+      // An opened seat link takes the seat back once; otherwise another device holds it.
+      if(linkKey){inviteKey=linkKey;linkKey=null;onlineSession=null;persistOnline();void joinRoom();return;}
+      $("netStatus").textContent="別の端末で参加中";
+      showSeatNotice("この席には別の端末から参加があったため、この端末の接続を終えました。この端末で続けるには、自分用の再入室リンクを開いてください。");
+    }else if(error.stage==="ticket" && error.status===410){
+      $("netStatus").textContent="この対局ルームは期限切れか、招待が作り直されました";
+    }else $("netStatus").textContent=error.message||"接続エラー";
+    show();
+  },
   getSnapshot:()=>({game,revision:onlineRevision,lastPosition,
     scoringReview:game.status==="scoring" &&
     ["complete","none","modified","unavailable"].includes(deadReview)?deadReview:null})
@@ -1286,14 +1319,14 @@ async function beginOnlineRoom(){
   }else if(!save())return null;
   room=created.room;p2pRole="owner";seat="host";ownerColor=color;
   onlineSession=created.ownerSession;inviteKey=created.ownerKey;
-  guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;
+  guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;seenPeerSignins=0;linkKey=null;
   clearBoardReview();
   gameMode="online";stopAiTurn();
   game=newGame(true,{handicap:onlineHandicap,size:boardSize});candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
-  history.replaceState(null,"",ownUrl(location.origin,room,inviteKey));
+  history.replaceState(null,"",roomUrl(location.origin,room));
   save();show();requestAnalysis();
   void joinRoom();return showInviteLink();
 }
@@ -1875,6 +1908,12 @@ $("openCurrentMode").onclick=()=>{
 };
 $("openHistory").onclick=openHistoryPanel;
 $("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
+$("seatNotice").onclick=()=>{$("seatNotice").hidden=true;};
+$("copySeatLink").onclick=()=>{
+  const link=ownSeatLink();
+  if(link)void copyWithFallback(link,$("seatLinkStatus"),$("seatLinkFallback"),
+    "コピーしました。相手には送らないでください。");
+};
 $("openHistorySettings").onclick=openHistoryPanel;
 document.addEventListener("storage",e=>{
   if(e.key?.startsWith("miego:game:v1:") && !$("historySetup").hidden)renderHistoryList();
@@ -2100,6 +2139,7 @@ if(room){
     p2pRole=stored.role;ownerColor=stored.ownerColor;
     inviteKey=stored.inviteKey||inviteKey;guestInviteKey=stored.guestInviteKey;
     onlineSession=stored.session;issuedSide=stored.issuedSide;onlineRevision=stored.revision;
+    seenPeerSignins=Number.isInteger(stored.seenPeerSignins)?stored.seenPeerSignins:null;
     game=stored.game;lastPosition=stored.lastPosition;
     const prior=gameLibrary.list().find(r=>r.mode==="online"&&r.roomId===room);
     if(prior){currentGameId=prior.id;currentRevision=prior.revision;}
@@ -2113,6 +2153,13 @@ if(room){
   seat=p2pRole==="owner"?"host":"guest";
   gameMode="online";
   if(p2pRole==="owner")showInviteLink();
+  // Seat keys leave the address bar once read, so a copied address names only
+  // the room. They are kept in this browser first, in case verification is cut short.
+  if(inviteFragment.has("key") || inviteFragment.has("role")){
+    if(inviteKey && (!stored || safeStored))persistOnline();
+    if(ROOM_PATTERN.test(room))history.replaceState(null,"",roomUrl(location.origin,room));
+  }
+  renderInviteButton();
   void joinRoom();
 }
 else try {
