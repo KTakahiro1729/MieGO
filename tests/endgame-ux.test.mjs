@@ -62,8 +62,3 @@ test("the COM's pass opens the same question as 採点を始める, and 採点�
   // A reloaded game asks again rather than leaving the pass unanswered.
   assert.equal(app.match(/endExpanded=!!game\.endProposal \|\| aiPassAsks\(\);/g).length,3);
 });
-test("a pass answered with a stone says so for that move",()=>{
-  assert.equal(TEXT.endgame.playedOnWatch("B"),"黒は打ち続けました");
-  assert.match(TEXT.endgame.playedOnAi,/^AIは打ち続けました/);
-  assert.match(app,/text:watching\?TEXT\.endgame\.playedOnWatch\(answersPass===BLACK\?"B":"W"\):TEXT\.endgame\.playedOnAi/);
-});

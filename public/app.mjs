@@ -1274,9 +1274,6 @@ function apply(action, remote=false, isAiMove=false) {
       if(action.number!==game.moveNumber+1) throw new Error("Move number mismatch");
       if(action.before!==boardHash(game.board)) throw new Error("Board mismatch before the move");
       const offerBefore=game.endProposal;
-      // A COM answering the other side's pass with a stone.
-      const answersPass=isAiMove && game.passes===1 && game.moves.at(-1)?.position===null &&
-        Number.isInteger(action.position) ? game.next : null;
       // The mover's clock pays for the move; one that ran out first loses instead.
       const clock=chargeClock();
       if(clock===false){timeOut(game.next);return;}
@@ -1286,8 +1283,6 @@ function apply(action, remote=false, isAiMove=false) {
         endNotice={number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.cancelledByMove};
       if(action.after!==boardHash(game.board)) throw new Error("Board mismatch after the move");
       lastPosition=Number.isInteger(action.position)?action.position:null;
-      if(answersPass!==null)endNotice={number:game.moveNumber,hash:boardHash(game.board),
-        text:watching?TEXT.endgame.playedOnWatch(answersPass===BLACK?"B":"W"):TEXT.endgame.playedOnAi};
       if(isAiMove && aiPassAsks()){
         candidate=null;illegalCandidate=null;illegalPromptCopied=false;
         $("illegalPromptFallbackPanel").hidden=true;
