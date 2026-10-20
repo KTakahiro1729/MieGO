@@ -93,8 +93,7 @@ export class GameLibrary {
     return updated;
   }
   save({id=null,mode,snapshot,roomId=null,lastPosition=null,humanColor=1,
-        aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null,
-        hideStones=false},expectedRevision=null) {
+        aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null},expectedRevision=null) {
     if(!MODES.has(mode))throw Error(TEXT.history.badMode);
     if(!parseGameSnapshot(JSON.stringify(snapshot)))throw Error(TEXT.history.badRecord);
     if(mode==="online" && !ROOM_RE.test(roomId||""))throw Error(TEXT.history.badRoom);
@@ -117,8 +116,6 @@ export class GameLibrary {
       aiStrength:normalizeStrength(aiStrength),
       invasion:Number.isFinite(invasion)?invasion:50,
       reinforcement:Number.isFinite(reinforcement)?reinforcement:50,
-      // "石を隠す" is chosen when the game starts and stays with it.
-      hideStones:previous ? previous.hideStones===true : hideStones===true,
       seat:mode==="online"?(seat==="guest"?"guest":seat==="host"?"host":null):null,
       source:previous?.source==="sgf" || previous?.source==="variation"?previous.source:
         source==="sgf" || source==="variation"?source:"played",

@@ -104,11 +104,10 @@ setOpacityShape(localStorage.getItem("miego-opacity-shape"));
 const storedBoardTheme = localStorage.getItem("miego-board");
 let boardTheme = isBoardTheme(storedBoardTheme) ? storedBoardTheme : DEFAULT_BOARD_THEME;
 // "石を隠す" is fixed for a whole game: the 新規対戦 choice applies to the
-// next game, and each saved game keeps its own. A replayed board follows its
-// game (the live one, or the opened record); a shared SGF shows its stones.
-let hideStonesChoice = false, stonesHidden = false;
-const hidingStones = () => !boardReview ? stonesHidden :
-  boardReview.source==="live" ? stonesHidden : boardReview.record?.hideStones===true;
+// next game, which carries it (so a friend's game shows it to both players).
+// A replayed board follows its game; a shared SGF shows its stones.
+let hideStonesChoice = false;
+const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideStones===true;
 // With the stones hidden the colours are all there is, so "表示しない" falls
 // back to the default map, as counting does.
 const shownPalette = () => hidingStones() ? countingPalette(palette) : palette;
@@ -943,8 +942,7 @@ function freshLocalBoard() {
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
   lastOfferKey=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  stonesHidden=hideStonesChoice;
-  game=freshLocalGame(game,localHandicap,boardSize);currentGameId=null;currentRevision=null;
+  game=freshLocalGame(game,localHandicap,boardSize,hideStonesChoice);currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
 }
 /** 新規対戦 → 1台で打つ: leaves an AI or friend match (kept in the library). */
@@ -1147,8 +1145,7 @@ function updateGradient(){
 function save(){
   try {
     const record=gameLibrary.save({id:currentGameId,mode:room?"online":gameMode,
-      roomId:room||null,snapshot:game,lastPosition,humanColor,aiStrength,invasion,reinforcement,seat,
-      hideStones:stonesHidden},currentRevision);
+      roomId:room||null,snapshot:game,lastPosition,humanColor,aiStrength,invasion,reinforcement,seat},currentRevision);
     currentGameId=record.id;currentRevision=record.revision;
     if(!room)gameLibrary.setActive(gameMode,record.id);
     if(room)persistOnline();
@@ -1162,7 +1159,6 @@ function savedGame(mode) {
   try{record=gameLibrary.active(mode);}catch(error){storageError(error);}
   currentGameId=record?.id||null;currentRevision=record?.revision||null;
   lastPosition=record?.lastPosition??null;
-  stonesHidden=record ? record.hideStones===true : hideStonesChoice;
   if(mode==="ai" && record){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     aiStrength=normalizeStrength(record.aiStrength);
@@ -1334,8 +1330,8 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;seenPeerSignins=0;linkKey=null;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  game=newGame(true,{handicap:onlineHandicap,size:boardSize});candidate=null;lastPosition=null;
-  currentGameId=null;currentRevision=null;stonesHidden=hideStonesChoice;
+  game=newGame(true,{handicap:onlineHandicap,size:boardSize,hideStones:hideStonesChoice});candidate=null;lastPosition=null;
+  currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   history.replaceState(null,"",roomUrl(location.origin,room));
@@ -1458,8 +1454,7 @@ function previewReviewPass(){
 function saveReviewVariation(){
   if(!boardReview?.variation)return;
   try{
-    gameLibrary.save({mode:"local",snapshot:boardReview.variation.snapshot,source:"variation",
-      hideStones:hidingStones()});
+    gameLibrary.save({mode:"local",snapshot:boardReview.variation.snapshot,source:"variation"});
     $("reviewNotice").textContent=TEXT.review.variationSaved;
   }catch(error){$("reviewNotice").textContent=TEXT.review.variationSaveFailed(error.message);}
 }
@@ -1638,12 +1633,9 @@ function forkBoardReview() {
   let fork;
   try{fork=forkReview(activeReviewSnapshot(boardReview,game),boardReview.step);}
   catch(error){$("reviewNotice").textContent=TEXT.review.branchFailed(error.message);return;}
-  // The branch keeps the replayed game's "石を隠す".
-  const hidden=hidingStones();
   if(room && connected && !confirm(TEXT.confirm.leaveForReview))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
-  stonesHidden=hidden;
   stopAiTurn();gameMode="local";game=fork;
   currentGameId=null;currentRevision=null;
   const last=game.moves.at(-1)?.position;
@@ -1896,7 +1888,7 @@ function resumeSelectedReview(){
   if(room)leaveOnlineRoom();
   stopAiTurn();
   gameMode=record.mode;game=JSON.parse(JSON.stringify(record.snapshot));
-  currentGameId=record.id;currentRevision=record.revision;stonesHidden=record.hideStones===true;
+  currentGameId=record.id;currentRevision=record.revision;
   lastPosition=record.lastPosition;candidate=null;
   if(gameMode==="ai"){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
@@ -2056,8 +2048,7 @@ $("startAi").onclick=()=>{
   catch(error){$("aiMatchStatus").textContent=error.message;return;}
   aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
-  game=newGame(true,{handicap:aiHandicap,size:boardSize});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
-  stonesHidden=hideStonesChoice;
+  game=newGame(true,{handicap:aiHandicap,size:boardSize,hideStones:hideStonesChoice});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   $("aiMatchStatus").textContent=TEXT.ai.started(colorLabel(humanColor));
   save();closePanels();show();requestAnalysis();
@@ -2144,10 +2135,9 @@ $("nativeShare").onclick=async()=>{
 };
 for(const input of document.querySelectorAll('input[name="onlineSide"]'))input.onchange=renderInviteButton;
 // The next game's "石を隠す" is read even in a room, where the other
-// remembered choices are not, so a guest's new game follows it too.
+// remembered choices are not, so leaving the room does not forget it.
 try{hideStonesChoice=JSON.parse(localStorage.getItem("miego-local-settings")||"null")?.hideStones===true;}catch{}
 if(room){
-  stonesHidden=hideStonesChoice;
   const stored=readCheckpoint(localStorage,room);
   const linkRole=inviteFragment.get("role");
   const safeStored=stored && (linkRole===null||linkRole===stored.role);
@@ -2158,7 +2148,7 @@ if(room){
     seenPeerSignins=Number.isInteger(stored.seenPeerSignins)?stored.seenPeerSignins:null;
     game=stored.game;lastPosition=stored.lastPosition;
     const prior=gameLibrary.list().find(r=>r.mode==="online"&&r.roomId===room);
-    if(prior){currentGameId=prior.id;currentRevision=prior.revision;stonesHidden=prior.hideStones===true;}
+    if(prior){currentGameId=prior.id;currentRevision=prior.revision;}
     endExpanded=!!game.endProposal;
     if(issuedSide){
       const input=document.querySelector('input[name="onlineSide"][value="'+issuedSide+'"]');

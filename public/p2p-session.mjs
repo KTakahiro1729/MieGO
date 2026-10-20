@@ -115,10 +115,11 @@ export function reconcileGame(localGame, localRevision, incomingGame, incomingRe
   if (localRevision > 0 && incomingRevision > localRevision &&
       claimsLocalPlayer(localGame, incoming, localColor)) return {kind:"conflict"};
   // A guest that has not received the match yet holds a default empty board;
-  // before the first move the inviter's board size and handicap decide the game.
+  // before the first move the inviter's board size, handicap and 石を隠す decide the game.
   if (localRevision === 0 && incomingRevision === 0 && !localGame.moves.length &&
       !incoming.moves.length && (localGame.board.length !== incoming.board.length ||
-      handicapOf(localGame) !== handicapOf(incoming)))
+      handicapOf(localGame) !== handicapOf(incoming) ||
+      (localGame.hideStones === true) !== (incoming.hideStones === true)))
     return localIsOwner ? {kind:"send"} : {kind:"adopt",game:incoming,revision:0};
   // An accepted 待った shortens the move list. The side that applied more
   // takebacks and has the newer revision holds the agreed line.

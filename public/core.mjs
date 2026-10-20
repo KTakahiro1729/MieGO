@@ -63,7 +63,9 @@ export const handicapOf = (state, size = Array.isArray(state?.board) ? sizeOf(st
 export const komiOf = state => Number.isFinite(state?.komi) ? state.komi : KOMI;
 /** Points added to White's area: komi plus the Chinese handicap compensation. */
 export const whiteCompensation = state => komiOf(state) + handicapOf(state);
-export function newGame(assisted = true, { handicap = 0, size = SIZE } = {}) {
+// hideStones ("石を隠す") is part of the game: replays, 待った and the
+// opponent's copy keep it. It is only written when set, so other games are unchanged.
+export function newGame(assisted = true, { handicap = 0, size = SIZE, hideStones = false } = {}) {
   if (!isBoardSize(size)) throw new Error(TEXT.rules.unsupportedSize);
   const stones = handicapOf({ handicap }, size);
   const board = Array(size * size).fill(0);
@@ -71,11 +73,12 @@ export function newGame(assisted = true, { handicap = 0, size = SIZE } = {}) {
   return { board, next: stones ? WHITE : BLACK, passes: 0, moves: [], moveNumber: 0,
     captures: { black: 0, white: 0 }, history: [boardHash(board)], status: "playing",
     assisted, handicap: stones, komi: stones ? HANDICAP_KOMI : KOMI,
-    dead: [], agreed: { black: false, white: false }, endProposal: null, result: null };
+    dead: [], agreed: { black: false, white: false }, endProposal: null, result: null,
+    ...(hideStones ? { hideStones: true } : {}) };
 }
 /** The empty-or-handicap starting position a record's moves are replayed from. */
 export const initialGame = state => newGame(state?.assisted !== false,
-  { handicap: handicapOf(state), size: sizeOf(state?.board) });
+  { handicap: handicapOf(state), size: sizeOf(state?.board), hideStones: state?.hideStones === true });
 export function play(state, position) {
   if (state.status !== "playing") throw new Error(TEXT.rules.notPlaying);
   // A real move answers any pending 待った request by moving on.

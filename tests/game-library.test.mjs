@@ -140,11 +140,3 @@ test("variation snapshots stay independently archived and never become resumable
  assert.equal(lib.load(variation.id).snapshot.moveNumber,2);
  assert.equal(lib.active("local").id,old.id);
 });
-
-test("石を隠す is fixed per game: later saves cannot change it",()=>{
-  const {lib:library}=setup();
-  const hidden=library.save({mode:"local",snapshot:newGame(),hideStones:true});
-  assert.equal(hidden.hideStones,true);
-  assert.equal(library.save({id:hidden.id,mode:"local",snapshot:newGame(),hideStones:false}).hideStones,true);
-  assert.equal(library.save({mode:"local",snapshot:newGame()}).hideStones,false);
-});
