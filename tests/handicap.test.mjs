@@ -46,7 +46,7 @@ test("replay, fork and takeback start from the handicap position",()=>{
   assert.equal(back.game.next,BLACK);
   const allBack=takeBack(play(newGame(true,{handicap:2}),at(4,4)),{color:WHITE});
   assert.equal(allBack.game.moveNumber,0);assert.equal(allBack.game.next,WHITE);
-  assert.equal(freshLocalGame(g,3).handicap,3);
+  assert.equal(freshLocalGame(g,{handicap:3}).handicap,3);
   assert.equal(freshLocalGame(g).handicap,0);
 });
 

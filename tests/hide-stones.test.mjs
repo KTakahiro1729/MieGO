@@ -6,7 +6,7 @@ import {takeBack} from "../public/takeback.mjs";
 import {freshLocalGame} from "../public/mode-state.mjs";
 
 test("石を隠す stays with the game through moves, replays, 待った and branches",()=>{
-  let game=freshLocalGame(null,0,9,true);
+  let game=freshLocalGame(null,{size:9,hideStones:true});
   assert.equal(game.hideStones,true);
   game=play(play(game,at(2,2)),at(6,6));
   assert.equal(game.hideStones,true);

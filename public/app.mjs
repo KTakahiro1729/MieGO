@@ -1,16 +1,69 @@
-import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, boardHash, handicapOf, komiOf, isJapanese, areaScore, scoringStepOf, agreeDead, confirmDeadSolo, backToDead, rulesOf, RULESETS, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
+import {
+  agreeDead,
+  agreeScore,
+  answerEndProposal,
+  areaScore,
+  backToDead,
+  beginSoloScoring,
+  BLACK,
+  BOARD_SIZES,
+  boardHash,
+  confirmDeadSolo,
+  finalizeSoloScore,
+  handicapOf,
+  isJapanese,
+  komiOf,
+  maxHandicap,
+  newGame,
+  play,
+  proposeEnd,
+  resume,
+  RULESETS,
+  rulesOf,
+  scoringStepOf,
+  setDeadCandidates,
+  sizeOf,
+  toggleDead,
+  WHITE,
+} from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
-import { settleLimit, settleStart, pickSettleMove, settleStep, deadFromPlayout, replayPlayout } from "./settle-playout.mjs";
+import {
+  deadFromPlayout,
+  pickSettleMove,
+  replayPlayout,
+  settleLimit,
+  settleStart,
+  settleStep,
+} from "./settle-playout.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
-import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame, isPeerAction, storageKey, roomUrl, newPeerSignins } from "./p2p-session.mjs";
+import {
+  colorLabel,
+  guestUrl,
+  isPeerAction,
+  newPeerSignins,
+  ownUrl,
+  playerColor,
+  readCheckpoint,
+  reconcileGame,
+  ROOM_PATTERN,
+  roomUrl,
+  saveCheckpoint,
+  selectColor,
+  storageKey,
+} from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
 import { interpolateOwnership } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
 import { policyHints } from "./ai-assist.mjs";
-import { takebackCut, takeBack, requestTakeback, answerTakeback } from "./takeback.mjs";
+import {
+  answerTakeback,
+  requestTakeback,
+  takeBack,
+  takebackCut,
+} from "./takeback.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
 import { scoreBreakdown, scoreRows, PRISONER_OUTLINE } from "./scoring-regions.mjs";
 import { createBoardZoom } from "./board-zoom.mjs";
@@ -26,7 +79,12 @@ import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { createHelpSheet } from "./help-sheet.mjs";
-import { activeReviewSnapshot, proposeReviewStone, commitReviewStone, variationForSharing } from "./review-variation.mjs";
+import {
+  activeReviewSnapshot,
+  commitReviewStone,
+  proposeReviewStone,
+  variationForSharing,
+} from "./review-variation.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 import { TEXT } from "./texts.mjs";
 import { UserError, messageFor } from "./user-error.mjs";
@@ -293,13 +351,36 @@ function stopAiTurn() {
   pending = ++seq;
   clearTimeout(analysisTimer);
 }
+// One remembered choice per line, in alphabetical order, so that two
+// branches adding different choices touch different lines.
 function rememberSettings() {
   try {
     localStorage.setItem("miego-local-settings", JSON.stringify({
-      mode:gameMode,humanColor,aiSide:aiSideChoice,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap,onlineHandicap,boardSize,
-      hideStones:hideStonesChoice,gameRules
+      aiHandicap,
+      aiHints,
+      aiSide:aiSideChoice,
+      aiStrength,
+      boardSize,
+      gameRules,
+      hideStones:hideStonesChoice,
+      humanColor,
+      invasion,
+      localHandicap,
+      mode:gameMode,
+      onlineHandicap,
+      reinforcement,
     }));
   } catch {}
+}
+// What every new game takes from the 新規対戦 sheet, whatever the mode.
+// A new per-game option is added here only, one per line, alphabetically.
+function nextGameOptions(handicap) {
+  return {
+    handicap,
+    hideStones:hideStonesChoice,
+    rules:gameRules,
+    size:boardSize,
+  };
 }
 // Step sliders name each stop under the bar and show the chosen stop's note below it.
 function syncStepSlider(id) {
@@ -325,10 +406,23 @@ const boardZoom=createBoardZoom({
 });
 const boardRenderer = createBoardRenderer({
   canvas,
-  getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette:shownPalette(),
-    opacity:appearance.opacity(),boardTheme:appearance.boardTheme(),
-    hideStones:hidingStones(),humanTurn:isHumanTurn(),hints:visibleHints(),
-    settle:settleView(),keptPlayout:keptPlayout()})
+  // One input per line, alphabetically.
+  getView:()=>({
+    boardReview,
+    boardTheme:appearance.boardTheme(),
+    candidate,
+    displayedOwnership,
+    game,
+    hideStones:hidingStones(),
+    hints:visibleHints(),
+    humanTurn:isHumanTurn(),
+    illegalCandidate,
+    keptPlayout:keptPlayout(),
+    lastPosition,
+    opacity:appearance.opacity(),
+    palette:shownPalette(),
+    settle:settleView(),
+  })
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
 // Hints belong to one committed position and are only drawn on the human's turn.
@@ -1085,7 +1179,7 @@ function freshLocalBoard() {
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
   lastOfferKey=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  game=freshLocalGame(game,localHandicap,boardSize,hideStonesChoice,gameRules);currentGameId=null;currentRevision=null;
+  game=freshLocalGame(game,nextGameOptions(localHandicap));currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
 }
 /** 新規対戦 → 1台で打つ: leaves an AI or friend match (kept in the library). */
@@ -1375,7 +1469,7 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;seenPeerSignins=0;linkKey=null;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  game=newGame(true,{handicap:onlineHandicap,size:boardSize,hideStones:hideStonesChoice,rules:gameRules});candidate=null;lastPosition=null;
+  game=newGame(true,nextGameOptions(onlineHandicap));candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
@@ -1891,7 +1985,7 @@ $("startAi").onclick=()=>{
   catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
   aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
-  game=newGame(true,{handicap:aiHandicap,size:boardSize,hideStones:hideStonesChoice,rules:gameRules});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
+  game=newGame(true,nextGameOptions(aiHandicap));currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   $("aiMatchStatus").textContent=TEXT.ai.started(colorLabel(humanColor));
   save();closePanels();show();requestAnalysis();
@@ -2022,7 +2116,8 @@ else try {
     aiSideChoice=SIDE_CHOICES.includes(settings.aiSide)?settings.aiSide:
       humanColor===WHITE?"white":"black";
     aiStrength=normalizeStrength(settings.aiStrength,DEFAULT_AI_STRENGTH);
-    aiHandicap=toHandicap(settings.aiHandicap);localHandicap=toHandicap(settings.localHandicap);
+    aiHandicap=toHandicap(settings.aiHandicap);
+    localHandicap=toHandicap(settings.localHandicap);
     onlineHandicap=toHandicap(settings.onlineHandicap);
     boardSize=toBoardSize(settings.boardSize);
     gameRules=toRules(settings.gameRules);

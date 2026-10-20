@@ -102,7 +102,7 @@ test("direct game controls replace hidden action menus; new local games start fr
  assert.doesNotMatch(html,/id="openHistorySettings"|id="openCurrentMode"/);
  assert.match(app,/if \(room \|\| gameMode!=="local"\) return;/);
  assert.match(app,/\$\("startLocal"\)\.onclick=startLocalGame/);
- assert.match(app,/game=freshLocalGame\(game,localHandicap,boardSize,hideStonesChoice,gameRules\);currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
+ assert.match(app,/game=freshLocalGame\(game,nextGameOptions\(localHandicap\)\);currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
 });
 test("settings button shows a toothed gear and is labeled",()=>{
   const gear=html.slice(html.indexOf('id="settingsToggle"'),html.indexOf('</button>',html.indexOf('id="settingsToggle"')));
@@ -129,4 +129,9 @@ test("the 新規対戦 sheet offers a way back to the current or an unfinished s
   assert.match(app,/if\(kind==="online"\)return null;/);
   assert.match(app,/record\.snapshot\.status==="finished"\)return null;/);
   assert.match(app,/if\(target\.mode\)\{resumeModeGame\(target\.mode\);return;\}/);
+});
+test("every new game takes its options from nextGameOptions, so a new option is added in one place",()=>{
+ const starts=app.match(/game=(newGame\(true,|freshLocalGame\(game,)[^;]*;/g);
+ assert.equal(starts.length,3);
+ for(const start of starts)assert.match(start,/nextGameOptions\((local|online|ai)Handicap\)/);
 });
