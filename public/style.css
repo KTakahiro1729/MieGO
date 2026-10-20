@@ -167,29 +167,34 @@ body.board-zoomed .board-bleed{opacity:1}
 .settings-section h3.ai-subhead{margin-top:22px}
 .ai-color-choices input:disabled+span{opacity:.4;cursor:not-allowed}
 .board-size-choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-/* The mode is the main choice: a 2x2 grid of icon tiles; 履歴 opens saved games instead. */
-.new-game-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* The mode is one row of four icon tabs under the start button; 履歴 opens saved games instead. */
+.new-game-modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .new-game-modes label{margin:0;cursor:pointer;position:relative}
 .new-game-modes input{position:absolute;opacity:0}
-.new-game-modes label>span{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px;
-  padding:8px 10px;border:1px solid #505766;border-radius:var(--radius);background:#252c38;color:#f1f2f2;font:inherit;cursor:pointer;box-sizing:border-box}
-.new-game-modes strong{font-size:14px}
+.new-game-modes label>span{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;min-height:56px;
+  padding:6px 2px;border:1px solid #505766;border-radius:var(--radius);background:#252c38;color:#f1f2f2;font:inherit;cursor:pointer;box-sizing:border-box}
+.new-game-modes .mode-icon{width:22px;height:22px}
+.new-game-modes strong{font-size:12px;white-space:nowrap}
 .new-game-modes input:checked+span{border-color:#efcb81;background:#38342d}
 .new-game-modes input:checked+span .mode-icon,.new-game-modes input:checked+span strong{color:#f8ddac}
 .new-game-modes input:focus-visible+span{outline:3px solid #f2c875;outline-offset:2px}
 .mode-icon{flex:none;color:#c9ced8}
 .handicap-select{width:100%;min-height:var(--control-h);background:#252c38;border:1px solid #4a5160;border-radius:var(--radius-sm);color:#f1f0ed;padding:10px 12px}
 .mode-panel .new-game-common{padding-top:0}
-.return-to-game{margin-top:10px}
+/* 新たな対局を開始 opens the sheet; the way back sits right under it, then the choices. */
+.mode-panel>:not(.settings-head):not([hidden])~.new-game-common{margin-top:14px}
+.mode-panel .return-to-game{margin-top:8px}
 /* Board, handicap and side share one compact label-left grid instead of a heading each. */
-.setup-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;margin-top:16px}
+.setup-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;align-items:center;margin-top:14px}
 .setup-row{display:contents}
 .setup-row[hidden]{display:none}
 .setup-label{margin:0;font-size:13px;color:#d6dae3;white-space:nowrap}
-.setup-rows .ai-color-choices span{padding:10px 4px}
+/* Narrow chips so four choices (or a board icon and 13路) stay on one line at 320px. */
+.setup-rows .ai-color-choices{gap:6px}
+.setup-rows .ai-color-choices span{padding:10px 2px;font-size:12px;white-space:nowrap}
 /* Board size reads at a glance: denser grid lines for larger boards. */
-.board-size-choices span{display:flex;align-items:center;justify-content:center;gap:6px}
-.size-icon{color:#9aa1ad}
+.board-size-choices span{display:flex;align-items:center;justify-content:center;gap:4px}
+.size-icon{flex:none;width:20px;height:20px;color:#9aa1ad}
 .board-size-choices input:checked+span .size-icon{color:#f8ddac}
 .new-game-advanced .advanced-row{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
 .new-game-advanced .advanced-row[hidden],.new-game-advanced [hidden]{display:none}
@@ -209,7 +214,7 @@ body.board-zoomed .board-bleed{opacity:1}
 /* The sheet should fit one phone screen: tight section spacing, no empty status lines. */
 .mode-panel .settings-head{margin-bottom:12px}
 .mode-panel #localSetup,.mode-panel #onlineSetup,.mode-panel #aiSetup{padding:0}
-.mode-panel .settings-section .primary.full{margin-top:12px}
+.mode-panel .settings-section .primary.full{margin-top:0}
 .mode-panel .new-game-advanced{margin-top:10px;padding-top:0}
 .mode-panel .explanation:empty,.mode-panel .invite-status:empty{display:none}
 .mode-panel .history-setup{padding-top:12px}
