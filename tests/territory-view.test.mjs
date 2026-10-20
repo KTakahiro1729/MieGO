@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { countingGradient,countingPalette,countingOpacity,PALETTES,paletteAt,ownershipAlpha,ownershipPixel,paletteGradient,
   interpolateOwnership,normalizePalette,OWNERSHIP_BANDS,PALETTE_CUSTOM,COLOUR_KEYS,paletteColours,setCustomColours,
   setOpacityShape,opacityShape,isPaletteChoice,showsOwnership,PALETTE_NONE } from "../public/territory-view.mjs";
+import {source} from "./helpers/source.mjs";
 
 test("monochrome is the default: the stones' own colours, white and black on opposite sides",()=>{
   assert.deepEqual(Object.keys(PALETTES),["mono","greenPurple"]);
@@ -81,8 +82,7 @@ test("colour-map choices: presets, custom and hiding the overlay; old choices mi
   assert.equal(normalizePalette("purpleGreen"),"greenPurple");
   for(const removed of ["blueRed","brownTeal","orangePurple","blueOrange",null,"bogus"])assert.equal(normalizePalette(removed),"mono");
   assert.equal(normalizePalette("custom"),"custom");
-  const {readFileSync}=await import("node:fs");
-  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const html=source("index.html");
   for(const name of [...Object.keys(PALETTES),"custom","none"])assert.match(html,new RegExp(`name="palette" value="${name}"`));
   for(const key of COLOUR_KEYS)assert.match(html,new RegExp(`type="color" id="colour-${key}"`));
   assert.match(html,/name="opacityShape" value="V"/);
@@ -100,6 +100,5 @@ test("counting legend shows White's area, a neutral ring and Black's area in the
   assert.match(css,/rgba\(202,105,200,0\.8\) 67% 100%/);
 });
 test("the endgame advisor counts as settled exactly what is drawn in the settled colour",async()=>{
-  const {readFileSync}=await import("node:fs");
-  assert.match(readFileSync(new URL("../public/endgame.mjs",import.meta.url),"utf8"),/OWNERSHIP_BANDS\.SETTLED/);
+  assert.match(source("endgame.mjs"),/OWNERSHIP_BANDS\.SETTLED/);
 });

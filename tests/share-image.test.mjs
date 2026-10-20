@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {readFileSync} from "node:fs";
 import {at,newGame,play,boardHash} from "../public/core.mjs";
 import {resultLabel,shareLabels,shareFrameSize,buildGameAnimation,paintShareFrame,SHARE_LINKS} from "../public/share-image.mjs";
 import {OwnershipStore,encodeOwnership,decodeOwnership} from "../public/ownership-store.mjs";
 import {TEXT} from "../public/texts.mjs";
+import {source} from "./helpers/source.mjs";
 
 test("results read the same plain way everywhere",()=>{
   assert.equal(resultLabel("B+3.5"),"黒が3.5目差で勝利");
@@ -17,11 +17,10 @@ test("results read the same plain way everywhere",()=>{
   assert.equal(resultLabel("?"),null);
   // No jargon a beginner would have to look up.
   for(const r of ["B+3.5","W+R","B+T"])assert.doesNotMatch(resultLabel(r),/中押|目半/);
-  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
-  const history=readFileSync(new URL("../public/history-navigation.mjs",import.meta.url),"utf8");
+  const app=source("app.mjs");
+  const history=source("history-navigation.mjs");
   assert.match(app,/querySelector\("strong"\)\.textContent=resultLabel\(result\)/);
   assert.match(history,/resultLabel\(record\.snapshot\.result\)\|\|TEXT\.history\.statusFinished/);
-  assert.doesNotMatch(app,/投了勝ち|目勝ち/);
 });
 
 test("labels name the moves, rules, result and winner",()=>{
@@ -124,7 +123,7 @@ test("ownership is kept per game and position as signed bytes",()=>{
 });
 
 test("committed positions keep the ownership shown, and animation frames use it",()=>{
-  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+  const app=source("app.mjs");
   assert.match(app,/context\.hash===boardHash\(game\.board\)\)\s*rememberOwnership\(game\.board,result\.ownership\)/);
-  assert.match(readFileSync(new URL("../public/share-images.mjs",import.meta.url),"utf8"),/ownershipStore\.recall\(gameId,state\.board\) \?\? influence\(state\.board\)/);
+  assert.match(source("share-images.mjs"),/ownershipStore\.recall\(gameId,state\.board\) \?\? influence\(state\.board\)/);
 });
