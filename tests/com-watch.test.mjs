@@ -23,7 +23,7 @@ test("観戦 has one way in: its own button beside the colours, not a wide butto
   assert.match(row,/value="white">[^]*?<label class="choice-row watch-choice"><input type="radio" name="aiSide" value="watch"><span class="choice">観戦<\/span><small class="choice-note">/);
   // 対友人 shows the same row with 観戦 greyed out.
   assert.match(between('id="onlineSideRow"','</fieldset>'),/value="watch" disabled>/);
-  // With two COMs, 「AIの強さ」 is greyed out and each COM's strength is set in 詳細設定.
+  // With two COMs, the strength choices are greyed out and each COM's strength is set in 「COMの打ち方」.
   assert.match(body("syncStrengthUi"),/\$\("aiStrengthChoices"\)\.disabled=off;/);
   assert.match(body("syncStrengthUi"),/TEXT\.ai\.strengthInAdvanced/);
 });
@@ -63,8 +63,8 @@ test("each COM of a watched game plays with its own strength and personality",()
   assert.match(app,/const comToMove = \(\) => watching \? watchAi\[game\.next===BLACK\?"black":"white"\]/);
   assert.match(body("finishAiMove"),/const com=comToMove\(\);/);
   assert.match(body("finishAiMove"),/invasion:com\.invasion,reinforcement:com\.reinforcement,strength:com\.strength/);
-  // 詳細設定 holds one card per COM, shown only for two COMs.
-  const advanced=between('id="newGameAdvanced"','</details>');
+  // 「COMの打ち方」 under the AIの強さ tab holds one card per COM, shown only for two COMs.
+  const advanced=between('id="aiOptions"','id="setupPanelBoard"');
   const cards=[...advanced.matchAll(/<fieldset class="com-card">([\s\S]*?)<\/fieldset>/g)].map(m=>m[1]);
   assert.equal(cards.length,2);
   for(const [card,side] of [[cards[0],"Black"],[cards[1],"White"]])

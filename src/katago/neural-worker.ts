@@ -171,11 +171,12 @@ async function evaluateMovePolicy(state: unknown, settle = false) {
     const ownership = Array.from(rawOwnership, v => Math.tanh(v * scale) * sign);
     if (ownership.length !== area || !ownership.every(Number.isFinite))
       throw new Error("KataGo ownership output is invalid");
-    const winRate = postprocessKataGoV8({
+    const evaled = postprocessKataGoV8({
       nextPlayer: pos.currentPlayer, valueLogits: values, scoreValue: scores,
       postProcessParams: model.postProcessParams, modelVersion: model.modelVersion
-    }).blackWinProb;
-    return { kind: settle ? "settle" : "move", engine:"katago", backend, policy, passLogit:pass[0], ownership, winRate };
+    });
+    return { kind: settle ? "settle" : "move", engine:"katago", backend, policy, passLogit:pass[0], ownership,
+      winRate: evaled.blackWinProb, lead: evaled.blackScoreLead };
   } finally {
     spatial.dispose(); global.dispose();
     if (output) for (const t of Object.values(output)) t.dispose();
@@ -183,9 +184,12 @@ async function evaluateMovePolicy(state: unknown, settle = false) {
 }
 /**
  * 最強's read when it is behind: play the network's favourite legal moves,
- * evaluate the position after each, and keep the move that leaves the best
- * win rate for the side to move. Two moves deep, each move is judged by the
+ * evaluate the position after each, and keep the move that leaves the side
+ * to move the best score lead. Two moves deep, each move is judged by the
  * opponent's best of its favourite answers. A newer request stops the read.
+ * Score rather than win rate: on 9x9 with komi 7.5 the network already gives
+ * Black about 6% at the start, half a point behind, so win rates near 0 or 1
+ * say little about which move holds up best.
  */
 const READ_WIDTH = { 1: 8, 2: 5 } as const;
 const REPLY_WIDTH = 3;
@@ -200,19 +204,19 @@ function favourites(state: ReadState, policy: number[], count: number) {
   return moves;
 }
 async function readAhead(state: ReadState, policy: number[], depth: 1 | 2) {
-  const moverWins = (black: number) => state.next === BLACK ? black : 1 - black;
-  let best: { position: number; winRate: number } | null = null;
+  const moverLead = (black: number) => state.next === BLACK ? black : -black;
+  let best: { position: number; lead: number } | null = null;
   for (const { position, child } of favourites(state, policy, READ_WIDTH[depth])) {
     if (newest) return null;
     const answer = await evaluateMovePolicy(child);
-    let winRate = moverWins(answer.winRate);
+    let lead = moverLead(answer.lead);
     if (depth === 2) {
       for (const reply of favourites(child, answer.policy, REPLY_WIDTH)) {
         if (newest) return null;
-        winRate = Math.min(winRate, moverWins((await evaluateMovePolicy(reply.child)).winRate));
+        lead = Math.min(lead, moverLead((await evaluateMovePolicy(reply.child)).lead));
       }
     }
-    if (!best || winRate > best.winRate) best = { position, winRate };
+    if (!best || lead > best.lead) best = { position, lead };
   }
   return best;
 }
@@ -231,8 +235,9 @@ async function drain() {
         // 最強 reads only when the side to move is behind, deeper the further behind.
         const state = next.state as ReadState;
         if (strong && next.kind === "move" && next.read) {
-          const mover = state.next === BLACK ? result.winRate as number : 1 - (result.winRate as number);
-          const depth = mover < next.read.two ? 2 : mover < next.read.one ? 1 : 0;
+          // Points the side to move is behind by.
+          const behind = state.next === BLACK ? -(result.lead as number) : result.lead as number;
+          const depth = behind >= next.read.two ? 2 : behind >= next.read.one ? 1 : 0;
           if (depth) {
             self.postMessage({ id: next.id, kind: "reading", depth });
             const read = await readAhead(state, result.policy as number[], depth);

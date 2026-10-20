@@ -19,7 +19,7 @@ export const AI_STRENGTHS = Object.freeze({
   // which the page downloads only once a game against it starts.
   strongest:{label:TEXT.ai.strengths.strongest,kyu:null}
 });
-export const DEFAULT_AI_STRENGTH = "easy";
+export const DEFAULT_AI_STRENGTH = "beginner";
 // Saved games from before strength levels existed used the full policy.
 export const normalizeStrength = (value, fallback="strong") =>
   Object.hasOwn(AI_STRENGTHS,value) ? value : fallback;

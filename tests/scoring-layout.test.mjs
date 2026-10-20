@@ -115,10 +115,12 @@ test("scoring and the result fit above the action row on every screen",{skip,tim
     await page.locator("#newGameButton").click();
     await page.locator('input[name="newGameMode"][value="local"]').check({force:true});
     // 盤 and ルール each have a tab over the one panel of choices.
-    await page.locator("#setupTabBoard").click();
-    await page.locator(`input[name="boardSize"][value="${board}"]`).check({force:true});
-    await page.locator("#setupTabRules").click();
-    await page.locator(`input[name="gameRules"][value="${rules}"]`).check({force:true});
+    // The start button stays over the bottom of the sheet, so each choice is scrolled to the middle first.
+    for(const [tab,input] of [["#setupTabBoard",`input[name="boardSize"][value="${board}"]`],["#setupTabRules",`input[name="gameRules"][value="${rules}"]`]]){
+      await page.locator(tab).click();
+      await page.locator(input).evaluate(el=>el.closest("label").scrollIntoView({block:"center"}));
+      await page.locator(input).check({force:true});
+    }
     await page.locator("#startLocal").click();
     await step(page,at,"local game",()=>page.locator("#modePanel").waitFor({state:"hidden"}));
     const playing=await layout(page);
