@@ -11,6 +11,7 @@ import {
   confirmDeadSolo,
   fillStones,
   finalizeSoloScore,
+  HANDICAP_KOMI,
   handicapOf,
   hasGomokuForbidden,
   isFree,
@@ -23,6 +24,7 @@ import {
   playFreeStone,
   proposeEnd,
   resume,
+  RULES_KOMI,
   RULESETS,
   rulesOf,
   scoringStepOf,
@@ -980,7 +982,7 @@ function show() {
   // Nobody is to move while scoring or after the game, so no turn stone.
   $("turn").classList.toggle("no-stone",game.status!=="playing" ||
     isWatching() && watchReturning && !watchPaused && !intervening);
-  $("turn").textContent=game.status==="finished"?TEXT.scoring.finishedResign:
+  $("turn").textContent=game.status==="finished"?finishedTitle():
     // The scoring step names itself here, so the score box keeps its one line for the instruction.
     game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
     room && !connected?TEXT.game.waitingOpponent:
@@ -1514,6 +1516,13 @@ $("endDecline").onclick=()=>{
 };
 $("hideStones").onchange=e=>{hideStonesChoice=e.target.checked;rememberSettings();};
 $("gomokuForbidden").onchange=e=>{gomokuForbiddenChoice=e.target.checked;rememberSettings();renderInviteButton();};
+// A player reads their own result first; a 1台 game or COM同士 has no "you".
+function finishedTitle(){
+  const mine=room?myOnlineColor():gameMode==="ai" && !isWatching()?humanColor:null;
+  const winner=resultWinner(game.result);
+  if(!mine || !winner)return TEXT.scoring.finishedResign;
+  return winner===(mine===BLACK?"B":"W")?TEXT.scoring.finishedWin:TEXT.scoring.finishedLoss;
+}
 // Two aligned rows: stone, name, what is added to the board area, total.
 function renderScoreboard(){
   const rows=scoreRows(game);
@@ -2455,6 +2464,11 @@ function syncHandicapUi() {
   $("handicap").value=String(shown);
   // The note only appears when stones are placed, so an even game shows no extra text.
   $("handicapNote").hidden=!shown || gameRules==="gomoku" || gameRules==="free";
+  // What komi is: the even-game value, or the handicap one when stones are placed.
+  const go=gameRules==="chinese" || gameRules==="japanese";
+  $("komiNote").hidden=!go;
+  if(go)$("komiNote").textContent=shown?TEXT.newGame.komiNoteHandicap(HANDICAP_KOMI,gameRules==="japanese"):
+    TEXT.newGame.komiNote(RULES_KOMI[gameRules]);
   $("handicapNote").textContent=(ai?TEXT.handicap.noteAi:
     kind==="online"?TEXT.handicap.noteOnline:TEXT.handicap.noteLocal)+
     (gameRules==="japanese"?TEXT.handicap.noteRuleJapanese:TEXT.handicap.noteRule)+(boardSize===9?TEXT.handicap.note9:"");

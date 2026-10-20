@@ -170,3 +170,18 @@ test("after the dead stones are agreed, the count is the territory the prisoners
   // Changing a dead stone goes back to the first step.
   assert.equal(scoringStepOf(toggleDead(game, at(1, 1))), "dead");
 });
+
+test("prisoners beyond the territory they fill count for the side that took them", async () => {
+  const { scoreRows } = await import("../public/scoring-regions.mjs");
+  const { agreeDead, agreeScore } = await import("../public/core.mjs");
+  const board = Array(81).fill(0);
+  for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(5, y)] = WHITE; }
+  // White took 40 Black stones, more than Black's 27 points of territory.
+  let game = japanese({ board, captures: { black: 0, white: 40 } });
+  game = agreeDead(agreeDead(game, BLACK), WHITE);
+  assert.deepEqual(scoreRows(game), {
+    black: { area: 0, detail: "", total: 0 },
+    white: { area: 27, detail: "27＋アゲハマ13＋コミ6.5", total: 46.5 }, leader: "white" });
+  // The difference is still territory plus prisoners: 27+40+6.5 against 27.
+  assert.equal(agreeScore(agreeScore(game, BLACK), WHITE).result, "W+46.5");
+});

@@ -129,17 +129,20 @@ export const TEXT = {
     peerAgreedDead: "死石を確認して同意してください。相手は同意済み",
     waitingDead: "死石判定を待っています",
     finishedResign: "対局終了",
-    finishedScore: "中国式で採点確定",
-    finishedScoreJapanese: "日本式で採点確定",
+    // The status row after a game the viewer played in.
+    finishedWin: "あなたの勝ち",
+    finishedLoss: "あなたの負け",
+    finishedScore: "中国式で確定。数字は石＋地",
+    finishedScoreJapanese: "日本式で確定。数字は地",
     finishedGomoku: "5つ並びました",
     finishedGomokuDraw: "盤が埋まったので引き分けです",
     reviewPending: "死石を自動判定中…",
     reviewLoading: "KataGoを準備中。石の手動指定もできます",
     reviewAwaiting: "相手側で死石を判定中…",
-    reviewComplete: "数字は石＋地。死石はタップで修正",
+    reviewComplete: "数字は石＋地、×は死石。石をタップで修正",
     reviewNone: "数字は石＋地。必要なら石をタップ",
     reviewModified: "数字は石＋地。点数を確認してください",
-    reviewCompleteJapanese: "数字は地。死石はタップで修正",
+    reviewCompleteJapanese: "数字は地、×は死石。石をタップで修正",
     reviewNoneJapanese: "数字は地。必要なら石をタップ",
     reviewModifiedJapanese: "数字は地。点数を確認してください",
     reviewUnavailable: "死石をタップで指定してください。自動判定なし",
@@ -156,8 +159,9 @@ export const TEXT = {
       "\n白：" + (white.detail ? white.detail + "＝" : "") + white.total,
     breakdownAria: breakdown => breakdown.replace("\n", "、"),
     /** What is added to a board count; empty when nothing is. */
-    detail: (area, { komi = null, bonus = 0 } = {}) => {
-      const parts = (komi !== null ? "＋コミ" + komi : "") + (bonus ? "＋置き石補正" + bonus : "");
+    detail: (area, { komi = null, bonus = 0, leftover = 0 } = {}) => {
+      const parts = (leftover ? "＋アゲハマ" + leftover : "") + (komi !== null ? "＋コミ" + komi : "") +
+        (bonus ? "＋置き石補正" + bonus : "");
       return parts ? area + parts : "";
     },
     seki: "セキの地は数えません",
@@ -300,9 +304,9 @@ export const TEXT = {
     label: "置き石",
     even: "なし（互先）",
     stones: n => n + "子",
-    noteAi: "あなたが黒、AIが白で、白が先に打ちます。",
-    noteOnline: "黒を持つ側が置き石を受け、白が先に打ちます。",
-    noteLocal: "白が先に打ちます。",
+    noteAi: "あなたが黒、AIが白です。置き石が先手の代わりなので、白が先に打ちます。",
+    noteOnline: "黒を持つ側が置き石を受けます。置き石が先手の代わりなので、白が先に打ちます。",
+    noteLocal: "置き石が先手の代わりなので、白が先に打ちます。",
     noteRule: "コミ0.5目、白に置き石の数だけ加点（中国式）。",
     noteRuleJapanese: "コミ0.5目（日本式）。",
     note9: "9路は5子まで。",
@@ -575,6 +579,9 @@ export const TEXT = {
     comBlack: "● 黒のCOM",
     comWhite: "○ 白のCOM",
     rules: "ルール",
+    // Under the rule choices: what komi is, one line at 320px.
+    komiNote: komi => "先手の黒が有利なので白にコミ" + komi + "目。",
+    komiNoteHandicap: (komi, japanese) => "置き碁なので白にコミ" + komi + "目" + (japanese ? "。" : "＋置き石の数。"),
     rulesChoices: { chinese: "中国式", japanese: "日本式", gomoku: "五目並べ", free: "自由" },
     aiOptions: "COMの打ち方",
     rulesOptions: "ルールの追加設定",
@@ -679,7 +686,9 @@ export const TEXT = {
     rules: {
       summary: "ルールと置き石",
       items: [
-        "新規対戦でルールを選べます。中国ルール（既定）は、盤上の自分の石と地の合計で勝敗を決めます。互先のコミは7.5目です。",
+        "囲碁は黒が先に打ち、交互に1つずつ置きます。相手の石を囲むと取れます。最後に、自分の石で囲んだ空き点（地）が多いほうが勝ちです。点数の単位は「目（もく）」で、空き点1つが1目です。",
+        "<strong>コミ</strong>：先に打つ黒が有利なので、白に足す点数です。7.5のように0.5を付けるのは、引き分けをなくすためです。",
+        "新規対戦でルールを選べます。中国式と日本式は数え方が違うだけで、勝敗はふつう同じです。中国ルール（既定）は、盤上の自分の石と地の合計で勝敗を決めます。互先のコミは7.5目です。",
         "日本ルールは、地（囲んだ空き点）とアゲハマ（対局中に取った石と、終局時に取り除いた死石）の合計で勝敗を決めます。互先のコミは6.5目です。セキの中の空き点は地に数えません。アゲハマは地合いのバーの下に表示されます。採点中は、アゲハマを元の持ち主の地に小さな石で埋めて示します。まとまりの外枠の色は、アゲハマ表示の枠の色と同じです。",
         "置き碁は新規対戦の「ルール」タブで選べます。白が先に打ち、コミは0.5目です。中国ルールでは白に置き石の数だけ加点します（日本ルールでは加点しません）。",
         "五目並べは同じ盤と石で遊ぶ別のゲームです。黒から交互に打ち、縦・横・斜めのどれかに自分の石を5つ以上続けて並べた方が勝ちです。石を取ること、パス、採点はありません。盤が埋まったら引き分けです。置き石は使えません。",
