@@ -414,8 +414,6 @@ export const TEXT = {
     range: "表示する手数",
     graphEnd: moves => moves + "手",
     showVariation: "試し打ちを見る",
-    // A pass in the trial line, named by what it does: the other side moves next.
-    giveTurn: toPlay => toPlay === -1 ? "黒の番にする" : "白の番にする",
     saveVariation: "試し打ちを保存",
     continue: "ここから打つ",
     continueTitle: step => step + "手目から打つ",

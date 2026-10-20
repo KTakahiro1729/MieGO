@@ -1863,11 +1863,8 @@ function discardReviewPreview(){
 }
 function confirmReviewPreview(){
   if(!boardReview?.preview)return;
-  commitReviewMove(boardReview.previewPosition);
-}
-function commitReviewMove(position){
   try{
-    const result=commitReviewStone(boardReview,game,position);
+    const result=commitReviewStone(boardReview,game,boardReview.previewPosition);
     Object.assign(boardReview,result);
     boardReview.preview=null;boardReview.previewPosition=null;
     reviewFeedback("");
@@ -1892,11 +1889,6 @@ function selectVariationLine(){
   boardReview.step=Math.min(boardReview.step,line.moves.length);
   boardReview.display=replaySteps(line,boardReview.step);
   reviewFeedback("");show();requestReviewOwnership();
-}
-// 「白の番にする」: a pass in the trial line, so the other side can try two moves in a row.
-function passReviewTurn(){
-  if(!boardReview)return;
-  commitReviewMove(null);
 }
 function saveReviewVariation(){
   if(!boardReview?.variation)return;
@@ -1928,9 +1920,6 @@ function renderBoardReview() {
   $("reviewConfirmStone").classList.toggle("white",boardReview.preview?.moves.at(-1)?.color===WHITE);
   $("reviewVariation").hidden=variationActive || !boardReview.variation;
   $("reviewSaveVariation").hidden=!boardReview.variation;
-  $("reviewPass").disabled=isPreview;
-  $("reviewPass").hidden=isGomoku(line); // 五目並べ has no pass.
-  $("reviewPass").textContent=TEXT.review.giveTurn(boardReview.display.next);
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?TEXT.review.newMoves(updates):"";
@@ -2275,7 +2264,6 @@ new ResizeObserver(()=>{if(boardReview)renderScoreGraph();}).observe($("reviewGr
 $("reviewConfirm").onclick=confirmReviewPreview;
 $("reviewCancel").onclick=discardReviewPreview;
 $("reviewVariation").onclick=selectVariationLine;
-$("reviewPass").onclick=passReviewTurn;
 $("reviewSaveVariation").onclick=saveReviewVariation;
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && boardReview?.preview){discardReviewPreview();return;}

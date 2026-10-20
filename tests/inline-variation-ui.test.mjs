@@ -19,7 +19,8 @@ test("preview buttons replace navigation without increasing the number of perman
  // The back button is the only way to the original line; no second button repeats it.
  assert.doesNotMatch(controls,/id="reviewOriginal"/);
  assert.match(controls,/id="reviewVariation"/);
- assert.match(controls,/id="reviewPass"/);
+ // Replay has no pass button: to pass, start a game with ここから打つ and pass there.
+ assert.doesNotMatch(controls,/id="reviewPass"/);
  assert.match(controls,/id="reviewSaveVariation"/);
  assert.match(css,/\.review-navigation \.review-play-actions\[hidden\]\{display:none\}/);
  assert.match(css,/\.review-tools\[hidden\]\{display:none\}/);
@@ -29,10 +30,7 @@ test("review move handler never calls real apply, save, or P2P transport",()=>{
  const start=app.indexOf("function confirmReviewPreview()");
  const end=app.indexOf("function selectOriginalLine()",start);
  const body=app.slice(start,end);
- assert.match(body,/commitReviewMove\(boardReview\.previewPosition\)/);
- assert.match(body,/commitReviewStone\(boardReview,game,position\)/);
- // 「白の番にする」 commits a pass to the trial line in one tap, through the same path.
- assert.match(app,/function passReviewTurn\(\)\{\n  if\(!boardReview\)return;\n  commitReviewMove\(null\);/);
+ assert.match(body,/commitReviewStone\(boardReview,game,boardReview\.previewPosition\)/);
  assert.doesNotMatch(body,/apply\(|p2pTransport|submitMove\(|game=|save\(/);
  assert.match(app,/function selectOriginalLine\(\)/);
  assert.match(app,/function selectVariationLine\(\)/);
