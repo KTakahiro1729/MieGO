@@ -459,7 +459,7 @@ function onStrongMessage(net, event) {
     return;
   }
   if(result?.kind==="reading") {
-    if(aiJob?.id===result.id)$("aiMatchStatus").textContent=TEXT.ai.strongestReading(result.depth);
+    if(aiJob?.id===result.id)$("aiMatchStatus").textContent=TEXT.ai.strongestReading;
     return;
   }
   if(result?.kind==="move") {

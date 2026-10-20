@@ -272,7 +272,7 @@ export const TEXT = {
     waitingLoad: "KataGoの読み込みが終わるまでお待ちください。",
     thinking: "KataGoが着手を計算中…",
     strongestLoading: percent => "最強のKataGoを読み込み中… " + percent + "%",
-    strongestReading: depth => "形勢が悪いので、最強のKataGoが" + depth + "手先まで読んでいます…",
+    strongestReading: "最強のKataGoが悩んでいます…",
     strongestFailed: "最強のKataGoを読み込めなかったため、小さいKataGoで打っています。",
     playingStrongest: depth => "強さ「最強」（大きいKataGo・" + (depth ? "形勢が悪いので" + depth + "手読み" : "読みなし") + "）で対局中",
     playingWith: (strength, invasion, reinforcement) => "強さ「" + strength + "」・侵入度「" + invasion +
