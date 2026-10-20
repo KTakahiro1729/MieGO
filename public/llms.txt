@@ -1,5 +1,5 @@
 # MieGO
-9路・13路・19路盤の囲碁棋譜をURLに含め、AIと人が同じ局面を読み取って再生できるWebアプリ。AIとの直接連携はありません。
+9路・13路・19路盤の囲碁棋譜（五目並べ・石を自由に置いた局面も同じ形式）をURLに含め、AIと人が同じ局面を読み取って再生できるWebアプリ。AIとの直接連携はありません。
 
 - [AI向け SGF URL仕様](/ai.md): `?sgf=<encoded SGF>&move=<ply>`を読み取り、異なる局面や仮想変化のURLを生成する方法
 - [MieGO Agent Skill](/skills/miego/SKILL.md): SGF共有URLの仕様と生成手順
