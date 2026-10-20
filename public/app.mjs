@@ -886,7 +886,8 @@ function show() {
   // Nobody is to move while scoring or after the game, so no turn stone.
   $("turn").classList.toggle("no-stone",game.status!=="playing");
   $("turn").textContent=game.status==="finished"?TEXT.scoring.finishedResign:
-    game.status==="scoring"?TEXT.common.scoring:
+    // The scoring step names itself here, so the score box keeps its one line for the instruction.
+    game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
     room?(connected?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):TEXT.game.waitingOpponent):
     gameMode==="ai"?(gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
       fallbackMode?TEXT.game.aiStopped:!katagoReady?TEXT.game.aiPreparing:
@@ -968,9 +969,11 @@ function show() {
   const playout=settleView();
   $("settleSkip").hidden=!playout;
   // A cut playout asks for one thing first: carrying it on. Its replay comes back once it is settled.
-  const extendable=!playout && isScoring && !!extendablePlayout();
+  // While counting, the action row holds 死石の確認に戻る instead of either.
+  const counting=scoringStepOf(game)==="count";
+  const extendable=!playout && isScoring && !counting && !!extendablePlayout();
   $("settleExtend").hidden=!extendable;
-  $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout() || extendable;
+  $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout() || extendable || counting;
   $("scoreInstruction").textContent=playout?
     (playout.finished?(playout.cut?TEXT.scoring.settleCut(playout.moves):TEXT.scoring.settleDone(playout.moves)):
       TEXT.scoring.settling(playout.moves)):
