@@ -115,6 +115,7 @@ body.board-zoomed .board-bleed{opacity:1}
  #board{border-radius:6px}
  .ownership-legend{margin-top:14px;width:92%}
  .settings-panel{left:0;right:0;bottom:0;top:auto;width:100%;max-height:min(84dvh,740px);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom))}
+ .mode-panel{height:min(84dvh,606px)}
 }
 @media(max-width:350px){
  .turn{font-size:15px}
@@ -162,6 +163,8 @@ body.board-zoomed .board-bleed{opacity:1}
 .info-disclosure summary{cursor:pointer;min-height:44px;padding:11px 0;box-sizing:border-box;font-size:13px;color:#d6dae3}
 .info-disclosure .explanation{margin:6px 0 12px}
 
+/* One height for every mode, so switching modes never moves the sheet; longer content scrolls inside. */
+.mode-panel{height:min(calc(100dvh - 95px),606px)}
 .mode-panel .settings-section{border:0;padding:0}
 .mode-panel .settings-section[hidden]{display:none}
 .ai-color-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -173,8 +176,8 @@ body.board-zoomed .board-bleed{opacity:1}
 .settings-section h3.ai-subhead{margin-top:22px}
 .ai-color-choices input:disabled+span{opacity:.4;cursor:not-allowed}
 .board-size-choices{grid-template-columns:repeat(3,minmax(0,1fr))}
-/* The mode is one row of four icon tabs under the start button; 履歴 opens saved games instead. */
-.new-game-modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+/* The mode is one row of icon tabs under the start button: [対COM|対友人] [1台で打つ] [履歴]. 履歴 opens saved games instead. */
+.new-game-modes{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
 .new-game-modes label{margin:0;cursor:pointer;position:relative}
 .new-game-modes input{position:absolute;opacity:0}
 .new-game-modes label>span{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;min-height:56px;
@@ -197,6 +200,23 @@ body.board-zoomed .board-bleed{opacity:1}
 .setup-row{display:contents}
 .setup-row[hidden]{display:none}
 .setup-label{margin:0;font-size:13px;color:#d6dae3;white-space:nowrap}
+/* 盤 and ルール show the chosen value at the height of the choices that replace it. */
+.setup-fold{min-width:0}
+.setup-fold>[hidden]{display:none}
+.fold-value{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;margin:0;padding:0 12px;
+  border:1px solid #505766;border-radius:var(--radius);background:#252c38;color:#f1f2f2;font:inherit;font-size:13px;cursor:pointer}
+.fold-chevron{flex:none;color:#9aa1ad}
+.setup-rows .board-size-choices span{min-height:44px}
+.setup-rows .rules-choices span{display:flex;align-items:center;justify-content:center;min-height:44px}
+/* 自分の石: [● 黒|ランダム|○ 白] and [観戦] apart, since watching is not a colour. */
+.side-groups{display:grid;grid-template-columns:3fr 1fr;gap:8px;min-width:0;margin:0;padding:0;border:0}
+/* A choice the chosen mode or rule does not use stays in place, greyed out. */
+.mode-panel .is-off,.ai-advanced:disabled{opacity:.45}
+/* Greyed-out choices keep their tile and dim the text, as greyed-out fused buttons do. */
+.mode-panel .fused input:disabled+span{opacity:1;color:#6b7180;cursor:not-allowed}
+.mode-panel .fused input:checked:disabled+span{box-shadow:inset 0 0 0 1px #6b6352;color:#8a8273}
+.ai-advanced:disabled .fused input:disabled+span{color:inherit}
+.ai-advanced{min-width:0;margin:0;padding:0;border:0}
 /* Narrow chips so four choices (or a board icon and 13路) stay on one line at 320px. */
 .setup-rows .ai-color-choices span{padding:10px 2px;font-size:12px;white-space:nowrap}
 /* Board size reads at a glance: denser grid lines for larger boards. */
@@ -225,9 +245,6 @@ body.board-zoomed .board-bleed{opacity:1}
 .mode-panel .explanation:empty,.mode-panel .invite-status:empty{display:none}
 .mode-panel .history-setup{padding-top:12px}
 .side-choices,.rules-choices{grid-template-columns:repeat(3,1fr)}
-.ai-side-choices{grid-template-columns:repeat(4,1fr)}
-/* Four choices keep one line each at 320px. */
-.setup-rows .ai-side-choices span{padding-inline:0;white-space:nowrap;font-size:12px}
 /* One button, two meanings: × discards a provisional stone, the labelled arrow is 待った. */
 .undo-button .takeback-icon{display:none;flex-direction:column;align-items:center;gap:1px;line-height:1}
 .undo-button .takeback-icon small{font-size:10px;font-weight:700;letter-spacing:.02em}
@@ -276,6 +293,8 @@ body.board-zoomed .board-bleed{opacity:1}
 
 /* Saved game replay and SGF exchange, without a new page. */
 .history-import-row{margin-top:16px}
+/* 履歴 puts SGF import in the start button's place, so the mode tabs stay put. */
+.history-actions .history-import-row{margin-top:0}
 .history-import-label{display:block;width:100%;min-height:var(--control-h);padding:11px 14px;font-size:13px;text-align:center;cursor:pointer}
 .history-import-label:focus-within{outline:2px solid #eed183;outline-offset:2px}
 #historyImportFile{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
@@ -408,7 +427,7 @@ body{overflow:hidden}
 .settings-panel .fused-column{margin-top:14px}
 .settings-panel .fused-column>.full{margin-top:0}
 /* Choices in the sheets keep their raised tile colours. */
-.ai-color-choices.fused,.new-game-modes.fused,.shape-choices .fused{--fused-bg:#252c38;--fused-edge:#505766;gap:1px}
+.ai-color-choices.fused,.new-game-modes .fused,.shape-choices .fused{--fused-bg:#252c38;--fused-edge:#505766;gap:1px}
 .armed-note{margin:6px 0 0;color:var(--danger-text);font-size:12px;line-height:1.5}
 @media(max-width:700px){:root{--action-h:54px}}
 

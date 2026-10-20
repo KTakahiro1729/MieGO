@@ -13,8 +13,11 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   for(const size of [9,13,19])assert.match(sheet,new RegExp('name="boardSize" value="'+size+'"'));
   const handicap=sheet.slice(sheet.indexOf('<select id="handicap"'),sheet.indexOf('</select>',sheet.indexOf('<select id="handicap"')));
   for(const stones of [0,2,3,4,5,6,7,8,9])assert.match(handicap,new RegExp('<option value="'+stones+'"'));
-  // The three modes and 履歴 form one row of icon tabs in one sheet.
+  // The three modes and 履歴 form one row of icon tabs in one sheet: [対COM|対友人] [1台で打つ] [履歴].
   assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,4);
+  const modes=sheet.slice(sheet.indexOf('<div class="new-game-modes">'),sheet.indexOf('<div id="newGameSetup">'));
+  assert.deepEqual(modes.split('<div class="fused">').slice(1).map(group=>[...group.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1])),
+    [["ai","online"],["local"],["history"]]);
   assert.match(sheet,/id="openHistoryFromNew" type="radio" name="newGameMode" value="history"/);
   // 対COM first, 履歴 last; 対COM is the first-visit default.
   assert.deepEqual([...sheet.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1]),["ai","online","local","history"]);
@@ -130,13 +133,15 @@ test("reset discards endgame and dead-stone hints",()=>{
 });
 test("the 新規対戦 sheet offers a way back to the current or an unfinished saved game",()=>{
   const sheet=html.slice(html.indexOf('<aside id="modePanel"'),html.indexOf('</aside>',html.indexOf('<aside id="modePanel"')));
-  assert.match(sheet,/id="returnToGame"[^>]*hidden>現在の対局に戻る<\/button>/);
-  assert.match(app,/return \{mode:null,label:TEXT\.history\.returnCurrent\};/);
+  assert.match(sheet,/id="returnToGame"[^>]*>現在の対局に戻る<\/button>/);
+  // The way back stays in every mode, so the sheet keeps its layout when the mode changes.
+  assert.doesNotMatch(sheet,/id="returnToGame"[^>]*hidden/);
+  assert.match(app,/const current=\{mode:null,label:TEXT\.history\.returnCurrent\};/);
   assert.equal(TEXT.history.returnCurrent,"現在の対局に戻る");
   assert.doesNotMatch(app,/label:[^\n]*手目/);
-  // Finished games and friend rooms are not resumed from here.
-  assert.match(app,/if\(kind==="online"\)return null;/);
-  assert.match(app,/record\.snapshot\.status==="finished"\)return null;/);
+  // Finished games and friend rooms are not resumed from here: the button returns to the board instead.
+  assert.match(app,/kind==="online" \|\| kind===\(room\?"online":gameMode\)\)return current;/);
+  assert.match(app,/record\.snapshot\.status==="finished"\)return current;/);
   assert.match(app,/if\(target\.mode\)\{resumeModeGame\(target\.mode\);return;\}/);
 });
 test("every new game takes its options from nextGameOptions, so a new option is added in one place",()=>{
