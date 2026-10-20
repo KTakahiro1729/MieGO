@@ -1,5 +1,6 @@
 import {postP2PJson,reconnectDelay,isTerminalTicketFailure,signalingUrl} from "./p2p-network.mjs";
 import { TEXT } from "./texts.mjs";
+import { UserError } from "./user-error.mjs";
 
 // Signaling and WebRTC transport. Game rules and UI belong to app.mjs.
 // onSignins({owner,guest}) reports how often each seat moved to another device.
@@ -118,7 +119,7 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
     const epoch=generation;
     current={room,role,session};
     if(!current.session){
-      if(!inviteKey)throw Error(TEXT.online.noInviteKey);
+      if(!inviteKey)throw new UserError(TEXT.online.noInviteKey);
       const token=await verify();
       const claim=await post("/api/rooms/"+room+"/claim",{role,key:inviteKey,turnstileToken:token});
       if(epoch!==generation)return;

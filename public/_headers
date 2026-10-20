@@ -1,3 +1,12 @@
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
+
+/llms.txt
+  Content-Type: text/plain; charset=utf-8
+
+/ai.md
+  Content-Type: text/markdown; charset=utf-8
+
+/skills/miego/SKILL.md
+  Content-Type: text/markdown; charset=utf-8

@@ -73,6 +73,8 @@ test("a friend's client may act only for the friend's color", () => {
   assert.equal(isPeerAction({ type: "dead_auto", positions: [] }, game, peer), false);
   assert.equal(isPeerAction({ type: "dead_auto", positions: [] }, game, { ...peer, peerIsOwner: true }), true);
   assert.equal(isPeerAction({ type: "dead", position: 0 }, game, peer), true);
+  for (const type of ["solo_scoring", "solo_score"])
+    assert.equal(isPeerAction({ type }, game, { ...peer, peerIsOwner: true }), false, type);
   assert.equal(isPeerAction({ type: "move", position: 0 }, game, { peerColor: null }), false);
 });
 

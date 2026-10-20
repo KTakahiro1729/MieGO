@@ -30,7 +30,7 @@ test("selected dead stones always expand to full groups and reset agreement",()=
   assert.deepEqual(next.agreed,{black:false,white:false});
 });
 test("invalid and non-scoring inputs cannot set dead stones",()=>{
-  assert.throws(()=>suggestDeadStones(newGame(),Array(81).fill(0)));
+  assert.throws(()=>suggestDeadStones({...newGame(),status:"scoring"},Array(81).fill(2)));
   assert.throws(()=>setDeadCandidates(newGame(),[]));
   assert.throws(()=>setDeadCandidates({...newGame(),status:"scoring"},[100]));
 });

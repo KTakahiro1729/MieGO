@@ -4,7 +4,6 @@ import {boardScale} from "./endgame.mjs";
 import {personalityFeatures} from "./ai-personality.mjs";
 import {samplePolicyCandidate} from "./ai-policy-sampling.mjs";
 import {AI_STRENGTHS,pickWeakenedMove} from "./ai-strength.mjs";
-import { TEXT } from "./texts.mjs";
 export {personalityFeatures} from "./ai-personality.mjs";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -49,7 +48,6 @@ export function canConsiderAiPass(state,stage="playing") {
   return state.moveNumber>=minimum*scale;
 }
 export function choosePolicyMove(state, logits, passLogit, options={}) {
-  if (state.status!=="playing") throw new Error(TEXT.rules.notPlaying);
   const weakened=Number.isFinite(AI_STRENGTHS[options.strength]?.kyu);
   const candidates=scorePolicyCandidates(state,logits,options.ownership,
     {...options,allMoves:weakened});

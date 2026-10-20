@@ -2,6 +2,7 @@ import {parseSGF} from "./sgf.mjs";
 import {recordName,recordIcon,recordSummary} from "./history-navigation.mjs";
 import {recordThumbnailSvg} from "./board-thumbnail.mjs";
 import { TEXT } from "./texts.mjs";
+import { UserError, messageFor } from "./user-error.mjs";
 
 const STAR='<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="m12 3.2 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/></svg>';
 // The library sheet is a file picker and saved-game list. All board/replay
@@ -65,7 +66,7 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},g
   async function importHistoryFile(file) {
     if(!file)return;
     try {
-      if(file.size>512*1024)throw Error(TEXT.history.sgfTooLarge);
+      if(file.size>512*1024)throw new UserError(TEXT.sgf.tooLarge);
       const parsed=parseSGF(await file.text());
       const record=gameLibrary.save({mode:"local",snapshot:parsed.snapshot,source:"sgf",
         sgfMeta:parsed.metadata,lastPosition:parsed.snapshot.moves.at(-1)?.position??null});
@@ -73,7 +74,7 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},g
       // A non-blocking notification is available in the replay controls.
     } catch(error) {
       $("modePanel").scrollTop=0;
-      $("historySaveNotice").textContent=TEXT.history.sgfFailed(error.message);
+      $("historySaveNotice").textContent=messageFor(error,TEXT.history.sgfUnreadable);
     } finally{$("historyImportFile").value="";}
   }
   return {renderHistoryList,showHistory,importHistoryFile};

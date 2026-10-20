@@ -1,4 +1,8 @@
 import { TEXT } from "./texts.mjs";
+import { UserError } from "./user-error.mjs";
+// Occupied points, suicide and ko are the rule messages players read (illegal
+// previews, SGF import). The other errors mean a caller or a peer acted out of
+// turn; the UI never offers those actions, so their messages are for developers.
 /** The default (and historical) board size; positions carry their own size. */
 export const SIZE = 9;
 export const BOARD_SIZES = Object.freeze([9, 13, 19]);
@@ -66,7 +70,6 @@ export const whiteCompensation = state => komiOf(state) + handicapOf(state);
 // hideStones ("石を隠す") is part of the game: replays, 待った and the
 // opponent's copy keep it. It is only written when set, so other games are unchanged.
 export function newGame(assisted = true, { handicap = 0, size = SIZE, hideStones = false } = {}) {
-  if (!isBoardSize(size)) throw new Error(TEXT.rules.unsupportedSize);
   const stones = handicapOf({ handicap }, size);
   const board = Array(size * size).fill(0);
   for (const p of handicapPoints(size, stones)) board[p] = BLACK;
@@ -80,7 +83,7 @@ export function newGame(assisted = true, { handicap = 0, size = SIZE, hideStones
 export const initialGame = state => newGame(state?.assisted !== false,
   { handicap: handicapOf(state), size: sizeOf(state?.board), hideStones: state?.hideStones === true });
 export function play(state, position) {
-  if (state.status !== "playing") throw new Error(TEXT.rules.notPlaying);
+  if (state.status !== "playing") throw new Error("Not playing");
   // A real move answers any pending 待った request by moving on.
   if (state.takebackRequest) { const { takebackRequest, ...rest } = state; state = rest; }
   const color = state.next;
@@ -98,7 +101,7 @@ export function play(state, position) {
       moves: [...state.moves, { color, position: null }] };
   }
   if (!Number.isInteger(position) || position < 0 || position >= state.board.length || state.board[position]) {
-    throw new Error(TEXT.rules.occupied);
+    throw new UserError(TEXT.rules.occupied);
   }
   const board = [...state.board]; board[position] = color;
   let captured = 0;
@@ -112,10 +115,10 @@ export function play(state, position) {
       for (const s of enemy.stones) board[s] = 0;
     }
   }
-  if (group(board, position).liberties.size === 0) throw new Error(TEXT.rules.suicide);
+  if (group(board, position).liberties.size === 0) throw new UserError(TEXT.rules.suicide);
   const hash = boardHash(board);
   if (state.history.length >= 2 && hash === state.history[state.history.length - 2]) {
-    throw new Error(TEXT.rules.ko);
+    throw new UserError(TEXT.rules.ko);
   }
   return {
     ...state, board, next: -color, passes: 0, endProposal: null, moveNumber: state.moveNumber + 1,
@@ -130,7 +133,7 @@ export function play(state, position) {
  */
 export function proposeEnd(state, color) {
   if (state.status !== "playing" || ![BLACK, WHITE].includes(color)) {
-    throw new Error(TEXT.rules.proposeOnlyWhilePlaying);
+    throw new Error("No end offer outside play");
   }
   // A pending 待った request is settled first; an end offer would be ignored.
   if (state.takebackRequest) return state;
@@ -144,10 +147,10 @@ export function proposeEnd(state, color) {
 export function answerEndProposal(state, color, accept) {
   const offer = state.endProposal;
   if (state.status !== "playing" || !offer || ![BLACK, WHITE].includes(color)) {
-    throw new Error(TEXT.rules.noEndProposal);
+    throw new Error("No end offer to answer");
   }
   if (color === offer.from) {
-    if (accept) throw new Error(TEXT.rules.ownProposal);
+    if (accept) throw new Error("Cannot accept own end offer");
     return { ...state, endProposal: null }; // withdraw own offer
   }
   if (!accept) return { ...state, endProposal: null };
@@ -158,12 +161,10 @@ export function answerEndProposal(state, color, accept) {
  * another player's (or an AI's) acceptance of an endgame offer.
  */
 export function beginSoloScoring(state) {
-  if(state.status!=="playing")throw new Error(TEXT.rules.scoreOnlyWhilePlaying);
   return {...state,status:"scoring",passes:0,endProposal:null,dead:[],
     agreed:{black:false,white:false}};
 }
 export function toggleDead(state, index) {
-  if (state.status !== "scoring" || !state.board[index]) throw new Error(TEXT.rules.pickStone);
   const stones = group(state.board, index).stones;
   const dead = new Set(state.dead), removing = [...stones].every(i => dead.has(i));
   for (const i of stones) removing ? dead.delete(i) : dead.add(i);
@@ -174,12 +175,12 @@ export function toggleDead(state, index) {
  */
 export function setDeadCandidates(state, positions) {
   if(state.status!=="scoring" || !Array.isArray(positions)) {
-    throw new Error(TEXT.rules.deadOnlyWhileScoring);
+    throw new Error("Not scoring");
   }
   const marked=new Set();
   for(const index of positions) {
     if(!Number.isInteger(index) || index<0 || index>=state.board.length || !state.board[index]) {
-      throw new Error(TEXT.rules.badDeadCandidate);
+      throw new Error("Invalid dead-stone candidate");
     }
     for(const stone of group(state.board,index).stones) marked.add(stone);
   }
@@ -187,7 +188,7 @@ export function setDeadCandidates(state, positions) {
     agreed:{black:false,white:false}};
 }
 export function resume(state) {
-  if (state.status !== "scoring") throw new Error(TEXT.rules.notCounting);
+  if (state.status !== "scoring") throw new Error("Not scoring");
   return { ...state, status: "playing", passes: 0, endProposal: null, dead: [], agreed: { black: false, white: false } };
 }
 export function areaScore(state) {
@@ -217,7 +218,7 @@ export function areaScore(state) {
   return { black, white, difference: black - white, owned };
 }
 export function agreeScore(state, color) {
-  if (state.status !== "scoring" || ![BLACK, WHITE].includes(color)) throw new Error(TEXT.rules.notCounting);
+  if (state.status !== "scoring" || ![BLACK, WHITE].includes(color)) throw new Error("Not scoring");
   const agreed = { ...state.agreed, [color === BLACK ? "black" : "white"]: true };
   if (!agreed.black || !agreed.white) return { ...state, agreed };
   const s = areaScore(state);
@@ -228,14 +229,9 @@ export function agreeScore(state, color) {
  * fake agreement by the opposing color into the match record.
  */
 export function finalizeSoloScore(state) {
-  if(state.status!=="scoring")throw new Error(TEXT.rules.finalizeOnlyWhileScoring);
   const s=areaScore(state);
   return {...state,status:"finished",
     result:(s.difference>0?"B+":"W+")+Math.abs(s.difference).toFixed(1)};
-}
-export function setAssisted(state, value) {
-  if (state.moveNumber !== 0) throw new Error(TEXT.rules.modeLocked);
-  return { ...state, assisted: !!value };
 }
 export function toSGF(state) {
   const enc = c => c === BLACK ? "B" : "W";

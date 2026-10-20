@@ -62,7 +62,7 @@ test("SGF round-trips MieGO handicap games and rejects other setups",()=>{
   assert.throws(()=>parseSGF("(;GM[1]FF[4]SZ[9]HA[2]AB[aa][ii];W[ee])"),/置き石/);
   assert.throws(()=>parseSGF("(;GM[1]FF[4]SZ[9]AB[gc];W[ee])"),/置き石/);
   assert.throws(()=>parseSGF("(;GM[1]FF[4]SZ[9]AW[gc];B[ee])"),/白石/);
-  assert.throws(()=>parseSGF("(;GM[1]FF[4]SZ[9]HA[2]AB[gc][cg];B[ee])"),/着手順/);
+  assert.throws(()=>parseSGF("(;GM[1]FF[4]SZ[9]HA[2]AB[gc][cg];B[ee])"),/交互/);
 });
 
 test("KataGo sees the handicap stones and White to move",()=>{

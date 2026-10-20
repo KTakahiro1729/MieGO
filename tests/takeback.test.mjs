@@ -58,7 +58,7 @@ test("friend takeback needs the other side's acceptance",()=>{
   assert.deepEqual(g.takebackRequest,{from:WHITE,atMove:4});
   // While a request is open, an end offer is ignored on both peers.
   assert.equal(proposeEnd(g,BLACK),g);
-  assert.throws(()=>answerTakeback(g,WHITE,true),/自分/);
+  assert.throws(()=>answerTakeback(g,WHITE,true));
   assert.equal(answerTakeback(g,BLACK,false).takebackRequest,undefined);
   assert.equal(answerTakeback(g,WHITE,false).takebackRequest,undefined);
   const accepted=answerTakeback(g,BLACK,true);
@@ -74,7 +74,7 @@ test("a real move answers a pending request; simultaneous requests keep Black's"
   assert.equal(requestTakeback(g,BLACK).takebackRequest.from,BLACK);
   const black=requestTakeback(opening(),BLACK);
   assert.equal(requestTakeback(black,WHITE).takebackRequest.from,BLACK);
-  assert.throws(()=>requestTakeback(newGame(),BLACK),/待った/);
+  assert.throws(()=>requestTakeback(newGame(),BLACK));
 });
 
 test("reconnecting peers adopt the rewound line instead of reporting a conflict",()=>{

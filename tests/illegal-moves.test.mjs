@@ -65,7 +65,7 @@ test("ko explanation contains a matching SGF URL, ◇ board, and prior board but
   const {link,text}=question(game,attempt);
   assert.ok(text.includes("棋譜URL: "+link));
   assert.match(text,/sgf=/);
-  assert.match(text,/コウで直前の局面に戻せません/);
+  assert.match(text,/禁止理由：コウ/);
   assert.match(text,/直前の着手前の盤面/);
   assert.match(text,/●=黒、○=白、・=空点/);
   assert.match(text,/◇=打とうとした空点/);
@@ -81,7 +81,7 @@ test("suicide question includes its SGF replay URL but not prior-board snapshot"
   const game=suicidePosition(),attempt=inspectProvisionalMove(game,at(1,1)).forbidden;
   const {link,text}=question(game,attempt);
   assert.ok(text.includes(link));
-  assert.match(text,/自殺手は禁止です/);
+  assert.match(text,/禁止理由：自殺手/);
   assert.equal(text.split("現在の盤面：\n")[1].split("\n")[1].split(" ")[1],"◇");
   assert.doesNotMatch(text,/直前の着手前の盤面/);
 });

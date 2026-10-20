@@ -1,4 +1,4 @@
-import { BLACK, WHITE, isBoardSize } from "./core.mjs";
+import { BLACK, WHITE } from "./core.mjs";
 import { TEXT } from "./texts.mjs";
 
 // A coordinate-free diagram (9x9, 13x13 or 19x19) used by all AI handoffs.
@@ -7,12 +7,7 @@ export const AI_BOARD_LEGEND=TEXT.prompts.boardLegend;
 export const AI_SELECTED_POINT=TEXT.prompts.selectedPoint;
 
 export function formatBoardForAi(board,{selectedPosition=null}={}) {
-  const SIZE=Math.sqrt(board?.length);
-  if(!Array.isArray(board)||!isBoardSize(SIZE) ||
-     !board.every(n=>n===BLACK||n===WHITE||n===0))throw Error(TEXT.rules.badBoard);
-  if(selectedPosition!==null && (!Number.isInteger(selectedPosition) ||
-     selectedPosition<0 || selectedPosition>=SIZE*SIZE || board[selectedPosition]!==0))
-    throw Error(TEXT.rules.badPoint);
+  const SIZE=Math.sqrt(board.length);
   const rows=[];
   for(let y=0;y<SIZE;y++){
     rows.push(board.slice(y*SIZE,(y+1)*SIZE).map((stone,x)=>
