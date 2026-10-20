@@ -28,7 +28,9 @@ test("endgame choices share exactly one fixed-height horizontal strip",()=>{
 });
 test("final score is above sticky actions and visible in a compact score area",()=>{
   assert.ok(html.indexOf('id="scoreBox"')<html.indexOf('id="actionRow"'));
-  assert.match(css,/\.game-panel\.is-scoring,\.game-panel\.is-finished\{--board-reserve:337px\}/);
+  // The board, not the score box, gives way: no fixed reserve under the board.
+  assert.doesNotMatch(css,/--board-reserve/);
+  assert.match(css,/\.settle-actions\{position:absolute/);
   // The legend stays while counting and explains the counted areas.
   assert.doesNotMatch(css,/\.is-scoring \.ownership-legend[^}]*display:none/);
   assert.match(appearance,/\$\("legendNeutral"\)\.hidden=!counting/);
@@ -38,7 +40,7 @@ test("final score is above sticky actions and visible in a compact score area",(
 test("game screen viewport never scrolls and board responds to available height",()=>{
   assert.match(css,/body\{overflow:hidden\}/);
   assert.match(css,/\.game-layout\{height:calc\(100dvh - var\(--topbar-height\)\);overflow:hidden/);
-  assert.match(css,/calc\(100dvh - var\(--board-reserve\) - env\(safe-area-inset-bottom\)\)/);
+  assert.match(css,/\.board-frame\{flex:1 1 0;min-height:0;width:auto;max-width:100%;max-height:min\(675px,calc\(100vw - 24px\)\)\}/);
 });
 test("pass is a single tap in every mode; solo endgame stays in-bar",()=>{
   assert.match(app,/\$\("pass"\)\.onclick=\(\)=>submitMove\(null\);/);
