@@ -81,7 +81,7 @@ function paintLegend(ctx,u,center,y,{palette,opacity,theme},muted) {
   ctx.beginPath();ctx.roundRect?.(x,y-h/2,w,h,h/2);ctx.clip();
   ctx.fillStyle="rgb("+look.surface.join(",")+")";ctx.fillRect(x,y-h/2,w,h);
   for(let i=0;i<steps;i++) {
-    const [r,g,b,a]=ownershipPixel(i/(steps-1)*2-1,palette,opacity,theme);
+    const [r,g,b,a]=ownershipPixel(i/(steps-1)*2-1,palette,opacity);
     ctx.fillStyle="rgba("+r+","+g+","+b+","+(a/255).toFixed(3)+")";
     ctx.fillRect(x+w*i/steps,y-h/2,w/steps+1,h);
   }

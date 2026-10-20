@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BLACK, WHITE, at, newGame, initialGame, play, areaScore, territoryScore, sekiStones,
-  whiteCompensation, komiOf, toSGF, beginSoloScoring, finalizeSoloScore, confirmDeadSolo } from "../public/core.mjs";
+  whiteCompensation, komiOf, beginSoloScoring, finalizeSoloScore, confirmDeadSolo } from "../public/core.mjs";
 import { parseSGF, exportSGF, replaySteps } from "../public/sgf.mjs";
 import { scoreRows, scoreBreakdown, scoringRegions } from "../public/scoring-regions.mjs";
 import { TEXT } from "../public/texts.mjs";
@@ -94,7 +94,7 @@ test("captures, finishing and SGF keep the Japanese ruleset", () => {
   assert.equal(game.captures.black, 1);
   const done = finalizeSoloScore(confirmDeadSolo(beginSoloScoring(game)));
   assert.match(done.result, /^[BW]\+/);
-  assert.match(toSGF(done), /RU\[Japanese\]KM\[6\.5\]|KM\[6\.5\]RU\[Japanese\]/);
+  assert.match(exportSGF(done), /RU\[Japanese\]KM\[6\.5\]|KM\[6\.5\]RU\[Japanese\]/);
   const sgf = exportSGF(done);
   assert.match(sgf, /RU\[Japanese\]/);
   const parsed = parseSGF(sgf);

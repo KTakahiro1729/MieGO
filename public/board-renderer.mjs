@@ -47,24 +47,24 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   function paintOwnership(view, gap, pad) {
-    const {game,boardReview,displayedOwnership,palette,opacity,boardTheme:themeName} = view;
+    const {game,boardReview,displayedOwnership,palette,opacity} = view;
     const values = boardReview ? boardReview.ownership : displayedOwnership;
     if(!boardReview && game.status!=="playing")return;
     // An estimate for another board size (e.g. just after switching) is skipped.
     if(!showsOwnership(palette) || !values || values.length!==SIZE*SIZE)return;
-    paintOverlay(values,palette,opacity,themeName,gap,pad,true);
+    paintOverlay(values,palette,opacity,gap,pad,true);
   }
 
   // One pixel per intersection, scaled up: smoothed for the estimate,
   // hard-edged cells for the count. The estimate gets a ring of transparent
   // pixels around it, so the smoothing fades it out past the outer lines
   // instead of stopping at a hard square edge.
-  function paintOverlay(values,palette,opacity,themeName,gap,pad,smooth) {
+  function paintOverlay(values,palette,opacity,gap,pad,smooth) {
     const border=smooth?1:0, width=SIZE+2*border;
     if(overlayCanvas.width!==width)overlayCanvas.width=overlayCanvas.height=width;
     const image = overlayContext.createImageData(width,width);
     for(let i=0;i<SIZE*SIZE;i++) {
-      const [r,g,b,a] = ownershipPixel(values[i],palette,opacity,themeName);
+      const [r,g,b,a] = ownershipPixel(values[i],palette,opacity);
       const p = ((Math.floor(i/SIZE)+border)*width+i%SIZE+border)*4;
       image.data[p]=r;
       image.data[p+1]=g;
@@ -142,8 +142,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
 
   function paintCountingArea(view,score,gap,pad){
     const values=score.owned.map(owner=>owner===BLACK?1:owner===WHITE?-1:0);
-    paintOverlay(values,countingPalette(view.palette),countingOpacity(view.opacity),
-      view.boardTheme,gap,pad,false);
+    paintOverlay(values,countingPalette(view.palette),countingOpacity(view.opacity),gap,pad,false);
   }
 
   // Empty points that count for neither side get a small ring (not a dot,
@@ -255,7 +254,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   function paintSettle(theme,view,gap,pad) {
     const {board,base,last,ownership}=view.settle;
     if(ownership && ownership.length===board.length && showsOwnership(view.palette))
-      paintOverlay(ownership,view.palette,view.opacity,view.boardTheme,gap,pad,true);
+      paintOverlay(ownership,view.palette,view.opacity,gap,pad,true);
     paintStarPoints(theme,gap,pad);
     const r=gap*.44;
     for(let i=0;i<board.length;i++){

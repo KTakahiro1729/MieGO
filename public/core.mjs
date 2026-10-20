@@ -73,7 +73,6 @@ export function handicapPoints(size, count) {
 export const starPoints = size => handicapPoints(size, size === 19 ? 9 : 5);
 // The 9x9 handicap points (kept for callers written before other sizes).
 export const HANDICAP_POINTS = Object.freeze(handicapPoints(SIZE, 5));
-export const MAX_HANDICAP = maxHandicap(SIZE);
 // Handicap games use 0.5 komi; Chinese rules (and KataGo's "chinese" ruleset,
 // whiteHandicapBonus=N) also give White one point per handicap stone. Japanese
 // territory scoring needs no such bonus (KataGo: whiteHandicapBonus=0), since
@@ -305,27 +304,16 @@ export function areaScore(state) {
   return isJapanese(state) ? territoryScore(state) : chineseAreaScore(state);
 }
 function chineseAreaScore(state) {
-  const board = countingBoard(state);
-  const size = sizeOf(board), owned = Array(board.length).fill(0);
+  const board = countingBoard(state), owned = Array(board.length).fill(0);
   let black = 0, white = whiteCompensation(state);
   for (let i = 0; i < board.length; i++) {
     if (board[i] === BLACK) { black++; owned[i] = BLACK; }
     if (board[i] === WHITE) { white++; owned[i] = WHITE; }
   }
-  const visited = new Set();
-  for (let i = 0; i < board.length; i++) {
-    if (board[i] || visited.has(i)) continue;
-    const queue = [i], border = new Set(); visited.add(i);
-    for (let head = 0; head < queue.length; head++) {
-      for (const n of neighbors(queue[head], size)) {
-        if (board[n] && board[n] !== 0) border.add(board[n]);
-        if (board[n] === 0 && !visited.has(n)) { visited.add(n); queue.push(n); }
-      }
-    }
-    const owner = border.size === 1 ? [...border][0] : 0;
-    for (const n of queue) owned[n] = owner;
-    if (owner === BLACK) black += queue.length;
-    if (owner === WHITE) white += queue.length;
+  for (const { points, owner } of emptyRegions(board)) {
+    for (const n of points) owned[n] = owner;
+    if (owner === BLACK) black += points.length;
+    if (owner === WHITE) white += points.length;
   }
   return { black, white, difference: black - white, owned };
 }
@@ -425,33 +413,16 @@ export function agreeScore(state, color) {
     throw new Error("Not scoring");
   const agreed = { ...state.agreed, [color === BLACK ? "black" : "white"]: true };
   if (!agreed.black || !agreed.white) return { ...state, agreed };
-  const s = areaScore(state);
-  return { ...state, agreed, status: "finished",
-    result: (s.difference > 0 ? "B+" : "W+") + Math.abs(s.difference).toFixed(1) };
+  return { ...state, agreed, status: "finished", result: scoreResult(areaScore(state)) };
 }
 /** A single human confirms the provisional score without writing
  * fake agreement by the opposing color into the match record.
  */
 export function finalizeSoloScore(state) {
   if(scoringStepOf(state)==="dead")throw new Error("Dead stones not agreed");
-  const s=areaScore(state);
-  return {...state,status:"finished",
-    result:(s.difference>0?"B+":"W+")+Math.abs(s.difference).toFixed(1)};
+  return {...state,status:"finished",result:scoreResult(areaScore(state))};
 }
-export function toSGF(state) {
-  const enc = c => c === BLACK ? "B" : "W";
-  const size = sizeOf(state.board);
-  const coord = n => {
-    if (n === null) return "";
-    const [x, y] = xy(n, size); return String.fromCharCode(97 + x, 97 + y);
-  };
-  const moves = state.moves.filter(m => m.position !== "resign")
-    .map(m => ";" + enc(m.color) + "[" + coord(m.position) + "]").join("");
-  const handicap = handicapOf(state);
-  // SGF game type 4 is Gomoku/Renju, which has no komi or Go ruleset.
-  const head = isGomoku(state) ? "(;GM[4]FF[4]CA[UTF-8]SZ[" + size + "]" + (hasGomokuForbidden(state) ? "RU[Renju]" : "") :
-    "(;GM[1]FF[4]CA[UTF-8]SZ[" + size + "]KM[" + komiOf(state) + "]RU[" + (isJapanese(state) ? "Japanese" : "Chinese") + "]";
-  return head +
-    (handicap ? "HA[" + handicap + "]AB" + handicapPoints(size, handicap).map(p => "[" + coord(p) + "]").join("") : "") +
-    (state.result ? "RE[" + state.result + "]" : "") + moves + ")";
+/** The SGF result of a count, such as "B+3.5". */
+export function scoreResult(score) {
+  return (score.difference > 0 ? "B+" : "W+") + Math.abs(score.difference).toFixed(1);
 }

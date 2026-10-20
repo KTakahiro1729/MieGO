@@ -127,8 +127,8 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     $("gradient").style.backgroundColor=surface;
     // While counting, the same legend explains the flat area colours instead.
     const counting=isCounting();
-    $("gradient").style.backgroundImage=counting?countingGradient(palette,opacity,boardTheme):
-      paletteGradient(shownPalette(),opacity,boardTheme);
+    $("gradient").style.backgroundImage=counting?countingGradient(palette,opacity):
+      paletteGradient(shownPalette(),opacity);
     $("legendNeutral").hidden=!counting;
     $("ownershipLegend").classList.toggle("overlay-off",!counting && !overlayOn() ||
       getGame().status==="finished" && !counting);
