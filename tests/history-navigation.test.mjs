@@ -4,6 +4,7 @@ import {newGame,play} from "../public/core.mjs";
 import {
   recordName,recordStatus,recordIcon,recordSummary,readOnlyHint,navigationState,dateLabel
 } from "../public/history-navigation.mjs";
+import {createHistoryPanel} from "../public/history-panel.mjs";
 
 const saved=(overrides={})=>({
   mode:"local",source:"played",snapshot:play(newGame(),40),
@@ -64,4 +65,16 @@ test("a saved variation is labelled separately and cannot resume as the real mat
  assert.equal(recordIcon(sample),"↪");
  assert.equal(recordStatus(sample),"試し打ち");
  assert.equal(navigationState(sample,1).resumable,false);
+});
+
+test("history panel is only a list and importer; main board owns replay state",()=>{
+  const history=createHistoryPanel({
+    $:()=>{throw Error("DOM not needed during construction");},
+    gameLibrary:{},storageError:()=>{},onSelect:()=>{}
+  });
+  assert.equal(typeof history.renderHistoryList,"function");
+  assert.equal(typeof history.showHistory,"function");
+  assert.equal(typeof history.importHistoryFile,"function");
+  assert.equal("selection" in history,false);
+  assert.equal("step" in history,false);
 });
