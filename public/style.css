@@ -217,6 +217,7 @@ body.board-zoomed .board-bleed{opacity:1}
 .setup-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;align-items:center;margin-top:14px}
 .setup-row{display:contents}
 .setup-row[hidden]{display:none}
+.setup-rows .rules-note{grid-column:1/-1;margin:-2px 0 4px}
 .setup-label{margin:0;font-size:13px;color:#d6dae3;white-space:nowrap}
 /* Narrow chips so four choices (or a board icon and 13路) stay on one line at 320px. */
 .setup-rows .ai-color-choices span{padding:10px 2px;font-size:12px;white-space:nowrap}

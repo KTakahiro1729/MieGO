@@ -586,7 +586,15 @@ export const TEXT = {
     comBlack: "● 黒のCOM",
     comWhite: "○ 白のCOM",
     rules: "ルール",
-    rulesNote: "黒が先に打ち、後から打つ白には差を埋める点（コミ）が足されます。中国式と日本式は数え方が違うだけで、勝敗はふつう同じです。",
+    // Under the rules row, one per choice. Komi is left out when a handicap note says it.
+    rulesNotes: {
+      chinese: komi => "盤上の自分の石と、囲んだ空き点（地）の合計で数えます。" +
+        (komi ? "先に打つ黒が有利なので、白にコミ" + komi + "目を足します。" : ""),
+      japanese: komi => "囲んだ空き点（地）と、取った石（アゲハマ）の合計で数えます。勝敗は中国式とふつう同じです。" +
+        (komi ? "先に打つ黒が有利なので、白にコミ" + komi + "目を足します。" : ""),
+      gomoku: "黒から交互に打ち、縦・横・斜めに自分の石を5つ並べたら勝ちです。",
+      free: "ルールのない盤です。好きな色の石を置いたり、取り除いたりできます。",
+    },
     rulesChoices: { chinese: "中国式", japanese: "日本式", gomoku: "五目並べ", free: "自由" },
     advanced: "詳細設定",
     hideStones: "石を隠す（地合いだけ表示）",

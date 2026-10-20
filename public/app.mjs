@@ -23,6 +23,7 @@ import {
   playFreeStone,
   proposeEnd,
   resume,
+  RULES_KOMI,
   RULESETS,
   rulesOf,
   scoringStepOf,
@@ -2358,8 +2359,11 @@ function syncHandicapUi() {
   $("handicap").value=String(shown);
   // The note only appears when stones are placed, so an even game shows no extra text.
   $("handicapNote").hidden=!shown || gameRules==="gomoku" || gameRules==="free";
-  // Who moves first and what komi is; a handicap note says it instead.
-  $("rulesNote").hidden=!!shown || gameRules==="gomoku" || gameRules==="free";
+  // What the chosen rules count; komi is in the handicap note when stones are placed.
+  const rulesNote=TEXT.newGame.rulesNotes[gameRules];
+  $("rulesNote").textContent=typeof rulesNote==="function"?
+    rulesNote(shown?0:RULES_KOMI[gameRules]):rulesNote;
+  $("rulesNote").hidden=false;
   $("handicapNote").textContent=(ai?TEXT.handicap.noteAi:
     kind==="online"?TEXT.handicap.noteOnline:TEXT.handicap.noteLocal)+
     (gameRules==="japanese"?TEXT.handicap.noteRuleJapanese:TEXT.handicap.noteRule)+(boardSize===9?TEXT.handicap.note9:"");
