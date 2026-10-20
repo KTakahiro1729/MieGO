@@ -295,8 +295,8 @@ test("呼吸の粒 sends grains from every liberty at once into the stone on 9�
     return {...baseView(g),breathParticles:true};};
   const {draw,calls}=recordingBoard(view,{requestFrame:f=>frames.push(f),now:()=>time,stillMotion:()=>still});
   draw();
-  // A grain is a small soft dot (gap*.075); a star point is 4.
-  const grain=c=>c.kind==="arc"&&c.args[2]===3.75;
+  // A grain is a soft dot: a radial glow from nothing at its centre.
+  const grain=c=>c.kind==="glow"&&c.args[2]===0;
   // Three from each of the four liberties, on their way into the stone at (250,250).
   const grains=calls.filter(grain);
   assert.equal(grains.length,12);
@@ -324,13 +324,13 @@ test("呼吸の粒 fills a group with two liberties but stops at the edge of a g
   let time=0;
   const {draw,calls}=recordingBoard(()=>({...baseView(game),breathParticles:true}),
     {requestFrame:()=>{},now:()=>time,stillMotion:()=>false});
-  const grains=()=>calls.filter(c=>c.kind==="arc"&&c.args[2]===3.75).map(c=>c.args.slice(0,2));
+  const grains=()=>calls.filter(c=>c.kind==="glow"&&c.args[2]===0).map(c=>[c.args[0],c.args[1],c.args[5]]);
   let reached=false, atari=0;
   for(time=0;time<BREATH_STEP_MS*20;time+=BREATH_STEP_MS/4){
     calls.length=0;draw();
-    for(const [x,y] of grains()){
+    for(const [x,y,r] of grains()){
       if(Math.hypot(x-100,y-50)<22)reached=true;
-      if(x>430){atari++;assert.ok(y<=450-22-3.75+1e-9,"the white grains stay outside the stone in atari");}
+      if(x>430){atari++;assert.ok(y+r<=450-22,"the white grains stay outside the stone in atari");}
     }
   }
   assert.ok(reached,"the air passes on to the stone with no liberty of its own");
