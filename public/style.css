@@ -61,21 +61,23 @@
 html{min-height:100%;background:var(--slate-17)}
 body{margin:0;min-height:100vh;min-height:100dvh;background:radial-gradient(ellipse at 50% -22%,var(--slate-27) 0%,var(--slate-17) 65%)}
 button,input,select{font:inherit}
-button{min-height:var(--control-h);border-radius:var(--radius);border:1px solid var(--btn-edge);background:var(--btn-bg);color:var(--btn-text);padding:10px 16px;cursor:pointer;font-weight:600;touch-action:manipulation}
+button{min-height:var(--control-h);border-radius:var(--radius);border:1px solid var(--btn-edge);background:var(--btn-bg);color:var(--btn-text);padding:10px 16px;cursor:pointer;font-weight:var(--weight-medium);touch-action:manipulation}
 button:disabled{opacity:.36;cursor:default}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--gold-85);outline-offset:2px}
 button:hover:not(:disabled){border-color:var(--slate-60)}
 [hidden],.hidden{display:none!important}
 .app-shell{min-height:100dvh;max-width:1100px;margin:0 auto}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;height:68px;padding:8px 18px}
-.brand{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:var(--font-display);letter-spacing:.2px;font-weight:700;white-space:nowrap}
+.brand{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:var(--font-display);letter-spacing:.2px;font-weight:var(--weight-bold);white-space:nowrap}
 .brand span{color:var(--gold)}
 .header-actions{display:flex;align-items:center;gap:10px}
+/* The last glyph's edge, not its 44px tap area, lines up with the board's edge. */
+.header-actions>.icon-button:last-child{margin-right:-11px}
 
 /* Line icons take their width from here, so every icon draws the same weight. */
 svg[stroke="currentColor"]{stroke-width:var(--stroke-icon)}
 svg.size-icon{stroke-width:var(--stroke-grid)}
-.icon-button{border:0;background:transparent;color:var(--slate-83);font-size:var(--font-display);font-weight:400;padding:8px;display:grid;place-items:center;width:44px;height:44px}
+.icon-button{border:0;background:transparent;color:var(--slate-83);font-size:var(--font-display);font-weight:var(--weight-regular);padding:8px;display:grid;place-items:center;width:44px;height:44px}
 .game-layout{max-width:710px;margin:0 auto;padding:0 12px 12px}
 .game-panel{display:flex;flex-direction:column;align-items:stretch}
 
@@ -95,7 +97,7 @@ svg.size-icon{stroke-width:var(--stroke-grid)}
 .status-row .step-button:disabled{opacity:.25}
 .status-main{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px}
 .status-sub{display:flex;justify-content:center;gap:10px;min-width:0;max-width:100%;color:var(--muted);font-size:var(--font-small);line-height:16px}
-.turn{font-size:var(--font-title);font-weight:700;letter-spacing:.01em;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:24px}
+.turn{font-size:var(--font-title);font-weight:var(--weight-bold);letter-spacing:.01em;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:24px}
 .turn::before{content:"";display:inline-block;vertical-align:-4px;margin-right:9px;width:22px;height:22px;box-sizing:border-box;background:radial-gradient(circle at 32% 28%,var(--slate-46),var(--slate-17) 72%);border:1px solid var(--gray-54);border-radius:var(--radius-round);box-shadow:0 3px 9px var(--black-a53)}
 /* 最強 is thinking: a small gold arc turns after the turn label, opposite the
    stone, until it moves. .thinking-ring is the same arc on its own, for any
@@ -114,20 +116,20 @@ svg.size-icon{stroke-width:var(--stroke-grid)}
 .player.white{align-items:flex-end}
 .player-head{display:flex;align-items:center;gap:6px;max-width:100%}
 .player.white .player-head{flex-direction:row-reverse}
-.player-name{font-size:var(--font-body);font-weight:600;line-height:20px;color:var(--slate-67);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-name{font-size:var(--font-body);font-weight:var(--weight-medium);line-height:20px;color:var(--slate-67);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .player-detail{display:flex;align-items:center;gap:5px;font-size:var(--font-small);line-height:16px;color:var(--muted);white-space:nowrap;max-width:100%}
 .player.white .player-detail{flex-direction:row-reverse}
 .player-detail-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .player-stone{flex:none;width:14px;height:14px;box-sizing:border-box;border-radius:var(--radius-round);background:radial-gradient(circle at 32% 28%,var(--slate-46),var(--slate-17) 72%);border:1px solid var(--gray-54)}
 .player.white .player-stone{background:radial-gradient(circle at 32% 27%,var(--white),var(--gray-90) 72%);border-color:var(--gray-78)}
 /* The side to move: its name in gold and bold, the other side's dimmed. */
-.player.is-turn .player-name{color:var(--gold);font-weight:700}
+.player.is-turn .player-name{color:var(--gold);font-weight:var(--weight-bold)}
 .player.is-turn .player-detail{color:var(--slate-89)}
 /* A COM that is thinking: #87's turning arc after 考え中, on the side away from the stone. */
 .player-wait.thinking-ring{flex:none;width:11px;height:11px}
 .player-wait[hidden]{display:none}
 /* 持ち時間 replaces a person's line; red in its last ten seconds. */
-.player .clock-time{font-size:var(--font-body);font-weight:700;color:var(--slate-86);font-variant-numeric:tabular-nums}
+.player .clock-time{font-size:var(--font-body);font-weight:var(--weight-bold);color:var(--slate-86);font-variant-numeric:tabular-nums}
 .player .clock-time[hidden]{display:none}
 .player .clock-time.is-low{color:var(--ember-60)}
 .players-move{color:var(--muted);font-size:var(--font-small);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -187,11 +189,11 @@ body.board-zoomed .board-bleed{opacity:1}
 
 .move-label{color:var(--muted);white-space:nowrap;font-size:var(--font-small)}
 
-.primary{color:var(--slate-21);background:linear-gradient(180deg,var(--gold-89),var(--gold-80));border:1px solid var(--gold-92);box-shadow:0 2px 14px var(--gold-80-a19);font-weight:750}
+.primary{color:var(--slate-21);background:linear-gradient(180deg,var(--gold-89),var(--gold-80));border:1px solid var(--gold-92);box-shadow:0 2px 14px var(--gold-80-a19);font-weight:var(--weight-bold)}
 /* A gold button that cannot be pressed yet is an empty slot for it: no fill, a
    dashed gold edge, and its label (which says why) in plain readable grey. A
    dimmed gold fill read as "loading". */
-.primary:disabled{opacity:1;background:transparent;border:1px dashed var(--accent-edge);box-shadow:none;color:var(--slate-77);font-weight:600}
+.primary:disabled{opacity:1;background:transparent;border:1px dashed var(--accent-edge);box-shadow:none;color:var(--slate-77);font-weight:var(--weight-medium)}
 #confirm:disabled .button-stone{display:none}
 .button-stone{display:inline-block;width:19px;height:19px;border-radius:var(--radius-round);background:radial-gradient(circle at 32% 26%,var(--slate-50),var(--gray-20) 70%);border:1px solid var(--gray-54);vertical-align:-4px;margin-right:8px}
 .button-stone.white{background:radial-gradient(circle at 32% 26%,var(--white),var(--gray-90) 72%);border-color:var(--gray-78)}
@@ -235,12 +237,12 @@ select:disabled{opacity:.45}
 .dopa-confetti{position:absolute;top:-14px;width:8px;height:12px;border-radius:var(--radius-hair);opacity:0;animation:dopa-fall 1.5s cubic-bezier(.3,.6,.6,1) forwards}
 @keyframes dopa-fall{0%{opacity:1;transform:translate(0,0) rotate(0)}85%{opacity:1}100%{opacity:0;transform:translate(var(--drift),calc(100cqh + 110%)) rotate(var(--spin))}}
 /* The shout's outline is painted under its fill: CJK fonts build a glyph from overlapping strokes, and an outline on top traces every one of them. */
-.dopa-shout{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);font-size:clamp(40px,16cqw,96px);font-weight:900;color:var(--gold-85);-webkit-text-stroke:4px var(--gold-38);paint-order:stroke fill;text-shadow:0 4px 0 var(--gold-38),0 8px 24px var(--black-a67);animation:dopa-shout 2.4s ease-out forwards;white-space:nowrap}
+.dopa-shout{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);font-size:clamp(40px,16cqw,96px);font-weight:var(--weight-bold);color:var(--gold-85);-webkit-text-stroke:4px var(--gold-38);paint-order:stroke fill;text-shadow:0 4px 0 var(--gold-38),0 8px 24px var(--black-a67);animation:dopa-shout 2.4s ease-out forwards;white-space:nowrap}
 @keyframes dopa-shout{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}28%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
 .dopa-don{top:30%;animation-duration:.9s}
 #reviewGraph.dopa-bounce .score-graph-mark.is-current{transform-box:fill-box;transform-origin:center;animation:dopa-bounce .5s ease-out}
 @keyframes dopa-bounce{0%,100%{transform:scale(1)}35%{transform:scale(2.6)}65%{transform:scale(.8)}}
-.player .clock-time.dopa-hurry{display:inline-block;font-size:var(--font-display);font-weight:900;line-height:1}
+.player .clock-time.dopa-hurry{display:inline-block;font-size:var(--font-display);font-weight:var(--weight-bold);line-height:1}
 .board-frame.dopa-pulse::after{content:"";position:absolute;inset:-3px;border-radius:inherit;pointer-events:none;z-index:4;box-shadow:0 0 0 3px var(--ember-67),0 0 26px var(--ember-67);opacity:0;animation:dopa-pulse 1s ease-in-out infinite}
 @keyframes dopa-pulse{50%{opacity:1}}
 .board-frame.dopa-shake{animation:dopa-shake .3s linear}
@@ -331,15 +333,14 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 /* Without colours (or in 五目並べ) the bar and its ends go, but the rules stay in place. */
 .ownership-legend.overlay-off :is(.bar-line,.legend-area),.ownership-legend.no-territory :is(.bar-line,.legend-area){visibility:hidden}
 .ownership-legend.is-preparing .bar-line{opacity:.4;transition:opacity .4s}
-/* Japanese rules: prisoners under the ownership bar. Each pill holds the stones
-   filled into territory on the board and wears the same outline colour: the
-   area colour of the side that took them. A faint outer edge keeps a dark
-   area colour visible on the page. */
-.capture-counts{display:flex;align-items:center;justify-content:center;gap:10px;width:88%;max-width:490px;margin:6px auto 0;color:var(--slate-77);font-size:var(--font-small);font-variant-numeric:tabular-nums}
-/* The prisoner row keeps its place in every game, so 日本式 does not shrink the board. */
-.capture-counts[hidden]{display:flex!important;visibility:hidden}
-.prisoner-pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border:2px solid;border-radius:var(--radius-pill);box-shadow:0 0 0 1px var(--white-a25)}
-.prisoner-pill span[id]{min-width:1.2em;text-align:center;font-weight:600}
+/* Japanese rules: prisoners on the rules line, after the rules. Each pill holds
+   the stones filled into territory on the board and wears the same outline
+   colour: the area colour of the side that took them. A faint outer edge keeps
+   a dark area colour visible on the page. Sharing the line costs the board no
+   height, in any rules. */
+.capture-counts{display:flex;align-items:center;flex:none;gap:6px;color:var(--slate-77);font-size:var(--font-small);font-variant-numeric:tabular-nums}
+.prisoner-pill{display:inline-flex;align-items:center;gap:4px;padding:0 7px;line-height:14px;border:2px solid;border-radius:var(--radius-pill);box-shadow:0 0 0 1px var(--white-a25)}
+.prisoner-pill span[id]{min-width:1.2em;text-align:center;font-weight:var(--weight-medium)}
 .capture-stone{width:11px;height:11px;border-radius:var(--radius-round);display:inline-block;opacity:.7}
 .capture-stone.black{background:var(--slate-17);box-shadow:inset 0 0 0 1px var(--slate-65)}
 .capture-stone.white{background:var(--gray-96);box-shadow:inset 0 0 0 1px var(--gray-68)}
@@ -378,7 +379,7 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .sheet-head-tab input{position:absolute;opacity:0}
 .sheet-head-tab>span{display:flex;align-items:center;gap:4px;height:var(--control-h);padding:0 12px 0 10px;border:1px solid transparent;border-radius:var(--radius);color:var(--slate-83)}
 .sheet-head-tab .mode-icon{width:20px;height:20px;color:inherit}
-.sheet-head-tab strong{font-size:var(--font-body);font-weight:600;white-space:nowrap}
+.sheet-head-tab strong{font-size:var(--font-body);font-weight:var(--weight-medium);white-space:nowrap}
 .mode-icon{flex:none;color:var(--slate-86)}
 .handicap-select{width:100%;min-height:var(--control-h);background:var(--slate-29);border:1px solid var(--slate-43);border-radius:var(--radius-sm);color:var(--gray-96);padding:10px 12px}
 .mode-panel .new-game-common{padding-top:0}
@@ -405,11 +406,11 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
    Five fit at 320px only when each takes its own width first and shares the rest. */
 .setup-tabs{display:flex;margin-top:14px;border-bottom:1px solid var(--slate-37)}
 .setup-tab{flex:1 1 auto;display:grid;align-content:center;gap:1px;min-width:0;min-height:50px;margin:0;padding:0 2px;border:0;border-radius:0;background:none;
-  color:var(--slate-71);font-size:var(--font-small);font-weight:600;white-space:nowrap}
+  color:var(--slate-71);font-size:var(--font-small);font-weight:var(--weight-medium);white-space:nowrap}
 /* A short tab (盤, 時間) still gets a 44px-wide tap target; the long ones give way. */
 .setup-tab{min-width:44px}
 /* Under each tab's name, the value it holds now. */
-.setup-tab-value{overflow:hidden;text-overflow:ellipsis;font-size:var(--font-body);font-weight:650;color:var(--slate-89)}
+.setup-tab-value{overflow:hidden;text-overflow:ellipsis;font-size:var(--font-body);font-weight:var(--weight-medium);color:var(--slate-89)}
 .setup-tab[aria-selected="true"] .setup-tab-value{color:var(--gold-91)}
 .setup-tab.is-unused .setup-tab-value{color:var(--slate-50)}
 .setup-tab[aria-selected="true"]{color:var(--gold-91);box-shadow:inset 0 -2px 0 var(--gold-85)}
@@ -424,7 +425,7 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .choice-list .choice-row+.choice-row{border-top:1px solid var(--slate-35)}
 .choice-row::before{content:"";width:16px;height:16px;border:2px solid var(--slate-56);border-radius:var(--radius-round);box-sizing:border-box}
 .choice-row input{position:absolute;opacity:0}
-.choice{display:flex;align-items:center;gap:4px;font-size:var(--font-body);font-weight:650;white-space:nowrap}
+.choice{display:flex;align-items:center;gap:4px;font-size:var(--font-body);font-weight:var(--weight-medium);white-space:nowrap}
 .choice-note{font-size:var(--font-small);line-height:1.5;color:var(--slate-77)}
 .choice-row:has(input:checked)::before{border-color:var(--gold-85);background:radial-gradient(circle,var(--gold-85) 0 4px,transparent 4.5px)}
 .choice-row input:checked+.choice,.choice-row input:checked+.choice .size-icon{color:var(--gold-91)}
@@ -456,7 +457,7 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 /* A tab whose panel is only such sections (時間) starts with the first one, without its line. */
 .setup-panel>.setup-more:first-child{margin-top:0;padding-top:4px;border-top:0}
 .setup-more.is-off .setup-more-head,.setup-more:has(>.time-control.is-off) .setup-more-head{color:var(--slate-50)}
-.setup-more-head{margin:0 0 8px;font-size:var(--font-small);font-weight:600;color:var(--slate-71)}
+.setup-more-head{margin:0 0 8px;font-size:var(--font-small);font-weight:var(--weight-medium);color:var(--slate-71)}
 .setup-more .advanced-row{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
 .setup-more .advanced-row[hidden],.setup-more [hidden]{display:none}
 .setup-more .advanced-row label{margin:0;white-space:nowrap;font-size:var(--font-body)}
@@ -479,7 +480,7 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .mode-panel .history-setup{padding-top:12px}
 /* One button, two meanings: × discards a provisional stone, the labelled arrow is 待った. */
 .undo-button .takeback-icon{display:none;flex-direction:column;align-items:center;gap:1px;line-height:1}
-.undo-button .takeback-icon small{font-size:var(--font-small);font-weight:700;letter-spacing:.02em}
+.undo-button .takeback-icon small{font-size:var(--font-small);font-weight:var(--weight-bold);letter-spacing:.02em}
 .undo-button.is-takeback .takeback-icon{display:flex}
 .undo-button.is-takeback .cancel-icon{display:none}
 .ai-advanced label[for]{display:flex;justify-content:space-between;gap:12px;margin-top:12px}
@@ -488,7 +489,7 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .watch-ai{display:grid;gap:12px;margin-top:14px}
 .com-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;
   margin:0;padding:10px 12px 12px;border:1px solid var(--edge);border-radius:var(--radius);background:var(--surface)}
-.com-card legend{padding:0 6px;font-size:var(--font-body);font-weight:600}
+.com-card legend{padding:0 6px;font-size:var(--font-body);font-weight:var(--weight-medium)}
 .com-label{font-size:var(--font-body);color:var(--slate-89);white-space:nowrap}
 .com-choices{grid-auto-flow:column;grid-auto-columns:1fr;grid-template-columns:none}
 .com-choices span{padding:8px 0;font-size:var(--font-small);white-space:nowrap}
@@ -500,7 +501,7 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 @media(max-width:400px){.com-custom>.com-label,.com-custom>.com-choices{grid-column:1/-1}}
 /* Five strengths only fit a phone's width on a row of their own, under their label. */
 .com-strength{grid-column:1/-1}
-@media(max-width:700px){.header-actions{gap:6px}.new-game-button{padding:8px 12px;font-size:var(--font-small)}}
+@media(max-width:700px){.header-actions{gap:6px}.new-game-button{padding:8px 12px}}
 
 /* One existing status row; optional expanded content never overlays the board. */
 
@@ -522,10 +523,10 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .history-list-item{min-height:66px;width:100%;text-align:left;display:flex;align-items:center;gap:12px;background:var(--slate-29);border:1px solid var(--slate-40);border-radius:var(--radius);padding:10px 12px}
 .history-thumb{position:relative;width:72px;height:72px;flex:none}
 .history-thumb svg{display:block;width:100%;height:100%;border-radius:var(--radius-inner);box-shadow:0 1px 3px var(--black-a47)}
-.history-list-icon{position:absolute;right:-5px;bottom:-5px;min-width:22px;height:20px;padding:0 4px;display:grid;place-items:center;border-radius:var(--radius-inner);background:var(--gold-71);border:1px solid var(--slate-29);color:var(--slate-21);font-size:var(--font-caption);font-weight:700;line-height:1}
+.history-list-icon{position:absolute;right:-5px;bottom:-5px;min-width:22px;height:20px;padding:0 4px;display:grid;place-items:center;border-radius:var(--radius-inner);background:var(--gold-71);border:1px solid var(--slate-29);color:var(--slate-21);font-size:var(--font-caption);font-weight:var(--weight-bold);line-height:1}
 .history-thumb:not(:has(svg)) .history-list-icon{position:static;width:100%;height:100%;font-size:var(--font-title)}
 .history-item-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
-.history-item-name{font-size:var(--font-body);font-weight:650;color:var(--gray-96)}
+.history-item-name{font-size:var(--font-body);font-weight:var(--weight-medium);color:var(--gray-96)}
 .history-item-meta{font-size:var(--font-caption);color:var(--slate-77);overflow-wrap:anywhere;line-height:1.45}
 .history-empty{color:var(--gray-81);font-size:var(--font-body);padding:28px 0;text-align:center}
 
@@ -535,14 +536,14 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .history-import-row{margin-top:16px}
 /* 履歴 puts SGF import in the start button's place, so the mode tabs stay put. */
 .history-actions .history-import-row{margin-top:0}
-.history-actions .history-import-label{margin:0;display:flex;align-items:center;justify-content:center;padding:10px 16px;font-size:inherit;font-weight:600}
+.history-actions .history-import-label{margin:0;display:flex;align-items:center;justify-content:center;padding:10px 16px;font-size:inherit;font-weight:var(--weight-medium)}
 .history-import-label{display:block;width:100%;min-height:var(--control-h);padding:11px 14px;font-size:var(--font-body);text-align:center;cursor:pointer}
 .history-import-label:focus-within{outline:2px solid var(--gold-87);outline-offset:2px}
 /* 棋風診断 over saved games: while picking, each row shows its sides as toggles instead of its star. */
 .history-style-button,.share-style-more{margin-top:8px}
 .history-style-bar{margin-top:14px;padding:12px;border:1px solid var(--sand-49);border-radius:var(--radius);background:var(--slate-29)}
 .history-style-bar .choice-note{margin:0}
-.history-style-result{margin:8px 0 10px;font-weight:700;color:var(--gold-91)}
+.history-style-result{margin:8px 0 10px;font-weight:var(--weight-bold);color:var(--gold-91)}
 .history-style-actions{display:flex;gap:8px}
 .history-style-actions>button{flex:1 1 0;min-width:0;min-height:var(--control-h);margin:0;padding:8px 10px}
 .history-row.is-picking{flex-wrap:wrap}
@@ -628,7 +629,7 @@ body{overflow:hidden}
 .share-preview[hidden]{display:none}
 .share-preview-status{display:grid;place-items:center;font-size:var(--font-caption);color:var(--slate-77)}
 .share-panel .described{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left}
-.share-panel .described small{font-size:var(--font-caption);font-weight:400;line-height:1.55;color:var(--slate-77)}
+.share-panel .described small{font-size:var(--font-caption);font-weight:var(--weight-regular);line-height:1.55;color:var(--slate-77)}
 #shareCopyFallback{margin-top:8px;width:100%;max-height:110px;min-height:50px;background:var(--slate-23);border:1px solid var(--slate-56);color:var(--gray-96);padding:6px;border-radius:var(--radius-inset);font-size:var(--font-input)}
 
 
@@ -647,7 +648,7 @@ body{overflow:hidden}
    Neither normal status nor forbidden-move feedback uses bold styling. */
 .action-row #confirm{font-size:var(--font-body)}
 .endgame-bar .end-status,.endgame-bar.has-illegal .end-status{
-  font-size:var(--font-body);font-weight:400;line-height:1.3;color:var(--sand-88);white-space:normal
+  font-size:var(--font-body);font-weight:var(--weight-regular);line-height:1.3;color:var(--sand-88);white-space:normal
 }
 .endgame-bar.has-illegal .end-buttons{display:none}
 .illegal-prompt-fallback{position:fixed;z-index:12;left:12px;right:12px;bottom:calc(75px + env(safe-area-inset-bottom));max-width:540px;margin:auto;max-height:45dvh;overflow:auto;background:var(--slate-29);border:1px solid var(--gold-60);box-shadow:0 10px 40px var(--black-a73);border-radius:var(--radius);padding:13px}
@@ -726,7 +727,8 @@ body{overflow:hidden}
 /* The reason wraps onto a second line inside the bar's fixed height (UX policy §3.5). */
 /* The scoring question keeps the endgame advice on a line above it. */
 .endgame-bar.is-asking .end-status{white-space:pre-line}
-@media(max-width:360px){.endgame-bar.is-asking .end-status{font-size:var(--font-small)}}
+/* The bar's text and its buttons share one size: 14px, or 12px on the narrowest phones. */
+@media(max-width:360px){.endgame-bar .end-status,.endgame-bar .end-status.end-status,.endgame-bar .end-action,.endgame-bar .illegal-prompt-action{font-size:var(--font-small)}}
 .endgame-bar.has-illegal .end-status{flex:0 1 auto;min-width:0;white-space:pre-line;overflow:hidden;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
 @media(max-width:360px){
@@ -739,7 +741,7 @@ body{overflow:hidden}
   .endgame-bar .illegal-prompt-action>span{display:none}
 }
 .endgame-bar.has-illegal .help-button{margin-left:auto}
-.endgame-bar .illegal-prompt-action{position:relative;display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;min-height:0;height:28px;margin-left:10px;padding:0 10px;font-size:var(--font-small);font-weight:650;white-space:nowrap;line-height:1}
+.endgame-bar .illegal-prompt-action{position:relative;display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;min-height:0;height:28px;margin-left:10px;padding:0 10px;font-size:var(--font-small);font-weight:var(--weight-medium);white-space:nowrap;line-height:1}
 .endgame-bar .illegal-prompt-action::after{content:"";position:absolute;inset:-8px -4px}
 .illegal-prompt-action svg{display:block;flex:none}
 .illegal-prompt-action .copied-icon,.illegal-prompt-action.is-copied .copy-icon{display:none}
@@ -755,7 +757,7 @@ body{overflow:hidden}
 .action-row .free-choices>.primary:disabled{background:var(--slate-17);border:0}
 .action-row .next-game>button{display:grid;place-content:center;gap:1px;padding:5px 6px;line-height:1.15}
 .action-row .next-game>#newMatch{flex:1.3 1 0}
-.action-row .next-game small{font-size:var(--font-caption);font-weight:600;opacity:.75}
+.action-row .next-game small{font-size:var(--font-caption);font-weight:var(--weight-medium);opacity:.75}
 .fused>.primary{background:linear-gradient(180deg,var(--gold-89),var(--gold-80))}
 .game-panel.is-finished .action-row .share-game{flex:0 0 48px;width:48px;min-width:48px;padding:0;display:grid;place-items:center}
 .inline-score-actions{display:flex;flex:1 1 auto;min-width:0;gap:8px;margin:0}
@@ -769,7 +771,7 @@ body{overflow:hidden}
 .game-panel .endgame-bar{margin-top:auto}
 .endgame-bar .end-status{flex:1 1 auto;min-width:0}
 .endgame-bar .end-buttons{display:flex;align-items:center;justify-content:flex-end;flex:0 0 auto;min-width:0;gap:5px}
-.endgame-bar .end-action{flex:0 0 auto;min-height:var(--control-h);height:var(--control-h);font-size:var(--font-small);font-weight:650;padding:5px 10px}
+.endgame-bar .end-action{flex:0 0 auto;min-height:var(--control-h);height:var(--control-h);font-size:var(--font-body);font-weight:var(--weight-medium);padding:5px 10px}
 .endgame-bar .end-action[hidden]{display:none!important}
 /* The bar asks this player for a decision (an offer, the other side's pass,
    the advice to end): its text turns gold and the bar glows twice. */
@@ -816,7 +818,7 @@ body{overflow:hidden}
   .status-row{gap:4px}
 }
 @media(max-width:350px){
-  .endgame-bar .end-action{font-size:var(--font-caption);padding:5px 6px}
+  .endgame-bar .end-action{padding:5px 6px}
   .endgame-bar .end-buttons{gap:3px}
   .action-row .resign-control{flex-basis:44px;width:44px;min-width:44px}
 }
@@ -871,10 +873,10 @@ body{overflow:hidden}
 .score-stone{width:13px;height:13px;border-radius:var(--radius-round);flex:none}
 .score-stone.black{background:radial-gradient(circle at 35% 30%,var(--slate-50),var(--slate-17) 70%);box-shadow:0 0 0 1px var(--slate-50)}
 .score-stone.white{background:radial-gradient(circle at 35% 30%,var(--white),var(--sand-89) 75%);box-shadow:0 0 0 1px var(--sand-61)}
-.score-name{font-size:var(--font-body);font-weight:600;color:var(--slate-89)}
+.score-name{font-size:var(--font-body);font-weight:var(--weight-medium);color:var(--slate-89)}
 .score-detail{font-size:var(--font-small);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.score-total{font-size:var(--font-title);font-weight:650;font-variant-numeric:tabular-nums;color:var(--slate-89);text-align:right}
-.score-row.leads .score-total{color:var(--white);font-weight:750}
+.score-total{font-size:var(--font-title);font-weight:var(--weight-medium);font-variant-numeric:tabular-nums;color:var(--slate-89);text-align:right}
+.score-row.leads .score-total{color:var(--white);font-weight:var(--weight-bold)}
 .ramp-ends{display:flex;align-items:center;gap:6px;font-size:var(--font-caption);color:var(--slate-83);letter-spacing:.04em}
 .ramp-spacer{flex:1}
 .ramp-stone{width:14px;height:14px;border-radius:var(--radius-round);box-shadow:0 1px 3px var(--black-a53)}
@@ -887,8 +889,8 @@ body{overflow:hidden}
 .ramp-track .ramp-stop{position:absolute;left:var(--at);top:7px;display:block;width:30px;height:30px;margin:0;box-sizing:border-box;border:3px solid var(--gray-96);border-radius:var(--radius-round);box-shadow:0 2px 8px var(--black-a67);transform:translateX(-50%)}
 .ramp-captions{position:relative;height:14px;margin:4px 15px 0;font-size:var(--font-caption);color:var(--slate-67)}
 .ramp-captions span{position:absolute;left:var(--at);transform:translateX(-50%);white-space:nowrap}
-.shape-choices .fused span{display:grid;justify-items:center;gap:2px;padding:9px 6px;font-size:var(--font-body);font-weight:650;color:var(--slate-86);transition:background .15s,color .15s}
-.shape-choices .fused small{font-size:var(--font-caption);font-weight:400;color:var(--slate-67)}
+.shape-choices .fused span{display:grid;justify-items:center;gap:2px;padding:9px 6px;font-size:var(--font-body);font-weight:var(--weight-medium);color:var(--slate-86);transition:background .15s,color .15s}
+.shape-choices .fused small{font-size:var(--font-caption);font-weight:var(--weight-regular);color:var(--muted)}
 .shape-choices .fused svg{width:40px;height:20px;fill:none;stroke:currentColor;stroke-width:var(--stroke-shape);stroke-linecap:round;stroke-linejoin:round}
 .shape-choices .fused input{position:absolute;opacity:0}
 .shape-choices .fused input:checked+span{background:var(--sand-33);color:var(--gold-91)}
@@ -1004,22 +1006,22 @@ body.style-page{overflow:auto}
 .style-brand{color:inherit;text-decoration:none}
 .style-back{color:var(--muted);font-size:var(--font-body);text-decoration:none;padding:12px 0}
 .style-main{max-width:640px;margin:0 auto;padding:0 16px 40px}
-.style-kicker{margin:4px 0 12px;color:var(--gold);font-size:var(--font-body);font-weight:700;letter-spacing:.08em}
+.style-kicker{margin:4px 0 12px;color:var(--gold);font-size:var(--font-body);font-weight:var(--weight-bold);letter-spacing:.08em}
 .style-intro{margin:0 0 8px;line-height:1.8}
 .style-result{padding:20px 18px;border:1px solid var(--edge);border-radius:var(--radius);background:var(--surface)}
 .style-side{display:flex;align-items:center;gap:8px;margin:0 0 6px;color:var(--muted);font-size:var(--font-body)}
 .style-stone{width:16px;height:16px;border-radius:var(--radius-round);border:1px solid var(--gray-54)}
 .style-stone.black{background:radial-gradient(circle at 32% 28%,var(--slate-46),var(--slate-17) 72%)}
 .style-stone.white{background:radial-gradient(circle at 32% 28%,var(--white),var(--sand-89) 72%)}
-.style-code{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:40px;font-weight:700;letter-spacing:.12em;color:var(--accent-text)}
+.style-code{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:40px;font-weight:var(--weight-bold);letter-spacing:.12em;color:var(--accent-text)}
 .style-name{margin:2px 0 6px;font-size:var(--font-display);line-height:1.3}
-.style-catch{margin:0 0 12px;color:var(--gold);font-weight:600}
+.style-catch{margin:0 0 12px;color:var(--gold);font-weight:var(--weight-medium)}
 .style-text{margin:0 0 18px;line-height:1.8}
 .style-bars{display:flex;flex-direction:column;gap:12px}
 .style-bar-row{display:grid;grid-template-columns:4.6em 1fr 4.6em;align-items:center;gap:8px;font-size:var(--font-body)}
 .style-bar-end{color:var(--muted)}
 .style-bar-end:first-child{text-align:right}
-.style-bar-end.is-lit{color:var(--btn-text);font-weight:700}
+.style-bar-end.is-lit{color:var(--btn-text);font-weight:var(--weight-bold)}
 .style-bar{position:relative;height:10px;border-radius:var(--radius-pill);background:var(--slate-29)}
 .style-bar::after{content:"";position:absolute;left:50%;top:-4px;width:2px;height:18px;margin-left:-1px;background:var(--edge)}
 .style-bar-fill,.style-bar.leans-high::before,.style-bar.leans-low::before{position:absolute;top:0;bottom:0;border-radius:var(--radius-pill);background:var(--gold)}
@@ -1033,8 +1035,8 @@ body.style-page{overflow:auto}
 .style-types{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .style-types a{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--btn-edge);border-radius:var(--radius-sm);background:var(--btn-bg);color:inherit;text-decoration:none}
 .style-types a[aria-current="page"]{border-color:var(--accent-edge)}
-.style-type-code{font-family:Georgia,"Times New Roman",serif;font-weight:700;letter-spacing:.08em;color:var(--accent-text)}
+.style-type-code{font-family:Georgia,"Times New Roman",serif;font-weight:var(--weight-bold);letter-spacing:.08em;color:var(--accent-text)}
 .style-type-name{font-size:var(--font-body)}
-.style-cta{display:flex;align-items:center;justify-content:center;min-height:var(--action-h);margin-top:28px;border-radius:var(--radius);border:1px solid var(--accent-edge);background:var(--btn-bg);color:var(--accent-text);font-weight:700;text-decoration:none}
-.style-cta.secondary{min-height:var(--control-h);margin-top:10px;border-color:var(--btn-edge);color:var(--btn-text);font-weight:600}
+.style-cta{display:flex;align-items:center;justify-content:center;min-height:var(--action-h);margin-top:28px;border-radius:var(--radius);border:1px solid var(--accent-edge);background:var(--btn-bg);color:var(--accent-text);font-weight:var(--weight-bold);text-decoration:none}
+.style-cta.secondary{min-height:var(--control-h);margin-top:10px;border-color:var(--btn-edge);color:var(--btn-text);font-weight:var(--weight-medium)}
 .share-style-note{margin:6px 0 0;color:var(--muted);font-size:var(--font-small);line-height:1.6}

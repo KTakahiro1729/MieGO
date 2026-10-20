@@ -1020,7 +1020,7 @@ function show() {
   $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,
     isFree(game)?"free":gomoku?"gomoku":japanese,forbidden);
   $("ruleLabel").textContent=TEXT.game.ruleLabel(size,rulesOf(game),komiOf(game),handicap,forbidden);
-  // Japanese territory scoring counts prisoners, so they sit under the ownership bar.
+  // Japanese territory scoring counts prisoners, so they sit on the rules line.
   $("captureCounts").hidden=!japanese;
   // While counting, the dead stones taken off the board are prisoners too.
   const counted=game.status==="scoring" || game.status==="finished" && !game.result?.endsWith("+R");
