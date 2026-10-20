@@ -27,7 +27,7 @@ test("client modules take their wording from texts.mjs instead of string literal
 test("template placeholders resolve strings, function calls and lists",()=>{
   assert.equal(renderTemplate("<b>{{help.title}}</b>"),"<b>"+TEXT.help.title+"</b>");
   assert.equal(renderTemplate("{{common.helpFor(help.endgame)}}"),"終局と採点のヘルプ");
-  assert.equal(renderTemplate("{{game.moveLabel(0)}}"),"‹ 0手目");
+  assert.equal(renderTemplate("{{game.moveLabel(0)}}"),"0手目");
   assert.equal(renderTemplate("  {{help.local.items}}"),TEXT.help.local.items.map(item=>"  <li>"+item+"</li>").join("\n"));
   assert.throws(()=>textAt("help.missing"),/Unknown text key/);
 });

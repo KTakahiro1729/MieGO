@@ -7,8 +7,9 @@ const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
 const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
 const retap=readFileSync(new URL("../public/confirm-retap.mjs",import.meta.url),"utf8");
 const appearance=readFileSync(new URL("../public/appearance-settings.mjs",import.meta.url),"utf8");
-test("move counter is above board, not in the endgame strip",()=>{
-  assert.ok(html.indexOf('id="moveLabel"')<html.indexOf('id="board"'));
+test("move counter is in the status row under the board, not in the endgame strip",()=>{
+  assert.ok(html.indexOf('id="board"')<html.indexOf('id="moveLabel"'));
+  assert.ok(html.indexOf('id="moveLabel"')<html.indexOf('id="endgameBar"'));
   const strip=html.slice(html.indexOf('id="endgameBar"'),html.indexOf('id="scoreBox"'));
   assert.doesNotMatch(strip,/id="moveLabel"|交点をタップして仮置き/);
   assert.match(strip,/id="endStatus"/);
