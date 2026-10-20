@@ -820,3 +820,19 @@ body{overflow:hidden}
 /* A pressed button lightens at once and settles back when let go. */
 button{transition:filter var(--t-leave) var(--ease-in)}
 button:active:not(:disabled),.fused>label:active>span{filter:brightness(1.18);transition:none}
+/* Changing カスタム's colours: the 設定 sheet morphs between whole and just the
+   swatches (a view transition, where the browser has them), while the rest of
+   the page cross-fades as the dimming comes off. */
+#settingsPanel{view-transition-name:settings-sheet}
+::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation-duration:var(--t-enter);animation-timing-function:var(--ease-out)}
+::view-transition-group(settings-sheet){overflow:clip;border-radius:19px}
+@media(max-width:700px){::view-transition-group(settings-sheet){border-radius:20px 20px 0 0}}
+/* The old contents leave first, so the two never read as one jumble. */
+::view-transition-old(settings-sheet){animation-duration:var(--t-press);animation-timing-function:var(--ease-in)}
+/* An opened topic slides open from its heading, where the browser can size to content. */
+@supports(interpolate-size:allow-keywords){
+  .info-disclosure{interpolate-size:allow-keywords}
+  .info-disclosure::details-content{block-size:0;overflow:clip;transition:block-size var(--t-leave) var(--ease-in),content-visibility var(--t-leave) allow-discrete}
+  .info-disclosure[open]::details-content{block-size:auto;transition-duration:var(--t-enter);transition-timing-function:var(--ease-out)}
+}
+@media(prefers-reduced-motion:reduce){.info-disclosure::details-content{transition:none!important}}
