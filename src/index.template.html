@@ -32,7 +32,10 @@
             <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
             <button id="moveLabel" class="move-label move-history-toggle" type="button" aria-label="{{review.play}}" title="{{review.play}}">{{game.moveLabel(0)}}</button>
           </div>
-          <div id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</div>
+          <div class="meta-side">
+            <div id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</div>
+            <button id="ruleChip" class="rule-chip" type="button" data-help="rules">{{game.ruleChip(9,0,7.5,0)}}</button>
+          </div>
         </div>
         <div id="boardFrame" class="board-frame">
           <div class="board-viewport">
@@ -219,7 +222,7 @@
             </div>
           </div>
           <div id="rulesRow" class="setup-row"><span class="setup-label">{{newGame.rules}}</span>
-            <div class="ai-color-choices rules-choices"><label><input type="radio" name="gameRules" value="chinese" checked><span>{{newGame.rulesChoices.chinese}}</span></label><label><input type="radio" name="gameRules" value="japanese"><span>{{newGame.rulesChoices.japanese}}</span></label></div>
+            <div class="ai-color-choices rules-choices"><label><input type="radio" name="gameRules" value="chinese" checked><span>{{newGame.rulesChoices.chinese}}</span></label><label><input type="radio" name="gameRules" value="japanese"><span>{{newGame.rulesChoices.japanese}}</span></label><label><input type="radio" name="gameRules" value="gomoku"><span>{{newGame.rulesChoices.gomoku}}</span></label></div>
           </div>
           <div id="aiSideRow" class="setup-row" hidden><span class="setup-label">{{newGame.mySide}}</span>
             <div class="ai-color-choices side-choices"><label><input type="radio" name="aiSide" value="random"><span>{{common.random}}</span></label><label><input type="radio" name="aiSide" value="black" checked><span>{{common.sideBlack}}</span></label><label><input type="radio" name="aiSide" value="white"><span>{{common.sideWhite}}</span></label></div>
@@ -243,7 +246,7 @@
             </select>
           </div>
           <p id="handicapNote" class="explanation" hidden></p>
-          <div class="mode hide-stones"><div><strong>{{newGame.hideStones}}</strong><p>{{newGame.hideStonesNote}}</p></div><input id="hideStones" type="checkbox" aria-label="{{newGame.hideStones}}"></div>
+          <div id="hideStonesRow" class="mode hide-stones"><div><strong>{{newGame.hideStones}}</strong><p>{{newGame.hideStonesNote}}</p></div><input id="hideStones" type="checkbox" aria-label="{{newGame.hideStones}}"></div>
           <div id="aiOptions" class="ai-advanced" hidden>
             <div class="mode"><div><strong>{{ai.hints}}</strong><p>{{ai.hintsNote}}</p></div><input id="aiHints" type="checkbox" aria-label="{{ai.hintsAria}}"></div>
             <div id="aiInvasionRow" class="step-slider">

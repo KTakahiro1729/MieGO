@@ -1,5 +1,6 @@
 import { TEXT } from "./texts.mjs";
 import { UserError } from "./user-error.mjs";
+import { makesFive } from "./gomoku.mjs";
 // Occupied points, suicide and ko are the rule messages players read (illegal
 // previews, SGF import). The other errors mean a caller or a peer acted out of
 // turn; the UI never offers those actions, so their messages are for developers.
@@ -7,12 +8,16 @@ import { UserError } from "./user-error.mjs";
 export const SIZE = 9;
 export const BOARD_SIZES = Object.freeze([9, 13, 19]);
 export const KOMI = 7.5;
-/** Chinese area scoring (the default) or Japanese territory scoring. */
-export const RULESETS = Object.freeze(["chinese", "japanese"]);
+/**
+ * Chinese area scoring (the default), Japanese territory scoring, or 五目並べ
+ * (free-style gomoku, gomoku.mjs) played with the same stones on the same board.
+ */
+export const RULESETS = Object.freeze(["chinese", "japanese", "gomoku"]);
 // Even-game komi per ruleset (KataGo's defaults; the Nihon Ki-in uses 6.5).
-export const RULES_KOMI = Object.freeze({ chinese: 7.5, japanese: 6.5 });
-export const rulesOf = state => state?.rules === "japanese" ? "japanese" : "chinese";
+export const RULES_KOMI = Object.freeze({ chinese: 7.5, japanese: 6.5, gomoku: 0 });
+export const rulesOf = state => RULESETS.includes(state?.rules) ? state.rules : "chinese";
 export const isJapanese = state => rulesOf(state) === "japanese";
+export const isGomoku = state => rulesOf(state) === "gomoku";
 export const BLACK = 1;
 export const WHITE = -1;
 export const isBoardSize = size => BOARD_SIZES.includes(size);
@@ -79,7 +84,10 @@ export const handicapBonusOf = state => isJapanese(state) ? 0 : handicapOf(state
 export const whiteCompensation = state => komiOf(state) + handicapBonusOf(state);
 // hideStones ("石を隠す") is part of the game: replays, 待った and the
 // opponent's copy keep it. It is only written when set, so other games are unchanged.
+// 五目並べ has no handicap stones and nothing to hide them behind.
 export function newGame(assisted = true, { handicap = 0, size = SIZE, rules = "chinese", hideStones = false } = {}) {
+  const gomoku = rulesOf({ rules }) === "gomoku";
+  if (gomoku) { handicap = 0; hideStones = false; }
   const stones = handicapOf({ handicap }, size);
   const board = Array(size * size).fill(0);
   for (const p of handicapPoints(size, stones)) board[p] = BLACK;
@@ -103,6 +111,7 @@ export function play(state, position) {
     ...state, status: "finished", endProposal: null, result: color === BLACK ? "W+R" : "B+R",
     moves: [...state.moves, { color, position: "resign" }]
   };
+  if (isGomoku(state)) return playGomoku(state, position, color);
   if (position === null) {
     const passes = state.passes + 1;
     // Dead marks from an earlier, resumed count never carry into a new one.
@@ -138,6 +147,20 @@ export function play(state, position) {
     history: [...state.history, hash], moves: [...state.moves, { color, position }],
     captures: { black: state.captures.black + (color === BLACK ? captured : 0),
       white: state.captures.white + (color === WHITE ? captured : 0) }
+  };
+}
+/** 五目並べ: no pass, capture, suicide or ko; five in a row ends the game. */
+function playGomoku(state, position, color) {
+  if (position === null) throw new Error("No pass in gomoku");
+  if (!Number.isInteger(position) || position < 0 || position >= state.board.length || state.board[position]) {
+    throw new UserError(TEXT.rules.occupied);
+  }
+  const board = [...state.board]; board[position] = color;
+  const won = makesFive(board, position), full = !board.includes(0);
+  return {
+    ...state, board, next: -color, passes: 0, endProposal: null, moveNumber: state.moveNumber + 1,
+    history: [...state.history, boardHash(board)], moves: [...state.moves, { color, position }],
+    ...(won || full ? { status: "finished", result: won ? (color === BLACK ? "B+" : "W+") : "0" } : {})
   };
 }
 /** A proposed conclusion is not a Go move, a pass, or a scoring verdict.
@@ -355,7 +378,10 @@ export function toSGF(state) {
   const moves = state.moves.filter(m => m.position !== "resign")
     .map(m => ";" + enc(m.color) + "[" + coord(m.position) + "]").join("");
   const handicap = handicapOf(state);
-  return "(;GM[1]FF[4]CA[UTF-8]SZ[" + size + "]KM[" + komiOf(state) + "]RU[" + (isJapanese(state) ? "Japanese" : "Chinese") + "]" +
+  // SGF game type 4 is Gomoku/Renju, which has no komi or Go ruleset.
+  const head = isGomoku(state) ? "(;GM[4]FF[4]CA[UTF-8]SZ[" + size + "]" :
+    "(;GM[1]FF[4]CA[UTF-8]SZ[" + size + "]KM[" + komiOf(state) + "]RU[" + (isJapanese(state) ? "Japanese" : "Chinese") + "]";
+  return head +
     (handicap ? "HA[" + handicap + "]AB" + handicapPoints(size, handicap).map(p => "[" + coord(p) + "]").join("") : "") +
     (state.result ? "RE[" + state.result + "]" : "") + moves + ")";
 }

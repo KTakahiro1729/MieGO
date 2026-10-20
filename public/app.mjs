@@ -11,6 +11,7 @@ import {
   confirmDeadSolo,
   finalizeSoloScore,
   handicapOf,
+  isGomoku,
   isJapanese,
   komiOf,
   maxHandicap,
@@ -56,6 +57,7 @@ import { createP2PTransport } from "./p2p-transport.mjs";
 import { interpolateOwnership } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
+import { gomokuMove } from "./gomoku.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
 import { policyHints } from "./ai-assist.mjs";
 import {
@@ -109,7 +111,7 @@ function switchToFallback(reason) {
   workerWaiting = null; prefetch = null;
   worker.onmessage = onWorkerMessage;
   worker.onerror = e => { $("analysisStatus").textContent = TEXT.analysis.unavailable; console.error(e); };
-  if (gameMode === "ai") $("aiMatchStatus").textContent = TEXT.ai.unavailable;
+  if (gameMode === "ai" && !isGomoku(game)) $("aiMatchStatus").textContent = TEXT.ai.unavailable;
   show();
   requestAnalysis();
 }
@@ -311,7 +313,7 @@ function updateEndUi() {
     endgameHint(game,endgameAdvisor,{
       unavailable:fallbackMode,suppressedUntil:endHintSuppressedUntil
     });
-  $("endPropose").hidden=!playing||!!offer||localPrompt;
+  $("endPropose").hidden=!playing||!!offer||localPrompt||isGomoku(game);
   $("endAccept").hidden=!playing||!(incoming||localPrompt);
   $("endDecline").hidden=!playing||!(incoming||localPrompt||waiting);
   $("endPropose").textContent=!room?TEXT.endgame.startScoring:TEXT.endgame.propose;
@@ -330,11 +332,13 @@ function updateEndUi() {
     waiting?TEXT.endgame.detailWaiting:
     room?TEXT.endgame.detailOnline:
     TEXT.endgame.detailOffline;
+  if(playing && isGomoku(game) && !offline && !offer && !localPrompt)
+    $("endStatus").textContent=TEXT.endgame.gomoku;
   if(playing && !offer && !localPrompt && takebackNotice?.number===game.moveNumber &&
      takebackNotice.hash===boardHash(game.board))
     $("endStatus").textContent=takebackNotice.text;
   // The stable left-hand status slot doubles as a rule explanation for illegal previews.
-  $("endHelp").dataset.help=playing && illegalCandidate?"illegal":"endgame";
+  $("endHelp").dataset.help=playing && illegalCandidate?"illegal":isGomoku(game)?"rules":"endgame";
   if(playing && illegalCandidate){
     $("endStatus").textContent=illegalCandidate.reason===ILLEGAL_KO?
       TEXT.rules.ko:TEXT.rules.suicide;
@@ -344,7 +348,7 @@ function updateEndUi() {
 const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" && game.next === -humanColor;
 const isHumanTurn = () => room
   ? (connected && (myOnlineColor()!==null && game.next===myOnlineColor()))
-  : (gameMode !== "ai" || (katagoReady && !fallbackMode && game.next === humanColor));
+  : (gameMode !== "ai" || (game.next === humanColor && (isGomoku(game) || katagoReady && !fallbackMode)));
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
   analysisContext=null;deadEvaluation=null;
@@ -489,6 +493,7 @@ function requestAnalysis() {
     updateEndUi();
     return;
   }
+  if(isGomoku(game)){requestGomokuTurn();return;}
   if (isAiTurn()) {
     // A visible human confirmation must not initiate a new AI turn.
     if(endExpanded)return;
@@ -529,6 +534,25 @@ function requestAnalysis() {
   analysisContext={id,number:state.moveNumber,hash:boardHash(state.board),committed:!candidate};
   if(overlayOn())$("analysisStatus").textContent=fallbackMode?TEXT.analysis.updatingFallback:TEXT.analysis.updating;
   analysisTimer=setTimeout(()=>postToWorker({id,state,board:state.board}),180);
+}
+// 五目並べ has no territory to estimate, and its computer player needs no KataGo.
+const GOMOKU_AI_DELAY_MS=420;
+function requestGomokuTurn() {
+  pending=++seq;
+  analysis=null;displayedOwnership=null;
+  if(!isAiTurn() || endExpanded || aiThinking){draw();return;}
+  const id=pending;
+  aiThinking=true;
+  aiJob={id,number:game.moveNumber,hash:boardHash(game.board)};
+  $("aiMatchStatus").textContent=TEXT.ai.playingGomoku;
+  show();
+  const job=aiJob;
+  setTimeout(()=>{
+    if(aiJob!==job)return;
+    aiThinking=false;aiJob=null;
+    if(!isAiTurn() || game.moveNumber!==job.number || boardHash(game.board)!==job.hash){show();return;}
+    submitMove(gomokuMove(game.board,game.next),true);
+  },GOMOKU_AI_DELAY_MS);
 }
 /** The automatic dead-stone job still belongs to the position on the board. */
 function scoringJobCurrent(job) {
@@ -792,10 +816,13 @@ function show() {
   $("endgameBar").hidden=false;
   $("scoreBox").hidden=false;
   const myTurn=isHumanTurn();
-  $("startAi").disabled=!katagoReady || fallbackMode;
+  const gomoku=isGomoku(game);
+  // The 五目並べ computer needs no KataGo, so it can start at once.
+  const needsKatago=gameRules!=="gomoku";
+  $("startAi").disabled=needsKatago && (!katagoReady || fallbackMode);
   renderInviteButton();
-  $("startAi").textContent=fallbackMode?TEXT.ai.startUnavailable:
-    !katagoReady?TEXT.ai.startLoading:gameMode==="ai"?TEXT.ai.restart:TEXT.ai.start;
+  $("startAi").textContent=needsKatago && fallbackMode?TEXT.ai.startUnavailable:
+    needsKatago && !katagoReady?TEXT.ai.startLoading:gameMode==="ai"?TEXT.ai.restart:TEXT.ai.start;
   keepArmedLabel($("startAi"));
   $("aiInvasion").disabled=false;
   $("aiReinforcement").disabled=false;
@@ -805,7 +832,8 @@ function show() {
   $("turn").textContent=game.status==="finished"?TEXT.scoring.finishedResign:
     game.status==="scoring"?TEXT.common.scoring:
     room?(connected?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):TEXT.game.waitingOpponent):
-    gameMode==="ai"?(fallbackMode?TEXT.game.aiStopped:!katagoReady?TEXT.game.aiPreparing:
+    gameMode==="ai"?(gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
+      fallbackMode?TEXT.game.aiStopped:!katagoReady?TEXT.game.aiPreparing:
       isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
     (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite);
   if(!room)$("netStatus").textContent=gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
@@ -814,8 +842,8 @@ function show() {
   $("hint").textContent=illegalCandidate?TEXT.game.hintIllegal:
     candidate?TEXT.game.hintCandidate:
     game.status==="scoring"?TEXT.game.hintScoring:
-    gameMode==="ai" && fallbackMode?TEXT.game.hintAiStopped:
-    gameMode==="ai" && !katagoReady?TEXT.game.hintAiLoading:
+    gameMode==="ai" && !gomoku && fallbackMode?TEXT.game.hintAiStopped:
+    gameMode==="ai" && !gomoku && !katagoReady?TEXT.game.hintAiLoading:
     isAiTurn()?TEXT.game.hintAiThinking:"";
   const blocked=!!illegalCandidate;
   $("confirm").disabled=!candidate || !myTurn || blocked;
@@ -837,10 +865,15 @@ function show() {
   $("pass").disabled=!myTurn || game.status!=="playing";
   $("resign").disabled=!myTurn || game.status!=="playing";
   updateGradient();
+  // 五目並べ has no territory, so no ownership bar.
+  $("ownershipLegend").hidden=gomoku;
   const handicap=handicapOf(game),size=sizeOf(game.board);
   canvas.setAttribute("aria-label",TEXT.game.boardLabel(shownSize()));
   const japanese=isJapanese(game);
-  $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,japanese);
+  $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,gomoku?"gomoku":japanese);
+  const ruleChip=TEXT.game.ruleChip(size,rulesOf(game),komiOf(game),handicap);
+  $("ruleChip").textContent=ruleChip;
+  $("ruleChip").setAttribute("aria-label",TEXT.game.ruleChipAria(ruleChip));
   // Japanese territory scoring counts prisoners, so they sit under the ownership bar.
   $("captureCounts").hidden=!japanese;
   // While counting, the dead stones taken off the board are prisoners too.
@@ -869,6 +902,8 @@ function show() {
   if(isFinished)$("analysisStatus").textContent="";
   $("scoringActions").hidden=!isScoring;
   for(const id of ["cancel","pass"])$(id).hidden=isScoring || isFinished;
+  // 五目並べ has no pass: the game ends on five in a row, a full board or 投了.
+  if(gomoku)$("pass").hidden=true;
   $("confirm").hidden=isScoring || isFinished;
   $("copyIllegalPrompt").hidden=isScoring || isFinished || !blocked;
   $("actionRow").classList.toggle("finished-actions",isFinished);
@@ -881,6 +916,7 @@ function show() {
     (playout.finished?TEXT.scoring.settleDone(playout.moves):TEXT.scoring.settling(playout.moves)):
     isFinished?
     (game.result?.endsWith("+R")?TEXT.scoring.finishedResign:
+      gomoku?(game.result==="0"?TEXT.scoring.finishedGomokuDraw:TEXT.scoring.finishedGomoku):
       japanese?TEXT.scoring.finishedScoreJapanese:TEXT.scoring.finishedScore):
     deadReview==="pending"?TEXT.scoring.reviewPending:
     deadReview==="loading"?TEXT.scoring.reviewLoading:
@@ -893,6 +929,7 @@ function show() {
     TEXT.scoring.reviewChecking;
   // The scoring controls live in the existing sticky action row.
   $("scoreStone").className="score-stone";
+  $("scoreBox").querySelector(".help-button").dataset.help=gomoku?"rules":"scoring";
   $("scoreText").hidden=false;
   if(isScoring){
     renderScoreboard();
@@ -913,7 +950,7 @@ function show() {
     $("scoreBox").querySelector("strong").textContent=resultLabel(result)||TEXT.scoring.ended;
     const winner=resultWinner(result);
     if(winner)$("scoreStone").classList.add(winner==="B"?"black":"white");
-    if(result?.endsWith("+R")) {
+    if(result?.endsWith("+R") || gomoku) {
       $("scoreText").hidden=true;
     } else {
       renderScoreboard();
@@ -1272,7 +1309,7 @@ function renderScoreboard(){
 }
 function isCounting(){
   return !boardReview && (game.status==="scoring" ||
-    game.status==="finished" && !game.result?.endsWith("+R"));
+    game.status==="finished" && !game.result?.endsWith("+R") && !isGomoku(game));
 }
 function save(){
   try {
@@ -1611,6 +1648,7 @@ function renderBoardReview() {
   const line=activeReviewSnapshot(boardReview,game),count=line.moves.length;
   const variationActive=boardReview.activeLine==="variation" && !!boardReview.variation;
   const isPreview=!!boardReview.preview;
+  $("ownershipLegend").hidden=isGomoku(line);
   $("reviewTitle").textContent=variationActive?TEXT.review.checkingVariation:source==="url"?TEXT.review.checkingShared:TEXT.review.checking;
   $("reviewStepText").textContent=TEXT.review.step(step,count);
   $("reviewStepRange").max=String(count);
@@ -1703,7 +1741,7 @@ function showReviewOwnership() {
   boardReview.ownership=null;
   boardReview.analysisId=++reviewSequence;
   boardReview.katagoId=null;
-  if(!overlayOn()){draw();return;}
+  if(!overlayOn() || isGomoku(boardReview.display)){draw();return;}
   const state=boardReview.preview||boardReview.display;
   const gameId=boardReview.source==="live" ? currentGameId : boardReview.record?.id ?? null;
   const kept=ownershipStore.recall(gameId,state.board);
@@ -1971,7 +2009,8 @@ $("settleSkip").onclick=()=>{
 };
 $("settleReplay").onclick=replaySettle;
 $("startAi").onclick=()=>{
-  if(!katagoReady || fallbackMode)return; // The button is disabled meanwhile.
+  // The button is disabled meanwhile, except for 五目並べ, which needs no KataGo.
+  if(gameRules!=="gomoku" && (!katagoReady || fallbackMode))return;
   if(room && connected &&
      !confirmByRetap($("startAi"),TEXT.confirm.leaveForAi))return;
   if(!save())return;
@@ -1981,7 +2020,7 @@ $("startAi").onclick=()=>{
   gameMode="ai";
   // Handicap stones always belong to the human, who therefore plays Black.
   // Otherwise: the same choices and the same random draw as a friend invitation.
-  try{humanColor=aiHandicap?BLACK:selectColor(aiSideChoice);}
+  try{humanColor=aiHandicap && gameRules!=="gomoku"?BLACK:selectColor(aiSideChoice);}
   catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
   aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
@@ -2011,16 +2050,19 @@ function syncHandicapUi() {
   const kind=newGameModeKind(),ai=kind==="ai";
   const shown=ai?aiHandicap:kind==="online"?onlineHandicap:localHandicap;
   for(const option of $("handicap").options)option.disabled=Number(option.value)>maxHandicap(boardSize);
+  // 五目並べ takes neither handicap stones nor 石を隠す (newGame() drops them).
+  $("handicapSetup").hidden=gameRules==="gomoku";
+  $("hideStonesRow").hidden=gameRules==="gomoku";
   $("handicap").value=String(shown);
   // The note only appears when stones are placed, so an even game shows no extra text.
-  $("handicapNote").hidden=!shown;
+  $("handicapNote").hidden=!shown || gameRules==="gomoku";
   $("handicapNote").textContent=(ai?TEXT.handicap.noteAi:
     kind==="online"?TEXT.handicap.noteOnline:TEXT.handicap.noteLocal)+
     (gameRules==="japanese"?TEXT.handicap.noteRuleJapanese:TEXT.handicap.noteRule)+(boardSize===9?TEXT.handicap.note9:"");
   // With handicap the human is Black; the saved side preference returns afterwards.
   for(const input of document.querySelectorAll('input[name="aiSide"]'))
-    input.disabled=!!aiHandicap && input.value!=="black";
-  if(aiHandicap){
+    input.disabled=!!aiHandicap && gameRules!=="gomoku" && input.value!=="black";
+  if(aiHandicap && gameRules!=="gomoku"){
     const black=document.querySelector('input[name="aiSide"][value="black"]');
     if(black)black.checked=true;
   }else syncSideUi();
