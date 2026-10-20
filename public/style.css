@@ -209,8 +209,9 @@ body.board-zoomed .board-bleed{opacity:1}
 .ai-color-choices input:focus-visible+span{outline:3px solid #f2c875;outline-offset:2px}
 .settings-section h3.ai-subhead{margin-top:22px}
 .ai-color-choices input:disabled+span{opacity:.4;cursor:not-allowed}
-/* The mode is one row of icon tabs under the start button: [対COM|対友人] [1台で打つ] [履歴]. 履歴 opens saved games instead. */
-.new-game-modes{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
+/* The modes are one row of icon tabs, [対COM|観戦|対友人] [1台で打つ]; under them, the ways out of
+   starting a game: [現在の対局に戻る] [対戦履歴を見る], lower, with the icon beside the name. */
+.new-game-modes{display:grid;grid-template-columns:3fr 1fr;gap:8px}
 .new-game-modes label{margin:0;cursor:pointer;position:relative}
 .new-game-modes input{position:absolute;opacity:0}
 .new-game-modes label>span{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;min-height:56px;
@@ -220,18 +221,24 @@ body.board-zoomed .board-bleed{opacity:1}
 .new-game-modes input:checked+span{border-color:#efcb81;background:#38342d}
 .new-game-modes input:checked+span .mode-icon,.new-game-modes input:checked+span strong{color:#f8ddac}
 .new-game-modes input:focus-visible+span{outline:3px solid #f2c875;outline-offset:2px}
+.new-game-nav{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.new-game-nav>label>span,.new-game-nav>.mode-button{flex-direction:row;gap:6px;min-height:44px}
+.new-game-nav>.mode-button{display:flex;align-items:center;justify-content:center;width:100%;margin:0;padding:6px 4px;border:1px solid #505766;border-radius:var(--radius);
+  background:#252c38;color:#f1f2f2;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden}
+.new-game-nav>.mode-button::before{content:"";flex:none;width:20px;height:20px;background:#c9ced8;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 14 4 9l5-5'/%3E%3Cpath d='M4 9h10.5a5.5 5.5 0 0 1 0 11H11'/%3E%3C/svg%3E") center/contain no-repeat}
+.new-game-nav>.mode-button.danger-armed{background:var(--danger-bg);color:var(--danger-text)}
+.new-game-nav>.mode-button.danger-armed::before{background:currentColor}
+.new-game-nav .mode-icon{width:20px;height:20px}
+/* A confirmation note under 現在の対局に戻る takes the whole row under both buttons. */
+.new-game-nav>.armed-note{grid-column:1/-1;order:1}
 .mode-icon{flex:none;color:#c9ced8}
 .handicap-select{width:100%;min-height:var(--control-h);background:#252c38;border:1px solid #4a5160;border-radius:var(--radius-sm);color:#f1f0ed;padding:10px 12px}
 .mode-panel .new-game-common{padding-top:0}
-/* The way back opens the sheet; under one line, the choices and then the start button. */
-.mode-panel>:not(.settings-head):not([hidden])~.new-game-common{margin-top:14px}
-.mode-panel .return-to-game{margin:0 0 14px}
-.mode-panel .return-to-game:not([hidden])~section:not([hidden]){border-top:1px solid #343b49;padding-top:14px}
-.mode-panel .return-to-game:not([hidden])~section:not([hidden])~section:not([hidden]){border-top:0;padding-top:0}
 /* The start button comes after the choices, so it is pressed once they have been seen. */
 .mode-panel .new-game-common~.settings-section:not([hidden]):not(.history-setup){margin-top:14px}
-/* 1台 and 対COM keep their start button in view at the bottom of the sheet while the choices scroll. */
-.mode-panel #localSetup,.mode-panel #aiSetup{--pad:var(--sheet-pad-bottom,22px);position:sticky;bottom:calc(-1 * var(--pad));z-index:1;
+/* Every mode keeps its start button in view at the bottom of the sheet while the choices scroll. */
+.mode-panel #localSetup,.mode-panel #aiSetup,.mode-panel #onlineStart{--pad:var(--sheet-pad-bottom,22px);position:sticky;bottom:calc(-1 * var(--pad));z-index:1;
   margin-bottom:calc(-1 * var(--pad));padding:10px 0 var(--pad);background:#181e2a;box-shadow:0 -10px 12px -4px #181e2a}
 .setup-row{display:contents}
 .setup-row[hidden]{display:none}
