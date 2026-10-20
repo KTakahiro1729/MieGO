@@ -185,3 +185,22 @@ test("a move's captured stones fade out instead of vanishing, unless motion is r
     assert.equal(frames.length,0,"stops once faded");
   }
 });
+
+test("an empty board shows sample stones only while its colours are edited",()=>{
+  const game=newGame();
+  let sampleStones=false;
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),sampleStones}));
+  const stones=()=>calls.filter(c=>c.kind==="arc"&&c.args[2]===22);
+  draw();
+  assert.equal(stones().length,0);
+  sampleStones=true;
+  draw();
+  assert.equal(stones().length,5);
+  assert.ok(calls.some(c=>c.kind==="arc"&&Math.abs(c.args[2]-14)<1e-9),"one carries the last-move ring");
+  assert.equal(game.board.some(Boolean),false,"the game never holds them");
+  calls.length=0;
+  const played=play(game,at(2,2));
+  const {draw:drawPlayed,calls:playedCalls}=recordingBoard(()=>({...baseView(played),sampleStones:true}));
+  drawPlayed();
+  assert.equal(playedCalls.filter(c=>c.kind==="arc"&&c.args[2]===22).length,1,"a board with stones shows only its own");
+});
