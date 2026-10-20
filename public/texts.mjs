@@ -818,7 +818,7 @@ export const TEXT = {
     },
     about: {
       summary: "このアプリについて",
-      body: '形勢の推定と対COMに <a href="https://github.com/lightvector/KataGo" target="_blank" rel="noopener noreferrer">KataGo</a> を、ブラウザでの実行に <a href="https://github.com/Sir-Teo/web-katrain" target="_blank" rel="noopener noreferrer">Web KaTrain</a> の推論モジュールを使っています。',
+      body: '形勢の推定と対COMに <a href="https://github.com/lightvector/KataGo" target="_blank" rel="noopener noreferrer">KataGo</a> を、ブラウザでの実行に <a href="https://github.com/Sir-Teo/web-katrain" target="_blank" rel="noopener noreferrer">Web KaTrain</a> の推論モジュールを使っています。MieGO は MIT ライセンスで <a href="https://github.com/KTakahiro1729/MieGO" target="_blank" rel="noopener noreferrer">GitHub</a> に公開しています。使っているソフトウェアとAIのライセンスは <a href="/licenses.txt" target="_blank" rel="noopener">licenses.txt</a> にあります。',
     },
   },
 };
