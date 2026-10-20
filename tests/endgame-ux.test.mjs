@@ -11,8 +11,8 @@ test("a full-length playout is shown in about ten seconds on every board",()=>{
   for(const size of [9,13,19])assert.ok(settleLimit(size)*settleStepMs(size)<=15000);
 });
 test("after one pass the bar says who passed and that the next pass starts scoring",()=>{
-  assert.equal(TEXT.endgame.passedLocal("W"),"白がパス。次のパスで採点へ");
-  assert.match(TEXT.endgame.passedAi,/^AIがパス。/);
+  assert.equal(TEXT.endgame.passedLocal("W"),"パスで採点へ。白はパス済み");
+  assert.match(TEXT.endgame.passedAi,/^パスで採点へ。/);
   assert.match(app,/passed\?passed\.text:hint/);
 });
 test("a friend's answer to an end offer is shown to the one who offered",()=>{

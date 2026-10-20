@@ -94,13 +94,14 @@ export const TEXT = {
     detailOnline: "終局はいつでも提案できます。提案はパスと異なります。",
     detailOffline: "採点はいつでも始められます。パスとは別の操作です。",
     // After one pass: the next pass starts scoring without another question.
-    passedAi: "AIがパス。次のパスで採点へ",
-    passedOpponent: "相手がパス。次のパスで採点へ",
-    passedSelf: "パス済み。相手もパスで採点へ",
-    passedLocal: c => color(c) + "がパス。次のパスで採点へ",
-    declinedByPeer: "相手は打ち続けることを選びました",
-    withdrawnByPeer: "相手が終局の提案を取り下げました",
-    cancelledByMove: "相手が打ったので、終局の提案は消えました",
+    // What to do comes first (UX方針 3.5); each fits the bar beside its button at 360px.
+    passedAi: "パスで採点へ。AIはパス済み",
+    passedOpponent: "パスで採点へ。相手はパス済み",
+    passedSelf: "相手もパスすると採点へ",
+    passedLocal: c => "パスで採点へ。" + color(c) + "はパス済み",
+    declinedByPeer: "相手が終局を見送りました",
+    withdrawnByPeer: "相手が提案を取り下げました",
+    cancelledByMove: "相手の着手で提案は消えました",
   },
 
   scoring: {
@@ -115,8 +116,8 @@ export const TEXT = {
     backToDead: "死石判定に戻る",
     countStep: "アゲハマを相手の地に埋めました。数字は残った地です",
     agreedWaiting: "確認済み · 相手待ち",
-    peerAgreed: "相手は同意済み。あなたも同意で確定します",
-    peerAgreedDead: "相手は死石に同意済み。同意すると地の計算へ",
+    peerAgreed: "確認して同意してください。相手は同意済み",
+    peerAgreedDead: "死石を確認して同意してください。相手は同意済み",
     waitingDead: "死石判定を待っています",
     finishedResign: "対局終了",
     finishedScore: "中国式で採点確定",
