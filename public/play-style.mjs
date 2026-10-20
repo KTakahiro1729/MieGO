@@ -21,6 +21,7 @@ const NEUTRAL = Object.freeze({attack:0.42, invasion:0.11, reinforcement:0.27, l
 const OPENING = 16;
 // Fewer own moves than this reads nothing.
 export const MIN_MOVES = 10;
+export const PLAY_STYLE_RE = /^[AG][HL][FR][TQ]$/;
 const BEHIND = 10;
 
 const lineOf = (point, size) => {
@@ -90,4 +91,28 @@ export function reportPlayStyles(key, snapshot, styles, send=globalThis.navigato
   try{
     return send("/api/stat",new Blob([JSON.stringify(statPayload(snapshot,styles))],{type:"text/plain"}));
   }catch{return false;}
+}
+
+// How far each axis leans, -100 (the second letter) to 100 (the first), for
+// the /style page's bars. The first three rarely pass ±0.5, so they are doubled.
+const lean = value => Math.round(Math.max(-1,Math.min(1,value))*100);
+export const leanings = ({stance,height,tenuki,grit}) =>
+  [lean(stance*2),lean(height*2),lean(tenuki*2),lean(grit)];
+
+/** The /style page for one player's style: its type, colour and leanings. */
+export function styleLink({type,color,score}) {
+  // Every part is letters, digits, "-" or ",", so nothing needs escaping.
+  return "/style?t="+type+(color==="B" || color==="W" ? "&c="+color : "")+
+    (score ? "&s="+leanings(score).join(",") : "");
+}
+
+/** What a /style URL asks for: a known type, or null, with its colour and leanings if valid. */
+export function readStyleLink(search) {
+  const query=new URLSearchParams(search);
+  const type=query.get("t");
+  if(!PLAY_STYLE_RE.test(type ?? ""))return null;
+  const color=["B","W"].includes(query.get("c")) ? query.get("c") : null;
+  const values=(query.get("s") ?? "").split(",").map(Number);
+  const leans=values.length===4 && values.every(v=>Number.isInteger(v) && Math.abs(v)<=100) ? values : null;
+  return {type,color,leans};
 }

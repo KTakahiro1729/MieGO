@@ -7,4 +7,5 @@ public/models/
 public/katago/
 public/katago-worker.bundle.mjs
 public/index.html
+public/style.html
 public/licenses.txt

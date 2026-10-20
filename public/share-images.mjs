@@ -2,7 +2,7 @@ import { sizeOf, komiOf, handicapOf } from "./core.mjs";
 import { shareLabels, shareFrameSize, paintShareFrame, buildGameAnimation, loadShareFonts } from "./share-image.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
 import { influence } from "./influence.mjs";
-import { playStyle, reportPlayStyles } from "./play-style.mjs";
+import { playStyle, reportPlayStyles, styleLink } from "./play-style.mjs";
 import { TEXT } from "./texts.mjs";
 
 export function downloadBlob(blob,name){
@@ -25,7 +25,7 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
   const SHARE_KINDS=["still","animation"];
   let shareImageKind="still",shareImageJob=0;
   let shareImages={},sharePreviewUrls=[];
-  let frameRenderer=null,frameState=null,frameOwnership=null;
+  let frameRenderer=null,frameState=null,frameOwnership=null,shownStyles=[];
   const ANIMATION_SIZE=600;
   const frameCanvas=(width,height)=>Object.assign(document.createElement("canvas"),{width,height});
   function shareImageDetails(animated){
@@ -35,14 +35,14 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
     // The legend explains colours only when the image carries them: every
     // animation frame is coloured, a still only what the board now shows.
     const coloured=overlayOn() && (animated || stillColoured());
-    const styles=playStyles(snapshot,step,gameId);
     return {snapshot,step,gameId,labels:{...shareLabels({step,total,result,animated,
         komi:Number.isFinite(Number(metadata?.komi)) ? Number(metadata.komi) : komiOf(snapshot),
         handicap:handicapOf(snapshot)}),boardSize:sizeOf(snapshot.board),
-      theme:boardTheme(),legend:coloured ? {palette:shownPalette(),opacity:opacity()} : null,styles}};
+      theme:boardTheme(),legend:coloured ? {palette:shownPalette(),opacity:opacity()} : null,styles:shownStyles}};
   }
   // 棋風診断 of each person who played, counted (by type only) the first time it is shown.
-  function playStyles(snapshot,step,gameId){
+  function playStyles(){
+    const {snapshot,step,gameId}=sharedPosition();
     try{
       const recall=state=>gameId===null ? null : ownershipStore.recall(gameId,state.board);
       const styles=playedSides().map(color=>playStyle(snapshot,color,{through:step,recall})).filter(Boolean);
@@ -113,9 +113,24 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
   }
   // The images are made before the tap: sharing must start straight from the
   // tap, and a long game's animation takes a moment to encode.
+  // Each player's type in the sheet, opening its /style page in a new tab.
+  function renderPlayStyles(){
+    $("sharePlayStyles").hidden=!shownStyles.length;
+    $("sharePlayStyleList").replaceChildren(...shownStyles.map(style=>{
+      const button=Object.assign(document.createElement("button"),{type:"button",className:"secondary full described"});
+      const name=document.createElement("span"),note=document.createElement("small");
+      name.textContent=(style.color==="B" ? "● " : "○ ")+TEXT.share.cardPlayStyle(style.type,TEXT.playStyle.types[style.type].name);
+      note.textContent=TEXT.playStyle.openPage;
+      button.append(name,note);
+      button.onclick=()=>window.open(styleLink(style),"_blank","noopener");
+      return button;
+    }));
+  }
   async function prepareShareImages(){
     clearShareImages();
     const job=shareImageJob;
+    shownStyles=playStyles();
+    renderPlayStyles();
     renderShareImages();
     for(const kind of SHARE_KINDS){
       try{

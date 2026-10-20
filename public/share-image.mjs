@@ -29,7 +29,7 @@ const CARD_WORDS = [TEXT.share.cardMoves(""),TEXT.share.cardAllMoves(""),TEXT.sh
   TEXT.share.cardHandicap(""),TEXT.share.cardKomi(""),TEXT.share.cardLegend,TEXT.share.cardPlay,
   TEXT.share.cardContribute,TEXT.common.playing,TEXT.common.whiteArea,TEXT.common.blackArea,TEXT.result.draw,
   TEXT.result.byResign("B","W"),TEXT.result.byTime("W","B"),TEXT.result.byPoints("B",""),
-  ...Object.values(TEXT.share.playStyles)];
+  ...Object.values(TEXT.playStyle.types).map(t=>t.name)];
 export const FONT_TEXT = [...new Set("MieGO0123456789.+〜·"+CARD_WORDS.join("")+
   "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/:-")].join("");
 
@@ -104,7 +104,7 @@ function paintStyles(ctx,u,look,styles,{left,right,ink}) {
   ctx.font="700 "+Math.round(20*u)+"px "+GOTHIC;ctx.fillStyle=ink;
   ctx.textAlign="left";ctx.textBaseline="middle";
   styles.forEach(({color,type},i)=>{
-    const text=TEXT.share.cardPlayStyle(type,TEXT.share.playStyles[type]),room=column-34*u;
+    const text=TEXT.share.cardPlayStyle(type,TEXT.playStyle.types[type].name),room=column-34*u;
     const textWidth=Math.min(ctx.measureText(text).width,room),y=138*u;
     // Each one centred in its half of the board's width.
     const x=left+column*(i+.5)-(26*u+textWidth)/2;
