@@ -5,11 +5,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "pretest": "node scripts/build-html.mjs && node scripts/build-katago.mjs",
+    "pretest": "node scripts/restore-sources.mjs && node scripts/build-html.mjs && node scripts/build-katago.mjs",
     "test": "node --test",
     "predev": "node scripts/build-html.mjs && node scripts/build-katago.mjs",
     "dev": "wrangler dev",
-    "predeploy": "node scripts/build-html.mjs && node scripts/build-katago.mjs",
+    "predeploy": "node scripts/restore-sources.mjs && node scripts/build-html.mjs && node scripts/build-katago.mjs",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
