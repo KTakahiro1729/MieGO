@@ -266,6 +266,7 @@ body.board-zoomed .board-bleed{opacity:1}
 .setup-panels .setup-note{margin:8px 0 0}
 .strength-note{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin:0}
 .strength-note .setup-note{margin-top:8px}
+.strength-note .help-button{margin-left:auto}
 /* A choice the chosen mode or rule does not use stays in place, greyed out. */
 .mode-panel .is-off,.ai-advanced:disabled{opacity:.45}
 /* Greyed-out choices keep their tile and dim the text, as greyed-out fused buttons do. */
@@ -313,6 +314,8 @@ body.board-zoomed .board-bleed{opacity:1}
 .com-label{font-size:13px;color:#d6dae3;white-space:nowrap}
 .com-choices{grid-auto-flow:column;grid-auto-columns:1fr;grid-template-columns:none}
 .com-choices span{padding:8px 0;font-size:12px;white-space:nowrap}
+/* One COM's カスタム rows sit under the character list, in the same grid without a card. */
+.com-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;margin-top:12px}
 /* A watched COM's カスタム rows join its card's grid. */
 .com-custom{display:contents}
 /* Five strengths only fit a phone's width on a row of their own, under their label. */

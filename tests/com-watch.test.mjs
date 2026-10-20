@@ -24,7 +24,7 @@ test("観戦 has one way in: its own button beside the colours, not a wide butto
   // 対友人 shows the same row with 観戦 greyed out.
   assert.match(between('id="onlineSideRow"','</fieldset>'),/value="watch" disabled>/);
   // With two COMs, the character choices are greyed out and each COM's character is set in 「COMの打ち方」.
-  assert.match(body("syncStrengthUi"),/\$\("aiCharacterChoices"\)\.disabled=off;/);
+  assert.match(body("syncStrengthUi"),/\$\("aiCharacterChoices"\)\.disabled=\$\("aiCustom"\)\.disabled=off;/);
   assert.match(body("syncStrengthUi"),/TEXT\.ai\.strengthInAdvanced/);
 });
 

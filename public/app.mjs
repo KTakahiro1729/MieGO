@@ -2601,10 +2601,10 @@ function syncStrengthUi() {
   const two=editsWatchAi(),off=newGameModeKind()!=="ai" || two;
   const input=document.querySelector('input[name="aiCharacter"][value="'+aiCom.character+'"]');
   if(input)input.checked=true;
-  $("aiCharacterChoices").disabled=off;
+  $("aiCharacterChoices").disabled=$("aiCustom").disabled=off;
   // Two COMs take their characters from 「COMの打ち方」, and the panel says so;
-  // one COM's line names its strength and the style it leans on.
-  $("aiStrengthNote").textContent=newGameModeKind()!=="ai"?"":two?TEXT.ai.strengthInAdvanced:comSummary(aiCom);
+  // one COM's line names its strength and the style it leans on, which カスタム's rows already show.
+  $("aiStrengthNote").textContent=newGameModeKind()!=="ai"?"":two?TEXT.ai.strengthInAdvanced:aiCom.character===CUSTOM_CHARACTER?"":comSummary(aiCom);
   $("aiHints").checked=aiHints;
   updatePersonaUi();
   syncSetupValues();
