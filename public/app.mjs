@@ -888,9 +888,32 @@ $("resign").onclick=()=>{
   }
   resetResignButton();submitMove("resign");
 };
-function resetArmedButtons(){resetResignButton();}
+// Leaving a friend's match is confirmed in place, like 投了: the first tap arms
+// the button and explains below it; only a second tap on the same button proceeds.
+let armedConfirm=null;
+function confirmByRetap(button,message) {
+  if(armedConfirm?.button===button){disarmConfirm();return true;}
+  disarmConfirm();
+  const note=document.createElement("p");
+  note.id="armedConfirmNote";note.className="armed-note";note.setAttribute("role","status");
+  note.textContent=TEXT.confirm.retap(message);
+  button.classList.add("danger-armed");
+  button.setAttribute("aria-describedby",note.id);
+  button.after(note);
+  armedConfirm={button,note};
+  return false;
+}
+function disarmConfirm() {
+  if(!armedConfirm)return;
+  armedConfirm.button.classList.remove("danger-armed");
+  armedConfirm.button.removeAttribute("aria-describedby");
+  armedConfirm.note.remove();
+  armedConfirm=null;
+}
+function resetArmedButtons(){resetResignButton();disarmConfirm();}
 document.addEventListener("pointerdown",e=>{
   if(resignArmed && e.target!==$("resign"))resetResignButton();
+  if(armedConfirm && !armedConfirm.button.contains(e.target))disarmConfirm();
 });
 // Signals computed for the abandoned line must not survive a rewind.
 function afterTakeback() {
@@ -939,7 +962,7 @@ function freshLocalBoard() {
 /** 新規対戦 → 1台で打つ: leaves an AI or friend match (kept in the library). */
 function startLocalGame() {
   if(room && connected &&
-    !confirm(TEXT.confirm.leaveForLocal))return;
+    !confirmByRetap($("startLocal"),TEXT.confirm.leaveForLocal))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
   clearBoardReview();stopAiTurn();gameMode="local";
@@ -1172,9 +1195,9 @@ function leaveOnlineRoom() {
 }
 /** Resume the unfinished saved game of another offline mode (1台 or AI). */
 function resumeModeGame(mode) {
-  resetArmedButtons();
+  resetResignButton();
   if(room && connected &&
-    !confirm(TEXT.confirm.leaveFor(mode)))return;
+    !confirmByRetap($("returnToGame"),TEXT.confirm.leaveFor(mode)))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
   clearBoardReview();
@@ -1304,9 +1327,9 @@ async function beginOnlineRoom(){
   if(room&&p2pRole!=="owner")throw Error(TEXT.online.ownerOnly);
   if(room&&inviteMatchesChoice())return showInviteLink();
   if(room&&(connected||game.moveNumber>0))throw Error(TEXT.online.lockedAfterStart);
-  if(room&&!confirm(TEXT.confirm.renewInvite))return null;
+  if(room&&!confirmByRetap($("copy"),TEXT.confirm.renewInvite))return null;
   if(!room && game.moveNumber>0 &&
-     !confirm(TEXT.confirm.leaveForOnline))return null;
+     !confirmByRetap($("copy"),TEXT.confirm.leaveForOnline))return null;
   const color=selectColor(choice),token=await verifyP2P();
   const created=await p2pTransport.post("/api/rooms",
     {color:color===BLACK?"black":"white",turnstileToken:token});
@@ -1623,7 +1646,7 @@ function forkBoardReview() {
   let fork;
   try{fork=forkReview(activeReviewSnapshot(boardReview,game),boardReview.step);}
   catch(error){$("reviewNotice").textContent=TEXT.review.branchFailed(error.message);return;}
-  if(room && connected && !confirm(TEXT.confirm.leaveForReview))return;
+  if(room && connected && !confirmByRetap($("reviewBranch"),TEXT.confirm.leaveForReview))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
   stopAiTurn();gameMode="local";game=fork;
@@ -1861,7 +1884,7 @@ function resumeSelectedReview(){
   if(!canResumeSelectedReview())return;
   const selected=boardReview.record;
   if(room && connected &&
-    !confirm(TEXT.confirm.leaveForArchive))return;
+    !confirmByRetap($("reviewResume"),TEXT.confirm.leaveForArchive))return;
   // Reload the record before mutating anything; another tab may have advanced it.
   let record=gameLibrary.load(selected.id);
   if(!record || (record.revision!==selected.revision &&
@@ -2026,7 +2049,7 @@ $("startAi").onclick=()=>{
     return;
   }
   if(room && connected &&
-     !confirm(TEXT.confirm.leaveForAi))return;
+     !confirmByRetap($("startAi"),TEXT.confirm.leaveForAi))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
   clearBoardReview();

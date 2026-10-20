@@ -123,3 +123,10 @@ test("a disconnected online bar says why its buttons are disabled",()=>{
   assert.equal(TEXT.endgame.offline,"接続を待っています");
   assert.match(app,/\$\(id\)\.disabled=offline;/);
 });
+
+test("leaving a friend's match is confirmed in place, never by a browser dialog",()=>{
+  assert.doesNotMatch(app,/[^\w.]confirm\(/);
+  assert.doesNotMatch(app,/[^\w.]alert\([^)]/);
+  assert.match(app,/function confirmByRetap\(button,message\)/);
+  assert.match(app,/button\.classList\.add\("danger-armed"\)/);
+});
