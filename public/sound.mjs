@@ -109,7 +109,8 @@ const SCALE = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
 /**
  * ドパガキモード's louder sounds: each stone adds a bright chime, a capture
  * rings one rising note per stone taken (at least three, up to 8), a win plays a fanfare,
- * 秒読み beeps twice as hard and a turning point of the replay lands with a low ドン.
+ * 秒読み beeps twice as hard, a turning point of the replay lands with a low ドン
+ * and a good move rings a bright rising chord.
  */
 export const DOPA_VOICES = {
   ...CALM_VOICES,
@@ -130,6 +131,9 @@ export const DOPA_VOICES = {
   don(ctx, out, at) {
     knock(ctx, out, at, { frequency: 120, gain: .3, length: .35 });
     tone(ctx, out, at, { frequency: 98, gain: .22, length: .5 });
+  },
+  good(ctx, out, at) {
+    [2, 4, 5, 7].forEach((note, i) => tone(ctx, out, at + .08 + i * .06, { frequency: SCALE[note], gain: .12, length: .4 }));
   },
   move(ctx, out, at) {
     CALM_VOICES.move(ctx, out, at);

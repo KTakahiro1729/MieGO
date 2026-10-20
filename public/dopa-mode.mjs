@@ -6,7 +6,9 @@ import { TEXT } from "./texts.mjs";
 // top of what happened. Every stone lands with a shockwave, taken stones burst
 // into rainbow sparks under a big "+N" (both drawn by the board renderer) while
 // the board shakes, harder the more were taken, and a win rains confetti over
-// the board under 勝利！ or 圧勝！ while its points count up. Stepping through a
+// the board under 勝利！ or 圧勝！ while its points count up. A player's own
+// move that the network itself would play (goodMove) rings its own chime and
+// shakes the board, and the phone too where the browser can vibrate. Stepping through a
 // replay onto a marked turning point of the 形勢グラフ bounces its mark under
 // ドン！, and in 秒読み the running clock grows from 10 seconds left and the
 // board's edge pulses red, once a second, from 5. It never changes the game,
@@ -28,6 +30,9 @@ const DON_MS = 900;
 // The clock grows from this many ms left, and the board's edge pulses from PULSE_FROM.
 const HURRY_FROM = 10000;
 const PULSE_FROM = 5000;
+// A move is good when the network gives it at least this share of its favourite's weight.
+const GOOD_SHARE = .5;
+const GOOD_BUZZ = [25, 40, 60];
 const CONFETTI_COLOURS = ["#f0c773", "#e5675c", "#6cc4a1", "#6aa6e8", "#c08ee8", "#f4f1ea", "#ff8fd1"];
 
 /** A stored level: "on" (the old オン and ULTRA included) or "off". */
@@ -57,12 +62,26 @@ export function dopaEvent(before, after, viewer = null) {
   return count > 0 ? { kind: "capture", count } : null;
 }
 
+/**
+ * Whether playing `position` on `board` is a move KataGo's policy (logits for
+ * the side to move, from the position before it) likes: its favourite among
+ * the empty points, or one it weighs at least GOOD_SHARE as much. This is the
+ * network's first impression, not a read, and a pass is never good.
+ */
+export function goodMove(policy, board, position) {
+  if (!Array.isArray(policy) || policy.length !== board?.length || !Number.isInteger(position) || board[position]) return false;
+  let best = -Infinity;
+  board.forEach((stone, p) => { if (!stone && policy[p] > best) best = policy[p]; });
+  return policy[position] >= best + Math.log(GOOD_SHARE);
+}
+
 /** The label with its first number replaced by `value`, written to the same decimals. */
 export function countedLabel(label, value) {
   return label.replace(/\d+(\.\d+)?/, number => value.toFixed(number.includes(".") ? number.split(".")[1].length : 0));
 }
 
 export function createDopaMode({ $, stage, frame, graph, score, reducedMotion = stillMotion,
+  vibrate = pattern => globalThis.navigator?.vibrate?.(pattern),
   random = Math.random, schedule = setTimeout, requestFrame = globalThis.requestAnimationFrame?.bind(globalThis),
   now = () => performance.now() }) {
   let level = dopaLevel(stored(DOPA_KEY));
@@ -132,6 +151,12 @@ export function createDopaMode({ $, stage, frame, graph, score, reducedMotion = 
       if (event.points !== null) countUp(event.points);
     }
   }
+  /** A good move by the player: the board shakes, and so does the phone where it can. */
+  function praise() {
+    if (level === "off") return;
+    try { vibrate(GOOD_BUZZ); } catch {}
+    if (!reducedMotion()) shake("dopa-shake");
+  }
   /** ドン！ for the replay landing on a marked turning point of the 形勢グラフ. */
   function don() {
     if (level === "off") return;
@@ -157,5 +182,5 @@ export function createDopaMode({ $, stage, frame, graph, score, reducedMotion = 
     frame.classList.toggle("dopa-pulse", left <= PULSE_FROM && !reducedMotion());
     return left <= HURRY_FROM;
   }
-  return { celebrate, countdown, don, level: () => level };
+  return { celebrate, countdown, don, level: () => level, praise };
 }

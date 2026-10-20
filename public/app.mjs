@@ -75,7 +75,11 @@ import {
   DOPA_VOICES,
   moveSound,
 } from "./sound.mjs";
-import { createDopaMode, dopaEvent } from "./dopa-mode.mjs";
+import {
+  createDopaMode,
+  dopaEvent,
+  goodMove,
+} from "./dopa-mode.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
 import { playerSides } from "./player-row.mjs";
@@ -246,6 +250,8 @@ const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),graph:
   score:()=>$("scoreBox").querySelector("strong")});
 // Whom ドパガキモード cheers for a win: the player's own colour, or either side
 // when watching the COMs or sharing one board.
+// The policy KataGo gave the position on the board, kept for judging the move played from it.
+let positionPolicy=null;
 const dopaViewer = () => isWatching() || (gameMode!=="ai" && !room) ? null : room ? myOnlineColor() : humanColor;
 let connected = false;
 // A first visit starts against the COM; later visits restore the saved mode.
@@ -929,6 +935,10 @@ function handleAnalysis(event) {
   if(context?.id===result.id && context.committed && !candidate &&
     context.number===game.moveNumber && context.hash===boardHash(game.board))
     rememberOwnership(game.board,result.ownership);
+  // ドパガキモード judges the player's next move by this position's policy.
+  if(context?.id===result.id && context.committed && result.engine==="katago" &&
+    context.number===game.moveNumber && context.hash===boardHash(game.board))
+    positionPolicy={number:context.number,hash:context.hash,policy:result.policy};
   // Sandbox positions and stale asynchronous results must never generate advice.
   if(context?.id===result.id && context.committed && !candidate &&
     context.number===game.moveNumber && context.hash===boardHash(game.board) &&
@@ -1265,7 +1275,12 @@ function apply(action, remote=false, isAiMove=false) {
     candidate=null;save();show();
     const cue=moveSound(before,game,action.type==="move"?action.position:null);
     const cheer=dopaEvent(before,game,dopaViewer());
+    // Only this device's own move, judged from the position it was played in.
+    const good=action.type==="move" && !remote && !isAiMove && !isFree(before) &&
+      positionPolicy?.number===before.moveNumber && positionPolicy.hash===boardHash(before.board) &&
+      goodMove(positionPolicy.policy,before.board,action.position);
     if(cue)sound.play(cue,cheer?.kind==="capture"?{count:cheer.count}:undefined);
+    if(good)sound.play("good");
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
        (action.type==="end_answer" && game.status==="scoring") ||
@@ -1273,6 +1288,7 @@ function apply(action, remote=false, isAiMove=false) {
       requestAnalysis();
     if(!remote&&room)p2pTransport.sendAction(action);
     // Show last: an effect must never keep the move from being analysed or sent.
+    if(good)dopa.praise();
     dopa.celebrate(cheer);
   }catch(error){
     // The UI offers only actions that apply, so a failure is a peer out of

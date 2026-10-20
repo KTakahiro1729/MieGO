@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { at, BLACK, newGame, play, WHITE } from "../public/core.mjs";
-import { bigWinPoints, countedLabel, createDopaMode, dopaEvent, dopaLevel } from "../public/dopa-mode.mjs";
+import {
+  bigWinPoints,
+  countedLabel,
+  createDopaMode,
+  dopaEvent,
+  dopaLevel,
+  goodMove,
+} from "../public/dopa-mode.mjs";
 
 const finished = (result, size = 9) => ({ ...newGame(true, { size }), status: "finished", result });
 
@@ -33,6 +40,17 @@ test("big wins grow with the board, and the count-up keeps the label's decimals"
   assert.equal(dopaLevel("loud"), "off");
 });
 
+test("goodMove is the network's favourite empty point, or one it weighs at least half as much", () => {
+  const board = [0, 0, 0, BLACK];
+  const policy = [2, 2 + Math.log(.6), 2 + Math.log(.4), 9];
+  assert.equal(goodMove(policy, board, 0), true, "the favourite; the higher logit is on a stone");
+  assert.equal(goodMove(policy, board, 1), true);
+  assert.equal(goodMove(policy, board, 2), false);
+  assert.equal(goodMove(policy, board, null), false, "a pass");
+  assert.equal(goodMove(null, board, 0), false, "no policy kept");
+  assert.equal(goodMove(policy.slice(1), board, 0), false, "another board");
+});
+
 function page({ level = null, reduced = false } = {}) {
   const saved = new Map(level ? [["miego-dopa", level]] : []);
   globalThis.localStorage = { getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value) };
@@ -55,11 +73,11 @@ function page({ level = null, reduced = false } = {}) {
   const graphClasses = new Set();
   const graph = { offsetWidth: 0, classList: classList(graphClasses) };
   const score = { textContent: "黒が12.5目差で勝利" };
-  const later = [], frames = [];
+  const later = [], frames = [], buzzes = [];
   let time = 0;
   const dopa = createDopaMode({ $, stage, frame, graph, score: () => score, ...(reduced === null ? {} : { reducedMotion: () => reduced }),
-    random: () => .5, schedule: f => later.push(f), requestFrame: f => frames.push(f), now: () => time });
-  return { $, dopa, saved, children, classes, graphClasses, score, later, frames, tick: ms => { time += ms; frames.shift()?.(); } };
+    vibrate: pattern => buzzes.push(pattern), random: () => .5, schedule: f => later.push(f), requestFrame: f => frames.push(f), now: () => time });
+  return { $, dopa, saved, buzzes, children, classes, graphClasses, score, later, frames, tick: ms => { time += ms; frames.shift()?.(); } };
 }
 
 test("the 設定 switch starts off, is remembered and goes back to off with 初期状態に戻す", () => {
@@ -115,6 +133,20 @@ test("every capture shakes the board, and four stones or more quake it", () => {
   assert.deepEqual([...p.classes], ["dopa-quake"], "a bigger capture replaces the shake");
   p.later.forEach(f => f());
   assert.equal(p.classes.size, 0);
+});
+
+test("a good move shakes the board and buzzes the phone", () => {
+  const p = page({ level: "on" });
+  p.dopa.praise();
+  assert.ok(p.classes.has("dopa-shake"));
+  assert.equal(p.buzzes.length, 1);
+  const still = page({ level: "on", reduced: true });
+  still.dopa.praise();
+  assert.equal(still.classes.size, 0, "reduced motion keeps the board still");
+  assert.equal(still.buzzes.length, 1, "but the phone still buzzes");
+  const off = page();
+  off.dopa.praise();
+  assert.equal(off.buzzes.length + off.classes.size, 0);
 });
 
 test("a turning point of the replay lands with ドン！, a shake and a bouncing mark", () => {
