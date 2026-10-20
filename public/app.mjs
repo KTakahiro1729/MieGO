@@ -746,7 +746,7 @@ function apply(action, remote=false, isAiMove=false) {
     // The UI offers only actions that apply, so a failure is a peer out of
     // step (or a bug): the position is resynchronised, not explained.
     console.warn("MieGO action rejected",action?.type,error);
-    if(remote){showNotice(TEXT.online.peerOutOfSync);$("netStatus").textContent=TEXT.game.syncError;p2pTransport.refresh();}
+    if(remote){showNotice(TEXT.online.peerOutOfSync);$("netStatus").textContent=TEXT.online.syncing;p2pTransport.refresh();}
   }
 }
 function submitMove(position,fromAi=false){
@@ -1228,7 +1228,8 @@ function onPeerSync(message){
   const result=reconcileGame(game,onlineRevision,message.game,message.revision,
     {localIsOwner:p2pRole==="owner",localColor:myOnlineColor()});
   if(result.kind==="conflict"||result.kind==="invalid"){
-    connected=false;$("netStatus").textContent=TEXT.online.mismatch;
+    connected=false;$("netStatus").textContent=TEXT.online.statusStopped;
+    showSeatNotice(TEXT.online.mismatch);
     show();return false;
   }
   if(result.kind==="adopt"){
@@ -1271,8 +1272,12 @@ p2pTransport=createP2PTransport({
       $("netStatus").textContent=TEXT.online.seatElsewhere;
       showSeatNotice(TEXT.online.seatTakenNotice);
     }else if(error.stage==="ticket" && error.status===410){
-      $("netStatus").textContent=TEXT.online.roomGone;
-    }else $("netStatus").textContent=error.message||TEXT.online.connectionError;
+      $("netStatus").textContent=TEXT.online.statusCannotJoin;
+      showSeatNotice(TEXT.online.roomGone);
+    }else{
+      $("netStatus").textContent=TEXT.online.statusOffline;
+      showNotice(error.message||TEXT.online.requestFailed);
+    }
     show();
   },
   getSnapshot:()=>({game,revision:onlineRevision,lastPosition,
@@ -1280,12 +1285,17 @@ p2pTransport=createP2PTransport({
     ["complete","none","modified","unavailable"].includes(deadReview)?deadReview:null})
 });
 async function joinRoom(){
-  if(!ROOM_PATTERN.test(room)){$("netStatus").textContent=TEXT.online.badInvite;return;}
+  if(!ROOM_PATTERN.test(room)){
+    $("netStatus").textContent=TEXT.online.statusCannotJoin;showSeatNotice(TEXT.online.badInvite);return;
+  }
   const targetRoom=room;
   try{
     await p2pTransport.join({room,role:p2pRole,session:onlineSession,inviteKey});
     if(targetRoom!==room)return;
-  }catch(error){if(targetRoom===room){$("netStatus").textContent=error.message;show();}}
+  }catch(error){
+    if(targetRoom!==room)return;
+    $("netStatus").textContent=TEXT.online.statusOffline;showNotice(error.message);show();
+  }
 }
 function showInviteLink() {
   if(!room||p2pRole!=="owner"||!guestInviteKey)return null;
@@ -1306,7 +1316,7 @@ async function beginOnlineRoom(){
     {color:color===BLACK?"black":"white",turnstileToken:token});
   if(room){
     try{await p2pTransport.post("/api/rooms/"+room+"/revoke",{role:"owner",session:onlineSession});}
-    catch(error){$("inviteStatus").textContent=TEXT.online.revokeFailed;throw error;}
+    catch{throw Error(TEXT.online.revokeFailed);}
     leaveOnlineRoom();
   }else if(!save())return null;
   room=created.room;p2pRole="owner";seat="host";ownerColor=color;
