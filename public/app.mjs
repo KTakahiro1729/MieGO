@@ -180,7 +180,8 @@ const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingSto
   onOverlayOn:()=>boardReview?requestReviewOwnership():requestAnalysis()});
 const {shownPalette,overlayOn,updateGradient}=appearance;
 let connected = false;
-let gameMode = room ? "online" : "local";
+// A first visit starts against the COM; later visits restore the saved mode.
+let gameMode = room ? "online" : "ai";
 let humanColor = BLACK, invasion = 50, reinforcement = 50;
 let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNotice = null;
 let aiSideChoice = "black";
@@ -1563,7 +1564,7 @@ function showNewGameMode(kind) {
   if(kind==="online" && room)showInviteLink();
   if(kind==="online")renderInviteButton();
 }
-const newGameModeKind=()=>document.querySelector('input[name="newGameMode"]:checked')?.value||"local";
+const newGameModeKind=()=>document.querySelector('input[name="newGameMode"]:checked')?.value||"ai";
 for(const input of document.querySelectorAll('input[name="newGameMode"]'))
   input.onchange=e=>{if(e.target.checked)showNewGameMode(e.target.value);};
 for(const input of document.querySelectorAll('input[name="boardSize"]')) {
