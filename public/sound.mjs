@@ -31,20 +31,39 @@ export function countdownSound(reading) {
   return seconds <= COUNTDOWN_LAST ? "countdownLast" : "countdown";
 }
 
-// A short burst of noise through a band-pass filter: the click of a stone on wood.
+// A stone on a wooden board: two damped partials, the higher one dying
+// first, after a soft tick. A burst of filtered noise alone sounded like
+// static ("音割れ"), so the noise is now only the first few milliseconds.
+// Every level rises over 2ms instead of jumping, so nothing clicks.
 function knock(ctx, out, at, { frequency, gain, length }) {
+  partial(ctx, out, at, frequency, gain, length);
+  partial(ctx, out, at, frequency * 2.76, gain * .35, length * .45);
   const source = ctx.createBufferSource();
   source.buffer = noise(ctx);
   const filter = ctx.createBiquadFilter();
-  filter.type = "bandpass";
-  filter.frequency.value = frequency;
-  filter.Q.value = 4;
-  const level = ctx.createGain();
-  level.gain.setValueAtTime(gain, at);
-  level.gain.exponentialRampToValueAtTime(.001, at + length);
+  filter.type = "lowpass";
+  filter.frequency.value = 2500;
+  const level = envelope(ctx, at, gain * .25, .008);
   source.connect(filter).connect(level).connect(out);
   source.start(at);
-  source.stop(at + length);
+  source.stop(at + .01);
+}
+function partial(ctx, out, at, frequency, gain, length) {
+  const oscillator = ctx.createOscillator();
+  oscillator.type = "sine";
+  // A slight drop in pitch, as a struck body settles.
+  oscillator.frequency.setValueAtTime(frequency * 1.04, at);
+  oscillator.frequency.exponentialRampToValueAtTime(frequency, at + .02);
+  oscillator.connect(envelope(ctx, at, gain, length)).connect(out);
+  oscillator.start(at);
+  oscillator.stop(at + length + .01);
+}
+function envelope(ctx, at, gain, length) {
+  const level = ctx.createGain();
+  level.gain.setValueAtTime(.0001, at);
+  level.gain.linearRampToValueAtTime(gain, at + .002);
+  level.gain.exponentialRampToValueAtTime(.0001, at + length);
+  return level;
 }
 function tone(ctx, out, at, { frequency, gain, length }) {
   const oscillator = ctx.createOscillator();
@@ -72,9 +91,9 @@ function noise(ctx) {
 /** The calm default sounds, each drawn at time `at` into `out`. */
 export const CALM_VOICES = {
   capture(ctx, out, at) {
-    knock(ctx, out, at, { frequency: 1400, gain: .5, length: .07 });
-    knock(ctx, out, at + .07, { frequency: 3200, gain: .18, length: .04 });
-    knock(ctx, out, at + .12, { frequency: 3600, gain: .12, length: .04 });
+    CALM_VOICES.move(ctx, out, at);
+    knock(ctx, out, at + .07, { frequency: 2600, gain: .035, length: .03 });
+    knock(ctx, out, at + .12, { frequency: 3000, gain: .025, length: .03 });
   },
   countdown(ctx, out, at) { tone(ctx, out, at, { frequency: 880, gain: .12, length: .09 }); },
   countdownLast(ctx, out, at) { tone(ctx, out, at, { frequency: 1320, gain: .14, length: .09 }); },
@@ -82,7 +101,7 @@ export const CALM_VOICES = {
     tone(ctx, out, at, { frequency: 523.25, gain: .1, length: .7 });
     tone(ctx, out, at + .12, { frequency: 783.99, gain: .08, length: .7 });
   },
-  move(ctx, out, at) { knock(ctx, out, at, { frequency: 1400, gain: .5, length: .07 }); },
+  move(ctx, out, at) { knock(ctx, out, at, { frequency: 900, gain: .09, length: .09 }); },
 };
 
 export function createSoundEffects({ $, voices = CALM_VOICES, AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext, target = globalThis }) {
