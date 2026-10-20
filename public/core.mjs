@@ -203,16 +203,56 @@ export function setDeadCandidates(state, positions) {
 }
 export function resume(state) {
   if (state.status !== "scoring") throw new Error("Not scoring");
-  return { ...state, status: "playing", scoringStep: "dead", passes: 0, endProposal: null, dead: [],
+  // The playout's fill stones belong to this count only.
+  const { fill, ...rest } = state;
+  return { ...rest, status: "playing", scoringStep: "dead", passes: 0, endProposal: null, dead: [],
     agreed: { black: false, white: false } };
+}
+/**
+ * 決着手順の石: the stones KataGo's settle playout placed on points that are
+ * empty in the match. They stay as fill stones for the count, so the borders
+ * the players left open are closed the way the playout closed them; the
+ * match's own moves never change.
+ */
+export function withPlayoutFill(state, settledBoard) {
+  const { fill: _, ...rest } = state;
+  if (!Array.isArray(settledBoard) || settledBoard.length !== state.board.length) return rest;
+  const fill = settledBoard.map((c, i) => !state.board[i] && (c === BLACK || c === WHITE) ? c : 0);
+  return fill.some(Boolean) ? { ...rest, fill } : rest;
+}
+/**
+ * The fill stones the count keeps: those on a border. A fill stone that
+ * touches only its own colour and its own territory merely filled territory
+ * (to capture dead stones), so it counts as the territory it stands on.
+ */
+export function fillStones(state) {
+  const fill = state?.fill;
+  if (!Array.isArray(fill) || fill.length !== state.board.length) return [];
+  const dead = new Set(state.dead);
+  const isFill = i => !state.board[i] && (fill[i] === BLACK || fill[i] === WHITE);
+  const board = state.board.map((stone, i) => dead.has(i) ? 0 : isFill(i) ? fill[i] : stone);
+  const owner = Array(board.length).fill(0), size = sizeOf(board), kept = [];
+  for (const region of emptyRegions(board)) for (const p of region.points) owner[p] = region.owner;
+  for (let i = 0; i < board.length; i++) {
+    if (!isFill(i)) continue;
+    const color = fill[i];
+    if (!neighbors(i, size).every(n => board[n] === color || !board[n] && owner[n] === color))
+      kept.push({ position: i, color });
+  }
+  return kept;
+}
+/** The board the count is made on: dead stones off, the kept fill stones on. */
+export function countingBoard(state) {
+  const dead = new Set(state.dead), board = state.board.map((stone, i) => dead.has(i) ? 0 : stone);
+  for (const { position, color } of fillStones(state)) board[position] = color;
+  return board;
 }
 /** The final score under the game's ruleset (area or territory). */
 export function areaScore(state) {
   return isJapanese(state) ? territoryScore(state) : chineseAreaScore(state);
 }
 function chineseAreaScore(state) {
-  const board = [...state.board];
-  for (const n of state.dead) board[n] = 0;
+  const board = countingBoard(state);
   const size = sizeOf(board), owned = Array(board.length).fill(0);
   let black = 0, white = whiteCompensation(state);
   for (let i = 0; i < board.length; i++) {
@@ -263,7 +303,7 @@ function libertiesAfter(board, point, color) {
  * own group in atari (or with no liberty), so neither side can fill it.
  */
 export function sekiStones(state) {
-  const board = state.board.map((stone, i) => state.dead.includes(i) ? 0 : stone);
+  const board = countingBoard(state);
   const size = sizeOf(board), seki = new Set();
   for (let p = 0; p < board.length; p++) {
     if (board[p]) continue;
@@ -285,7 +325,7 @@ export function sekiStones(state) {
  */
 export function territoryScore(state) {
   const dead = new Set(state.dead);
-  const board = state.board.map((stone, i) => dead.has(i) ? 0 : stone);
+  const board = countingBoard(state);
   const seki = new Set(sekiStones(state)), size = sizeOf(board);
   const owned = board.map(stone => stone);
   const territory = { black: 0, white: 0 };

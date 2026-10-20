@@ -1,4 +1,15 @@
-import {BLACK,WHITE,areaScore,neighbors,sizeOf,komiOf,handicapBonusOf,isJapanese,scoringStepOf} from "./core.mjs";
+import {
+  BLACK,
+  WHITE,
+  areaScore,
+  countingBoard,
+  handicapBonusOf,
+  isJapanese,
+  komiOf,
+  neighbors,
+  scoringStepOf,
+  sizeOf,
+} from "./core.mjs";
 
 /** Outline colours of the filled-in prisoners, shared by the board and the アゲハマ counter. */
 export const PRISONER_OUTLINE=Object.freeze({black:"#e0a03a",white:"#3aaec4"});
@@ -7,12 +18,12 @@ import { TEXT } from "./texts.mjs";
 /** Area-scoring overlay: connected same-color groups AFTER adding owned
  * empty points as provisional stones. Labels count live stones AND area.
  * Dead stones are removed from the effective board, but are kept in the
- * original board for manual review until both players confirm.
+ * original board for manual review until both players confirm. The settle
+ * playout's kept fill stones count as stones.
  */
 export function scoringRegions(state, {prisonerPoints=null}={}) {
   const SIZE=sizeOf(state.board);
-  const dead=new Set(state.dead||[]);
-  const effective=state.board.map((stone,i)=>dead.has(i)?0:stone);
+  const effective=countingBoard(state);
   const owned=areaScore(state).owned;
   const filled=owned.map((owner)=>owner===BLACK||owner===WHITE?owner:0);
   const seen=new Set(),regions=[];
@@ -93,7 +104,7 @@ export function scoreRows(state) {
  */
 export function prisonerFill(state, {avoid=null}={}) {
   if(!prisonersFilled(state))return {black:[],white:[]};
-  const score=areaScore(state),size=sizeOf(state.board);
+  const score=areaScore(state),size=sizeOf(state.board),board=countingBoard(state);
   const regions=scoringRegions(state).regions;
   // The dead stones are off the board by now; kept playout stones stay clear.
   const free=i=>score.owned[i] && !avoid?.has(i);
@@ -102,7 +113,7 @@ export function prisonerFill(state, {avoid=null}={}) {
     // Largest territory first; each block grows from the region point farthest
     // from its count label, always next to points already filled.
     const own=regions.filter(r=>r.color===color)
-      .map(r=>r.positions.filter(i=>!state.board[i]||state.dead?.includes(i)).filter(free))
+      .map(r=>r.positions.filter(i=>!board[i]).filter(free))
       .filter(points=>points.length).sort((a,b)=>b.length-a.length);
     for(const points of own){
       if(placed.length>=count)break;
