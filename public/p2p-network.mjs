@@ -7,6 +7,7 @@ const SERVER_ERRORS={
   create_failed:TEXT.online.createFailed,
   room_gone:TEXT.online.roomGone,
   rate_limited:TEXT.online.rateLimited,
+  rooms_unavailable:TEXT.online.roomsUnavailable,
   invalid_invitation:TEXT.online.badInvite,
   session_expired:TEXT.online.sessionExpired,
 };
