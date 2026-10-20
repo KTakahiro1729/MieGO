@@ -307,10 +307,10 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       if(u<0 || u>1)continue;
       const [ax,ay]=xy(from),[bx,by]=xy(to), at=u*reach;
       ctx.globalAlpha=.75*Math.min(1,u*5,(1-u)*5+.4);
-      ctx.beginPath();ctx.arc(ax+(bx-ax)*at,ay+(by-ay)*at,gap*.05,0,Math.PI*2);
+      ctx.beginPath();ctx.arc(ax+(bx-ax)*at,ay+(by-ay)*at,gap*.09,0,Math.PI*2);
       const [cr,cg,cb]=tone[color], [or,og,ob]=tone[-color];
       ctx.fillStyle=`rgb(${cr},${cg},${cb})`;ctx.fill();
-      ctx.strokeStyle=`rgb(${or},${og},${ob})`;ctx.lineWidth=Math.max(1,gap*.02);ctx.stroke();
+      ctx.strokeStyle=`rgb(${or},${og},${ob})`;ctx.lineWidth=Math.max(1.5,gap*.03);ctx.stroke();
     }
     ctx.restore();
     if(frame===null)frame=requestFrame(()=>{frame=null;draw();});
