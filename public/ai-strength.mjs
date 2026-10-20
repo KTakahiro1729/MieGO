@@ -16,7 +16,7 @@ export const AI_STRENGTHS = Object.freeze({
   normal:{label:TEXT.ai.strengths.normal,kyu:12},
   strong:{label:TEXT.ai.strengths.strong,kyu:null}
 });
-export const DEFAULT_AI_STRENGTH = "easy";
+export const DEFAULT_AI_STRENGTH = "beginner";
 // How far below the best drawn move (in policy logits) a weakened level may
 // go for a move its style prefers.
 export const STYLE_SLACK = 3;

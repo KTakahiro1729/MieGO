@@ -83,6 +83,12 @@ import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { createShareImages, downloadBlob } from "./share-images.mjs";
 import { OwnershipStore } from "./ownership-store.mjs";
 import { replayLine, prefetchOrder } from "./ownership-prefetch.mjs";
+import {
+  leadSeries,
+  scoreGraphSvg,
+  stepAt,
+  swingSteps,
+} from "./score-graph.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
@@ -479,8 +485,8 @@ function syncStepSlider(id) {
 // Invasion and reinforcement have three stops; older saves with any 0-100 value snap to the nearest.
 const personaStep=value=>Math.round(Math.max(0,Math.min(100,Number(value??50)||0))/50)*50;
 const personaLabel=value=>value<50?TEXT.ai.persona.low:value>50?TEXT.ai.persona.high:TEXT.ai.persona.mid;
-// The sheet's sliders set the COM opponent. With two COMs, 「AIの強さ」 is greyed
-// out and 詳細設定 holds a card of choices, strength included, for each colour's COM.
+// The sheet's sliders set the COM opponent. With two COMs, the strength choices are
+// greyed out and 「COMの打ち方」 holds a card of choices, strength included, for each colour's COM.
 // The sheet's side choice follows a watched game, so the choices always set
 // what the next game, and a running one, use.
 const editsWatchAi = () => aiSideChoice==="watch";
@@ -869,7 +875,7 @@ function handleAnalysis(event) {
   if(prefetch?.inflight && result.id===prefetch.inflight.id) {
     const state=prefetch.states[prefetch.inflight.step];
     prefetch.inflight=null;
-    if(validFor(state))keepReviewOwnership(prefetch,state.board,result.ownership);
+    if(validFor(state)){keepReviewOwnership(prefetch,state.board,result.ownership);renderScoreGraph();}
     else prefetch=null; // A failing estimate is not retried in the background.
     return;
   }
@@ -877,7 +883,7 @@ function handleAnalysis(event) {
     const state=boardReview.preview||boardReview.display;
     if(validFor(state)) {
       boardReview.ownership=result.ownership;
-      if(!boardReview.preview)keepReviewOwnership(reviewOwner(),state.board,result.ownership);
+      if(!boardReview.preview){keepReviewOwnership(reviewOwner(),state.board,result.ownership);renderScoreGraph();}
       draw();
     }
     return;
@@ -1762,7 +1768,7 @@ function openPanel(kind) {
   const panel=kind==="settings"?$("settingsPanel"):kind==="share"?$("sharePanel"):$("modePanel");
   panel.querySelector(".settings-head .icon-button").focus();
 }
-// Every mode's start button reads the same: 設定して再戦 while that mode's game is on the board.
+// Every mode's start button reads the same: 新しい対局を始める while that mode's game is on the board.
 function syncStartButtons() {
   // The 五目並べ computer needs no KataGo, so it can start at once.
   const needsKatago=continueFrom?!isGomoku(continueFrom.line):gameRules!=="gomoku";
@@ -1774,9 +1780,9 @@ function syncStartButtons() {
   keepArmedLabel($("startLocal"));
 }
 function startLabel(kind){return continueFrom?TEXT.review.continue:!room && gameMode===kind?TEXT.ai.restart:TEXT.newGame.start;}
-// 盤, ルール, 自分の石 and AIの強さ are one row of underlined tabs; the selected
+// 自分の石, AIの強さ, 盤 and ルール are one row of underlined tabs, the colour first; the selected
 // tab's choices fill the one panel under it, one per line with a note beside it.
-const SETUP_TABS=["Board","Rules","Side","Strength"];
+const SETUP_TABS=["Side","Strength","Board","Rules"];
 function selectSetupTab(key, focus=false) {
   for(const other of SETUP_TABS){
     const tab=$("setupTab"+other),selected=other===key;
@@ -1797,9 +1803,24 @@ SETUP_TABS.forEach((key,index)=>{
 function syncSetupValues() {
   const kind=newGameModeKind();
   $("setupTabSide").classList.toggle("is-unused",kind==="local");
-  $("setupTabStrength").classList.toggle("is-unused",kind!=="ai" || editsWatchAi());
+  // While watching, the tab still holds each COM's card.
+  $("setupTabStrength").classList.toggle("is-unused",kind!=="ai");
   $("sideNote").textContent=kind==="local"?TEXT.newGame.sideNotes.local:"";
+  syncSetupTabValues();
 }
+// Each tab shows its chosen value under its name, so the game to start reads without opening every tab.
+function syncSetupTabValues() {
+  for(const key of SETUP_TABS){
+    const tab=$("setupTab"+key),panel=$("setupPanel"+key);
+    // 自分の石 holds a row for 対COM and one for 対友人; the shown one counts.
+    const checked=[...panel.querySelectorAll("input:checked")].find(input=>input.closest("[hidden]")===panel || !panel.contains(input.closest("[hidden]")));
+    // ここから打つ fixes 盤 and ルール to the record's, so those still show the value.
+    const fixed=continueFrom && (key==="Board" || key==="Rules");
+    $("setupValue"+key).textContent=key==="Strength" && editsWatchAi() && !tab.classList.contains("is-unused")?TEXT.newGame.watchStrengthValue:
+      !checked || tab.classList.contains("is-unused") && !fixed?"—":checked.nextElementSibling.textContent.trim();
+  }
+}
+$("newGameSetup").addEventListener("change",syncSetupTabValues);
 // The 新規対戦 sheet shows the same rows in every mode, so its height stays put;
 // a row the chosen mode does not use is greyed out.
 function showNewGameMode(kind) {
@@ -1884,14 +1905,6 @@ function selectVariationLine(){
   boardReview.display=replaySteps(line,boardReview.step);
   reviewFeedback("");show();requestReviewOwnership();
 }
-function previewReviewPass(){
-  if(!boardReview)return;
-  try{
-    boardReview.preview=proposeReviewStone(boardReview,game,null);
-    boardReview.previewPosition=null;
-    reviewFeedback(TEXT.review.passPreview);show();requestReviewOwnership();
-  }catch(error){reviewFeedback(messageFor(error,TEXT.common.retry));}
-}
 function saveReviewVariation(){
   if(!boardReview?.variation)return;
   try{
@@ -1915,14 +1928,13 @@ function renderBoardReview() {
   $("stepBack").disabled=step===0 || isPreview;
   $("stepForward").disabled=step>=count || isPreview;
   $("reviewStepRange").disabled=isPreview;
+  renderScoreGraph();
   // One way back: at the live game's latest move 続きを打つ already returns to it.
   $("reviewBack").hidden=isPreview || atLiveLatest();
   $("reviewPlayActions").hidden=!isPreview;
   $("reviewConfirmStone").classList.toggle("white",boardReview.preview?.moves.at(-1)?.color===WHITE);
   $("reviewVariation").hidden=variationActive || !boardReview.variation;
   $("reviewSaveVariation").hidden=!boardReview.variation;
-  $("reviewPass").disabled=isPreview;
-  $("reviewPass").hidden=isGomoku(line); // 五目並べ has no pass.
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?TEXT.review.newMoves(updates):"";
@@ -1979,7 +1991,7 @@ function planPrefetch() {
 function pumpPrefetch() {
   if(!boardReview){prefetch=null;return;}
   if(!prefetch || prefetch.inflight || workerWaiting!==null || aiThinking ||
-     !katagoReady || fallbackMode || !overlayOn())return;
+     !katagoReady || fallbackMode || !(overlayOn() || scoreGraphShown()))return;
   while(prefetch.queue.length){
     const step=prefetch.queue.shift(),state=prefetch.states[step];
     if(!state || ownershipStore.recall(prefetch.gameId,state.board))continue;
@@ -1988,6 +2000,45 @@ function pumpPrefetch() {
     prefetch.inflight={id,step};
     return;
   }
+}
+// 形勢グラフ: Black's estimated lead at every step of the replayed line, drawn
+// where the step slider was. It fills in as KataGo estimates the positions.
+let scoreGraph=null;
+// No graph while stepping back through a game still being played: it would
+// tell the player who is ahead mid-game.
+const scoreGraphShown = () => !!boardReview && !isGomoku(boardReview.display) && !isFree(boardReview.display) &&
+  !(boardReview.source==="live" && game.status!=="finished");
+function renderScoreGraph() {
+  const box=$("reviewGraph"),shown=scoreGraphShown();
+  box.classList.toggle("no-graph",!shown);
+  if(!shown){$("reviewGraphPlot").innerHTML="";scoreGraph=null;return;}
+  const line=activeReviewSnapshot(boardReview,game);
+  if(scoreGraph?.line!==line){
+    let states=[];
+    try{states=replayLine(line);}catch{}
+    scoreGraph={line,states,marks:[]};
+  }
+  const {gameId}=reviewOwner();
+  // A line that ended early (a resignation) still spans every step.
+  const series=Array(line.moves.length+1).fill(null);
+  leadSeries(scoreGraph.states,state=>ownershipStore.recall(gameId,state.board))
+    .forEach((lead,step)=>{if(step<series.length)series[step]=lead;});
+  scoreGraph.marks=swingSteps(series,line.moves,{minSwing:Math.max(3,line.board.length/27)});
+  const width=Math.round(box.clientWidth),height=Math.round(box.clientHeight);
+  // Not laid out yet (the tools are still hidden): drawing at 1x1 would blow
+  // the marks up to the whole bar. The resize observer draws it once sized.
+  if(width<=0 || height<=0){$("reviewGraphPlot").innerHTML="";return;}
+  $("reviewGraphPlot").innerHTML=scoreGraphSvg(series,{width,height,step:boardReview.step,marks:scoreGraph.marks,stepLabel:TEXT.review.graphEnd});
+}
+// A tap near a marked turning point lands on it; otherwise on the nearest step.
+function pickGraphStep(event) {
+  if(!scoreGraphShown() || boardReview.preview)return;
+  const rect=$("reviewGraph").getBoundingClientRect();
+  const count=activeReviewSnapshot(boardReview,game).moves.length;
+  const x=event.clientX-rect.left;
+  const near=(scoreGraph?.marks||[]).find(step=>count && Math.abs(step/count*rect.width-x)<=10);
+  const step=near ?? stepAt(x,rect.width,count);
+  if(step!==boardReview.step)setBoardReviewStep(step);
 }
 function requestReviewOwnership() {
   if(!boardReview)return;
@@ -2105,6 +2156,7 @@ function syncContinueSheet(){
   }
   $("setupTabBoard").classList.toggle("is-unused",!!line);
   $("setupTabRules").classList.toggle("is-unused",!!line);
+  syncSetupTabValues();
   syncStartButtons();
 }
 function forkBoardReview(kind="local") {
@@ -2216,10 +2268,18 @@ $("stepBack").onclick=()=>{
 $("stepForward").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
 $("reviewBack").onclick=leaveBoardReview;
 $("reviewStepRange").oninput=e=>setBoardReviewStep(Number(e.target.value));
+$("reviewGraph").addEventListener("pointerdown",e=>{
+  if(!scoreGraphShown())return;
+  $("reviewGraph").setPointerCapture(e.pointerId);
+  pickGraphStep(e);
+});
+$("reviewGraph").addEventListener("pointermove",e=>{
+  if($("reviewGraph").hasPointerCapture(e.pointerId))pickGraphStep(e);
+});
+new ResizeObserver(()=>{if(boardReview)renderScoreGraph();}).observe($("reviewGraph"));
 $("reviewConfirm").onclick=confirmReviewPreview;
 $("reviewCancel").onclick=discardReviewPreview;
 $("reviewVariation").onclick=selectVariationLine;
-$("reviewPass").onclick=previewReviewPass;
 $("reviewSaveVariation").onclick=saveReviewVariation;
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && boardReview?.preview){discardReviewPreview();return;}
@@ -2444,7 +2504,7 @@ for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforceme
 // The strength bar's stops follow AI_STRENGTHS from weakest to strongest.
 function syncStrengthUi() {
   const two=editsWatchAi(),off=newGameModeKind()!=="ai" || two;
-  // Two COMs take their strengths from 詳細設定, and the panel says so.
+  // Two COMs take their strengths from 「COMの打ち方」, and the panel says so.
   const input=document.querySelector('input[name="aiStrength"][value="'+aiStrength+'"]');
   if(input)input.checked=true;
   $("aiStrengthChoices").disabled=off;
