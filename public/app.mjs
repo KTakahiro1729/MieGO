@@ -958,7 +958,7 @@ function show() {
     $("illegalPromptFallbackPanel").hidden=true;
   }
   $("actionRow").hidden=false;
-  $("reviewPanel").hidden=true;
+  $("reviewPanel").hidden=true;$("reviewTools").hidden=true;
   $("endgameBar").hidden=false;
   $("scoreBox").hidden=false;
   const myTurn=isHumanTurn();
@@ -1832,7 +1832,6 @@ function confirmReviewPreview(){
     boardReview.preview=null;boardReview.previewPosition=null;
     reviewFeedback("");
     $("reviewNotice").textContent=result.created?TEXT.review.variationCreated:"";
-    $("reviewMenu").open=false;
     show();requestReviewOwnership();
   }catch(error){reviewFeedback(messageFor(error,TEXT.common.retry));}
 }
@@ -1843,7 +1842,6 @@ function selectOriginalLine(){
   const original=boardReview.source==="live"?game:boardReview.snapshot;
   boardReview.step=Math.min(boardReview.step,original.moves.length);
   boardReview.display=replaySteps(original,boardReview.step);
-  $("reviewMenu").open=false;
   reviewFeedback("");show();requestReviewOwnership();
 }
 function selectVariationLine(){
@@ -1853,7 +1851,6 @@ function selectVariationLine(){
   const line=boardReview.variation.snapshot;
   boardReview.step=Math.min(boardReview.step,line.moves.length);
   boardReview.display=replaySteps(line,boardReview.step);
-  $("reviewMenu").open=false;
   reviewFeedback("");show();requestReviewOwnership();
 }
 function previewReviewPass(){
@@ -1861,7 +1858,6 @@ function previewReviewPass(){
   try{
     boardReview.preview=proposeReviewStone(boardReview,game,null);
     boardReview.previewPosition=null;
-    $("reviewMenu").open=false;
     reviewFeedback(TEXT.review.passPreview);show();requestReviewOwnership();
   }catch(error){reviewFeedback(messageFor(error,TEXT.common.retry));}
 }
@@ -1902,7 +1898,7 @@ function renderBoardReview() {
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?TEXT.review.newMoves(updates):"";
   // The way back: to the latest move, the original line, or the game.
-  $("reviewBack").firstChild.textContent=variationActive?TEXT.review.backOriginal:source==="live"?TEXT.review.backLatest:TEXT.review.backGame;
+  $("reviewBack").firstChild.textContent=variationActive?TEXT.review.backOriginal:TEXT.review.backGame;
   $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
   $("turn").classList.remove("no-stone");
   $("turn").textContent=isPreview?TEXT.review.trying(step+1):variationActive?TEXT.review.trying(step):TEXT.review.showing(step);
@@ -1910,12 +1906,12 @@ function renderBoardReview() {
   $("netStatus").textContent=source==="archive"?TEXT.game.savedGames:source==="url"?TEXT.review.sourceUrl:
     gameMode==="ai"?TEXT.common.modeAi:room?TEXT.review.sourceOnline:TEXT.common.modeLocal;
   // One primary slot: resume the saved game at its end, otherwise start from here.
-  $("reviewContinue").textContent=canResumeSelectedReview()?TEXT.review.resume:TEXT.review.continue;
+  $("reviewContinue").textContent=canResumeSelectedReview()||atLiveLatest()?TEXT.review.resume:TEXT.review.continue;
   $("reviewContinue").hidden=isPreview;
   $("actionRow").hidden=true;
   $("endgameBar").hidden=true;
   $("scoreBox").hidden=true;
-  $("reviewPanel").hidden=false;
+  $("reviewPanel").hidden=false;$("reviewTools").hidden=false;
   draw();
 }
 // A replayed position shows the same KataGo estimate as during play: the one
@@ -2010,10 +2006,6 @@ function setBoardReviewStep(step) {
   if(!boardReview)return;
   const snapshot=activeReviewSnapshot(boardReview,game);
   if(!Number.isInteger(step)||step<0||step>snapshot.moves.length)return;
-  if(boardReview.source==="live" && boardReview.activeLine!=="variation" &&
-    step===snapshot.moves.length){
-    leaveBoardReview();return;
-  }
   try{
     const display=replaySteps(snapshot,step);
     boardReview.display=display;boardReview.step=step;
@@ -2106,6 +2098,12 @@ async function copyShareUrl(ai) {
     await copyWithFallback(ai?makeAiHandoff(url):url,$("shareNotice"),$("shareCopyFallback"));
   }catch(error){$("shareNotice").textContent=messageFor(error,TEXT.share.urlFailed);}
 }
+// At the live game's latest move, continuing is just going back to the game.
+function atLiveLatest(){
+  const review=boardReview;
+  return !!(review?.source==="live" && review.activeLine!=="variation" &&
+    !review.preview && review.step===game.moves.length);
+}
 function canResumeSelectedReview(){
   const review=boardReview,record=review?.record;
   return !!(review?.source==="archive" && record &&
@@ -2171,9 +2169,8 @@ $("reviewPass").onclick=previewReviewPass;
 $("reviewSaveVariation").onclick=saveReviewVariation;
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && boardReview?.preview){discardReviewPreview();return;}
-  if(e.key==="Escape" && $("reviewMenu").open)$("reviewMenu").open=false;
 });
-$("reviewContinue").onclick=()=>canResumeSelectedReview()?resumeSelectedReview():openContinuePanel();
+$("reviewContinue").onclick=()=>canResumeSelectedReview()?resumeSelectedReview():atLiveLatest()?leaveBoardReview():openContinuePanel();
 for(const input of document.querySelectorAll('input[name="continueKind"]'))input.onchange=syncContinueSide;
 $("closeContinue").onclick=closePanels;
 $("startContinue").onclick=()=>forkBoardReview(continueChoice("continueKind")==="ai"?"ai":"local",
