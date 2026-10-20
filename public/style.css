@@ -229,7 +229,8 @@ body.board-zoomed .board-bleed{opacity:1}
 .setup-tab.is-unused{color:#5d6472}
 .setup-tab.is-unused[aria-selected="true"]{color:#8a8273;box-shadow:inset 0 -2px 0 #6b6352}
 .setup-panels{padding-top:12px}
-.setup-panel{min-height:220px}
+/* Every tab is as tall as the tallest (AIの強さ, five choices at 320px), so the sheet keeps its height. */
+.setup-panel{min-height:280px}
 .setup-panel[hidden]{display:none}
 /* Each tab lists its choices top to bottom, a button on the left and its note on the right. */
 .choice-list{display:grid;gap:6px;min-width:0;margin:0;padding:0;border:0}
