@@ -94,3 +94,7 @@ test("the KataGo worker's build is kept by browsers, and only under a content-ha
   for (const file of ["worker.mjs", "tfjs-backend-wasm.wasm", "tfjs-backend-wasm-simd.wasm"])
     assert.ok(existsSync(resolve(root, "public", path, file)), "Missing " + path + "/" + file);
 });
+test("Workers Builds puts back public/ files its build cache replaced before anything is built", () => {
+  const { scripts } = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+  for (const name of ["pretest", "predeploy"]) assert.match(scripts[name], /^node scripts\/restore-sources\.mjs && /);
+});
