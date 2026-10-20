@@ -2,7 +2,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { newGame, play, at, boardHash } from "../public/core.mjs";
-import { legalAiMoves, choosePolicyMove, canConsiderAiPass, scorePolicyCandidates, personalityFeatures } from "../public/ai-opponent.mjs";
+import {
+  answersPass,
+  canConsiderAiPass,
+  choosePolicyMove,
+  legalAiMoves,
+  personalityFeatures,
+  scorePolicyCandidates,
+} from "../public/ai-opponent.mjs";
 const logits=point=>{const a=Array(81).fill(-100);a[point]=100;return a;};
 test("KataGo policy selects legal moves and excludes occupied points",()=>{
   const g=newGame();
@@ -85,4 +92,16 @@ test("AI pass eligibility is the same on every board size",()=>{
     assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"playing",random:()=>.5}),0);
     assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"near",random:()=>.5}),null);
   }
+});
+
+test("after the other side passes, the AI passes back instead of playing on a settled point",()=>{
+  let state=play(newGame(),at(2,2));
+  state=play(state,null);
+  const ownership=Array(state.board.length).fill(0.9);
+  ownership[at(6,6)]=0.2;
+  assert.equal(answersPass(state,at(4,4),ownership,"ready"),true);
+  assert.equal(answersPass(state,at(6,6),ownership,"ready"),false,"an open point is still played");
+  assert.equal(answersPass(state,at(4,4),ownership,"playing"),false,"an unsettled board plays on");
+  assert.equal(answersPass(play(state,at(5,5)),at(4,4),ownership,"ready"),false,"only right after a pass");
+  assert.equal(answersPass(state,null,ownership,"ready"),false);
 });

@@ -1,8 +1,9 @@
 
-import {play} from "./core.mjs";
+import {isJapanese,play} from "./core.mjs";
 import {personalityFeatures,stanceOf,STYLE_AXES,styleSignal} from "./ai-personality.mjs";
 import {clamp,samplePolicyCandidate} from "./ai-policy-sampling.mjs";
 import {AI_STRENGTHS,pickWeakenedMove} from "./ai-strength.mjs";
+import {OWNERSHIP_BANDS} from "./territory-view.mjs";
 export {personalityFeatures,STYLE_AXES} from "./ai-personality.mjs";
 
 const bounded = v => clamp(Number(v) || 0, 0, 100);
@@ -46,7 +47,24 @@ export function scorePolicyCandidates(state, logits, ownership, options={}) {
 export function canConsiderAiPass(stage="playing") {
   return stage==="near" || stage==="ready";
 }
+/** After the other side passed on a settled board, a move on a point KataGo
+ * already gives to one side (inside either area, or taking stones it calls
+ * dead) cannot change the result: the count settles those stones the same
+ * way (area scoring). Like a person, the AI passes back instead of playing them out; a
+ * point still open (a dame, an unclosed border) is still played.
+ */
+export function answersPass(state, position, ownership, stage) {
+  // Under Japanese rules the AI already passes back: each move there costs a point.
+  if(position===null || isJapanese(state) || !canConsiderAiPass(stage) ||
+    state.moves.at(-1)?.position!==null)return false;
+  if(!Array.isArray(ownership) || !Number.isFinite(ownership[position]))return false;
+  return Math.abs(ownership[position])>=OWNERSHIP_BANDS.SETTLED;
+}
 export function choosePolicyMove(state, logits, passLogit, options={}) {
+  const position=pickPolicyMove(state,logits,passLogit,options);
+  return answersPass(state,position,options.ownership,options.endgameStage) ? null : position;
+}
+function pickPolicyMove(state, logits, passLogit, options) {
   const weakened=Number.isFinite(AI_STRENGTHS[options.strength]?.kyu);
   const candidates=scorePolicyCandidates(state,logits,options.ownership,
     {...options,allMoves:weakened});
