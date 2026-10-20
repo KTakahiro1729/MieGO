@@ -126,5 +126,5 @@ test("ownership is kept per game and position as signed bytes",()=>{
 test("committed positions keep the ownership shown, and animation frames use it",()=>{
   const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
   assert.match(app,/context\.hash===boardHash\(game\.board\)\)\s*rememberOwnership\(game\.board,result\.ownership\)/);
-  assert.match(app,/ownershipStore\.recall\(gameId,state\.board\) \?\? influence\(state\.board\)/);
+  assert.match(readFileSync(new URL("../public/share-images.mjs",import.meta.url),"utf8"),/ownershipStore\.recall\(gameId,state\.board\) \?\? influence\(state\.board\)/);
 });

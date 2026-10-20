@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {TEXT} from "../public/texts.mjs";
 const get=name=>readFileSync(new URL("../public/"+name,import.meta.url),"utf8");
-const html=get("index.html"),app=get("app.mjs"),css=get("style.css");
+const html=get("index.html"),app=get("app.mjs"),css=get("style.css"),retap=get("confirm-retap.mjs");
 
 test("buttons draw colours from the four shared kinds, not per-button overrides",()=>{
   for(const kind of [".secondary{",".accent-outline{",".danger-armed{"])assert.ok(css.includes(kind),kind);
@@ -15,8 +15,8 @@ test("buttons draw colours from the four shared kinds, not per-button overrides"
 });
 
 test("an armed button is marked by a class, not by its aria-label text",()=>{
-  assert.match(app,/button\.classList\.add\("danger-armed"\)/);
-  assert.match(app,/armedConfirm\.button\.classList\.remove\("danger-armed"\)/);
+  assert.match(retap,/button\.classList\.add\("danger-armed"\)/);
+  assert.match(retap,/armedConfirm\.button\.classList\.remove\("danger-armed"\)/);
   assert.doesNotMatch(css,/aria-label\^=/);
 });
 

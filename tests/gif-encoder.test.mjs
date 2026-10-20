@@ -107,7 +107,7 @@ test("colours missing from the palette sources map to the nearest entry",()=>{
 });
 
 test("the share sheet makes a still PNG or a game GIF and shares or saves it",()=>{
-  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+  const app=readFileSync(new URL("../public/share-images.mjs",import.meta.url),"utf8");
   assert.match(app,/\$\("shareImage"\)\.onclick=\(\)=>void shareImage\(\)/);
   assert.match(app,/target\.toBlob\([^)]*\)[^;]*"image\/png"/);
   assert.match(app,/buildGameAnimation\(/);

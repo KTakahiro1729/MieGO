@@ -23,6 +23,11 @@ jobs:
           node --check public/p2p-session.mjs
           node --check public/p2p-transport.mjs
           node --check public/app.mjs
+          node --check public/appearance-settings.mjs
+          node --check public/help-sheet.mjs
+          node --check public/share-images.mjs
+          node --check public/confirm-retap.mjs
+          node --check public/clipboard.mjs
           node --check public/texts.mjs
           node --check public/board-renderer.mjs
           node --check public/history-panel.mjs

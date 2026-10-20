@@ -4,7 +4,7 @@ import {readFileSync} from "node:fs";
 import {newGame,play} from "../public/core.mjs";
 import {makeRulesPrompt,makePositionPrompt} from "../public/beginner-prompts.mjs";
 const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
-const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+const help=readFileSync(new URL("../public/help-sheet.mjs",import.meta.url),"utf8");
 
 test("the rules question says the asker is a beginner and names this game's rules",()=>{
   const text=makeRulesPrompt(newGame(true,{size:13}));
@@ -39,9 +39,9 @@ test("the help sheet opens with the beginner questions and falls back to manual 
   assert.ok(sheet.indexOf('id="help-beginner"')<sheet.indexOf('id="help-basics"'));
   assert.match(sheet,/id="copyRulesPrompt"[^>]*>ルールの質問をコピー<\/button>/);
   assert.match(sheet,/id="copyPositionPrompt"[^>]*>今の局面の質問をコピー<\/button>/);
-  assert.match(app,/\$\("copyRulesPrompt"\)\.onclick=\(\)=>void copyBeginnerPrompt\(makeRulesPrompt\)/);
-  assert.match(app,/\$\("copyPositionPrompt"\)\.onclick=\(\)=>void copyBeginnerPrompt\(makePositionPrompt\)/);
+  assert.match(help,/\$\("copyRulesPrompt"\)\.onclick=\(\)=>void copyBeginnerPrompt\(makeRulesPrompt\)/);
+  assert.match(help,/\$\("copyPositionPrompt"\)\.onclick=\(\)=>void copyBeginnerPrompt\(makePositionPrompt\)/);
   // The live game is described, built with the same SGF URL as the forbidden-move question.
-  assert.match(app,/link=makeReviewUrl\(location\.origin,\{snapshot:game\},game\.moves\.length\)/);
-  assert.match(app,/await copyWithFallback\(question,status,area,/);
+  assert.match(help,/link=makeReviewUrl\(location\.origin,\{snapshot:getGame\(\)\},getGame\(\)\.moves\.length\)/);
+  assert.match(help,/await copyWithFallback\(question,status,area,/);
 });

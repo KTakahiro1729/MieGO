@@ -307,6 +307,7 @@ SGF入力は**9路・13路・19路盤（`SZ`必須）・SGF FF[4]・交互着手
 ### 共同開発時のファイル責務
 
 - `public/app.mjs`：盤面・採点・履歴の画面連携。囲碁のルールやP2P通信そのものは持たない。
+- `public/appearance-settings.mjs`・`help-sheet.mjs`・`share-images.mjs`・`confirm-retap.mjs`・`clipboard.mjs`：設定シートの碁盤と地合いの表示、ヘルプ、共有画像、二度押し確認、コピー処理。`app.mjs` から状態を読む関数を受け取り、対局の状態は持たない。
 - `public/p2p-transport.mjs`：Turnstile通過後のAPI通信、WebSocketシグナリング、WebRTC接続・切断・リトライ。盤面のルールは知らない。
 - `public/p2p-session.mjs`：参加URL・色の決定、`localStorage`チェックポイント、履歴の衝突検出。
 - `src/worker.mjs`：Turnstile検証、入室権限、WebSocket中継。盤面や棋譜は保存しない。
@@ -322,7 +323,7 @@ SGF入力は**9路・13路・19路盤（`SZ`必須）・SGF FF[4]・交互着手
 
 **「AI向けにコピー」**では、そのURLとURLの読み方・生成方法を簡潔に説明する文章、選択手数の●○・による座標ラベルなし文字図（盤の大きさと同じ行数・列数）、公開仕様書`/ai.md`へのリンクをコピーします。SGF本文の別貼り付けは不要です。ユーザーが自分の好きな生成AIに貼り付け、自由に質問し、別タブのMieGOでAIの説明に沿って局面を行き来できます。AIも同形式のURLを生成できます。サイトに`/llms.txt`と`/skills/miego/SKILL.md`も公開します。AIがURLを読めない場合は、別途本文を貼る仕組みや自動互換処理は設けません。
 
-見出しの「?」から開くヘルプシートの「初心者の方へ」では、**ルールの質問**と**今の局面の質問**（進行中の対局の棋譜URL・手番・同じ文字図）をコピーできます。AIには場所を「上から○行目・左から○列目」で答えるよう頼みます。禁止手の質問・AI向けコピーと同じく、棋譜URLの検査（`sgf-link.mjs`の`shareableReviewUrl`）、文字図の並び（`board-text.mjs`の`formatBoardSection`）、クリップボードと手動コピーの処理（`app.mjs`の`copyWithFallback`）を共有します。
+見出しの「?」から開くヘルプシートの「初心者の方へ」では、**ルールの質問**と**今の局面の質問**（進行中の対局の棋譜URL・手番・同じ文字図）をコピーできます。AIには場所を「上から○行目・左から○列目」で答えるよう頼みます。禁止手の質問・AI向けコピーと同じく、棋譜URLの検査（`sgf-link.mjs`の`shareableReviewUrl`）、文字図の並び（`board-text.mjs`の`formatBoardSection`）、クリップボードと手動コピーの処理（`clipboard.mjs`の`copyWithFallback`）を共有します。
 
 共有URLは約8KBを上限とします。個人情報を含む棋譜を公開しないでください。SGFクエリ文字列はHTTPリクエストにも含まれます。MieGOから外部AIへの通信や生成AIの組み込みは行いません。友人招待`?room=`と併記された場合は招待を優先します。
 
