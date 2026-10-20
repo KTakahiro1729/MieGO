@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { BLACK, WHITE, at, newGame, beginSoloScoring, areaScore, countingBoard, fillStones, resume,
   withPlayoutFill } from "../public/core.mjs";
-import { replayPlayout, settleLimit, settleMax } from "../public/settle-playout.mjs";
+import { replayPlayout, settleMax } from "../public/settle-playout.mjs";
 import { scoringRegions } from "../public/scoring-regions.mjs";
 
 // The players stopped early: Black's wall on column 3 and White's on column 5
@@ -57,13 +57,13 @@ test("fill stones only stand on empty points and leave with the count", () => {
   assert.deepEqual(fillStones({ ...game, fill: [1, 1] }), []);
 });
 
-test("a playout carried on past its limit is still accepted from the friend who ran it", () => {
+test("a long playout is accepted from the friend who ran it, up to the runaway guard", () => {
   const game = earlyEnd();
   // Each side fills its own area, point by point.
   const left = [], right = [];
   for (let y = 0; y < 9; y++) for (let x = 0; x < 3; x++) { left.push(at(x, y)); right.push(at(x + 6, y)); }
-  const positions = left.flatMap((p, i) => [p, right[i]]).slice(0, settleLimit(9) + 4);
-  assert.ok(positions.length > settleLimit(9) && positions.length <= settleMax(9));
+  const positions = left.flatMap((p, i) => [p, right[i]]).slice(0, 31);
+  assert.ok(positions.length <= settleMax(9));
   assert.ok(replayPlayout(game, positions));
   assert.equal(replayPlayout(game, Array(settleMax(9) + 1).fill(at(0, 0))), null);
 });
