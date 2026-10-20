@@ -9,6 +9,10 @@
   --accent-edge:#8a704c;--accent-text:#f2d9a5;
   --danger-bg:#58392f;--danger-edge:#bb795b;--danger-text:#ffe0c5;
   --control-h:44px;--action-h:55px;--action-pad-top:4px;--radius:13px;--radius-sm:10px;
+  /* Motion tokens (see "Motion" at the end): things arrive decelerating and leave
+     accelerating, and leaving is quicker than arriving. */
+  --ease-in:cubic-bezier(.3,0,.8,.15);--ease-out:cubic-bezier(.05,.7,.1,1);
+  --t-press:100ms;--t-leave:150ms;--t-enter:250ms;
 }
 *{box-sizing:border-box}
 html{min-height:100%;background:#0d1018}
@@ -389,6 +393,8 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .com-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;margin-top:12px}
 /* A watched COM's カスタム rows join its card's grid. */
 .com-custom{display:contents}
+/* On a phone, a card's label column leaves 勢力を作る too little room, so its rows put the label above. */
+@media(max-width:400px){.com-custom>.com-label,.com-custom>.com-choices{grid-column:1/-1}}
 /* Five strengths only fit a phone's width on a row of their own, under their label. */
 .com-strength{grid-column:1/-1}
 @media(max-width:700px){.header-actions{gap:6px}.new-game-button{padding:8px 12px;font-size:12px}}
@@ -795,3 +801,41 @@ body{overflow:hidden}
 .info-panel{box-sizing:border-box;height:114px}
 .action-row,.review-panel{box-sizing:border-box;
   height:calc(var(--action-h) + var(--action-pad-top) + max(6px,env(safe-area-inset-bottom)))}
+
+/* Motion: only where it shows where something came from or went, or that a tap
+   took. prefers-reduced-motion turns all of it off (the rule after the 700px block). */
+/* Sheets rise from the bottom edge on a phone and drop from the header on wider
+   screens; closing fades them out quicker. The backdrop only fades. */
+.settings-panel:not([hidden]){animation:sheet-in var(--t-enter) var(--ease-out)}
+.settings-backdrop:not([hidden]){animation:fade-in var(--t-enter) var(--ease-out)}
+.settings-panel,.settings-backdrop{transition:opacity var(--t-leave) var(--ease-in),translate var(--t-leave) var(--ease-in),display var(--t-leave) allow-discrete}
+.settings-panel[hidden],.settings-backdrop[hidden]{display:none;opacity:0;pointer-events:none}
+.settings-panel[hidden]{translate:0 -8px}
+@keyframes sheet-in{from{opacity:0;translate:0 -8px}}
+@keyframes fade-in{from{opacity:0}}
+@media(max-width:700px){
+  .settings-panel:not([hidden]){animation-name:sheet-up}
+  .settings-panel[hidden]{translate:0 24px}
+}
+@keyframes sheet-up{from{opacity:0;translate:0 48px}}
+/* Notices drop in under the header. */
+.save-status:not([hidden]){animation:sheet-in var(--t-enter) var(--ease-out)}
+/* A pressed button lightens at once and settles back when let go. */
+button{transition:filter var(--t-leave) var(--ease-in)}
+button:active:not(:disabled),.fused>label:active>span{filter:brightness(1.18);transition:none}
+/* Changing カスタム's colours: the 設定 sheet morphs between whole and just the
+   swatches (a view transition, where the browser has them), while the rest of
+   the page cross-fades as the dimming comes off. */
+#settingsPanel{view-transition-name:settings-sheet}
+::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation-duration:var(--t-enter);animation-timing-function:var(--ease-out)}
+::view-transition-group(settings-sheet){overflow:clip;border-radius:19px}
+@media(max-width:700px){::view-transition-group(settings-sheet){border-radius:20px 20px 0 0}}
+/* The old contents leave first, so the two never read as one jumble. */
+::view-transition-old(settings-sheet){animation-duration:var(--t-press);animation-timing-function:var(--ease-in)}
+/* An opened topic slides open from its heading, where the browser can size to content. */
+@supports(interpolate-size:allow-keywords){
+  .info-disclosure{interpolate-size:allow-keywords}
+  .info-disclosure::details-content{block-size:0;overflow:clip;transition:block-size var(--t-leave) var(--ease-in),content-visibility var(--t-leave) allow-discrete}
+  .info-disclosure[open]::details-content{block-size:auto;transition-duration:var(--t-enter);transition-timing-function:var(--ease-out)}
+}
+@media(prefers-reduced-motion:reduce){.info-disclosure::details-content{transition:none!important}}

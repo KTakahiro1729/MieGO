@@ -290,17 +290,6 @@ export const TEXT = {
       strong: "手加減なし。KataGoの候補手どおりに打ちます。",
       strongest: "対局を始めると、強いKataGo（約100MB）を読み込みます。",
     },
-    persona: { low: "控える", mid: "ふつう", high: "重視" },
-    invasionNotes: {
-      low: "相手が囲いそうな場所へ入る手を控えます。",
-      mid: "侵入を特に好みも避けもしません。",
-      high: "相手が囲いそうな場所へ積極的に入ります。",
-    },
-    reinforcementNotes: {
-      low: "自分の石を補強する手を控えます。",
-      mid: "補強を特に好みも避けもしません。",
-      high: "自分の石の補強や守りを優先します。",
-    },
     // A character's note fits one line at 360px; the help says more.
     characters: {
       chick: { name: "ひよこ", note: "囲碁をはじめたばかり。よく見落とします。" },
@@ -312,19 +301,19 @@ export const TEXT = {
       master: { name: "名人", note: "大きいKataGo（約100MB）で全力で打ちます。" },
       custom: { name: "カスタム", note: "強さと打ち方を自分で選びます。" },
     },
-    stanceStops: { low: "守る", mid: "ふつう", high: "攻める" },
+    stanceStops: { low: "守る", mid: "ふつう", high: "攻め込む" },
     stanceNotes: {
-      low: "自分の弱い石を補強し、相手の石を攻める手は控えます。",
+      low: "自分の弱い石を補強し、相手の地に入る手や石を攻める手は控えます。",
       mid: "攻めも守りも特に好みません。",
-      high: "相手の石の呼吸点を減らし、切って攻めます。守りは後回し。",
+      high: "相手の地に入り、石の呼吸点を減らして攻めます。守りは後回し。",
     },
-    heightStops: { low: "低い", mid: "ふつう", high: "高い" },
+    heightStops: { low: "地を取る", mid: "ふつう", high: "勢力を作る" },
     heightNotes: {
       low: "序盤に2〜3線の低い手で地を取ります。",
       mid: "高さを特に気にしません。",
       high: "序盤に4線より内側の高い手で勢力を作ります。",
     },
-    tenukiStops: { low: "近く", mid: "ふつう", high: "遠く" },
+    tenukiStops: { low: "応じる", mid: "ふつう", high: "手を抜く" },
     tenukiNotes: {
       low: "相手が打った手の近くで応じます。",
       mid: "応じるか離れるかを特に好みません。",
@@ -338,7 +327,7 @@ export const TEXT = {
     strongestReading: "最強のKataGoが悩んでいます…",
     strongestFailed: "最強のKataGoを読み込めなかったため、小さいKataGoで打っています。",
     playingStrongest: depth => "強さ「最強」（大きいKataGo・" + (depth ? "形勢が悪いので" + depth + "手読み" : "読みなし") + "）で対局中",
-    // The COM's strength and the axes it leans on, e.g. 強さ「やさしい」・侵入度「重視」・高さ「低い」.
+    // The COM's strength and the axes it leans on, e.g. 強さ「やさしい」・戦い方「攻め込む」・序盤「地を取る」.
     comSummary: (strength, leans) => ["強さ「" + strength + "」",
       ...leans.map(([name, value]) => name + "「" + value + "」")].join("・"),
     playingWith: (character, summary) => "「" + character + "」と対局中（" + summary + "・探索なし）",
@@ -359,11 +348,10 @@ export const TEXT = {
     characterShort: "キャラ",
     strengthLabel: "COMのキャラ",
     strengthShort: "強さ",
-    height: "高さ",
-    invasion: "侵入度",
+    height: "序盤",
     reinforcement: "補強度",
-    stance: "攻守",
-    tenuki: "応じ方",
+    stance: "戦い方",
+    tenuki: "相手の手に",
   },
 
   handicap: {
@@ -803,8 +791,8 @@ export const TEXT = {
         "初回はAIの準備に時間がかかります。",
         "「COMのキャラ」タブで相手を選びます。キャラごとに強さ（はじめて／やさしい／ふつう／つよい／最強）と打ち方の好みが決まっています。強さは段級位とは対応していません。",
         "「最強」の名人は、対局を始めたときに強いKataGo（約100MB、9路は9路専用のもの）を読み込みます。ふだんは読まずにKataGoが一番よいとする手を打ち、形勢が悪いときだけ読みます。2目以上負けているなら候補手を8手打ってみて、6目以上なら上位5手それぞれに相手の応手3手まで読んで、目数差が一番よくなる手を選びます。打ち方の好みは使いません。",
-        "打ち方の好みは4つです。侵入度は相手の地に入るか、攻守は相手の石を攻めるか自分の石を守るか、高さは序盤に低く地を取るか高く勢力を作るか、応じ方は相手の手の近くで応じるか離れて打つかです。キャラは読みをせず、KataGoの候補のうち好みに合う手を少し選びやすくするだけなので、違いは手の2〜3割に出ます。",
-        "「カスタム」を選ぶと、強さと4つの好みを自分で決められます。",
+        "打ち方の好みは3つです。「戦い方」は、相手の地に入って石を攻め込むか、自分の石を守るか。「序盤」は、2〜3線で地を取るか、4線から上で勢力を作るか。「相手の手に」は、そのすぐ近くで応じるか、手を抜いて離れた場所に打つかです。キャラは読みをせず、KataGoの候補のうち好みに合う手を少し選びやすくするだけなので、違いは手の2〜3割に出ます。",
+        "「カスタム」を選ぶと、強さと3つの好みを自分で決められます。",
         "「新規対戦」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。黒と白それぞれのCOMのキャラは「COMのキャラ」タブで決めます。手の間に置く間は「時間」タブの「観戦の速さ」で決め、「一時停止」でいつでも止められ、◁でさかのぼると一時停止して形勢グラフを見られます。「介入する」を押してから盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。",
       ],
     },
@@ -832,7 +820,7 @@ export const TEXT = {
     },
     about: {
       summary: "このアプリについて",
-      body: '形勢の推定と対COMに <a href="https://github.com/lightvector/KataGo" target="_blank" rel="noopener noreferrer">KataGo</a> を、ブラウザでの実行に <a href="https://github.com/Sir-Teo/web-katrain" target="_blank" rel="noopener noreferrer">Web KaTrain</a> の推論モジュールを使っています。',
+      body: '形勢の推定と対COMに <a href="https://github.com/lightvector/KataGo" target="_blank" rel="noopener noreferrer">KataGo</a> を、ブラウザでの実行に <a href="https://github.com/Sir-Teo/web-katrain" target="_blank" rel="noopener noreferrer">Web KaTrain</a> の推論モジュールを使っています。MieGO は MIT ライセンスで <a href="https://github.com/KTakahiro1729/MieGO" target="_blank" rel="noopener noreferrer">GitHub</a> に公開しています。使っているソフトウェアとAIのライセンスは <a href="/licenses.txt" target="_blank" rel="noopener">licenses.txt</a> にあります。',
     },
   },
 };

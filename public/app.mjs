@@ -625,7 +625,6 @@ const COM_SLOTS = {Black:"black", White:"white"};
 // Each value a カスタム COM sets, by the name suffix of its choices.
 const COM_FIELDS = {
   Height:"height",
-  Invasion:"invasion",
   Stance:"stance",
   Strength:"strength",
   Tenuki:"tenuki",

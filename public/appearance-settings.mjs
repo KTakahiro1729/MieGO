@@ -45,7 +45,7 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
       const wasOn=overlayOn();
       palette=isPaletteChoice(e.target.value)?e.target.value:DEFAULT_PALETTE;
       store("miego-palette",palette);
-      setEditing(palette===PALETTE_CUSTOM?"palette":null);
+      morphEditing(palette===PALETTE_CUSTOM?"palette":null);
       fillColourInputs();updateGradient();show();
       if(wasOn!==overlayOn())onOverlayOn();
     };
@@ -55,7 +55,7 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
       if (!e.target.checked) return;
       boardTheme=isBoardTheme(e.target.value)?e.target.value:DEFAULT_BOARD_THEME;
       store("miego-board",boardTheme);
-      setEditing(boardTheme===BOARD_CUSTOM?"board":null);
+      morphEditing(boardTheme===BOARD_CUSTOM?"board":null);
       updateGradient();draw();
     };
   });
@@ -75,9 +75,16 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     $("editBoardColours").hidden=!!which || boardTheme!==BOARD_CUSTOM;
     $("editPaletteColours").hidden=!!which || palette!==PALETTE_CUSTOM;
   }
-  $("editBoardColours").onclick=()=>setEditing("board");
-  $("editPaletteColours").onclick=()=>setEditing("palette");
-  for(const id of Object.values(editGroups))$(id).querySelector?.("[data-done]")?.addEventListener("click",()=>setEditing(null));
+  // Tapped into or out of: the sheet shrinks to the swatches (or grows back)
+  // as one shape, so it reads as the same sheet. Still where motion is reduced.
+  function morphEditing(which){
+    const still=globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if(which===editing || still || !document.startViewTransition)setEditing(which);
+    else document.startViewTransition(()=>setEditing(which));
+  }
+  $("editBoardColours").onclick=()=>morphEditing("board");
+  $("editPaletteColours").onclick=()=>morphEditing("palette");
+  for(const id of Object.values(editGroups))$(id).querySelector?.("[data-done]")?.addEventListener("click",()=>morphEditing(null));
   // Closing the sheet ends the editing, so it opens whole next time.
   for(const id of ["closeSettings","settingsBackdrop"])$(id).addEventListener?.("click",()=>setEditing(null));
   // Each custom colour is a row of swatches that apply at once; only the last
