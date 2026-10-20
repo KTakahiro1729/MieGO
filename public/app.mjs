@@ -1861,6 +1861,7 @@ async function verifyP2P(){
   $("p2pVerify").hidden=false;
   if($("onlineSetup").hidden)openPanel("online");
   const config=await fetch("/api/p2p/config").then(r=>r.json());
+  if(config.rooms===false)throw new UserError(TEXT.online.roomsUnavailable);
   if(!config.siteKey)throw new UserError(TEXT.online.turnstileMissing);
   if(!window.turnstile){
     await new Promise((resolve,reject)=>{

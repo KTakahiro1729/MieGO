@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 const source = readFileSync(new URL("../src/worker.mjs", import.meta.url), "utf8")
   .replace('import { DurableObject } from "cloudflare:workers";',
     "class DurableObject { constructor(ctx, env) { this.ctx = ctx; this.env = env; } }");
-const { GameRoom } = await import("data:text/javascript," + encodeURIComponent(source));
+const { default: worker, GameRoom } = await import("data:text/javascript," + encodeURIComponent(source));
 
 function room() {
   const items = new Map(), sockets = [];
@@ -106,4 +106,14 @@ test("a seat signed in on another device is counted and the other player told", 
   await post(r.room, "/claim", { role: "owner", key: "k".repeat(48) });
   assert.deepEqual(closed, [4001]);
   assert.deepEqual(r.items.get("meta").signins, { owner: 1, guest: 1 });
+});
+
+test("a preview without the GameRoom namespace says so instead of failing", async () => {
+  const env = { TURNSTILE_SECRET: "s", TURNSTILE_SITE_KEY: "k" };
+  const config = await (await worker.fetch(new Request("https://p.example/api/p2p/config"), env)).json();
+  assert.equal(config.rooms, false);
+  const response = await worker.fetch(new Request("https://p.example/api/rooms", {
+    method: "POST", headers: { Origin: "https://p.example" }, body: "{}" }), env);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).code, "rooms_unavailable");
 });
