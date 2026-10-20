@@ -28,9 +28,9 @@ test("endgame choices share exactly one fixed-height horizontal strip",()=>{
 });
 test("final score is above sticky actions and visible in a compact score area",()=>{
   assert.ok(html.indexOf('id="scoreBox"')<html.indexOf('id="actionRow"'));
-  // The board, not the score box, gives way: no fixed reserve under the board.
+  // No fixed reserve under the board: it takes the height the controls leave.
   assert.doesNotMatch(css,/--board-reserve/);
-  assert.match(css,/\.settle-actions\{position:absolute/);
+  // On-screen positions are checked in a browser by scoring-layout.test.mjs.
   // The legend stays while counting and explains the counted areas.
   assert.doesNotMatch(css,/\.is-scoring \.ownership-legend[^}]*display:none/);
   assert.match(appearance,/\$\("legendNeutral"\)\.hidden=!counting/);
