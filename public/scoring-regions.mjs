@@ -78,13 +78,16 @@ export const prisonersFilled=state=>isJapanese(state) &&
 export function scoreRows(state) {
   const score=areaScore(state),komi=komiOf(state),bonus=handicapBonusOf(state);
   const japanese=isJapanese(state),filled=prisonersFilled(state);
+  // Prisoners beyond the territory they fill stay with the side that took
+  // them, so a count never goes below zero and the difference is unchanged.
+  const remaining=color=>score.territory[color]-(filled?score.prisoners[color==="black"?"white":"black"]:0);
   const row=(color,total)=>{
     const extra=color==="white"?komi+bonus:0;
     if(japanese){
       const other=color==="black"?"white":"black";
-      const area=score.territory[color]-(filled?score.prisoners[other]:0);
+      const area=Math.max(0,remaining(color)),leftover=Math.max(0,-remaining(other));
       return {area,detail:TEXT.scoring.detail(area,{komi:color==="white"?komi:null,
-        bonus:color==="white"?bonus:0}),total:area+extra};
+        bonus:color==="white"?bonus:0,leftover}),total:area+leftover+extra};
     }
     const area=total-extra;
     return {area,detail:TEXT.scoring.detail(area,{komi:color==="white"?komi:null,
