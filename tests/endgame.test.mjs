@@ -55,23 +55,6 @@ test("endgame advisor requires settled ownership across multiple real moves", ()
   }
 });
 
-test("stable, settled territory reaches soft advice only after repeated evaluations", () => {
-  const advisor=new EndgameAdvisor();
-  const board=Array(81).fill(0);
-  for(let i=0;i<27;i++)board[i]=BLACK;
-  for(let i=54;i<81;i++)board[i]=WHITE;
-  const score=Array(81).fill(1);
-  let g={...newGame(),board,moveNumber:45};
-  assert.equal(advisor.observe(g,score),"near");
-  g={...g,moveNumber:46};
-  assert.equal(advisor.observe(g,score),"near");
-  g={...g,moveNumber:47};
-  assert.equal(advisor.observe(g,score),"ready");
-  // One sizable ownership shift revokes the ready suggestion.
-  g={...g,moveNumber:48};
-  assert.equal(advisor.observe(g,Array(81).fill(-1)),"near");
-});
-
 test("simultaneous opposite offers converge deterministically without passes",()=>{
   const initial=newGame();
   const blackFirst=proposeEnd(proposeEnd(initial,BLACK),WHITE);
@@ -116,48 +99,45 @@ test("advice with no valid NN estimate is not reported as 'not near endgame'",()
   assert.equal(endgameHint(g,advisor,{suppressedUntil:3}),"そろそろ終局です","after 打ち続ける the milder step stands in");
 });
 
-test("a dead stone left in atari inside settled territory does not hold back the advice",()=>{
-  // Black owns the top, White the bottom; one White stone sits in atari in
-  // Black's area and the estimate shows it in Black's settled colour.
+// Ownership maps that move a given number of points from one estimate to the next.
+const shifted=(base,points)=>base.map((v,i)=>i<points?-v:v);
+
+test("the advice follows how much one stone moves the estimate",async()=>{
+  const {ENDGAME_SWING}=await import("../public/endgame.mjs");
+  assert.deepEqual({...ENDGAME_SWING},{near:2,ready:1,window:2});
+  const board=Array(81).fill(0);
+  for(let i=0;i<27;i++)board[i]=BLACK;
+  for(let i=54;i<81;i++)board[i]=WHITE;
+  const base=board.map((_,i)=>i<41?1:-1);
+  const a=new EndgameAdvisor();
+  const at=(moveNumber,own)=>a.observe({...newGame(),board,moveNumber},own);
+  assert.equal(at(10,base),"playing","one estimate says nothing about a stone's effect");
+  assert.equal(at(11,shifted(base,6)),"playing","six points moved by one stone");
+  assert.equal(at(12,shifted(base,4)),"playing","the window still holds the six-point move");
+  assert.equal(at(13,shifted(base,3)),"near","each stone now moves about 2 points or less");
+  assert.equal(at(14,shifted(base,3)),"ready","nothing moved at all");
+  assert.equal(at(15,shifted(base,4)),"ready");
+  assert.equal(at(16,shifted(base,7)),"playing","a big swing takes the advice back");
+});
+
+test("a dead stone left in atari does not hold back the advice, a live one does",()=>{
   const board=Array(81).fill(0);
   for(let i=0;i<27;i++)board[i]=BLACK;
   for(let i=54;i<81;i++)board[i]=WHITE;
   const dead=at(4,3);
   board[dead]=WHITE;board[at(3,3)]=BLACK;board[at(5,3)]=BLACK;
   const ownership=board.map((_,i)=>i<45?1:-1);
-  const advisor=new EndgameAdvisor();
+  const quiet=new EndgameAdvisor();
   let stage;
-  for(const moveNumber of [45,46,47])stage=advisor.observe({...newGame(),board,moveNumber},ownership);
+  for(const moveNumber of [40,41,42])stage=quiet.observe({...newGame(),board,moveNumber},ownership);
   assert.equal(stage,"ready");
-  // The same stone in atari while the estimate still sees it as alive is a fight.
   const fight=new EndgameAdvisor();
   const alive=[...ownership];alive[dead]=-.9;
-  for(const moveNumber of [45,46,47])stage=fight.observe({...newGame(),board,moveNumber},alive);
-  assert.equal(stage,"playing");
+  for(const moveNumber of [40,41,42])stage=fight.observe({...newGame(),board,moveNumber},alive);
+  assert.equal(stage,"near","a live group in atari keeps 'ready' back");
 });
 
-test("progress is read from the stones on the board, scaled by its area",async()=>{
-  const {boardScale}=await import("../public/endgame.mjs");
-  assert.equal(boardScale(81),1);
-  assert.equal(boardScale(361),361/81);
-  const size=13;
-  const position=stones=>{
-    const board=Array(size*size).fill(0);
-    for(let i=0;i<stones/2;i++){board[i]=BLACK;board[size*size-1-i]=WHITE;}
-    return board;
-  };
-  const ownership=Array(size*size).fill(0).map((_,i)=>i<84?1:-1);
-  // 30 stones would be enough on 9x9 but not on 13x13.
-  const sparse=new EndgameAdvisor();
-  for(const moveNumber of [30,31,32])sparse.observe({...newGame(true,{size}),board:position(30),moveNumber},ownership);
-  assert.equal(sparse.stage,"playing");
-  // A short game with enough stones is offered scoring whatever its move number.
-  const short=new EndgameAdvisor();
-  for(const moveNumber of [30,31,32])short.observe({...newGame(true,{size}),board:position(60),moveNumber},ownership);
-  assert.equal(short.stage,"ready");
-});
-
-test("a short, decisive game is offered scoring without waiting for a move count",()=>{
+test("a short, decisive game is offered scoring without any move or stone count",()=>{
   // The reported 30-move position: every empty point all but decided, one
   // dead Black stone in atari inside White's area.
   const rows=[".........",".........","...BBBBB.","..BBWWWB.","BBBW..WBB","BWW.W.WWW","W.BW.....",".WW......","........."];
@@ -165,8 +145,8 @@ test("a short, decisive game is offered scoring without waiting for a move count
   const ownership=board.map((_,i)=>{const x=i%9,y=Math.floor(i/9);
     return y<3||(y===3&&(x<4||x>6))||(y===4&&(x<3||x>6))||(y===5&&x===0)?1:-1;});
   const advisor=new EndgameAdvisor();
-  assert.equal(advisor.observe({...newGame(),board,moveNumber:30},ownership),"near","そろそろ at once");
-  advisor.observe({...newGame(),board,moveNumber:31},ownership);
-  assert.equal(advisor.observe({...newGame(),board,moveNumber:32},ownership),"ready","two unchanged estimates later");
-  assert.equal(endgameHint({...newGame(),board,moveNumber:32},advisor),"終局をご検討ください");
+  for(const moveNumber of [28,29])advisor.observe({...newGame(),board,moveNumber},ownership);
+  assert.equal(advisor.observe({...newGame(),board,moveNumber:30},ownership),"ready");
+  assert.equal(endgameHint({...newGame(),board,moveNumber:30},advisor),"終局をご検討ください");
 });
+
