@@ -29,6 +29,7 @@ import { makeRulesPrompt, makePositionPrompt } from "./beginner-prompts.mjs";
 import { activeReviewSnapshot, proposeReviewStone, commitReviewStone, variationForSharing } from "./review-variation.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 import { TEXT } from "./texts.mjs";
+import { UserError, messageFor } from "./user-error.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board");
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
@@ -100,7 +101,7 @@ function persistOnline(){
   if(!room || !ROOM_PATTERN.test(room))return;
   if(!saveCheckpoint(roomingStorage,room,{role:p2pRole,ownerColor,session:onlineSession,
     inviteKey,guestInviteKey,issuedSide,revision:onlineRevision,game,lastPosition,seenPeerSignins}))
-    storageError(Error(TEXT.online.checkpointFailed));
+    storageError(new UserError(TEXT.online.checkpointFailed));
 }
 let game = newGame(), candidate = null, illegalCandidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
 let illegalPromptCopied = false;
@@ -188,7 +189,7 @@ catch(error){console.warn("Saved-game migration failed",error);}
 function storageError(error){
   $("saveStatus").hidden=false;
   $("saveStatus").textContent=TEXT.game.saveFailed;
-  $("historySaveNotice").textContent=error?.message||TEXT.game.saveFailedShort;
+  $("historySaveNotice").textContent=messageFor(error,TEXT.game.saveFailedShort);
   console.error("MieGO autosave",error);
 }
 function clearStorageError() {
@@ -755,7 +756,7 @@ function submitMove(position,fromAi=false){
   if(fromAi && !isAiTurn())return;
   const before=boardHash(game.board);
   let next;
-  try{next=play(game,position);}catch(error){showNotice(error.message);return;}
+  try{next=play(game,position);}catch(error){showNotice(messageFor(error,TEXT.common.retry));return;}
   apply({type:"move",position,number:game.moveNumber+1,before,after:boardHash(next.board)},false,fromAi);
 }
 canvas.addEventListener("click",e=>{
@@ -774,7 +775,7 @@ canvas.addEventListener("click",e=>{
       reviewFeedback("");show();requestReviewOwnership();
     }catch(error){
       boardReview.preview=null;boardReview.previewPosition=null;
-      reviewFeedback(error.message);show();requestReviewOwnership();
+      reviewFeedback(messageFor(error,TEXT.common.retry));show();requestReviewOwnership();
     }
     return;
   }
@@ -842,7 +843,7 @@ $("copyIllegalPrompt").onclick=async()=>{
     const link=makeReviewUrl(location.origin,{snapshot:game},game.moves.length);
     question=makeIllegalMovePrompt(game,selected,link);
   }catch(error){
-    $("endStatus").textContent=TEXT.game.reviewUrlFailed(error.message);
+    $("endStatus").textContent=messageFor(error,TEXT.common.retry);
     return;
   }
   try{
@@ -1208,20 +1209,20 @@ async function verifyP2P(){
   $("p2pVerify").hidden=false;
   if($("onlineSetup").hidden)openPanel("online");
   const config=await fetch("/api/p2p/config").then(r=>r.json());
-  if(!config.siteKey)throw Error(TEXT.online.turnstileMissing);
+  if(!config.siteKey)throw new UserError(TEXT.online.turnstileMissing);
   if(!window.turnstile){
     await new Promise((resolve,reject)=>{
       const script=document.createElement("script");
       script.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      script.onload=resolve;script.onerror=()=>reject(Error(TEXT.online.verifyLoadFailed));
+      script.onload=resolve;script.onerror=()=>reject(new UserError(TEXT.online.verifyLoadFailed));
       document.head.append(script);
     });
   }
   return new Promise((resolve,reject)=>{
     $("p2pTurnstile").replaceChildren();
     window.turnstile.render($("p2pTurnstile"),{sitekey:config.siteKey,action:"miego_p2p",
-      callback:resolve,"error-callback":()=>reject(Error(TEXT.online.verifyFailed)),
-      "expired-callback":()=>reject(Error(TEXT.online.verifyExpired))});
+      callback:resolve,"error-callback":()=>reject(new UserError(TEXT.online.verifyFailed)),
+      "expired-callback":()=>reject(new UserError(TEXT.online.verifyExpired))});
   });
 }
 function onPeerSync(message){
@@ -1276,7 +1277,7 @@ p2pTransport=createP2PTransport({
       showSeatNotice(TEXT.online.roomGone);
     }else{
       $("netStatus").textContent=TEXT.online.statusOffline;
-      showNotice(error.message||TEXT.online.requestFailed);
+      showNotice(messageFor(error,TEXT.online.requestFailed));
     }
     show();
   },
@@ -1294,7 +1295,7 @@ async function joinRoom(){
     if(targetRoom!==room)return;
   }catch(error){
     if(targetRoom!==room)return;
-    $("netStatus").textContent=TEXT.online.statusOffline;showNotice(error.message);show();
+    $("netStatus").textContent=TEXT.online.statusOffline;showNotice(messageFor(error,TEXT.online.requestFailed));show();
   }
 }
 function showInviteLink() {
@@ -1316,7 +1317,7 @@ async function beginOnlineRoom(){
     {color:color===BLACK?"black":"white",turnstileToken:token});
   if(room){
     try{await p2pTransport.post("/api/rooms/"+room+"/revoke",{role:"owner",session:onlineSession});}
-    catch{throw Error(TEXT.online.revokeFailed);}
+    catch{throw new UserError(TEXT.online.revokeFailed);}
     leaveOnlineRoom();
   }else if(!save())return null;
   room=created.room;p2pRole="owner";seat="host";ownerColor=color;
@@ -1343,7 +1344,7 @@ async function copyLink(){
     const url=showInviteLink();
     const copied=await copyInviteText(url,{clipboard:navigator.clipboard,input:$("inviteUrl"),document});
     $("inviteStatus").textContent=copied?TEXT.online.inviteCopied:TEXT.online.inviteManual;
-  }catch(error){$("inviteStatus").textContent=error.message;}
+  }catch(error){$("inviteStatus").textContent=messageFor(error,TEXT.online.requestFailed);}
   finally{renderInviteButton();}
 }
 /** kind: "settings", "share", or a 新規対戦 tab ("local", "ai", "online", "history"). */
@@ -1413,7 +1414,7 @@ function confirmReviewPreview(){
     $("reviewNotice").textContent=result.created?TEXT.review.variationCreated:"";
     $("reviewMenu").open=false;
     show();requestReviewOwnership();
-  }catch(error){reviewFeedback(error.message);}
+  }catch(error){reviewFeedback(messageFor(error,TEXT.common.retry));}
 }
 function selectOriginalLine(){
   if(!boardReview)return;
@@ -1442,14 +1443,14 @@ function previewReviewPass(){
     boardReview.previewPosition=null;
     $("reviewMenu").open=false;
     reviewFeedback(TEXT.review.passPreview);show();requestReviewOwnership();
-  }catch(error){reviewFeedback(error.message);}
+  }catch(error){reviewFeedback(messageFor(error,TEXT.common.retry));}
 }
 function saveReviewVariation(){
   if(!boardReview?.variation)return;
   try{
     gameLibrary.save({mode:"local",snapshot:boardReview.variation.snapshot,source:"variation"});
     $("reviewNotice").textContent=TEXT.review.variationSaved;
-  }catch(error){$("reviewNotice").textContent=TEXT.review.variationSaveFailed(error.message);}
+  }catch(error){$("reviewNotice").textContent=messageFor(error,TEXT.review.variationSaveFailed);}
 }
 function renderBoardReview() {
   if(!boardReview)return;
@@ -1599,7 +1600,7 @@ function setBoardReviewStep(step) {
     boardReview.preview=null;boardReview.previewPosition=null;
     reviewFeedback("");$("reviewNotice").textContent="";
     show();requestReviewOwnership();
-  }catch(error){$("reviewNotice").textContent=TEXT.history.replayFailed(error.message);}
+  }catch(error){$("reviewNotice").textContent=TEXT.history.replayFailed;}
 }
 function clearBoardReview() {
   if(!boardReview)return;
@@ -1625,7 +1626,7 @@ function forkBoardReview() {
   if(!boardReview)return;
   let fork;
   try{fork=forkReview(activeReviewSnapshot(boardReview,game),boardReview.step);}
-  catch(error){$("reviewNotice").textContent=TEXT.review.branchFailed(error.message);return;}
+  catch{$("reviewNotice").textContent=TEXT.review.branchFailed;return;}
   if(room && connected && !confirm(TEXT.confirm.leaveForReview))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
@@ -1657,7 +1658,7 @@ async function copyShareUrl(ai) {
   try{
     const url=sharedUrl();
     await copyWithFallback(ai?makeAiHandoff(url):url,$("shareNotice"),$("shareCopyFallback"));
-  }catch(error){$("shareNotice").textContent=TEXT.share.urlFailed(error.message);}
+  }catch(error){$("shareNotice").textContent=messageFor(error,TEXT.share.urlFailed);}
 }
 function canResumeSelectedReview(){
   const review=boardReview,record=review?.record;
@@ -1678,7 +1679,7 @@ function openSavedBoard(record) {
     enterBoardReview(record.snapshot,count,"archive",record.sgfMeta,record);
     $("moveLabel").focus();
   }catch(error){
-    $("historySaveNotice").textContent=TEXT.history.showFailed(error.message);
+    $("historySaveNotice").textContent=TEXT.history.showFailed;
     if($("historySetup").hidden)openHistoryPanel();
   }
 }
@@ -1689,7 +1690,7 @@ function exportSharedSGF(){
     const id=boardReview?boardReview.record?.id||"shared":currentGameId||"game";
     downloadBlob(new Blob([contents],{type:"application/x-go-sgf;charset=utf-8"}),"miego-"+id+".sgf");
     $("shareNotice").textContent=TEXT.share.sgfSaved;
-  }catch(error){$("shareNotice").textContent=TEXT.share.sgfFailed(error.message);}
+  }catch(error){$("shareNotice").textContent=TEXT.share.sgfFailed;}
 }
 function downloadBlob(blob,name){
   const url=URL.createObjectURL(blob);
@@ -1749,7 +1750,7 @@ async function makeShareImage(kind,job){
     const bytes=await buildGameAnimation({snapshot,step,size:ANIMATION_SIZE,
       renderBoard:state=>renderFrameBoard(state,gameId),finalBoard:canvas,createCanvas:frameCanvas,labels,
       onProgress:(i,total)=>{
-        if(job!==shareImageJob)throw Error(TEXT.share.aborted);
+        if(job!==shareImageJob)throw Error("Superseded");
         shareImages.animation={progress:TEXT.share.progress(i,total)};renderShareImages();
       }});
     return new File([bytes],"miego-moves"+step+".gif",{type:"image/gif"});
@@ -1758,7 +1759,7 @@ async function makeShareImage(kind,job){
   const target=frameCanvas(width,height);
   paintShareFrame(target,canvas,labels);
   const blob=await new Promise((resolve,reject)=>
-    target.toBlob(b=>b?resolve(b):reject(Error(TEXT.share.imageFailedMake)),"image/png"));
+    target.toBlob(b=>b?resolve(b):reject(Error("Canvas export failed")),"image/png"));
   return new File([blob],"miego-move"+step+".png",{type:"image/png"});
 }
 const canShareFile=file=>{
@@ -1800,7 +1801,7 @@ async function prepareShareImages(){
     }catch(error){
       if(job!==shareImageJob)return;
       shareImages[kind]={failed:true};
-      $("shareNotice").textContent=TEXT.share.imageError(error.message);
+      $("shareNotice").textContent=TEXT.share.imageError;
     }
     renderShareImages();
   }
@@ -1816,7 +1817,7 @@ async function shareImage(){
   if(!file || !canShareFile(file))return;
   try{await navigator.share({files:[file]});$("shareNotice").textContent="";}
   catch(error){
-    if(error?.name!=="AbortError")$("shareNotice").textContent=TEXT.share.imageShareFailed(error.message);
+    if(error?.name!=="AbortError")$("shareNotice").textContent=TEXT.share.imageShareFailed;
   }
 }
 function openSharePanel(){
@@ -1828,7 +1829,7 @@ function openSharePanel(){
 $("moveLabel").onclick=()=>{
   if(boardReview){leaveBoardReview();return;}
   try{enterBoardReview(game,game.moves.length,"live");}
-  catch(error){$("saveStatus").hidden=false;$("saveStatus").textContent=TEXT.history.replayFailed(error.message);}
+  catch{$("saveStatus").hidden=false;$("saveStatus").textContent=TEXT.history.replayFailed;}
 };
 $("reviewStepToggle").onclick=()=>{$("reviewMenu").open=true;$("reviewStepRange").focus();};
 $("reviewFirst").onclick=()=>setBoardReviewStep(0);
@@ -1995,7 +1996,7 @@ async function copyBeginnerPrompt(make) {
   let link=null,question;
   try{link=makeReviewUrl(location.origin,{snapshot:game},game.moves.length);}catch{}
   try{question=make(game,link);}
-  catch(error){status.textContent=TEXT.prompts.failed(error.message);return;}
+  catch{status.textContent=TEXT.prompts.failed;return;}
   await copyWithFallback(question,status,area,TEXT.prompts.copiedForAi);
 }
 $("copyRulesPrompt").onclick=()=>void copyBeginnerPrompt(makeRulesPrompt);
@@ -2035,7 +2036,7 @@ $("startAi").onclick=()=>{
   // Handicap stones always belong to the human, who therefore plays Black.
   // Otherwise: the same choices and the same random draw as a friend invitation.
   try{humanColor=aiHandicap?BLACK:selectColor(aiSideChoice);}
-  catch(error){$("aiMatchStatus").textContent=error.message;return;}
+  catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
   aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
   game=newGame(true,{handicap:aiHandicap,size:boardSize});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
@@ -2196,7 +2197,7 @@ if(!room && params.has("sgf")){
       enterBoardReview(imported.snapshot,imported.step,"url",imported.metadata);
   }catch(error){
     $("saveStatus").hidden=false;
-    $("saveStatus").textContent=TEXT.history.sharedLoadFailed(error.message);
+    $("saveStatus").textContent=TEXT.history.sharedLoadFailed;
   }
 }
 compactOwnership();

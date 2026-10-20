@@ -1,6 +1,7 @@
 import { parseGameSnapshot } from "./mode-state.mjs";
 import {normalizeStrength} from "./ai-strength.mjs";
 import { TEXT } from "./texts.mjs";
+import { UserError } from "./user-error.mjs";
 
 const PREFIX="miego:game:v1:";
 const ACTIVE="miego:active:v1:";
@@ -52,7 +53,7 @@ export class GameLibrary {
   }
   setActive(mode,id) {
     const record=this.load(id);
-    if(!record || record.mode!==mode || !["local","ai"].includes(mode))throw Error(TEXT.history.recordMissing);
+    if(!record || record.mode!==mode || !["local","ai"].includes(mode))throw new UserError(TEXT.history.recordMissing);
     this.storage.setItem(ACTIVE+mode,id);
   }
   /** Stores a value; when the storage is full, the least recently updated
@@ -86,7 +87,7 @@ export class GameLibrary {
    * neither its order nor its revision changes. */
   setFavorite(id,favorite) {
     const record=this.load(id);
-    if(!record)throw Error(TEXT.history.recordMissing);
+    if(!record)throw new UserError(TEXT.history.recordMissing);
     const updated={...record,favorite:favorite===true};
     this.write(PREFIX+id,JSON.stringify(updated),[id]);
     return updated;
@@ -97,10 +98,10 @@ export class GameLibrary {
     // Nothing that cannot be read back is written.
     if(!MODES.has(mode) || !parseGameSnapshot(JSON.stringify(snapshot)) ||
        (mode==="online" && !ROOM_RE.test(roomId||"")) || (previous && previous.mode!==mode))
-      throw Error(TEXT.record.broken);
-    if(id!==null && !previous)throw Error(TEXT.history.recordMissing);
+      throw Error("Record would not read back");
+    if(id!==null && !previous)throw new UserError(TEXT.history.recordMissing);
     if(previous && expectedRevision!==null && previous.revision!==expectedRevision)
-      throw Error(TEXT.history.otherTab);
+      throw new UserError(TEXT.history.otherTab);
     const timestamp=this.now();
     const result={
       version:1,id:previous?.id||this.createId(),mode,

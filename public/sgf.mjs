@@ -1,16 +1,17 @@
 import { BLACK, WHITE, BOARD_SIZES, isBoardSize, sizeOf, handicapPoints, maxHandicap, newGame, initialGame, handicapOf, komiOf, play, resume, boardHash } from "./core.mjs";
 import { TEXT } from "./texts.mjs";
+import { UserError } from "./user-error.mjs";
 
 const MAX_TEXT=512*1024, MAX_NODES=5000, MAX_DEPTH=40, MAX_STEPS=2000;
 const esc=value=>String(value??"").replace(/\\/g,"\\\\").replace(/\]/g,"\\]");
 // A file or record that cannot be read as a game is reported in one way.
-const broken=()=>Error(TEXT.record.broken);
+const broken=()=>Error("Broken record");
 const coord=(position,size)=>position===null?"":String.fromCharCode(
   97+position%size,97+Math.floor(position/size));
 
 function parseTree(text) {
   if(typeof text!=="string" || !text.trim())throw broken();
-  if(text.length>MAX_TEXT)throw Error(TEXT.sgf.tooLarge);
+  if(text.length>MAX_TEXT)throw new UserError(TEXT.sgf.tooLarge);
   let i=0,nodesRead=0;
   const skip=()=>{while(/\s/.test(text[i]||"") && i<text.length)i++;};
   const parseValue=()=>{
@@ -31,12 +32,12 @@ function parseTree(text) {
     return value;
   };
   const sequence=depth=>{
-    if(depth>MAX_DEPTH)throw Error(TEXT.sgf.tooLong);
+    if(depth>MAX_DEPTH)throw new UserError(TEXT.sgf.tooLong);
     skip();if(text[i++]!=="(")throw broken();
     const nodes=[],children=[];
     skip();
     while(text[i]===";"){
-      if(++nodesRead>MAX_NODES)throw Error(TEXT.sgf.tooLong);
+      if(++nodesRead>MAX_NODES)throw new UserError(TEXT.sgf.tooLong);
       i++;const props=Object.create(null);
       skip();
       while(/[A-Za-z]/.test(text[i]||"")){
@@ -56,7 +57,7 @@ function parseTree(text) {
     return {nodes,children};
   };
   skip();const root=sequence(0);skip();
-  if(i!==text.length)throw Error(TEXT.sgf.multipleGames);
+  if(i!==text.length)throw new UserError(TEXT.sgf.multipleGames);
   return root;
 }
 function first(root,name) {return root[name]?.[0]??null;}
@@ -73,37 +74,37 @@ export function parseSGF(text) {
   let tree=parseTree(text);const nodes=[];
   while(tree){nodes.push(...tree.nodes);tree=tree.children[0]||null;}
   const root=nodes[0];
-  if(first(root,"GM")!==null && first(root,"GM")!=="1")throw Error(TEXT.sgf.notGo);
+  if(first(root,"GM")!==null && first(root,"GM")!=="1")throw new UserError(TEXT.sgf.notGo);
   const size=Number(first(root,"SZ"));
   if(!/^\d+$/.test(first(root,"SZ")??"") || !isBoardSize(size))
-    throw Error(TEXT.sgf.sizes(BOARD_SIZES.join("・")));
-  if(first(root,"FF")!==null && first(root,"FF")!=="4")throw Error(TEXT.sgf.format);
+    throw new UserError(TEXT.sgf.sizes(BOARD_SIZES.join("・")));
+  if(first(root,"FF")!==null && first(root,"FF")!=="4")throw new UserError(TEXT.sgf.format);
   // Handicap is accepted only as MieGO's fixed star-point placement in the root.
   for(const node of nodes.slice(1))
     if(["AB","AW","AE","PL","HA"].some(prop=>prop in node))
-      throw Error(TEXT.sgf.setupMidGame);
-  if(["AW","AE"].some(prop=>prop in root))throw Error(TEXT.sgf.setupWhite);
+      throw new UserError(TEXT.sgf.setupMidGame);
+  if(["AW","AE"].some(prop=>prop in root))throw new UserError(TEXT.sgf.setupWhite);
   const placed=(root.AB||[]).map(value=>decodeMove(value,size));
   const handicap=placed.length;
   if(handicap===1 || handicap>maxHandicap(size) ||
      (first(root,"HA")!==null && Number(first(root,"HA"))!==handicap) ||
      placed.some(p=>!handicapPoints(size,handicap).includes(p)) ||
      new Set(placed).size!==handicap)
-    throw Error(TEXT.sgf.handicap(maxHandicap(size)));
+    throw new UserError(TEXT.sgf.handicap(maxHandicap(size)));
   if(first(root,"PL")!==null && first(root,"PL")!==(handicap?"W":"B"))
-    throw Error(TEXT.sgf.player);
+    throw new UserError(TEXT.sgf.player);
   let state=newGame(true,{handicap,size}),seen=0;
   for(const node of nodes){
     if(("B" in node)&&("W" in node))throw broken();
     const key="B" in node?"B":"W" in node?"W":null;
     if(!key)continue;
-    if(++seen>MAX_STEPS)throw Error(TEXT.sgf.tooLong);
+    if(++seen>MAX_STEPS)throw new UserError(TEXT.sgf.tooLong);
     if(node[key].length!==1)throw broken();
     const color=key==="B"?BLACK:WHITE;
-    if(state.next!==color)throw Error(TEXT.sgf.wrongOrder(seen));
+    if(state.next!==color)throw new UserError(TEXT.sgf.wrongOrder(seen));
     if(state.status==="scoring")state=resume(state);
     try{state=play(state,decodeMove(node[key][0],size));}
-    catch(error){throw Error(TEXT.sgf.moveError(seen,error.message));}
+    catch{throw new UserError(TEXT.sgf.illegalMove(seen));}
   }
   const result=first(root,"RE");
   const metadata={

@@ -1,4 +1,5 @@
 import { TEXT } from "./texts.mjs";
+import { UserError } from "./user-error.mjs";
 // Occupied points, suicide and ko are the rule messages players read (illegal
 // previews, SGF import). The other errors mean a caller or a peer acted out of
 // turn; the UI never offers those actions, so their messages are for developers.
@@ -97,7 +98,7 @@ export function play(state, position) {
       moves: [...state.moves, { color, position: null }] };
   }
   if (!Number.isInteger(position) || position < 0 || position >= state.board.length || state.board[position]) {
-    throw new Error(TEXT.rules.occupied);
+    throw new UserError(TEXT.rules.occupied);
   }
   const board = [...state.board]; board[position] = color;
   let captured = 0;
@@ -111,10 +112,10 @@ export function play(state, position) {
       for (const s of enemy.stones) board[s] = 0;
     }
   }
-  if (group(board, position).liberties.size === 0) throw new Error(TEXT.rules.suicide);
+  if (group(board, position).liberties.size === 0) throw new UserError(TEXT.rules.suicide);
   const hash = boardHash(board);
   if (state.history.length >= 2 && hash === state.history[state.history.length - 2]) {
-    throw new Error(TEXT.rules.ko);
+    throw new UserError(TEXT.rules.ko);
   }
   return {
     ...state, board, next: -color, passes: 0, endProposal: null, moveNumber: state.moveNumber + 1,
