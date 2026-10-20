@@ -70,9 +70,8 @@ button:hover:not(:disabled){border-color:#748094}
 .player-detail-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .player-stone{flex:none;width:14px;height:14px;box-sizing:border-box;border-radius:50%;background:radial-gradient(circle at 32% 28%,#56575c,#0c1013 72%);border:1px solid #6c7073}
 .player.white .player-stone{background:radial-gradient(circle at 32% 27%,#fff,#deddd6 72%);border-color:#b7b6b0}
-/* The side to move: its name in gold and a gold ring round its stone. */
+/* The side to move: its name in gold and bold, the other side's dimmed. */
 .player.is-turn .player-name{color:var(--gold);font-weight:700}
-.player.is-turn .player-stone{box-shadow:0 0 0 2px #0e1219,0 0 0 4px var(--gold)}
 .player.is-turn .player-detail{color:#d8dce2}
 /* A COM that is thinking: #87's turning arc after 考え中, on the side away from the stone. */
 .player-wait.thinking-ring{flex:none;width:11px;height:11px}
