@@ -146,6 +146,9 @@ body.board-zoomed .board-bleed{opacity:1}
 /* Compact game-mode selector and dedicated bottom sheets */
 .visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .new-game-button{padding:10px 14px;font-size:13px;white-space:nowrap}
+/* The header drops button edges (see .topbar above), which left 新規対戦 a near-invisible
+   fill on the dark header. It keeps a light edge so it still reads as a button. */
+.topbar .new-game-button{--btn-edge:var(--btn-text)}
 
 .settings-panel a{color:#e9cb85}
 .settings-panel .full{width:100%;margin-top:14px}
