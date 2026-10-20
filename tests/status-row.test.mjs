@@ -24,3 +24,9 @@ test("◁ and ▷ step one move in the live game and in a replay",()=>{
   assert.match(app,/\$\("stepForward"\)\.onclick=\(\)=>boardReview&&setBoardReviewStep\(boardReview\.step\+1\)/);
   assert.match(app,/\$\("stepForward"\)\.disabled=step>=count \|\| isPreview/);
 });
+test("the turn and the endgame (or the score) share one panel above the actions",()=>{
+  const panel=html.slice(html.indexOf('id="infoPanel"'),html.indexOf('id="actionRow"'));
+  for(const id of ["statusRow","endgameBar","scoreBox"])assert.match(panel,new RegExp('id="'+id+'"'));
+  assert.match(html,/id="stepBack" class="icon-button step-button"/);
+  assert.match(html,/id="stepForward" class="icon-button step-button"/);
+});
