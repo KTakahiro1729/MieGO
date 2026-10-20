@@ -257,7 +257,6 @@
             <p class="strength-note"><span id="aiStrengthNote" class="explanation setup-note"></span><button class="help-button" type="button" data-help="ai" aria-label="{{common.helpFor(newGame.ai)}}" title="{{common.helpFor(newGame.ai)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></p></div>
             <div class="setup-more"><p class="setup-more-head">{{newGame.aiOptions}}</p>
             <fieldset id="aiOptions" class="ai-advanced">
-              <div id="aiHintsRow" class="mode"><div><strong>{{ai.hints}}</strong><p>{{ai.hintsNote}}</p></div><input id="aiHints" type="checkbox" aria-label="{{ai.hintsAria}}"></div>
               <fieldset id="aiCustom" class="com-card" hidden>
                 <legend>{{ai.characters.custom.name}}</legend>
                 <span class="com-label com-strength">{{ai.strengthShort}}</span><div class="fused ai-color-choices com-choices com-strength"><label><input type="radio" name="aiStrength" value="beginner"><span>{{ai.strengths.beginner}}</span></label><label><input type="radio" name="aiStrength" value="easy"><span>{{ai.strengths.easy}}</span></label><label><input type="radio" name="aiStrength" value="normal"><span>{{ai.strengths.normal}}</span></label><label><input type="radio" name="aiStrength" value="strong"><span>{{ai.strengths.strong}}</span></label><label><input type="radio" name="aiStrength" value="strongest"><span>{{ai.strengths.strongest}}</span></label></div>
@@ -290,6 +289,7 @@
                   </div>
                 </fieldset>
               </div>
+              <div id="aiHintsRow" class="mode"><div><strong>{{ai.hints}}</strong><p>{{ai.hintsNote}}</p></div><input id="aiHints" type="checkbox" aria-label="{{ai.hintsAria}}"></div>
             </fieldset>
             </div>
           </div>
