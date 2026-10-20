@@ -6,12 +6,24 @@ const ACTIVE="miego:active:v1:";
 const MIGRATED="miego:library:migrated:v1";
 const MODES=new Set(["local","ai","online"]);
 const ROOM_RE=/^[a-f0-9]{32}$/;
+// No single MieGO value comes near this; a larger one is not worth emptying the library for.
+const MAX_EVICTING_VALUE=1_000_000;
+
+/** The browser's storage is full (names differ between engines). */
+export function isQuotaError(error) {
+  return error?.name==="QuotaExceededError" || error?.name==="NS_ERROR_DOM_QUOTA_REACHED" ||
+    error?.code===22 || error?.code===1014;
+}
 
 export class GameLibrary {
-  constructor(storage, createId=()=>crypto.randomUUID(), now=()=>new Date().toISOString()) {
+  /** onRemove(record) runs after a game is deleted; keep() names games that must stay. */
+  constructor(storage, createId=()=>crypto.randomUUID(), now=()=>new Date().toISOString(),
+              {onRemove=()=>{},keep=()=>[]}={}) {
     this.storage=storage;
     this.createId=createId;
     this.now=now;
+    this.onRemove=onRemove;
+    this.keep=keep;
   }
   load(id) {
     if(typeof id!=="string" || !/^[a-zA-Z0-9-]{8,100}$/.test(id))return null;
@@ -28,7 +40,9 @@ export class GameLibrary {
       const record=this.load(key.slice(PREFIX.length));
       if(record)results.push(record);
     }
-    return results.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)||b.createdAt.localeCompare(a.createdAt));
+    const time=value=>typeof value==="string"?value:"";
+    return results.sort((a,b)=>time(b.updatedAt).localeCompare(time(a.updatedAt))||
+      time(b.createdAt).localeCompare(time(a.createdAt)));
   }
   active(mode) {
     if(!["local","ai"].includes(mode))return null;
@@ -40,6 +54,42 @@ export class GameLibrary {
     const record=this.load(id);
     if(!record || record.mode!==mode)throw Error("保存棋譜を取得できません");
     this.storage.setItem(ACTIVE+mode,id);
+  }
+  /** Stores a value; when the storage is full, the least recently updated
+   * games that are neither favourites, active nor kept make room, oldest first. */
+  write(key,value,keep=[]) {
+    for(;;) {
+      try { this.storage.setItem(key,value); return; }
+      catch(error) {
+        if(!isQuotaError(error) || String(value).length>MAX_EVICTING_VALUE || !this.evictOldest(keep))throw error;
+      }
+    }
+  }
+  evictOldest(keep=[]) {
+    const protect=new Set([...keep,...this.keep(),
+      ...["local","ai"].map(mode=>this.storage.getItem(ACTIVE+mode))]);
+    const victim=this.list().filter(record=>!record.favorite && !protect.has(record.id)).at(-1);
+    if(!victim)return false;
+    this.remove(victim.id);
+    return true;
+  }
+  remove(id) {
+    const record=this.load(id);
+    if(!record)return false;
+    this.storage.removeItem(PREFIX+id);
+    for(const mode of ["local","ai"])
+      if(this.storage.getItem(ACTIVE+mode)===id)this.storage.removeItem(ACTIVE+mode);
+    this.onRemove(record);
+    return true;
+  }
+  /** Favourites are never deleted to make room. Marking one is not an edit:
+   * neither its order nor its revision changes. */
+  setFavorite(id,favorite) {
+    const record=this.load(id);
+    if(!record)throw Error("保存棋譜を取得できません");
+    const updated={...record,favorite:favorite===true};
+    this.write(PREFIX+id,JSON.stringify(updated),[id]);
+    return updated;
   }
   save({id=null,mode,snapshot,roomId=null,lastPosition=null,humanColor=1,
         aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null},expectedRevision=null) {
@@ -57,6 +107,7 @@ export class GameLibrary {
       roomId:mode==="online"?roomId:null,
       createdAt:previous?.createdAt||timestamp,updatedAt:timestamp,
       revision:(previous?.revision||0)+1,
+      favorite:previous?.favorite===true,
       snapshot:JSON.parse(JSON.stringify(snapshot)),
       lastPosition:Number.isInteger(lastPosition)?lastPosition:null,
       humanColor:humanColor===-1?-1:1,
@@ -74,7 +125,7 @@ export class GameLibrary {
         whiteName:sgfMeta.whiteName?String(sgfMeta.whiteName):null
       }:null)
     };
-    this.storage.setItem(PREFIX+result.id,JSON.stringify(result));
+    this.write(PREFIX+result.id,JSON.stringify(result),[result.id]);
     return result;
   }
   migrateLegacy() {

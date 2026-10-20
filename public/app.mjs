@@ -2,7 +2,7 @@ import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDe
 import { suggestDeadStones } from "./dead-stones.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
-import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame, isPeerAction } from "./p2p-session.mjs";
+import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame, isPeerAction, storageKey } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
 import { isPaletteChoice, normalizePalette, showsOwnership, paletteGradient, countingGradient, interpolateOwnership, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
 import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss, boardTheme as boardLook } from "./board-theme.mjs";
@@ -19,6 +19,7 @@ import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { shareLabels, shareFrameSize, paintShareFrame, buildGameAnimation, loadShareFonts } from "./share-image.mjs";
 import { OwnershipStore } from "./ownership-store.mjs";
+import { replayLine, prefetchOrder } from "./ownership-prefetch.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { influence } from "./influence.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
@@ -41,13 +42,24 @@ function switchToFallback(reason) {
   console.warn("KataGo unavailable; switching to transparent approximation:", reason);
   worker.terminate();
   worker = new Worker("/analysis-worker.mjs", { type: "module" });
-  worker.onmessage = handleAnalysis;
+  workerWaiting = null; prefetch = null;
+  worker.onmessage = onWorkerMessage;
   worker.onerror = e => { $("analysisStatus").textContent = "解析を利用できません"; console.error(e); };
   if (gameMode === "ai") $("aiMatchStatus").textContent = "KataGoが利用できません。対AI戦は開始・続行できません。";
   show();
   requestAnalysis();
 }
 worker.onerror = e => switchToFallback(e.message || "worker startup error");
+// The worker answers only its newest request, so one waiting id tells whether it is busy.
+let workerWaiting = null;
+// Background estimates of a replayed line (see planPrefetch).
+let prefetch = null;
+function postToWorker(message) {
+  // A newer request supersedes a background estimate, which is then asked again.
+  if (prefetch?.inflight) { prefetch.queue.unshift(prefetch.inflight.step); prefetch.inflight = null; }
+  workerWaiting = message.id;
+  worker.postMessage(message);
+}
 const params = new URLSearchParams(location.search);
 let room = params.get("room"), seat = room ? null : "host";
 const inviteFragment=new URLSearchParams(location.hash.slice(1));
@@ -68,7 +80,7 @@ function renderInviteButton() {
 }
 function persistOnline(){
   if(!room || !ROOM_PATTERN.test(room))return;
-  if(!saveCheckpoint(localStorage,room,{role:p2pRole,ownerColor,session:onlineSession,
+  if(!saveCheckpoint(roomingStorage,room,{role:p2pRole,ownerColor,session:onlineSession,
     inviteKey,guestInviteKey,issuedSide,revision:onlineRevision,game,lastPosition}))
     storageError(Error("再接続用の局面を保存できません"));
 }
@@ -109,9 +121,42 @@ function reviewUnavailable() {
      game.agreed.black || game.agreed.white)return;
   apply(scoringReviewAction("dead_unavailable"));
 }
-const gameLibrary=new GameLibrary(localStorage);
+// When storage is full, the oldest saved games that are not favourites make
+// room; the current game and the active 1台/AI games always stay.
+let evictedGames=0;
+const gameLibrary=new GameLibrary(localStorage,undefined,undefined,{
+  keep:()=>currentGameId?[currentGameId]:[],
+  onRemove:record=>{
+    ownershipStore.forget(record.id);
+    if(record.mode==="online" && record.roomId!==room)
+      try{localStorage.removeItem(storageKey(record.roomId));}catch{}
+    evictedGames++;
+  }
+});
+// Friend-game checkpoints make room the same way.
+const roomingStorage={getItem:key=>localStorage.getItem(key),setItem:(key,value)=>gameLibrary.write(key,value)};
+// The ownership shown for each committed position: every position of the
+// current game, the final board (its thumbnail) of every other saved game.
+const ownershipStore=new OwnershipStore(localStorage,{write:(key,value)=>gameLibrary.write(key,value)});
+let ownershipCompactedFor;
+function compactOwnership(){
+  if(ownershipCompactedFor===currentGameId)return;
+  ownershipCompactedFor=currentGameId;
+  try{ownershipStore.compact(currentGameId,new Map(gameLibrary.list().map(r=>[r.id,r.snapshot.board])));}
+  catch(error){console.warn("Ownership compaction failed",error);}
+}
+function showEvictionNotice(){
+  if(!evictedGames)return;
+  showNotice("保存容量を空けるため、お気に入り以外の古い棋譜を"+evictedGames+"件削除しました。");
+  evictedGames=0;
+}
 let currentGameId=null,currentRevision=null;
-const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard,getBoardTheme:()=>boardTheme});
+const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard,getBoardTheme:()=>boardTheme,
+  getThumbnailOverlay:record=>{
+    if(!overlayOn())return null;
+    const ownership=ownershipStore.recall(record.id,record.snapshot.board);
+    return ownership?{ownership,palette,opacity}:null;
+  }});
 const {renderHistoryList,importHistoryFile}=historyPanel;
 // Sheets are aria-modal: keep Tab and taps out of the board behind them.
 function setBackgroundInert(on){
@@ -301,7 +346,7 @@ function requestAnalysis() {
     const id=pending;
     deadEvaluation={id,number:game.moveNumber,hash:boardHash(game.board),
       dead:deadSignature(game.dead)};
-    worker.postMessage({id,kind:"scoring",state:game});
+    postToWorker({id,kind:"scoring",state:game});
     show();return;
   }
   if(game.status!=="playing") {
@@ -332,7 +377,7 @@ function requestAnalysis() {
     aiJob={id,number:game.moveNumber,hash:boardHash(game.board)};
     $("analysisStatus").textContent = "KataGoが次の手を計算中…";
     $("aiMatchStatus").textContent = "KataGoが着手を計算中…";
-    worker.postMessage({id,kind:"move",state:game});
+    postToWorker({id,kind:"move",state:game});
     show();return;
   }
   pending=++seq;
@@ -349,7 +394,7 @@ function requestAnalysis() {
   const state=overlayOn()?(candidate || game):game, id=pending;
   analysisContext={id,number:state.moveNumber,hash:boardHash(state.board),committed:!candidate};
   if(overlayOn())$("analysisStatus").textContent=fallbackMode?"簡易表示を更新中…":"地合いを更新中…";
-  analysisTimer=setTimeout(()=>worker.postMessage({id,state,board:state.board}),180);
+  analysisTimer=setTimeout(()=>postToWorker({id,state,board:state.board}),180);
 }
 function finishAiMove(result) {
   const job=aiJob;
@@ -381,13 +426,27 @@ function finishAiMove(result) {
     switchToFallback(error instanceof Error?error.message:String(error));
   }
 }
+function onWorkerMessage(event) {
+  if(event.data?.id!==undefined && event.data.id===workerWaiting)workerWaiting=null;
+  handleAnalysis(event);
+  pumpPrefetch();
+}
 function handleAnalysis(event) {
   const result=event.data;
+  const validFor=state=>!result.error && result.engine==="katago" && Array.isArray(result.ownership) &&
+    result.ownership.length===state.board.length && result.ownership.every(Number.isFinite);
+  if(prefetch?.inflight && result.id===prefetch.inflight.id) {
+    const state=prefetch.states[prefetch.inflight.step];
+    prefetch.inflight=null;
+    if(validFor(state))keepReviewOwnership(prefetch,state.board,result.ownership);
+    else prefetch=null; // A failing estimate is not retried in the background.
+    return;
+  }
   if(boardReview && result.id!==undefined && result.id===boardReview.katagoId) {
     const state=boardReview.preview||boardReview.display;
-    if(!result.error && result.engine==="katago" && Array.isArray(result.ownership) &&
-       result.ownership.length===state.board.length) {
+    if(validFor(state)) {
       boardReview.ownership=result.ownership;
+      if(!boardReview.preview)keepReviewOwnership(reviewOwner(),state.board,result.ownership);
       draw();
     }
     return;
@@ -457,7 +516,7 @@ function handleAnalysis(event) {
     :"地合いを表示中 · 簡易影響モデル";
   transitionOwnership(result.ownership);
 }
-worker.onmessage=handleAnalysis;
+worker.onmessage=onWorkerMessage;
 function show() {
   if(boardReview){renderBoardReview();return;}
   // The forbidden stone is a provisional UI selection, never part of game state.
@@ -1068,6 +1127,7 @@ function save(){
     if(!room)gameLibrary.setActive(gameMode,record.id);
     if(room)persistOnline();
     rememberSettings();clearStorageError();
+    compactOwnership();showEvictionNotice();
     return true;
   }catch(error){storageError(error);return false;}
 }
@@ -1406,8 +1466,54 @@ function renderBoardReview() {
 // A replayed position shows the same KataGo estimate as during play: the one
 // kept for it then, or a fresh KataGo evaluation. The simple influence model
 // is only the fallback when KataGo is unavailable.
+// Whose estimates a replayed line holds: the current game keeps every position,
+// another saved game only its final board (its thumbnail), a variation or a
+// shared URL nothing beyond this page.
+function reviewOwner() {
+  const variation=boardReview.activeLine==="variation" && !!boardReview.variation;
+  const record=boardReview.source==="archive" ? boardReview.record : null;
+  const gameId=variation ? null : boardReview.source==="live" ? currentGameId : record?.id ?? null;
+  return {gameId,finalHash:record && !variation ? boardHash(record.snapshot.board) : null};
+}
+function keepReviewOwnership({gameId,finalHash},board,values) {
+  try{
+    if(gameId && (gameId===currentGameId || boardHash(board)===finalHash))
+      ownershipStore.remember(gameId,board,values);
+    else ownershipStore.keep(board,values);
+  }catch(error){console.warn("Ownership not kept",error);}
+}
+// While a game is replayed, KataGo estimates its other positions in the
+// background, nearest to the one on screen first, whenever the worker is idle.
+function planPrefetch() {
+  if(!boardReview){prefetch=null;return;}
+  const line=activeReviewSnapshot(boardReview,game);
+  if(prefetch?.line!==line){
+    let states;
+    try{states=replayLine(line);}catch{prefetch=null;return;}
+    prefetch={line,states,queue:[],inflight:null,...reviewOwner()};
+  }
+  prefetch.queue=prefetchOrder(prefetch.states.length-1,boardReview.step)
+    .filter(step=>step!==prefetch.inflight?.step);
+  pumpPrefetch();
+}
+function pumpPrefetch() {
+  if(!boardReview){prefetch=null;return;}
+  if(!prefetch || prefetch.inflight || workerWaiting!==null || aiThinking ||
+     !katagoReady || fallbackMode || !overlayOn())return;
+  while(prefetch.queue.length){
+    const step=prefetch.queue.shift(),state=prefetch.states[step];
+    if(!state || ownershipStore.recall(prefetch.gameId,state.board))continue;
+    const id=++seq;
+    postToWorker({id,state,board:state.board});
+    prefetch.inflight={id,step};
+    return;
+  }
+}
 function requestReviewOwnership() {
   if(!boardReview)return;
+  try{showReviewOwnership();}finally{planPrefetch();}
+}
+function showReviewOwnership() {
   boardReview.ownership=null;
   boardReview.analysisId=++reviewSequence;
   boardReview.katagoId=null;
@@ -1418,7 +1524,7 @@ function requestReviewOwnership() {
   if(kept){boardReview.ownership=kept;draw();return;}
   if(katagoReady && !fallbackMode){
     boardReview.katagoId=++seq;
-    worker.postMessage({id:boardReview.katagoId,state,board:state.board});
+    postToWorker({id:boardReview.katagoId,state,board:state.board});
     draw();return;
   }
   if(!reviewWorker){
@@ -1567,9 +1673,7 @@ let shareImageKind="still",shareImageJob=0;
 let shareImages={},sharePreviewUrls=[];
 let frameRenderer=null,frameState=null,frameOwnership=null;
 const ANIMATION_SIZE=600;
-// The ownership shown for each committed position, kept per saved game so
-// every frame of a shared animation carries the colours seen while playing.
-const ownershipStore=new OwnershipStore(localStorage);
+// Every frame of a shared animation carries the colours seen while playing.
 function rememberOwnership(board,values){
   try{ownershipStore.remember(currentGameId,board,values);}catch(error){console.warn("Ownership not kept",error);}
 }
@@ -2055,4 +2159,5 @@ if(!room && params.has("sgf")){
     $("saveStatus").textContent="共有棋譜を読み込めません："+error.message;
   }
 }
+compactOwnership();
 show();requestAnalysis();

@@ -20,33 +20,76 @@ export function decodeOwnership(text) {
   } catch { return null; }
 }
 
+// What is kept: every position of the current game, and one position (the
+// final board, the thumbnail's) of every other saved game. Positions computed
+// while replaying another game stay in memory for this page only.
+const MEMORY_LIMIT = 1500;
+
 export class OwnershipStore {
-  constructor(storage) {
+  /** write(key,value) stores a value; the game library's write makes room when storage is full. */
+  constructor(storage, {write=(key,value)=>storage.setItem(key,value)}={}) {
     this.storage=storage;
-    // Positions seen before the game had a saved id, and a fallback when
-    // storage is full or unavailable.
+    this.write=write;
+    // Positions seen before the game had a saved id, replayed positions, and a
+    // fallback when storage is full or unavailable.
     this.memory=new Map();
+    this.cached=null;
   }
   read(gameId) {
     if(!gameId)return {};
+    if(this.cached?.id===gameId)return this.cached.entries;
+    let entries={};
     try {
       const value=JSON.parse(this.storage.getItem(PREFIX+gameId)||"{}");
-      return value && typeof value==="object" && !Array.isArray(value) ? value : {};
-    } catch { return {}; }
+      if(value && typeof value==="object" && !Array.isArray(value))entries=value;
+    } catch {}
+    this.cached={id:gameId,entries};
+    return entries;
   }
-  remember(gameId,board,values) {
+  /** Keeps a position for this page only. */
+  keep(board,values) {
     if(values?.length!==board.length)throw Error("地合いデータが盤と合いません");
     const hash=boardHash(board),encoded=encodeOwnership(values);
-    this.memory.set(hash,encoded);
+    this.memory.delete(hash);this.memory.set(hash,encoded);
+    if(this.memory.size>MEMORY_LIMIT)this.memory.delete(this.memory.keys().next().value);
+    return {hash,encoded};
+  }
+  /** Keeps a position in memory and in the game's saved entries. */
+  remember(gameId,board,values) {
+    const {hash,encoded}=this.keep(board,values);
     if(!gameId)return;
     const entries=this.read(gameId);
     entries[hash]=encoded;
-    try { this.storage.setItem(PREFIX+gameId,JSON.stringify(entries)); } catch {}
+    try { this.write(PREFIX+gameId,JSON.stringify(entries)); } catch {}
   }
   recall(gameId,board) {
     const hash=boardHash(board);
     const encoded=this.read(gameId)[hash] ?? this.memory.get(hash);
     const values=typeof encoded==="string" ? decodeOwnership(encoded) : null;
     return values?.length===board.length ? values : null;
+  }
+  forget(gameId) {
+    if(this.cached?.id===gameId)this.cached=null;
+    try { this.storage.removeItem(PREFIX+gameId); } catch {}
+  }
+  /** Every game but the current one keeps only its final board's estimate;
+   * entries of games no longer saved are removed. finalBoards: id -> board. */
+  compact(currentId,finalBoards) {
+    const ids=[];
+    for(let i=0;i<this.storage.length;i++){
+      const key=this.storage.key(i);
+      if(key?.startsWith(PREFIX))ids.push(key.slice(PREFIX.length));
+    }
+    for(const id of ids){
+      if(id===currentId)continue;
+      const board=finalBoards.get(id);
+      const entries=board ? this.read(id) : {};
+      const hash=board ? boardHash(board) : null;
+      if(!hash || typeof entries[hash]!=="string"){this.forget(id);continue;}
+      if(Object.keys(entries).length===1)continue;
+      const kept={[hash]:entries[hash]};
+      this.cached={id,entries:kept};
+      try { this.storage.setItem(PREFIX+id,JSON.stringify(kept)); } catch { this.forget(id); }
+    }
   }
 }
