@@ -1,11 +1,10 @@
 
 import {play} from "./core.mjs";
 import {personalityFeatures,stanceOf,STYLE_AXES,styleSignal} from "./ai-personality.mjs";
-import {samplePolicyCandidate} from "./ai-policy-sampling.mjs";
+import {clamp,samplePolicyCandidate} from "./ai-policy-sampling.mjs";
 import {AI_STRENGTHS,pickWeakenedMove} from "./ai-strength.mjs";
 export {personalityFeatures,STYLE_AXES} from "./ai-personality.mjs";
 
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const bounded = v => clamp(Number(v) || 0, 0, 100);
 
 // Every candidate, including policy and preference candidates, goes through the

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {BLACK,WHITE,newGame,at,areaScore,KOMI} from "../public/core.mjs";
 import {scoringRegions,scoreBreakdown,scoreRows} from "../public/scoring-regions.mjs";
+import {recordingBoard,baseView} from "./helpers/board-canvas.mjs";
 
 test("connected same-color area includes live stones and separated pockets joined by stones",()=>{
   const game={...newGame(),status:"scoring",board:Array(81).fill(WHITE)};
@@ -42,47 +43,23 @@ test("neutral regions do not create artificial stones or region labels",()=>{
   assert.ok(scoringRegions(game).filled.every(c=>c===0));
 });
 
-import {createBoardRenderer} from "../public/board-renderer.mjs";
-const overlayContext={createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData(){}};
 test("renderer paints one area label per connected region only for scored games",()=>{
   const game={...newGame(),status:"scoring",board:Array(81).fill(WHITE)};
   for(let y=3;y<=5;y++)for(let x=2;x<=6;x++)game.board[at(x,y)]=BLACK;
   game.board[at(3,4)]=0;game.board[at(5,4)]=0;
-  const labels=[];
-  const ctx={
-    save(){},restore(){},clearRect(){},fillRect(){},beginPath(){},moveTo(){},
-    lineTo(){},arc(){},fill(){},stroke(){},setLineDash(){},fillText(t){labels.push(t);},
-    createRadialGradient(){return {addColorStop(){}}},drawImage(){}
-  };
-  const canvas={width:720,getContext:()=>ctx};
-  const renderer=createBoardRenderer({canvas,
-    getView:()=>({game,boardReview:null,candidate:null,lastPosition:null,
-      displayedOwnership:null,palette:"mono",opacity:.55,humanTurn:false}),
-    createOverlayCanvas:()=>({getContext:()=>overlayContext})
-  });
-  renderer.draw();
+  const {draw,labels}=recordingBoard(()=>baseView(game),{width:720});
+  draw();
   assert.deepEqual(labels.sort(),["15","66"].sort());
-  game.status="playing";labels.length=0;renderer.draw();
+  game.status="playing";labels.length=0;draw();
   assert.equal(labels.length,0);
-  game.status="finished";game.result="W+R";labels.length=0;renderer.draw();
+  game.status="finished";game.result="W+R";labels.length=0;draw();
   assert.equal(labels.length,0,"resignation has no invented area score");
 });
 
 test("scoring overlay is never drawn in active game replay",()=>{
   const state={...newGame(),status:"scoring",board:Array(81).fill(WHITE)};
-  const labels=[];
-  const ctx={
-    save(){},restore(){},clearRect(){},fillRect(){},beginPath(){},
-    moveTo(){},lineTo(){},arc(){},fill(){},stroke(){},setLineDash(){},
-    fillText(text){labels.push(text);},createRadialGradient(){return {addColorStop(){}};}
-  };
-  const renderer=createBoardRenderer({
-    canvas:{width:720,getContext:()=>ctx},
-    getView:()=>({game:state,boardReview:{display:newGame(),ownership:null},
-      candidate:null,lastPosition:null,displayedOwnership:null,palette:"mono",opacity:.55,humanTurn:false}),
-    createOverlayCanvas:()=>({getContext:()=>overlayContext})
-  });
-  renderer.draw();
+  const {draw,labels}=recordingBoard(()=>({...baseView(state),boardReview:{display:newGame(),ownership:null}}),{width:720});
+  draw();
   assert.equal(labels.length,0);
 });
 

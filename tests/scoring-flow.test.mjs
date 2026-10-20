@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { newGame, play, at, BLACK } from "../public/core.mjs";
 import {
   canApproveScoring, canApplyAutomatedReview, deadSignature
 } from "../public/scoring-flow.mjs";
-const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
-const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
-const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+import {source} from "./helpers/source.mjs";
+const app=source("app.mjs");
+const html=source("index.html");
+const css=source("style.css");
 
 test("score approval is blocked during preparation, loading and awaiting host",()=>{
   const scoring={...newGame(),status:"scoring"};
