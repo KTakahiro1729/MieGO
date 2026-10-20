@@ -512,8 +512,6 @@ function show() {
   $("endgameBar").classList.toggle("has-illegal",blocked);
   $("pass").disabled=!myTurn || game.status!=="playing";
   $("resign").disabled=!myTurn || game.status!=="playing";
-  $("openCurrentMode").hidden=!room && gameMode!=="ai";
-  $("openCurrentMode").textContent=room?"招待URLを表示":"AIの設定・再戦";
   updateGradient();
   const handicap=handicapOf(game),size=sizeOf(game.board);
   canvas.setAttribute("aria-label",shownSize()+"路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。");
@@ -1763,12 +1761,8 @@ function resumeSelectedReview(){
 }
 $("reviewResume").onclick=resumeSelectedReview;
 $("historyImportFile").onchange=e=>void importHistoryFile(e.target.files?.[0]);
-$("openCurrentMode").onclick=()=>{
-  if(room)openPanel("online");else if(gameMode==="ai")openPanel("ai");
-};
 $("openHistory").onclick=openHistoryPanel;
 $("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
-$("openHistorySettings").onclick=openHistoryPanel;
 document.addEventListener("storage",e=>{
   if(e.key?.startsWith("miego:game:v1:") && !$("historySetup").hidden)renderHistoryList();
 });

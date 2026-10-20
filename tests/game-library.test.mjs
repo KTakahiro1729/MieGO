@@ -120,9 +120,8 @@ test("unified history sheet preserves scoring and keyboard-friendly selection",a
  const h=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
  const a=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
  const historyPanel=readFileSync(new URL("../public/history-panel.mjs",import.meta.url),"utf8");
- for(const id of ["historySaveNotice","scoringActions","openCurrentMode","reviewStepRange","shareSgf"])
+ for(const id of ["historySaveNotice","scoringActions","reviewStepRange","shareSgf"])
    assert.match(h,new RegExp('id="'+id+'"'));
- assert.match(a,/\$\("openCurrentMode"\)\.onclick/);
  assert.match(historyPanel,/function showHistory\(\)/);
  assert.match(a,/\$\("newGameButton"\)\.focus\(\)/);
  assert.match(a,/\$\("shareNotice"\)\.textContent="SGFを書き出しました/);
