@@ -882,7 +882,9 @@ button:active:not(:disabled),.fused>label:active>span{filter:brightness(1.18);tr
 }
 @media(prefers-reduced-motion:reduce){.info-disclosure::details-content{transition:none!important}}
 
-/* 棋風診断 page (/style, src/style.template.html, play-style-page.mjs). */
+/* 棋風診断 page (/style, src/style.template.html, play-style-page.mjs). Unlike the
+   single-screen game it is a long page, so it scrolls. */
+body.style-page{overflow:auto}
 .style-page .topbar{max-width:640px;margin:0 auto}
 .style-brand{color:inherit;text-decoration:none}
 .style-back{color:var(--muted);font-size:14px;text-decoration:none;padding:12px 0}
