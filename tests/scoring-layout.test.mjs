@@ -114,10 +114,10 @@ test("scoring and the result fit above the action row on every screen",{skip,tim
     // Two people on one device, so two passes go straight to scoring.
     await page.locator("#newGameButton").click();
     await page.locator('input[name="newGameMode"][value="local"]').check({force:true});
-    // 盤 and ルール show their value until tapped.
-    await page.locator("#boardSizeFold").click();
+    // 盤 and ルール each have a tab over the one panel of choices.
+    await page.locator("#setupTabBoard").click();
     await page.locator(`input[name="boardSize"][value="${board}"]`).check({force:true});
-    await page.locator("#gameRulesFold").click();
+    await page.locator("#setupTabRules").click();
     await page.locator(`input[name="gameRules"][value="${rules}"]`).check({force:true});
     await page.locator("#startLocal").click();
     await step(page,at,"local game",()=>page.locator("#modePanel").waitFor({state:"hidden"}));

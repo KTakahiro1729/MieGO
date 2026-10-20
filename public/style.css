@@ -216,19 +216,26 @@ body.board-zoomed .board-bleed{opacity:1}
 .mode-panel .return-to-game{margin:0 0 14px}
 .mode-panel .return-to-game:not([hidden])~section:not([hidden]){border-top:1px solid #343b49;padding-top:14px}
 .mode-panel .return-to-game:not([hidden])~section:not([hidden])~section:not([hidden]){border-top:0;padding-top:0}
-/* Board, handicap and side share one compact label-left grid instead of a heading each. */
-.setup-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;align-items:center;margin-top:14px}
 .setup-row{display:contents}
 .setup-row[hidden]{display:none}
 .setup-label{margin:0;font-size:13px;color:#d6dae3;white-space:nowrap}
-/* 盤 and ルール show the chosen value at the height of the choices that replace it. */
-.setup-fold{min-width:0}
-.setup-fold>[hidden]{display:none}
-.fold-value{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:46px;margin:0;padding:0 12px;
-  border:1px solid #505766;border-radius:var(--radius);background:#252c38;color:#f1f2f2;font:inherit;font-size:13px;cursor:pointer}
-.fold-chevron{flex:none;color:#9aa1ad}
-.setup-rows .board-size-choices span{min-height:44px}
-.setup-rows .rules-choices span{display:flex;align-items:center;justify-content:center;min-height:44px}
+/* 盤・ルール・自分の石・AIの強さ: a row of tabs showing each chosen value, joined to one panel of choices. */
+.setup-tabs{margin-top:14px;border-radius:var(--radius) var(--radius) 0 0;--fused-bg:#252c38;--fused-edge:#505766}
+.fused>.setup-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;padding:6px 2px;
+  border-radius:0;font-weight:600;color:#f1f2f2}
+.setup-tab small{font-size:11px;font-weight:400;color:#9aa1ad;white-space:nowrap}
+.setup-tab span{font-size:12px;white-space:nowrap}
+.fused>.setup-tab[aria-selected="true"]{background:#1b212c;box-shadow:inset 0 2px 0 #efcb81}
+.setup-tab[aria-selected="true"] small,.setup-tab[aria-selected="true"] span{color:#f8ddac}
+.setup-tab.is-unused span{color:#6b7180}
+.setup-panels{padding:10px;border:1px solid #505766;border-top:0;border-radius:0 0 var(--radius) var(--radius);background:#1b212c}
+.setup-panel{min-height:94px}
+.setup-panel[hidden]{display:none}
+.setup-panels .board-size-choices span{min-height:44px}
+.setup-panels .rules-choices span,.setup-panels .strength-choices span{display:flex;align-items:center;justify-content:center;min-height:44px}
+.strength-groups{min-width:0;margin:0;padding:0;border:0}
+.strength-note{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin:6px 0 0}
+.strength-note .step-note{margin:0;min-height:0}
 /* 自分の石: [● 黒|ランダム|○ 白] and [観戦] apart, since watching is not a colour. */
 .side-groups{display:grid;grid-template-columns:3fr 1fr;gap:8px;min-width:0;margin:0;padding:0;border:0}
 /* A choice the chosen mode or rule does not use stays in place, greyed out. */
@@ -239,7 +246,7 @@ body.board-zoomed .board-bleed{opacity:1}
 .ai-advanced:disabled .fused input:disabled+span{color:inherit}
 .ai-advanced{min-width:0;margin:0;padding:0;border:0}
 /* Narrow chips so four choices (or a board icon and 13路) stay on one line at 320px. */
-.setup-rows .ai-color-choices span{padding:10px 2px;font-size:12px;white-space:nowrap}
+.setup-panels .ai-color-choices span{padding:10px 2px;font-size:12px;white-space:nowrap}
 /* Board size reads at a glance: denser grid lines for larger boards. */
 .board-size-choices span{display:flex;align-items:center;justify-content:center;gap:4px}
 .size-icon{flex:none;width:20px;height:20px;color:#9aa1ad}

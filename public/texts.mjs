@@ -585,6 +585,7 @@ export const TEXT = {
     rules: "ルール",
     rulesChoices: { chinese: "中国式", japanese: "日本式", gomoku: "五目並べ", free: "自由" },
     advanced: "詳細設定",
+    setupTabs: "対局の設定",
     hideStones: "石を隠す（地合いだけ表示）",
     gomokuForbidden: "禁じ手あり（五目並べ）",
     gomokuForbiddenNote: "黒だけ三三・四四・長連を打てなくなります。先手の黒が強すぎるのを抑える連珠のルールです。",

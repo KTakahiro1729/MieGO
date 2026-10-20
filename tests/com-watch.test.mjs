@@ -23,7 +23,7 @@ test("観戦 has one way in: its own button beside the colours, not a wide butto
   // 対友人 shows the same row with 観戦 greyed out.
   assert.match(between('id="onlineSideRow"','</fieldset>'),/value="watch" disabled>/);
   // With two COMs, 「AIの強さ」 is greyed out and each COM's strength is set in 詳細設定.
-  assert.match(body("syncStrengthUi"),/\$\("aiStrength"\)\.disabled=off;/);
+  assert.match(body("syncStrengthUi"),/\$\("aiStrengthChoices"\)\.disabled=off;/);
   assert.match(body("syncStrengthUi"),/TEXT\.ai\.strengthInAdvanced/);
 });
 

@@ -1769,33 +1769,36 @@ function openPanel(kind) {
 }
 // Every mode's start button reads the same: 設定して再戦 while that mode's game is on the board.
 function startLabel(kind){return !room && gameMode===kind?TEXT.ai.restart:TEXT.newGame.start;}
-// 盤 and ルール show the chosen value; a tap opens the choices in its place, and a choice closes them.
-function foldSetup(id, open) {
-  $(id+"Fold").hidden=open;
-  $(id+"Choices").hidden=!open;
-  $(id+"Fold").setAttribute("aria-expanded",String(open));
+// 盤, ルール, 自分の石 and AIの強さ are one row of tabs, each showing its chosen
+// value; the selected tab's choices fill the one panel under it.
+const SETUP_TABS=["Board","Rules","Side","Strength"];
+function selectSetupTab(key, focus=false) {
+  for(const other of SETUP_TABS){
+    const tab=$("setupTab"+other),selected=other===key;
+    tab.setAttribute("aria-selected",String(selected));
+    tab.tabIndex=selected?0:-1;
+    $("setupPanel"+other).hidden=!selected;
+  }
+  if(focus)$("setupTab"+key).focus();
 }
-for(const id of ["boardSize","gameRules"]) {
-  const choices=$(id+"Choices");
-  let arrowKey=false;
-  $(id+"Fold").onclick=()=>{
-    foldSetup(id,true);
-    choices.querySelector("input:checked:not(:disabled)")?.focus();
+SETUP_TABS.forEach((key,index)=>{
+  $("setupTab"+key).onclick=()=>selectSetupTab(key);
+  $("setupTab"+key).onkeydown=e=>{
+    const step=e.key==="ArrowRight"?1:e.key==="ArrowLeft"?-1:0;
+    if(step){e.preventDefault();selectSetupTab(SETUP_TABS[(index+step+SETUP_TABS.length)%SETUP_TABS.length],true);}
   };
-  // Arrow keys move through the choices, so only a tap, Enter or Esc closes them.
-  choices.addEventListener("keydown",e=>{
-    arrowKey=e.key.startsWith("Arrow");
-    if(e.key==="Enter" || e.key==="Escape"){e.preventDefault();foldSetup(id,false);$(id+"Fold").focus();}
-  });
-  choices.addEventListener("click",e=>{
-    if(e.target.tagName!=="INPUT")return;
-    if(arrowKey){arrowKey=false;return;}
-    foldSetup(id,false);$(id+"Fold").focus();
-  });
-}
-function syncFoldValues() {
-  for(const [id,name] of [["boardSize","boardSize"],["gameRules","gameRules"]])
-    $(id+"Value").textContent=document.querySelector('input[name="'+name+'"]:checked')?.nextElementSibling.textContent||"";
+});
+const checkedLabel=name=>document.querySelector('input[name="'+name+'"]:checked')?.nextElementSibling.textContent||"";
+// A tab whose setting the chosen mode does not use shows its value greyed out.
+function syncSetupValues() {
+  const kind=newGameModeKind();
+  $("boardSizeValue").textContent=checkedLabel("boardSize");
+  $("gameRulesValue").textContent=checkedLabel("gameRules");
+  $("sideValue").textContent=checkedLabel(kind==="online"?"onlineSide":"aiSide");
+  $("setupTabSide").classList.toggle("is-unused",kind==="local");
+  const watch=kind==="ai" && editsWatchAi();
+  $("aiStrengthValue").textContent=watch?TEXT.newGame.advanced:checkedLabel("aiStrength");
+  $("setupTabStrength").classList.toggle("is-unused",kind!=="ai" || watch);
 }
 // The 新規対戦 sheet shows the same rows in every mode, so its height stays put;
 // a row the chosen mode does not use is greyed out.
@@ -1810,7 +1813,6 @@ function showNewGameMode(kind) {
   $("newGameSetup").hidden=kind==="history";
   $("modePanel").scrollTop=0;
   if(kind==="history")historyPanel.showHistory();
-  for(const id of ["boardSize","gameRules"])foldSetup(id,false);
   // 1台で打つ has no side to choose: it shows 対COM's row greyed out, as 対友人 does 観戦.
   $("aiSideRow").hidden=kind==="online";
   $("onlineSideRow").hidden=kind!=="online";
@@ -2322,7 +2324,6 @@ $("startAi").onclick=()=>{
   try{humanColor=watching || aiHandicap && gameRules!=="gomoku"?BLACK:selectColor(aiSideChoice);}
   catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
   // The slider shows a watched game's 設定するCOM, so it only sets aiStrength otherwise.
-  if(!watching)aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
   game=newGame(true,nextGameOptions(aiHandicap));currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;endNotice=null;
@@ -2370,7 +2371,6 @@ function syncHandicapUi() {
   const shown=ai?aiHandicap:kind==="online"?onlineHandicap:localHandicap;
   for(const option of $("handicap").options)option.disabled=Number(option.value)>maxHandicap(boardSize);
   // 五目並べ takes no handicap stones (newGame() drops them); 禁じ手 is its own choice.
-  syncFoldValues();
   // Choices a rule does not use stay in place, greyed out.
   for(const [row,input,off] of [["handicapSetup","handicap",gameRules==="gomoku" || gameRules==="free"],
     ["hideStonesRow","hideStones",gameRules==="free"],["gomokuForbiddenRow","gomokuForbidden",gameRules!=="gomoku"]]){
@@ -2389,6 +2389,7 @@ function syncHandicapUi() {
     const black=document.querySelector('input[name="aiSide"][value="black"]');
     if(black)black.checked=true;
   }else syncSideUi();
+  syncSetupValues();
 }
 {
   $("handicap").onchange=e=>{
@@ -2424,27 +2425,28 @@ for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforceme
   };
 }
 // The strength bar's stops follow AI_STRENGTHS from weakest to strongest.
-const STRENGTH_ORDER=Object.keys(AI_STRENGTHS);
-const strengthAt=index=>normalizeStrength(STRENGTH_ORDER[Number(index)],DEFAULT_AI_STRENGTH);
 function syncStrengthUi() {
   const two=editsWatchAi(),off=newGameModeKind()!=="ai" || two;
-  // Two COMs take their strengths from 詳細設定, and the bar says so.
-  $("aiStrength").value=String(STRENGTH_ORDER.indexOf(aiStrength));
-  $("aiStrength").disabled=off;
-  $("aiStrengthRow").classList.toggle("is-off",off);
-  syncStepSlider("aiStrength");
-  if(two && !$("aiStrengthRow").hidden && newGameModeKind()==="ai")$("aiStrengthNote").textContent=TEXT.ai.strengthInAdvanced;
+  // Two COMs take their strengths from 詳細設定, and the panel says so.
+  const input=document.querySelector('input[name="aiStrength"][value="'+aiStrength+'"]');
+  if(input)input.checked=true;
+  $("aiStrengthChoices").disabled=off;
+  $("aiStrengthNote").textContent=two && newGameModeKind()==="ai"?TEXT.ai.strengthInAdvanced:input?.dataset.note||"";
   syncComCards();
   $("aiHints").checked=aiHints;
   syncWatchSliderRows();
+  syncSetupValues();
 }
 // Strength applies from the next AI move, like the personality sliders.
-$("aiStrength").oninput=e=>{
-  aiStrength=strengthAt(e.target.value);
-  syncStrengthUi();
-  if(gameMode==="ai")save();else rememberSettings();
-  $("aiMatchStatus").textContent=TEXT.ai.nextStrength(AI_STRENGTHS[aiStrength].label);
-};
+for(const input of document.querySelectorAll('input[name="aiStrength"]')) {
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    aiStrength=normalizeStrength(e.target.value,DEFAULT_AI_STRENGTH);
+    syncStrengthUi();
+    if(gameMode==="ai")save();else rememberSettings();
+    $("aiMatchStatus").textContent=TEXT.ai.nextStrength(AI_STRENGTHS[aiStrength].label);
+  };
+}
 $("aiHints").onchange=e=>{
   aiHints=e.target.checked;rememberSettings();
   if(aiHints && !visibleHints())requestAnalysis();
@@ -2458,7 +2460,7 @@ $("nativeShare").onclick=async()=>{
   try{await navigator.share({title:TEXT.online.shareTitle,url:link});}
   catch(error){if(error.name!=="AbortError")$("inviteStatus").textContent=TEXT.online.shareFailed;}
 };
-for(const input of document.querySelectorAll('input[name="onlineSide"]'))input.onchange=renderInviteButton;
+for(const input of document.querySelectorAll('input[name="onlineSide"]'))input.onchange=()=>{renderInviteButton();syncSetupValues();};
 // The next game's "石を隠す" is read even in a room, where the other
 // remembered choices are not, so leaving the room does not forget it.
 try{hideStonesChoice=JSON.parse(localStorage.getItem("miego-local-settings")||"null")?.hideStones===true;}catch{}
