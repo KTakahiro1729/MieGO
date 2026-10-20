@@ -137,7 +137,6 @@
           <label class="palette-choice"><input type="radio" name="boardTheme" value="light"><span class="board-swatch light"></span><span>ライト</span></label>
           <label class="palette-choice"><input type="radio" name="boardTheme" value="dark"><span class="board-swatch dark"></span><span>ダーク</span></label>
         </fieldset>
-        <div class="mode hide-stones"><div><strong>石を隠す（地合いだけ表示）</strong><p>対局中と再生中は石を描かず、地合いの色だけで盤面を読みます。整地になると石が現れます。</p></div><input id="hideStones" type="checkbox" aria-label="石を隠す（地合いだけ表示）"></div>
       </section>
       <section class="settings-section ownership-settings" id="ownershipSettings">
         <h3>地合いの表示<button class="help-button" type="button" data-help="ownership" aria-label="地合いの表示のヘルプ" title="地合いの表示のヘルプ"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></h3>
@@ -239,6 +238,7 @@
             </select>
           </div>
           <p id="handicapNote" class="explanation" hidden></p>
+          <div class="mode hide-stones"><div><strong>石を隠す（地合いだけ表示）</strong><p>対局中と再生中は石を描かず、地合いの色だけで盤面を読みます。整地になると石が現れます。</p></div><input id="hideStones" type="checkbox" aria-label="石を隠す（地合いだけ表示）"></div>
           <div id="aiOptions" class="ai-advanced" hidden>
             <div class="mode"><div><strong>ヒントを表示</strong><p>あなたの番に、KataGoの候補手を1〜3で示します。</p></div><input id="aiHints" type="checkbox" aria-label="ヒントを表示する"></div>
             <div id="aiInvasionRow" class="step-slider">

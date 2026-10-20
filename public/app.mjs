@@ -1071,9 +1071,7 @@ $("opacity").oninput=e=>{
 };
 $("resetAppearance").onclick=()=>{
   const wasOn=overlayOn();
-  palette="mono";opacity=.55;boardTheme=DEFAULT_BOARD_THEME;stonesHidden=false;
-  try{localStorage.setItem("miego-hide-stones","0");}catch{}
-  $("hideStones").checked=false;
+  palette="mono";opacity=.55;boardTheme=DEFAULT_BOARD_THEME;
   localStorage.setItem("miego-palette",palette);
   localStorage.setItem("miego-opacity","0.55");
   localStorage.setItem("miego-board",boardTheme);

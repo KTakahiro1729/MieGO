@@ -561,8 +561,6 @@ export const TEXT = {
     reset: "初期状態に戻す",
     board: "碁盤",
     themes: { wood: "木目", light: "ライト", dark: "ダーク" },
-    hideStones: "石を隠す（地合いだけ表示）",
-    hideStonesNote: "対局中と再生中は石を描かず、地合いの色だけで盤面を読みます。整地になると石が現れます。",
     ownership: "地合いの表示",
     palette: "配色",
     palettes: { mono: "白〜黒", greenPurple: "緑〜紫", custom: "カスタム", none: "表示しない" },
@@ -593,6 +591,8 @@ export const TEXT = {
     sizes: { 9: "9路", 13: "13路", 19: "19路" },
     mySide: "自分の石",
     advanced: "詳細設定",
+    hideStones: "石を隠す（地合いだけ表示）",
+    hideStonesNote: "対局中と再生中は石を描かず、地合いの色だけで盤面を読みます。整地になると石が現れます。",
     start: "対局を始める",
   },
 
