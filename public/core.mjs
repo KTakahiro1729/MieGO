@@ -25,6 +25,9 @@ export const isFree = state => rulesOf(state) === "free";
 export const hasGomokuForbidden = state => isGomoku(state) && state?.gomokuForbidden === true;
 export const BLACK = 1;
 export const WHITE = -1;
+// A colour's key ("black" or "white") in saved settings and in `agreed`, and back.
+export const sideKey = color => color === BLACK ? "black" : "white";
+export const colorOf = key => key === "white" ? WHITE : BLACK;
 export const isBoardSize = size => BOARD_SIZES.includes(size);
 /** A flat board's side length, derived from its length (unknown shapes fall back to 9). */
 export const sizeOf = board => {
@@ -418,7 +421,7 @@ export const scoringStepOf = state => state?.status === "scoring" && isJapanese(
   ? (state.scoringStep === "count" ? "count" : "dead") : null;
 export function agreeDead(state, color) {
   if (scoringStepOf(state) !== "dead" || ![BLACK, WHITE].includes(color)) throw new Error("Not scoring");
-  const agreed = { ...state.agreed, [color === BLACK ? "black" : "white"]: true };
+  const agreed = { ...state.agreed, [sideKey(color)]: true };
   if (!agreed.black || !agreed.white) return { ...state, agreed };
   return { ...state, scoringStep: "count", agreed: { black: false, white: false } };
 }
@@ -435,7 +438,7 @@ export function backToDead(state) {
 export function agreeScore(state, color) {
   if (state.status !== "scoring" || scoringStepOf(state) === "dead" || ![BLACK, WHITE].includes(color))
     throw new Error("Not scoring");
-  const agreed = { ...state.agreed, [color === BLACK ? "black" : "white"]: true };
+  const agreed = { ...state.agreed, [sideKey(color)]: true };
   if (!agreed.black || !agreed.white) return { ...state, agreed };
   return { ...state, agreed, status: "finished", result: scoreResult(areaScore(state)) };
 }
