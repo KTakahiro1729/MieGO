@@ -64,7 +64,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 ## Web KaTrain
 
 KataGo network evaluation code in `vendor/web-katrain/` (https://github.com/Sir-Teo/web-katrain, revision `8dd813aeb565cbdad5215dc75204fc40fd519c50`),
-bundled into `/katago-worker.bundle.mjs`, and the small test network `/models/katago-small.bin.gz` downloaded from the same revision.
+bundled into the KataGo worker under `/katago/`, and the small test network `/models/katago-small.bin.gz` downloaded from the same revision.
 See `vendor/web-katrain/NOTICE.md` for what MieGO changed.
 
 ```text
@@ -117,7 +117,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 ## TensorFlow.js and Long.js
 
-Bundled into `/katago-worker.bundle.mjs`, with the WebAssembly backend's `.wasm` files served from `/tfjs/`:
+Bundled into the KataGo worker, with the WebAssembly backend's `.wasm` files served next to it under `/katago/`:
 
 - `@tensorflow/tfjs`, `@tensorflow/tfjs-core`, `@tensorflow/tfjs-converter`, `@tensorflow/tfjs-data`, `@tensorflow/tfjs-layers`,
   `@tensorflow/tfjs-backend-cpu`, `@tensorflow/tfjs-backend-wasm`, `@tensorflow/tfjs-backend-webgl`, `@tensorflow/tfjs-backend-webgpu` 4.22.0:
@@ -332,7 +332,7 @@ Apache License
 
 ## pako
 
-`pako` 2.2.0 (https://github.com/nodeca/pako), bundled into `/katago-worker.bundle.mjs` to decompress the networks.
+`pako` 2.2.0 (https://github.com/nodeca/pako), bundled into the KataGo worker to decompress the networks.
 
 ```text
 (The MIT License)

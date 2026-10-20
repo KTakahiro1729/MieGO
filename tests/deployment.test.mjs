@@ -78,3 +78,13 @@ test("the page may not be framed, and its policy admits every third party the pa
   assert.ok(directives["style-src"].includes(origin("public/share-image.mjs", /href:"([^"]+)"/)));
   assert.ok(directives["script-src"].includes("'wasm-unsafe-eval'"));
 });
+test("the KataGo worker's build is kept by browsers, and only under a content-hashed path", () => {
+  const headers = readFileSync(resolve(root, "public/_headers"), "utf8");
+  assert.match(headers, /^\/katago\/\*\n  Cache-Control: public, max-age=31536000, immutable$/m);
+  // The entry the page loads stays outside /katago/, so a new build is found on the next visit.
+  const entry = readFileSync(resolve(root, "public/katago-worker.bundle.mjs"), "utf8");
+  const path = entry.match(/^import "\/(katago\/[0-9a-f]{16})\/worker\.mjs";$/m)?.[1];
+  assert.ok(path, "The worker entry must import a hashed build");
+  for (const file of ["worker.mjs", "tfjs-backend-wasm.wasm", "tfjs-backend-wasm-simd.wasm"])
+    assert.ok(existsSync(resolve(root, "public", path, file)), "Missing " + path + "/" + file);
+});
