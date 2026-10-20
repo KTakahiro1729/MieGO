@@ -1,4 +1,15 @@
-import { BLACK, WHITE, boardHash, group, neighbors, play, resume, sizeOf } from "./core.mjs";
+import {
+  BLACK,
+  WHITE,
+  boardHash,
+  emptyRegions,
+  group,
+  groups,
+  neighbors,
+  play,
+  resume,
+  sizeOf,
+} from "./core.mjs";
 import { OWNERSHIP_BANDS } from "./territory-view.mjs";
 
 /**
@@ -38,12 +49,10 @@ function ownEye(board, point, color) {
  * player to move: the points to fill so those dead stones come off the board.
  */
 export function captureTargets(state, ownership) {
-  const board = state.board, me = state.next, targets = new Set(), seen = new Set();
+  const board = state.board, me = state.next, targets = new Set();
   if (!Array.isArray(ownership) || ownership.length !== board.length) return targets;
-  for (let i = 0; i < board.length; i++) {
-    if (board[i] !== -me || seen.has(i)) continue;
-    const { stones, liberties } = group(board, i);
-    for (const s of stones) seen.add(s);
+  for (const { color, stones, liberties } of groups(board)) {
+    if (color !== -me) continue;
     const control = [...stones].map(s => me * ownership[s]);
     if (control.every(v => v >= 0.7) && control.reduce((a, b) => a + b, 0) / control.length >= 0.85)
       for (const p of liberties) targets.add(p);
@@ -58,15 +67,11 @@ export function captureTargets(state, ownership) {
  * liberties among them) is left open.
  */
 export function damePoints(state) {
-  const board = state.board, size = sizeOf(board), me = state.next, points = new Set(), seen = new Set();
-  for (let i = 0; i < board.length; i++) {
-    if (board[i] || seen.has(i)) continue;
-    const area = [i], border = new Set(); seen.add(i);
-    for (let head = 0; head < area.length; head++) for (const n of neighbors(area[head], size)) {
-      if (board[n]) border.add(board[n]);
-      else if (!seen.has(n)) { seen.add(n); area.push(n); }
-    }
-    if (border.size < 2) continue;
+  const board = state.board, size = sizeOf(board), me = state.next, points = new Set();
+  // An area with an owner is bordered by one colour alone (or by none on an
+  // empty board, where no point touches both colours anyway).
+  for (const { points: area, owner } of emptyRegions(board)) {
+    if (owner) continue;
     for (const p of area) {
       const around = neighbors(p, size).map(n => board[n]);
       if (!around.includes(BLACK) || !around.includes(WHITE)) continue;
@@ -127,14 +132,12 @@ export function settleStep(state, position) {
  * gives every one of its stones firmly to the opponent.
  */
 export function deadFromPlayout(original, settledBoard, ownership) {
-  const board = original.board, dead = new Set(), seen = new Set();
+  const board = original.board, dead = new Set();
   const valid = Array.isArray(ownership) && ownership.length === board.length &&
     ownership.every(Number.isFinite);
-  for (let i = 0; i < board.length; i++) {
-    const color = board[i];
-    if ((color !== BLACK && color !== WHITE) || seen.has(i)) continue;
-    const stones = [...group(board, i).stones];
-    for (const s of stones) seen.add(s);
+  for (const { color, stones: members } of groups(board)) {
+    const stones = [...members];
+    if (color !== BLACK && color !== WHITE) continue;
     const captured = stones.every(s => settledBoard[s] !== color);
     const lost = valid && stones.every(s => color * ownership[s] <= -0.7) &&
       stones.reduce((sum, s) => sum + color * ownership[s], 0) / stones.length <= -0.85;

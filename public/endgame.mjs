@@ -1,4 +1,4 @@
-import { group } from "./core.mjs";
+import { groups } from "./core.mjs";
 import { OWNERSHIP_BANDS } from "./territory-view.mjs";
 import { TEXT } from "./texts.mjs";
 
@@ -63,11 +63,7 @@ export class EndgameAdvisor {
     // of it in the opponent's settled colour: then it is a dead group waiting
     // to be removed at scoring, not a reason to keep playing.
     let fight=false;
-    const visited=new Set();
-    for(let i=0;i<state.board.length;i++){
-      if(!state.board[i] || visited.has(i))continue;
-      const g=group(state.board,i);
-      for(const j of g.stones)visited.add(j);
+    for(const g of groups(state.board)){
       if(g.liberties.size>1)continue;
       if(![...g.stones].every(j=>state.board[j]*ownership[j]<=-OWNERSHIP_BANDS.SETTLED))fight=true;
     }
