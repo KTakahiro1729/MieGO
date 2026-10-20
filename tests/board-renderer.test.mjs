@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {at,BLACK,boardHash,newGame,play,WHITE} from "../public/core.mjs";
-import {BREATH_STEP_MS,BURST_MS,CAPTURE_FADE_MS} from "../public/board-renderer.mjs";
+import {BREATH_IN_MS,BREATH_OUT_MS,BREATH_REST_MS,BURST_MS,CAPTURE_FADE_MS} from "../public/board-renderer.mjs";
 import {recordingBoard,baseView} from "./helpers/board-canvas.mjs";
 import {ownershipPixel,countingOpacity} from "../public/territory-view.mjs";
 
@@ -274,65 +274,41 @@ test("四角 bulges each side toward an empty point and dents it where an oppone
   assert.ok(at_(250,250+19.25),"straight toward its own stone below");
 });
 
-test("盤の線 joins same-coloured stones and reaches a cup around each liberty",()=>{
+test("盤の線 runs still dashes through each group and out to a dot on each liberty",()=>{
   const game=newGame();
   game.board[at(4,4)]=BLACK;game.board[at(5,4)]=BLACK;game.board[at(4,5)]=WHITE;
-  const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"lines"}));
+  const frames=[];
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"lines"}),{requestFrame:f=>frames.push(f),stillMotion:()=>true});
   draw();
   const ends=calls.filter(c=>c.kind==="line").map(c=>c.args.join(","));
-  assert.ok(ends.includes(String([300-22,250])),"the line between the two black stones");
-  assert.ok(ends.includes(String([250,200+10])),"up to the cup around the empty point");
-  assert.ok(calls.some(c=>c.kind==="arc"&&c.args[0]===250&&c.args[1]===200&&c.args[2]===10),"the cup");
-  assert.equal(ends.includes(String([250,300-10])),false,"nothing toward the white stone");
+  assert.ok(ends.includes(String([250,200+6.5])),"from the stone up to the dot on the empty point above");
+  assert.ok(calls.some(c=>c.kind==="arc"&&c.args[0]===250&&c.args[1]===200&&c.args[2]===6.5),"the dot");
+  // (5,5) is needed by a black stone and a white one: half a dot each.
+  assert.equal(calls.filter(c=>c.kind==="arc"&&c.args[0]===300&&c.args[1]===300&&c.args[2]===6.5).length,2);
+  assert.equal(ends.some(e=>{const [x,y]=e.split(",").map(Number);return x===250&&y>250&&y<300;}),false,"nothing between black and white");
+  assert.equal(frames.length,0,"still where motion is reduced");
 });
 
-test("呼吸の粒 sends grains from every liberty at once into the stone on 9路 only, and keeps animating",()=>{
+test("盤の線 breathes in from the liberties and out again, only to the stone's edge in atari",()=>{
   const game=newGame();
-  game.board[at(4,4)]=BLACK;
-  const frames=[];
-  let time=BREATH_STEP_MS*.5, still=false, size=9;
-  const view=()=>{const g=size===9?game:newGame(size);if(size!==9)g.board[at(4,4,size)]=BLACK;
-    return {...baseView(g),breathParticles:true};};
-  const {draw,calls}=recordingBoard(view,{requestFrame:f=>frames.push(f),now:()=>time,stillMotion:()=>still});
-  draw();
-  // A grain is a soft dot: a radial glow from nothing at its centre.
-  const grain=c=>c.kind==="glow"&&c.args[2]===0;
-  // Three from each of the four liberties, on their way into the stone at (250,250).
-  const grains=calls.filter(grain);
-  assert.equal(grains.length,12);
-  assert.ok(grains.every(c=>Math.hypot(c.args[0]-250,c.args[1]-250)<50+8),"between the liberties and the stone");
-  assert.equal(frames.length,1,"asks for the next frame");
-  // Later they rest inside the lone stone they flowed into.
-  time=BREATH_STEP_MS*6;calls.length=0;draw();
-  assert.ok(calls.filter(grain).some(c=>Math.hypot(c.args[0]-250,c.args[1]-250)<22));
-  still=true;calls.length=0;frames.length=0;
-  draw();
-  assert.equal(calls.some(grain),false,"still where motion is reduced");
-  assert.equal(frames.length,0);
-  still=false;size=13;
-  draw();
-  assert.equal(frames.length,0,"9路 only");
-});
-
-test("呼吸の粒 fills a group with two liberties but stops at the edge of a group in atari",()=>{
-  const game=newGame();
-  // Black (0,0)-(1,0)-(2,0) with white on (1,1): the middle stone has no
-  // liberty of its own, yet air reaches it from the others.
-  game.board[at(0,0)]=BLACK;game.board[at(1,0)]=BLACK;game.board[at(2,0)]=BLACK;game.board[at(1,1)]=WHITE;
-  // White (8,8) in atari: black on (7,8), one liberty at (8,7).
+  // Black (0,0)-(1,0) with three liberties; white (8,8) in atari, its one liberty (8,7).
+  game.board[at(0,0)]=BLACK;game.board[at(1,0)]=BLACK;
   game.board[at(8,8)]=WHITE;game.board[at(7,8)]=BLACK;
+  const frames=[];
   let time=0;
-  const {draw,calls}=recordingBoard(()=>({...baseView(game),breathParticles:true}),
-    {requestFrame:()=>{},now:()=>time,stillMotion:()=>false});
-  const grains=()=>calls.filter(c=>c.kind==="glow"&&c.args[2]===0).map(c=>[c.args[0],c.args[1],c.args[5]]);
-  let reached=false, atari=0;
-  for(time=0;time<BREATH_STEP_MS*20;time+=BREATH_STEP_MS/4){
-    calls.length=0;draw();
-    for(const [x,y,r] of grains()){
-      if(Math.hypot(x-100,y-50)<22)reached=true;
-      if(x>430){atari++;assert.ok(y+r<=450-22,"the white grains stay outside the stone in atari");}
-    }
-  }
-  assert.ok(reached,"the air passes on to the stone with no liberty of its own");
-  assert.ok(atari>0);
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"lines"}),
+    {requestFrame:f=>frames.push(f),now:()=>time,stillMotion:()=>false});
+  const lines=()=>{calls.length=0;draw();return calls.filter(c=>c.kind==="line").map(c=>c.args.join(","));};
+  const empty=lines();
+  assert.equal(frames.length,1,"keeps breathing");
+  time=BREATH_IN_MS;
+  const full=lines();
+  assert.ok(full.length>empty.length,"filled at the top of the breath");
+  assert.ok(full.includes(String([100,50])),"through to the stone behind");
+  // What the breath added, beyond the grid and the still dashes.
+  const white=full.filter(e=>!empty.includes(e)).map(e=>e.split(",").map(Number)).filter(([x,y])=>x===450&&y>400);
+  assert.ok(white.some(([,y])=>Math.abs(y-(450-22))<1e-9),"the white stone in atari only to its edge");
+  assert.ok(white.every(([,y])=>y<=450-22+1e-9));
+  time=BREATH_IN_MS+BREATH_OUT_MS+BREATH_REST_MS/2;
+  assert.equal(lines().length,empty.length,"empty again while resting");
 });

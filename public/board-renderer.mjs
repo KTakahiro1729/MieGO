@@ -25,12 +25,10 @@ import {scoringRegions,prisonerFill,prisonersFilled} from "./scoring-regions.mjs
 
 // Stones taken by a move fade out over this long instead of vanishing.
 export const CAPTURE_FADE_MS=200;
-// 呼吸の粒 (α, 9路 only): the time unit of the grains' drift. Every
-// BREATH_BEAT units BREATH_GRAINS grains set out from each liberty; each
-// takes about BREATH_LEG units to drift on to its next spot and fades after
-// about BREATH_LIFE units.
-export const BREATH_STEP_MS=900;
-const BREATH_BEAT=2, BREATH_GRAINS=3, BREATH_LEG=2.5, BREATH_LIFE=16;
+// 盤の線 breathes: air flows in from the liberties for BREATH_IN_MS, out
+// for BREATH_OUT_MS, then rests for BREATH_REST_MS, about ten breaths a
+// minute, which is at the calm end of a person at rest.
+export const BREATH_IN_MS=2000, BREATH_OUT_MS=3000, BREATH_REST_MS=1000;
 const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 // ドパガキモード's burst: sparks fly from each taken stone for this long.
 export const BURST_MS=650;
@@ -266,133 +264,91 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         ctx.stroke();
       }
     }
-    if(view.linkStones==="lines" && !hidden)paintBoardLines(theme,around,gap,pad);
-    if(view.breathParticles && SIZE===9 && !hidden && (boardReview || game.status==="playing") &&
-       !isGomoku(game) && !isFree(game) && requestFrame && !stillMotion())paintBreath(view,around,gap,pad);
+    if(view.linkStones==="lines" && !hidden){
+      const moving=(boardReview || game.status==="playing") && !isGomoku(game) && !isFree(game) &&
+        requestFrame && !stillMotion();
+      paintBoardLines(view,around,gap,pad,moving);
+    }
   }
 
-  // 呼吸の粒: on every beat, grains of air set out from each liberty of every
-  // group at once and drift into the stone next to it. With two liberties or
-  // more they then wander the group on a smooth curve through spots in the
-  // same stone or one connected to it, so they stay inside the group and
-  // spread through it before they fade; a group in atari gets its grains only
-  // as far as the edge of the stone facing the liberty, and not for long.
-  // Like dust in light, no two grains match: each has its own size, softness,
-  // speed and lifespan and sets out a little before or after the beat, and a
-  // grain grows in and shrinks away rather than popping. Most are tiny and a
-  // few are larger and fainter, so a stone never fills with an even pattern
-  // of dots. Each side's grains take that side's colour on the colour map.
-  // Every grain follows from the time alone, so the drawing keeps no state
-  // between frames.
-  function paintBreath(view,board,gap,pad) {
+  // 盤の線: a still dashed line runs through each group, along the board's
+  // lines from stone to stone and out to a dot on every empty point next to
+  // it, so a group shows what holds it together and the points it needs.
+  // While playing, the group breathes: a solid line fills the dashes from
+  // the liberties inward, the whole group at once, and drains back out. A
+  // group in atari draws its breath only as far as the edge of its stone.
+  // Each side keeps its own colour on the colour map whatever its state.
+  function paintBoardLines(view,board,gap,pad,moving) {
     const palette=countingPalette(view.palette);
-    const tone={[BLACK]:paletteAt(1,palette),[WHITE]:paletteAt(-1,palette)};
-    const sources=[], seen=new Set();
+    const tone={[BLACK]:`rgb(${paletteAt(1,palette).join(",")})`,[WHITE]:`rgb(${paletteAt(-1,palette).join(",")})`};
+    const r=gap*.44, dot=gap*.13, width=Math.max(2,gap*.08), dash=gap*.09;
+    // How full of air the groups are: eased in, eased out, then a rest.
+    let air=0;
+    if(moving){
+      const t=now()%(BREATH_IN_MS+BREATH_OUT_MS+BREATH_REST_MS), ease=u=>(1-Math.cos(Math.PI*u))/2;
+      air=t<BREATH_IN_MS?ease(t/BREATH_IN_MS):t<BREATH_IN_MS+BREATH_OUT_MS?1-ease((t-BREATH_IN_MS)/BREATH_OUT_MS):0;
+    }
+    const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
+    const dots=new Map(), seen=new Set();
+    ctx.save();
+    ctx.lineWidth=width;ctx.lineCap="butt";
     for(let i=0;i<board.length;i++){
       if(!board[i] || seen.has(i))continue;
-      const g=group(board,i);
+      const color=board[i], g=group(board,i);
       for(const s of g.stones)seen.add(s);
-      for(const s of g.stones)for(const n of neighbors(s,SIZE))
-        if(!board[n])sources.push({from:n,to:s,stones:g.stones,color:board[i],atari:g.liberties.size===1});
-    }
-    // A repeatable pseudo-random number in [0,1) for a grain's choices.
-    const pick=(...keys)=>{const x=Math.sin(keys.reduce((h,k)=>h*31.7+k,7)*12.9898)*43758.5453;return x-Math.floor(x);};
-    const time=now()/BREATH_STEP_MS, first=Math.max(0,Math.floor((time-BREATH_LIFE*1.3)/BREATH_BEAT));
-    const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
-    // Catmull-Rom: through b and c with no stop at either.
-    const curve=(a,b,c,d,u)=>b+(c-a)*u/2+(2*a-5*b+4*c-d)*u*u/2+(3*b-a-3*c+d)*u*u*u/2;
-    ctx.save();
-    for(let beat=first;beat*BREATH_BEAT<=time+.3;beat++)sources.forEach((source,k)=>{
-      for(let n=0;n<BREATH_GRAINS;n++){
-        const rand=(...keys)=>pick(beat,k,n,...keys);
-        const age=time-beat*BREATH_BEAT-(rand(9)-.5)*.6;
-        const life=(source.atari?BREATH_LIFE/3:BREATH_LIFE)*(.7+.6*rand(8));
-        if(age<0 || age>life)continue;
-        const legTime=BREATH_LEG*(.75+.6*rand(7));
-        const [lx,ly]=xy(source.from),[sx,sy]=xy(source.to);
-        // A spot: anywhere well inside a stone, or for a group in atari,
-        // between the liberty and the facing edge of its stone.
-        const spot=(stone,leg)=>{
-          if(source.atari){
-            const along=gap*(.15+.28*rand(leg,1)), aside=gap*.3*(rand(leg,2)-.5);
-            const dx=(sx-lx)/gap, dy=(sy-ly)/gap;
-            return [lx+dx*along-dy*aside,ly+dy*along+dx*aside];
-          }
-          const [x,y]=xy(stone), a=rand(leg,1)*Math.PI*2, d=gap*.3*Math.sqrt(rand(leg,2));
-          return [x+Math.cos(a)*d,y+Math.sin(a)*d];
-        };
-        const leg=Math.floor(age/legTime);
-        const spots=[[lx+gap*.3*(rand(0,1)-.5),ly+gap*.3*(rand(0,2)-.5)]];
-        let stone=source.to;
-        for(let step=1;step<=leg+2;step++){
-          if(step>1){
-            const onward=[stone,...neighbors(stone,SIZE).filter(i=>source.stones.has(i))];
-            stone=onward[Math.floor(rand(step,0)*onward.length)];
-          }
-          spots.push(spot(stone,step));
-        }
-        const at=j=>spots[Math.max(0,j)], u=age/legTime-leg;
-        const x=curve(at(leg-1)[0],at(leg)[0],at(leg+1)[0],at(leg+2)[0],u);
-        const y=curve(at(leg-1)[1],at(leg)[1],at(leg+1)[1],at(leg+2)[1],u);
-        // Mostly tiny, now and then a larger and fainter one.
-        const big=rand(6)**2, grow=Math.min(1,age*1.5,(life-age)*.8);
-        const r=gap*(.03+.09*big)*(.4+.6*grow);
-        ctx.globalAlpha=(.6-.25*big)*grow;
-        // No outline: the grain is solid at its centre and fades out to its edge.
-        const [cr,cg,cb]=tone[source.color], glow=ctx.createRadialGradient(x,y,0,x,y,r);
-        glow.addColorStop(0,`rgba(${cr},${cg},${cb},1)`);
-        glow.addColorStop(.2+.25*(1-big),`rgba(${cr},${cg},${cb},.6)`);
-        glow.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);
-        ctx.fillStyle=glow;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+      // How far each stone is from air: 1 next to a liberty, 2 behind that.
+      const depth=new Map();
+      let front=[...g.stones].filter(s=>neighbors(s,SIZE).some(n=>!board[n]));
+      for(const s of front)depth.set(s,1);
+      while(front.length){
+        const next=[];
+        for(const s of front)for(const n of neighbors(s,SIZE))
+          if(g.stones.has(n) && !depth.has(n)){depth.set(n,depth.get(s)+1);next.push(n);}
+        front=next;
       }
-    });
-    ctx.restore();
-    if(frame===null)frame=requestFrame(()=>{frame=null;draw();});
-  }
-
-  // 盤の線: the board's line between two stones of one colour is drawn a
-  // little thicker in their colour, and from each stone toward an empty
-  // point next to it the line runs up to a cup that holds the point, so a
-  // stone shows the points it needs. Stones sharing a point close its cup
-  // into a ring. A group down to two liberties draws those in amber, one in red.
-  function paintBoardLines(theme,board,gap,pad) {
-    const r=gap*.44, cup=gap*.2, width=Math.max(2.5,gap*.1), thin=Math.max(2,gap*.08);
-    const tone={[BLACK]:theme.stones.black.outer,[WHITE]:theme.stones.white.inner};
-    const edge={[BLACK]:null,[WHITE]:theme.stones.white.rim};
-    const liberties=new Map();
-    for(let i=0;i<board.length;i++)if(board[i] && !liberties.has(i)){
-      const g=group(board,i);
-      for(const s of g.stones)liberties.set(s,g.liberties.size);
+      // Each line runs from a (a liberty at depth 0, or a stone) to stone b;
+      // the air goes half a line past the deepest stone, across any line
+      // between two stones at the same depth.
+      const lines=[];
+      for(const s of g.stones)for(const n of neighbors(s,SIZE)){
+        if(!board[n]){
+          lines.push({a:n,b:s,from:0,to:depth.get(s),start:dot/gap});
+          if(!dots.has(n))dots.set(n,[]);
+          dots.get(n).push({toward:s,color});
+        }else if(g.stones.has(n) && n>s)lines.push({a:s,b:n,from:depth.get(s),to:depth.get(n),start:0});
+      }
+      const deepest=Math.max(...depth.values());
+      const reach=g.liberties.size===1?air*(1-.44):air*(deepest+.5);
+      for(const line of lines){
+        const [ax,ay]=xy(line.a),[bx,by]=xy(line.b);
+        const along=(u,v)=>{ctx.moveTo(ax+(bx-ax)*u,ay+(by-ay)*u);ctx.lineTo(ax+(bx-ax)*v,ay+(by-ay)*v);};
+        ctx.strokeStyle=tone[color];
+        // The dashes start at the stone so they line up through the group.
+        ctx.globalAlpha=.75;ctx.setLineDash([dash,dash]);ctx.lineDashOffset=0;
+        ctx.beginPath();along(1,line.start);ctx.stroke();
+        // The air: every point of the line no further in than the reach.
+        ctx.globalAlpha=1;ctx.setLineDash([]);ctx.beginPath();
+        const near=Math.min(1,reach-line.from), far=Math.max(0,1-(reach-line.to));
+        if(near>line.start)along(line.start,near);
+        if(far<1)along(Math.max(line.start,far),1);
+        ctx.stroke();
+      }
     }
-    const stroke=(path,lineWidth,colour,rim)=>{
-      if(rim){ctx.strokeStyle=rim;ctx.lineWidth=lineWidth+2;ctx.beginPath();path();ctx.stroke();}
-      ctx.strokeStyle=colour;ctx.lineWidth=lineWidth;ctx.beginPath();path();ctx.stroke();
-    };
-    ctx.save();
-    for(let i=0;i<board.length;i++){
-      const color=board[i];
-      if(!color)continue;
-      const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap,count=liberties.get(i);
-      const breath=count===1?ATARI_MARK:count===2?LOW_MARK:tone[color];
-      for(const [dx,dy] of [[1,0],[0,1],[-1,0],[0,-1]]){
-        const nx=i%SIZE+dx,ny=Math.floor(i/SIZE)+dy;
-        if(nx<0 || ny<0 || nx>=SIZE || ny>=SIZE)continue;
-        const next=board[ny*SIZE+nx];
-        if(next===color && dx+dy>0){
-          ctx.lineCap="butt";
-          stroke(()=>{ctx.moveTo(x+dx*r,y+dy*r);ctx.lineTo(x+dx*(gap-r),y+dy*(gap-r));},width,tone[color],edge[color]);
-        }else if(next===0){
-          const px=x+dx*gap,py=y+dy*gap,back=Math.atan2(-dy,-dx);
-          ctx.lineCap="round";
-          stroke(()=>{
-            ctx.moveTo(x+dx*r,y+dy*r);ctx.lineTo(px-dx*cup,py-dy*cup);
-            ctx.moveTo(px+cup*Math.cos(back-Math.PI*.42),py+cup*Math.sin(back-Math.PI*.42));
-            ctx.arc(px,py,cup,back-Math.PI*.42,back+Math.PI*.42);
-          },thin,breath,count>2?edge[color]:null);
-        }
+    // A dot on each liberty, split between the sides where both need it.
+    for(const [point,needs] of dots){
+      const [x,y]=xy(point);
+      if(needs.every(need=>need.color===needs[0].color)){
+        ctx.fillStyle=tone[needs[0].color];ctx.beginPath();ctx.arc(x,y,dot,0,Math.PI*2);ctx.fill();
+        continue;
+      }
+      for(const need of needs){
+        const [sx,sy]=xy(need.toward), angle=Math.atan2(sy-y,sx-x);
+        ctx.fillStyle=tone[need.color];ctx.beginPath();ctx.moveTo(x,y);
+        ctx.arc(x,y,dot,angle-Math.PI/2,angle+Math.PI/2);ctx.closePath();ctx.fill();
       }
     }
     ctx.restore();
+    if(moving && frame===null)frame=requestFrame(()=>{frame=null;draw();});
   }
 
   // つながった石を一つに描く: a bar under each pair of same-coloured stones

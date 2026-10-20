@@ -49,14 +49,6 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
       draw();
     };
   });
-  // 呼吸の粒 (α): grains of air drawn into each group on 9路.
-  let breathParticles = stored("miego-breath-particles")==="on";
-  $("breathParticles").checked=breathParticles;
-  $("breathParticles").onchange=e=>{
-    breathParticles=!!e.target.checked;
-    store("miego-breath-particles",breathParticles?"on":"off");
-    draw();
-  };
   const storedOpacity = stored("miego-opacity")===null ? NaN : Number(stored("miego-opacity"));
   let opacity = storedOpacity>=0 && storedOpacity<=1 ? storedOpacity : DEFAULT_OPACITY;
   // With the stones hidden the colours are all there is, so "表示しない" falls
@@ -209,8 +201,6 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     store("miego-liberties",liberties);
     linkStones="off";
     store("miego-link-stones",linkStones);
-    breathParticles=false;
-    store("miego-breath-particles","off");
     store("miego-palette",palette);
     store("miego-opacity",String(opacity));
     store("miego-board",boardTheme);
@@ -274,14 +264,13 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     check("boardTheme",boardTheme);
     check("liberties",liberties);
     check("linkStones",linkStones);
-    $("breathParticles").checked=breathParticles;
     check("opacityShape",opacityShape());
     fillColourInputs();
     $("opacity").value=String(Math.round(opacity*100));
     $("opacityValue").textContent=Math.round(opacity*100)+"%";
     updateGradient();
   }
-  return {palette:()=>palette,opacity:()=>opacity,boardTheme:()=>boardTheme,liberties:()=>liberties,linkStones:()=>linkStones,breathParticles:()=>breathParticles,
+  return {palette:()=>palette,opacity:()=>opacity,boardTheme:()=>boardTheme,liberties:()=>liberties,linkStones:()=>linkStones,
     editingBoard:()=>editing==="board",
     shownPalette,overlayOn,updateGradient,syncControls};
 }
