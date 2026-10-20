@@ -1767,7 +1767,7 @@ function openPanel(kind) {
   const panel=kind==="settings"?$("settingsPanel"):kind==="share"?$("sharePanel"):$("modePanel");
   panel.querySelector(".settings-head .icon-button").focus();
 }
-// Every mode's start button reads the same: 設定して再戦 while that mode's game is on the board.
+// Every mode's start button reads the same: 新しい対局を始める while that mode's game is on the board.
 function startLabel(kind){return !room && gameMode===kind?TEXT.ai.restart:TEXT.newGame.start;}
 // 自分の石, AIの強さ, 盤 and ルール are one row of underlined tabs, the colour first; the selected
 // tab's choices fill the one panel under it, one per line with a note beside it.
@@ -1794,7 +1794,18 @@ function syncSetupValues() {
   $("setupTabSide").classList.toggle("is-unused",kind==="local");
   $("setupTabStrength").classList.toggle("is-unused",kind!=="ai" || editsWatchAi());
   $("sideNote").textContent=kind==="local"?TEXT.newGame.sideNotes.local:"";
+  syncSetupTabValues();
 }
+// Each tab shows its chosen value under its name, so the game to start reads without opening every tab.
+function syncSetupTabValues() {
+  for(const key of SETUP_TABS){
+    const tab=$("setupTab"+key),panel=$("setupPanel"+key);
+    // 自分の石 holds a row for 対COM and one for 対友人; the shown one counts.
+    const checked=[...panel.querySelectorAll("input:checked")].find(input=>input.closest("[hidden]")===panel || !panel.contains(input.closest("[hidden]")));
+    $("setupValue"+key).textContent=tab.classList.contains("is-unused")||!checked?"—":checked.nextElementSibling.textContent.trim();
+  }
+}
+$("newGameSetup").addEventListener("change",syncSetupTabValues);
 // The 新規対戦 sheet shows the same rows in every mode, so its height stays put;
 // a row the chosen mode does not use is greyed out.
 function showNewGameMode(kind) {

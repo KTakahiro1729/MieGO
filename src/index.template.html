@@ -205,35 +205,6 @@
     <aside id="modePanel" class="settings-panel mode-panel" role="dialog" aria-modal="true" aria-labelledby="modeTitle" hidden>
       <div class="settings-head"><h2 id="modeTitle">{{header.newGame}}</h2><span class="sheet-head-actions"><button class="help-button" type="button" data-help="local" aria-label="{{common.helpFor(newGame.title)}}" title="{{common.helpFor(newGame.title)}}" id="modeHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="closeMode" class="icon-button" type="button" aria-label="{{common.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span></div>
       <button id="returnToGame" class="secondary accent-outline full return-to-game" type="button">{{history.returnCurrent}}</button>
-      <section id="localSetup" class="settings-section" hidden>
-        <button id="startLocal" class="primary full" type="button">{{newGame.start}}</button>
-      </section>
-      <section id="onlineSetup" class="settings-section" hidden>
-        <div id="p2pVerify" hidden><p>{{online.verifyNote}}</p><div id="p2pTurnstile"></div></div>
-        <button id="copy" class="primary full" type="button">{{online.prepareInvite}}</button>
-        <div id="inviteDetails" class="invite-details hidden">
-          <label for="inviteUrl">{{online.inviteUrl}}</label><input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="{{online.inviteUrl}}">
-          <button id="nativeShare" class="secondary full hidden" type="button">{{online.nativeShare}}</button>
-        </div>
-        <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
-        <p id="roomInfo" class="explanation"></p>
-        <details id="seatLinkBox" class="info-disclosure" hidden><summary>{{online.seatLinkSummary}}</summary>
-          <p class="explanation">{{online.seatLinkNote}}</p>
-          <button id="copySeatLink" class="secondary full" type="button">{{online.seatLinkCopy}}</button>
-          <input id="seatLinkFallback" type="text" readonly hidden autocomplete="off" spellcheck="false" aria-label="{{online.seatLinkField}}">
-          <p id="seatLinkStatus" class="invite-status" role="status" aria-live="polite"></p>
-        </details>
-      </section>
-      <section id="aiSetup" class="settings-section" hidden>
-        <button id="startAi" class="primary full" type="button" disabled>{{ai.preparing}}</button>
-        <p id="aiMatchStatus" class="visually-hidden" role="status" aria-live="polite">{{ai.preparingMatch}}</p>
-      </section>
-      <section id="historyActions" class="settings-section history-actions" hidden>
-        <div class="history-import-row">
-          <label for="historyImportFile" class="secondary accent-outline history-import-label">{{history.importSgf}}</label>
-          <input id="historyImportFile" type="file" accept=".sgf,application/x-go-sgf,text/plain" aria-label="{{history.importSgf}}">
-        </div>
-      </section>
       <section class="settings-section new-game-common">
         <div class="new-game-modes">
           <div class="fused">
@@ -249,10 +220,10 @@
         </div>
         <div id="newGameSetup">
         <div class="setup-tabs" role="tablist" aria-label="{{newGame.setupTabs}}">
-          <button id="setupTabSide" class="setup-tab" type="button" role="tab" aria-selected="true" aria-controls="setupPanelSide">{{newGame.mySide}}</button>
-          <button id="setupTabStrength" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelStrength" tabindex="-1">{{ai.strengthLabel}}</button>
-          <button id="setupTabBoard" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelBoard" tabindex="-1">{{newGame.board}}</button>
-          <button id="setupTabRules" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelRules" tabindex="-1">{{newGame.rules}}</button>
+          <button id="setupTabSide" class="setup-tab" type="button" role="tab" aria-selected="true" aria-controls="setupPanelSide"><span>{{newGame.mySide}}</span><small id="setupValueSide" class="setup-tab-value"></small></button>
+          <button id="setupTabStrength" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelStrength" tabindex="-1"><span>{{ai.strengthLabel}}</span><small id="setupValueStrength" class="setup-tab-value"></small></button>
+          <button id="setupTabBoard" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelBoard" tabindex="-1"><span>{{newGame.board}}</span><small id="setupValueBoard" class="setup-tab-value"></small></button>
+          <button id="setupTabRules" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelRules" tabindex="-1"><span>{{newGame.rules}}</span><small id="setupValueRules" class="setup-tab-value"></small></button>
         </div>
         <div class="setup-panels">
           <div id="setupPanelSide" class="setup-panel" role="tabpanel" aria-labelledby="setupTabSide">
@@ -338,6 +309,35 @@
             </div>
           </fieldset>
         </details>
+        </div>
+      </section>
+      <section id="localSetup" class="settings-section" hidden>
+        <button id="startLocal" class="primary full" type="button">{{newGame.start}}</button>
+      </section>
+      <section id="onlineSetup" class="settings-section" hidden>
+        <div id="p2pVerify" hidden><p>{{online.verifyNote}}</p><div id="p2pTurnstile"></div></div>
+        <button id="copy" class="primary full" type="button">{{online.prepareInvite}}</button>
+        <div id="inviteDetails" class="invite-details hidden">
+          <label for="inviteUrl">{{online.inviteUrl}}</label><input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="{{online.inviteUrl}}">
+          <button id="nativeShare" class="secondary full hidden" type="button">{{online.nativeShare}}</button>
+        </div>
+        <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
+        <p id="roomInfo" class="explanation"></p>
+        <details id="seatLinkBox" class="info-disclosure" hidden><summary>{{online.seatLinkSummary}}</summary>
+          <p class="explanation">{{online.seatLinkNote}}</p>
+          <button id="copySeatLink" class="secondary full" type="button">{{online.seatLinkCopy}}</button>
+          <input id="seatLinkFallback" type="text" readonly hidden autocomplete="off" spellcheck="false" aria-label="{{online.seatLinkField}}">
+          <p id="seatLinkStatus" class="invite-status" role="status" aria-live="polite"></p>
+        </details>
+      </section>
+      <section id="aiSetup" class="settings-section" hidden>
+        <button id="startAi" class="primary full" type="button" disabled>{{ai.preparing}}</button>
+        <p id="aiMatchStatus" class="visually-hidden" role="status" aria-live="polite">{{ai.preparingMatch}}</p>
+      </section>
+      <section id="historyActions" class="settings-section history-actions" hidden>
+        <div class="history-import-row">
+          <label for="historyImportFile" class="secondary accent-outline history-import-label">{{history.importSgf}}</label>
+          <input id="historyImportFile" type="file" accept=".sgf,application/x-go-sgf,text/plain" aria-label="{{history.importSgf}}">
         </div>
       </section>
       <section id="historySetup" class="settings-section history-setup" hidden>

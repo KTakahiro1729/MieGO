@@ -134,7 +134,7 @@ body.board-zoomed .board-bleed{opacity:1}
  .board-frame{padding:4px;border-radius:10px}
  #board{border-radius:6px}
  .ownership-legend{margin-top:14px;width:92%}
- .settings-panel{left:0;right:0;bottom:0;top:auto;width:100%;max-height:min(84dvh,740px);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom))}
+ .settings-panel{left:0;right:0;bottom:0;top:auto;width:100%;max-height:min(84dvh,740px);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));--sheet-pad-bottom:calc(20px + env(safe-area-inset-bottom))}
  .mode-panel{height:min(84dvh,640px)}
 }
 @media(max-width:350px){
@@ -213,18 +213,27 @@ body.board-zoomed .board-bleed{opacity:1}
 .mode-icon{flex:none;color:#c9ced8}
 .handicap-select{width:100%;min-height:var(--control-h);background:#252c38;border:1px solid #4a5160;border-radius:var(--radius-sm);color:#f1f0ed;padding:10px 12px}
 .mode-panel .new-game-common{padding-top:0}
-/* The way back opens the sheet; under one line, the start button and then the choices. */
+/* The way back opens the sheet; under one line, the choices and then the start button. */
 .mode-panel>:not(.settings-head):not([hidden])~.new-game-common{margin-top:14px}
 .mode-panel .return-to-game{margin:0 0 14px}
 .mode-panel .return-to-game:not([hidden])~section:not([hidden]){border-top:1px solid #343b49;padding-top:14px}
 .mode-panel .return-to-game:not([hidden])~section:not([hidden])~section:not([hidden]){border-top:0;padding-top:0}
+/* The start button comes after the choices, so it is pressed once they have been seen. */
+.mode-panel .new-game-common~.settings-section:not([hidden]):not(.history-setup){margin-top:14px}
+/* 1台 and 対COM keep their start button in view at the bottom of the sheet while the choices scroll. */
+.mode-panel #localSetup,.mode-panel #aiSetup{--pad:var(--sheet-pad-bottom,22px);position:sticky;bottom:calc(-1 * var(--pad));z-index:1;
+  margin-bottom:calc(-1 * var(--pad));padding:10px 0 var(--pad);background:#181e2a;box-shadow:0 -10px 12px -4px #181e2a}
 .setup-row{display:contents}
 .setup-row[hidden]{display:none}
 .setup-label{margin:0;font-size:13px;color:#d6dae3;white-space:nowrap}
 /* 盤・ルール・自分の石・AIの強さ: underlined tabs naming each setting, over one panel of its choices. */
 .setup-tabs{display:flex;margin-top:14px;border-bottom:1px solid #3b4250}
-.setup-tab{flex:1 1 0;min-width:0;min-height:44px;margin:0;padding:0 2px;border:0;border-radius:0;background:none;
-  color:#9aa1ad;font-size:13px;font-weight:600;white-space:nowrap}
+.setup-tab{flex:1 1 0;display:grid;align-content:center;gap:1px;min-width:0;min-height:50px;margin:0;padding:0 2px;border:0;border-radius:0;background:none;
+  color:#9aa1ad;font-size:12px;font-weight:600;white-space:nowrap}
+/* Under each tab's name, the value it holds now. */
+.setup-tab-value{overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:650;color:#d6dae3}
+.setup-tab[aria-selected="true"] .setup-tab-value{color:#f8ddac}
+.setup-tab.is-unused .setup-tab-value{color:#5d6472}
 .setup-tab[aria-selected="true"]{color:#f8ddac;box-shadow:inset 0 -2px 0 #efcb81}
 .setup-tab.is-unused{color:#5d6472}
 .setup-tab.is-unused[aria-selected="true"]{color:#8a8273;box-shadow:inset 0 -2px 0 #6b6352}

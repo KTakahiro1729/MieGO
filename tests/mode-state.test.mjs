@@ -43,10 +43,10 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
     assert.equal((sheet.slice(sheet.indexOf('id="'+id+'Row"')).split('</div>')[0].match(/data-note=/g)||[]).length,3);
   assert.doesNotMatch(html+app,/aiLevel/);
   for(const id of ["startLocal","startAi","copy","openHistoryFromNew"])assert.match(sheet,new RegExp('id="'+id+'"'));
-  // The way back tops the sheet, then the start button, then the mode tabs and options.
+  // The way back tops the sheet, then the mode tabs and options, then the start button.
   for(const id of ["startLocal","startAi","copy"]) {
-    assert.ok(sheet.indexOf('id="returnToGame"')<sheet.indexOf('id="'+id+'"'),id);
-    assert.ok(sheet.indexOf('id="'+id+'"')<sheet.indexOf('name="newGameMode"'),id);
+    assert.ok(sheet.indexOf('id="returnToGame"')<sheet.indexOf('name="newGameMode"'),id);
+    assert.ok(sheet.indexOf('id="newGameAdvanced"')<sheet.indexOf('id="'+id+'"'),id);
   }
   assert.match(app,/\$\("newGameButton"\)\.onclick=\(\)=>openPanel\(room\?"online":gameMode\)/);
 });
