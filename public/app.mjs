@@ -185,10 +185,10 @@ let aiSideChoice = "black";
 // COM同士 (aiSide "watch"): the AI plays both colours with a pause between
 // moves, so each one can be followed; the player can pause and resume it.
 let watching = false, watchPaused = false, watchTimer = null, lastWatchMoveAt = 0;
-// Each colour's COM when two COMs play; 設定するCOM picks which one the sheet's sliders set.
+// Each colour's COM when two COMs play.
 const newCom = (strength=DEFAULT_AI_STRENGTH, invasion=50, reinforcement=50) =>
   ({strength,invasion,reinforcement});
-let watchAi = {black:newCom(), white:newCom()}, comTarget = "black";
+let watchAi = {black:newCom(), white:newCom()};
 const WATCH_STEP_MS = 1100;
 let aiHandicap = 0, localHandicap = 0, onlineHandicap = 0;
 // The ruleset for the next new game, shared by every mode like the board size.
@@ -416,9 +416,22 @@ function syncStepSlider(id) {
 // Invasion and reinforcement have three stops; older saves with any 0-100 value snap to the nearest.
 const personaStep=value=>Math.round(Math.max(0,Math.min(100,Number(value??50)||0))/50)*50;
 const personaLabel=value=>value<50?TEXT.ai.persona.low:value>50?TEXT.ai.persona.high:TEXT.ai.persona.mid;
-// The sheet's sliders set one COM of a watched game, or else the COM opponent.
+// The sheet's sliders set the COM opponent; for two COMs, the plain sliders set
+// Black's and a second set ("…White") shows for White's.
 const editsWatchAi = () => aiSideChoice==="watch" || isWatching();
-const sliderCom = () => editsWatchAi() ? watchAi[comTarget] : newCom(aiStrength,invasion,reinforcement);
+const sliderCom = (slot="") => slot ? watchAi.white :
+  editsWatchAi() ? watchAi.black : newCom(aiStrength,invasion,reinforcement);
+const SLIDER_SLOTS = ["","White"];
+function syncWatchSliderRows() {
+  const two=editsWatchAi();
+  $("aiStrengthLabel").textContent=two?TEXT.ai.strengthBlack:TEXT.ai.strengthLabel;
+  $("aiInvasionLabel").textContent=two?TEXT.ai.invasionBlack:TEXT.ai.invasion;
+  $("aiReinforcementLabel").textContent=two?TEXT.ai.reinforcementBlack:TEXT.ai.reinforcement;
+  $("aiStrengthWhiteRow").hidden=$("aiStrengthRow").hidden || !two;
+  $("aiInvasionWhiteRow").hidden=$("aiReinforcementWhiteRow").hidden=!two;
+  // Hints are for the player's own turn, which two COMs never have.
+  $("aiHintsRow").hidden=two;
+}
 function readWatchAi(value, fallback) {
   const clean=cleanWatchAi(value);
   if(!clean)return {black:{...fallback},white:{...fallback}};
@@ -428,10 +441,13 @@ function readWatchAi(value, fallback) {
   return clean;
 }
 function updatePersonaUi() {
-  const com=sliderCom();
-  $("aiInvasion").value=String(com.invasion);
-  $("aiReinforcement").value=String(com.reinforcement);
-  syncStepSlider("aiInvasion");syncStepSlider("aiReinforcement");
+  for(const slot of SLIDER_SLOTS){
+    const com=sliderCom(slot);
+    $("aiInvasion"+slot).value=String(com.invasion);
+    $("aiReinforcement"+slot).value=String(com.reinforcement);
+    syncStepSlider("aiInvasion"+slot);syncStepSlider("aiReinforcement"+slot);
+  }
+  syncWatchSliderRows();
 }
 
 let displayedOwnership = null, transitionFrame = null;
@@ -2067,22 +2083,12 @@ const SIDE_CHOICES=["random","black","white","watch"];
 function syncSideUi() {
   const input=document.querySelector('input[name="aiSide"][value="'+aiSideChoice+'"]');
   if(input)input.checked=true;
-  const target=document.querySelector('input[name="comTarget"][value="'+comTarget+'"]');
-  if(target)target.checked=true;
-  $("comTargetRow").hidden=newGameModeKind()!=="ai" || !editsWatchAi();
 }
 for (const input of document.querySelectorAll('input[name="aiSide"]')) {
   input.onchange=e=>{
     if(!e.target.checked)return;
     aiSideChoice=SIDE_CHOICES.includes(e.target.value)?e.target.value:"black";
     rememberSettings();syncSideUi();syncStrengthUi();updatePersonaUi();show();
-  };
-}
-for (const input of document.querySelectorAll('input[name="comTarget"]')) {
-  input.onchange=e=>{
-    if(!e.target.checked)return;
-    comTarget=e.target.value==="white"?"white":"black";
-    syncStrengthUi();updatePersonaUi();
   };
 }
 // この対局を観戦する: a running AI game hands the player's colour to the COM too.
@@ -2152,10 +2158,11 @@ function syncHandicapUi() {
     syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
-for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]]) {
-  $(id).oninput=e=>{
+for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]])
+for(const slot of SLIDER_SLOTS) {
+  $(id+slot).oninput=e=>{
     const value=personaStep(e.target.value);
-    if(editsWatchAi())watchAi[comTarget][key]=value;
+    if(slot || editsWatchAi())sliderCom(slot)[key]=value;
     else if(key==="invasion")invasion=value;else reinforcement=value;
     updatePersonaUi();
     if(isWatching())save();else rememberSettings();
@@ -2166,18 +2173,23 @@ for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforceme
 const STRENGTH_ORDER=Object.keys(AI_STRENGTHS);
 const strengthAt=index=>normalizeStrength(STRENGTH_ORDER[Number(index)],DEFAULT_AI_STRENGTH);
 function syncStrengthUi() {
-  $("aiStrength").value=String(STRENGTH_ORDER.indexOf(sliderCom().strength));
-  syncStepSlider("aiStrength");
+  for(const slot of SLIDER_SLOTS){
+    $("aiStrength"+slot).value=String(STRENGTH_ORDER.indexOf(sliderCom(slot).strength));
+    syncStepSlider("aiStrength"+slot);
+  }
   $("aiHints").checked=aiHints;
+  syncWatchSliderRows();
 }
 // Strength applies from the next AI move, like the personality sliders.
-$("aiStrength").oninput=e=>{
-  const strength=strengthAt(e.target.value);
-  if(editsWatchAi())watchAi[comTarget].strength=strength;else aiStrength=strength;
-  syncStepSlider("aiStrength");
-  if(gameMode==="ai")save();else rememberSettings();
-  $("aiMatchStatus").textContent=TEXT.ai.nextStrength(AI_STRENGTHS[strength].label);
-};
+for(const slot of SLIDER_SLOTS) {
+  $("aiStrength"+slot).oninput=e=>{
+    const strength=strengthAt(e.target.value);
+    if(slot || editsWatchAi())sliderCom(slot).strength=strength;else aiStrength=strength;
+    syncStepSlider("aiStrength"+slot);
+    if(gameMode==="ai")save();else rememberSettings();
+    $("aiMatchStatus").textContent=TEXT.ai.nextStrength(AI_STRENGTHS[strength].label);
+  };
+}
 $("aiHints").onchange=e=>{
   aiHints=e.target.checked;rememberSettings();
   if(aiHints && !visibleHints())requestAnalysis();

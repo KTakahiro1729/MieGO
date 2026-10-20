@@ -227,18 +227,21 @@
           <div id="aiSideRow" class="setup-row" hidden><span class="setup-label">{{newGame.mySide}}</span>
             <div class="ai-color-choices side-choices ai-side-choices"><label><input type="radio" name="aiSide" value="random"><span>{{common.random}}</span></label><label><input type="radio" name="aiSide" value="black" checked><span>{{common.sideBlack}}</span></label><label><input type="radio" name="aiSide" value="white"><span>{{common.sideWhite}}</span></label><label><input type="radio" name="aiSide" value="watch"><span>{{newGame.sideWatch}}</span></label></div>
           </div>
-          <div id="comTargetRow" class="setup-row" hidden><span class="setup-label">{{newGame.comTarget}}</span>
-            <div class="ai-color-choices"><label><input type="radio" name="comTarget" value="black" checked><span>{{newGame.comTargetChoices.black}}</span></label><label><input type="radio" name="comTarget" value="white"><span>{{newGame.comTargetChoices.white}}</span></label></div>
-          </div>
           <div id="onlineSideRow" class="setup-row" hidden><span class="setup-label">{{newGame.mySide}}</span>
             <div class="ai-color-choices side-choices"><label><input type="radio" name="onlineSide" value="random" checked><span>{{common.random}}</span></label><label><input type="radio" name="onlineSide" value="black"><span>{{common.sideBlack}}</span></label><label><input type="radio" name="onlineSide" value="white"><span>{{common.sideWhite}}</span></label></div>
           </div>
         </div>
         <div id="aiStrengthRow" class="step-slider" hidden>
-          <span class="slider-head"><label for="aiStrength">{{ai.strengthLabel}}</label><button class="help-button" type="button" data-help="ai" aria-label="{{common.helpFor(newGame.ai)}}" title="{{common.helpFor(newGame.ai)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><span id="aiStrengthValue" class="setting-value"></span></span>
+          <span class="slider-head"><label id="aiStrengthLabel" for="aiStrength">{{ai.strengthLabel}}</label><button class="help-button" type="button" data-help="ai" aria-label="{{common.helpFor(newGame.ai)}}" title="{{common.helpFor(newGame.ai)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><span id="aiStrengthValue" class="setting-value"></span></span>
           <input id="aiStrength" type="range" min="0" max="3" step="1" value="1">
           <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.strengthNotes.beginner}}"><small>{{ai.strengths.beginner}}</small></span><span data-note="{{ai.strengthNotes.easy}}"><small>{{ai.strengths.easy}}</small></span><span data-note="{{ai.strengthNotes.normal}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.strengthNotes.strong}}"><small>{{ai.strengths.strong}}</small></span></div>
           <p id="aiStrengthNote" class="explanation step-note"></p>
+        </div>
+        <div id="aiStrengthWhiteRow" class="step-slider" hidden>
+          <span class="slider-head"><label id="aiStrengthWhiteLabel" for="aiStrengthWhite">{{ai.strengthWhite}}</label><span id="aiStrengthWhiteValue" class="setting-value"></span></span>
+          <input id="aiStrengthWhite" type="range" min="0" max="3" step="1" value="1">
+          <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.strengthNotes.beginner}}"><small>{{ai.strengths.beginner}}</small></span><span data-note="{{ai.strengthNotes.easy}}"><small>{{ai.strengths.easy}}</small></span><span data-note="{{ai.strengthNotes.normal}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.strengthNotes.strong}}"><small>{{ai.strengths.strong}}</small></span></div>
+          <p id="aiStrengthWhiteNote" class="explanation step-note"></p>
         </div>
         <details id="newGameAdvanced" class="info-disclosure new-game-advanced"><summary>{{newGame.advanced}}</summary>
           <div id="handicapSetup" class="advanced-row"><span class="label-with-help"><label for="handicap">{{handicap.label}}</label><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span>
@@ -251,18 +254,30 @@
           <p id="handicapNote" class="explanation" hidden></p>
           <div class="mode hide-stones"><div><strong>{{newGame.hideStones}}</strong><p>{{newGame.hideStonesNote}}</p></div><input id="hideStones" type="checkbox" aria-label="{{newGame.hideStones}}"></div>
           <div id="aiOptions" class="ai-advanced" hidden>
-            <div class="mode"><div><strong>{{ai.hints}}</strong><p>{{ai.hintsNote}}</p></div><input id="aiHints" type="checkbox" aria-label="{{ai.hintsAria}}"></div>
+            <div id="aiHintsRow" class="mode"><div><strong>{{ai.hints}}</strong><p>{{ai.hintsNote}}</p></div><input id="aiHints" type="checkbox" aria-label="{{ai.hintsAria}}"></div>
             <div id="aiInvasionRow" class="step-slider">
-              <label for="aiInvasion">{{ai.invasion}} <span id="aiInvasionValue" class="setting-value"></span></label>
+              <label for="aiInvasion"><span id="aiInvasionLabel">{{ai.invasion}}</span> <span id="aiInvasionValue" class="setting-value"></span></label>
               <input id="aiInvasion" type="range" min="0" max="100" step="50" value="50">
               <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.invasionNotes.low}}"><small>{{ai.persona.low}}</small></span><span data-note="{{ai.invasionNotes.mid}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.invasionNotes.high}}"><small>{{ai.persona.high}}</small></span></div>
               <p id="aiInvasionNote" class="explanation step-note"></p>
             </div>
+            <div id="aiInvasionWhiteRow" class="step-slider">
+              <label for="aiInvasionWhite"><span id="aiInvasionWhiteLabel">{{ai.invasionWhite}}</span> <span id="aiInvasionWhiteValue" class="setting-value"></span></label>
+              <input id="aiInvasionWhite" type="range" min="0" max="100" step="50" value="50">
+              <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.invasionNotes.low}}"><small>{{ai.persona.low}}</small></span><span data-note="{{ai.invasionNotes.mid}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.invasionNotes.high}}"><small>{{ai.persona.high}}</small></span></div>
+              <p id="aiInvasionWhiteNote" class="explanation step-note"></p>
+            </div>
             <div id="aiReinforcementRow" class="step-slider">
-              <label for="aiReinforcement">{{ai.reinforcement}} <span id="aiReinforcementValue" class="setting-value"></span></label>
+              <label for="aiReinforcement"><span id="aiReinforcementLabel">{{ai.reinforcement}}</span> <span id="aiReinforcementValue" class="setting-value"></span></label>
               <input id="aiReinforcement" type="range" min="0" max="100" step="50" value="50">
               <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.reinforcementNotes.low}}"><small>{{ai.persona.low}}</small></span><span data-note="{{ai.reinforcementNotes.mid}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.reinforcementNotes.high}}"><small>{{ai.persona.high}}</small></span></div>
               <p id="aiReinforcementNote" class="explanation step-note"></p>
+            </div>
+            <div id="aiReinforcementWhiteRow" class="step-slider">
+              <label for="aiReinforcementWhite"><span id="aiReinforcementWhiteLabel">{{ai.reinforcementWhite}}</span> <span id="aiReinforcementWhiteValue" class="setting-value"></span></label>
+              <input id="aiReinforcementWhite" type="range" min="0" max="100" step="50" value="50">
+              <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.reinforcementNotes.low}}"><small>{{ai.persona.low}}</small></span><span data-note="{{ai.reinforcementNotes.mid}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.reinforcementNotes.high}}"><small>{{ai.persona.high}}</small></span></div>
+              <p id="aiReinforcementWhiteNote" class="explanation step-note"></p>
             </div>
           </div>
         </details>
