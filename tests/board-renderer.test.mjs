@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {at,BLACK,boardHash,newGame,play,WHITE} from "../public/core.mjs";
-import {BREATH_IN_MS,BREATH_OUT_MS,BREATH_REST_MS,BURST_MS,CAPTURE_FADE_MS} from "../public/board-renderer.mjs";
+import {BREATH_MS,BREATH_STEP_MS,BURST_MS,CAPTURE_FADE_MS} from "../public/board-renderer.mjs";
 import {recordingBoard,baseView} from "./helpers/board-canvas.mjs";
 import {ownershipPixel,countingOpacity} from "../public/territory-view.mjs";
 
@@ -230,50 +230,6 @@ test("an empty board shows sample stones only while its colours are edited",()=>
   assert.equal(playedCalls.filter(c=>c.kind==="arc"&&c.args[2]===22).length,1,"a board with stones shows only its own");
 });
 
-test("一つの形 draws a group as one shape and keeps the stone being placed apart",()=>{
-  const game=newGame();
-  for(const p of [at(2,2),at(3,2),at(2,3),at(3,3)])game.board[p]=BLACK;
-  game.board[at(6,6)]=WHITE;
-  const candidate=play(game,at(4,2));
-  const {draw,calls}=recordingBoard(()=>({...baseView(game),candidate,linkStones:"fused"}));
-  draw();
-  const single=calls.filter(c=>c.kind==="arc"&&c.args[2]===22);
-  assert.deepEqual(single.map(c=>[c.args[0],c.args[1],c.alpha]),[[250,150,.68]],"only the stone being placed is a single stone");
-  const bodies=calls.filter(c=>c.kind==="arc"&&c.args[2]===21.25);
-  assert.equal(bodies.length,5,"four black stones and the lone white one");
-  const bars=calls.filter(c=>c.kind==="path-rect");
-  // Each of the four bars and the square's middle, once for the rim and once for the body.
-  assert.equal(bars.length,10);
-  assert.ok(bars.some(c=>c.args[0]===150&&c.args[1]===150&&c.args[2]===50&&c.args[3]===50),"the square's middle is filled");
-});
-
-test("息の形 bulges toward empty points and is pressed flat by the edge and the opponent",()=>{
-  const game=newGame();
-  game.board[at(0,0)]=BLACK;game.board[at(1,0)]=WHITE;
-  const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"breathing"}));
-  draw();
-  assert.equal(calls.some(c=>c.kind==="arc"&&c.args[2]===22),false,"no round stones");
-  // The black stone's outline points, centred on (50,50) with 50 between points.
-  const black=calls.filter(c=>c.kind==="line"&&Math.hypot(c.args[0]-50,c.args[1]-50)<30).map(c=>c.args);
-  const reach=(dx,dy)=>Math.max(...black.map(([x,y])=>(x-50)*dx+(y-50)*dy));
-  assert.ok(reach(0,1)>25,"bulges down toward the empty point");
-  assert.ok(reach(-1,0)<17 && reach(0,-1)<17,"flat against the edge");
-  assert.ok(reach(1,0)<17,"flat against the white stone");
-});
-
-test("四角 bulges each side toward an empty point and dents it where an opponent touches",()=>{
-  const game=newGame();
-  game.board[at(4,4)]=BLACK;game.board[at(5,4)]=WHITE;game.board[at(4,5)]=BLACK;
-  const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"square"}));
-  draw();
-  // The upper black stone at (250,250): its sides' control points, body pass (half side 19.25).
-  const sides=calls.filter(c=>c.kind==="curve"&&Math.hypot(c.args[0]-250,c.args[1]-250)<40).map(c=>c.args.slice(0,2));
-  const at_=(x,y)=>sides.some(([cx,cy])=>Math.abs(cx-x)<.01&&Math.abs(cy-y)<.01);
-  assert.ok(at_(250,250-19.25-12),"bulges up toward the empty point");
-  assert.ok(at_(250+19.25-8,250),"dents in toward the white stone");
-  assert.ok(at_(250,250+19.25),"straight toward its own stone below");
-});
-
 test("盤の線 runs still dashes through each group and out to a dot on each liberty",()=>{
   const game=newGame();
   game.board[at(4,4)]=BLACK;game.board[at(5,4)]=BLACK;game.board[at(4,5)]=WHITE;
@@ -289,26 +245,26 @@ test("盤の線 runs still dashes through each group and out to a dot on each li
   assert.equal(frames.length,0,"still where motion is reduced");
 });
 
-test("盤の線 breathes in from the liberties and out again, only to the stone's edge in atari",()=>{
+test("盤の線 sends a breath over the dashes from the liberties, only to the stone's edge in atari",()=>{
   const game=newGame();
   // Black (0,0)-(1,0) with three liberties; white (8,8) in atari, its one liberty (8,7).
   game.board[at(0,0)]=BLACK;game.board[at(1,0)]=BLACK;
   game.board[at(8,8)]=WHITE;game.board[at(7,8)]=BLACK;
   const frames=[];
-  let time=0;
+  let time=BREATH_STEP_MS*3.5;
   const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"lines"}),
     {requestFrame:f=>frames.push(f),now:()=>time,stillMotion:()=>false});
   const lines=()=>{calls.length=0;draw();return calls.filter(c=>c.kind==="line").map(c=>c.args.join(","));};
-  const empty=lines();
+  // Long after the last breath passed: the dashes alone.
+  const dashes=lines();
   assert.equal(frames.length,1,"keeps breathing");
-  time=BREATH_IN_MS;
-  const full=lines();
-  assert.ok(full.length>empty.length,"filled at the top of the breath");
-  assert.ok(full.includes(String([100,50])),"through to the stone behind");
-  // What the breath added, beyond the grid and the still dashes.
-  const white=full.filter(e=>!empty.includes(e)).map(e=>e.split(",").map(Number)).filter(([x,y])=>x===450&&y>400);
-  assert.ok(white.some(([,y])=>Math.abs(y-(450-22))<1e-9),"the white stone in atari only to its edge");
-  assert.ok(white.every(([,y])=>y<=450-22+1e-9));
-  time=BREATH_IN_MS+BREATH_OUT_MS+BREATH_REST_MS/2;
-  assert.equal(lines().length,empty.length,"empty again while resting");
+  const breath=at=>{time=BREATH_MS+BREATH_STEP_MS*at;return lines().filter(e=>!dashes.includes(e)).map(e=>e.split(",").map(Number));};
+  // Half a line in, the breath runs from the dots toward the stones.
+  assert.ok(breath(.5).some(([x,y])=>x===50&&y===75),"from the dot below (0,0)");
+  // A line and a half in, it has passed through to the line between the stones.
+  assert.ok(breath(1.5).some(([x,y])=>x===75&&y===50));
+  // In atari it never gets past the white stone's edge, and is gone sooner.
+  const white=breath(.5).concat(breath(1)).filter(([x,y])=>x===450&&y>400);
+  assert.ok(white.length && white.every(([,y])=>y<=450-22+1e-9),"the white stone in atari only to its edge");
+  assert.equal(breath(1.7).some(([x,y])=>x===450&&y>400),false);
 });

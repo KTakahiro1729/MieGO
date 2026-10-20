@@ -34,11 +34,9 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
   let boardTheme = isBoardTheme(storedBoardTheme) ? storedBoardTheme : DEFAULT_BOARD_THEME;
   const storedLiberties = stored("miego-liberties");
   let liberties = isLibertyMode(storedLiberties) ? storedLiberties : DEFAULT_LIBERTY_MODE;
-  // つながった石: drawn apart ("off"), joined by a bar ("bridge"), as one shape
-  // ("fused"), as one shape that bulges toward its liberties ("breathing"),
-  // as squares that bulge toward liberties and dent at opponents ("square"),
-  // or by the board's lines, thickened between stones and halfway to liberties ("lines").
-  const LINK_MODES=["off","bridge","fused","breathing","square","lines"];
+  // つながった石: drawn apart ("off"), joined by a bar ("bridge"), or by
+  // dashes along the board's lines out to a dot on each liberty ("lines").
+  const LINK_MODES=["off","bridge","lines"];
   const storedLink = stored("miego-link-stones");
   let linkStones = LINK_MODES.includes(storedLink) ? storedLink : storedLink==="on" ? "bridge" : "off";
   document.querySelectorAll('input[name="linkStones"]').forEach(input => {

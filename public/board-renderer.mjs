@@ -25,10 +25,10 @@ import {scoringRegions,prisonerFill,prisonersFilled} from "./scoring-regions.mjs
 
 // Stones taken by a move fade out over this long instead of vanishing.
 export const CAPTURE_FADE_MS=200;
-// 盤の線 breathes: air flows in from the liberties for BREATH_IN_MS, out
-// for BREATH_OUT_MS, then rests for BREATH_REST_MS, about ten breaths a
-// minute, which is at the calm end of a person at rest.
-export const BREATH_IN_MS=2000, BREATH_OUT_MS=3000, BREATH_REST_MS=1000;
+// 盤の線 breathes: every BREATH_MS a breath sets out from all the liberties at
+// once, about fifteen a minute as a person at rest, and runs one line further
+// into each group every BREATH_STEP_MS.
+export const BREATH_MS=4000, BREATH_STEP_MS=500;
 const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 // ドパガキモード's burst: sparks fly from each taken stone for this long.
 export const BURST_MS=650;
@@ -213,7 +213,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const preview = boardReview ? boardReview.previewPosition :
       (candidate?.moves.at(-1)?.position ?? illegalCandidate?.position);
     if(view.linkStones==="bridge" && !hidden)paintStoneLinks(theme,proposedBoard||display.board,gap,pad);
-    const shown=[];
+    // 盤の線 reads the stones as shown, the one being placed included.
+    const around=Array(display.board.length).fill(0);
     for(let i=0;i<display.board.length;i++) {
       const {color:committedColor,captured} = stoneForPreview(display.board, proposedBoard, i);
       // A forbidden point is selectable, but the stone is never committed.
@@ -223,25 +224,13 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       // Dead stones are off the board once the count is final, or filled under Japanese rules.
       if(!boardReview && (game.status==="finished" && !game.result?.endsWith("+R") ||
          prisonersFilled(game)) && game.dead?.includes(i))continue;
-      shown.push({i,color,alpha:captured ? 0.4 : i===preview ? 0.68 : 1});
-    }
-    // 一つの形: the solid stones are drawn group by group; the stone being
-    // placed and the ones it would take stay single, see-through stones.
-    const shaped=view.linkStones==="breathing" || view.linkStones==="square";
-    const fused=view.linkStones==="fused" || shaped ? Array(display.board.length).fill(0) : null;
-    // 息の形, 四角 and 盤の線 read the stones as shown, the one being placed included.
-    const around=Array(display.board.length).fill(0);
-    for(const {i,color,alpha} of shown)if(alpha!==.4)around[i]=color;
-    if(fused){
-      for(const {i,color,alpha} of shown)if(alpha===1)fused[i]=color;
-      paintFusedStones(theme,fused,gap,pad,shaped?around:null,view.linkStones==="square");
-    }
-    for(const {i,color,alpha} of shown) {
       const x=pad+(i%SIZE)*gap;
       const y=pad+Math.floor(i/SIZE)*gap;
       const r=gap*.44;
+      const alpha=captured ? 0.4 : i===preview ? 0.68 : 1;
       shownAlpha[i]=alpha;
-      if(!fused?.[i])paintStone(theme,color,x,y,r,alpha);
+      paintStone(theme,color,x,y,r,alpha);
+      if(!captured)around[i]=color;
 
       if(i===preview) {
         ctx.save();
@@ -274,20 +263,18 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   // 盤の線: a still dashed line runs through each group, along the board's
   // lines from stone to stone and out to a dot on every empty point next to
   // it, so a group shows what holds it together and the points it needs.
-  // While playing, the group breathes: a solid line fills the dashes from
-  // the liberties inward, the whole group at once, and drains back out. A
-  // group in atari draws its breath only as far as the edge of its stone.
-  // Each side keeps its own colour on the colour map whatever its state.
+  // While playing, each breath is a stretch of solid line that runs over the
+  // dashes from the liberties into the group. A group in atari gets its
+  // breath only as far as the edge of its stone, so the dashes behind it are
+  // never renewed. Each side keeps its own colour on the colour map.
   function paintBoardLines(view,board,gap,pad,moving) {
     const palette=countingPalette(view.palette);
     const tone={[BLACK]:`rgb(${paletteAt(1,palette).join(",")})`,[WHITE]:`rgb(${paletteAt(-1,palette).join(",")})`};
-    const r=gap*.44, dot=gap*.13, width=Math.max(2,gap*.08), dash=gap*.09;
-    // How full of air the groups are: eased in, eased out, then a rest.
-    let air=0;
-    if(moving){
-      const t=now()%(BREATH_IN_MS+BREATH_OUT_MS+BREATH_REST_MS), ease=u=>(1-Math.cos(Math.PI*u))/2;
-      air=t<BREATH_IN_MS?ease(t/BREATH_IN_MS):t<BREATH_IN_MS+BREATH_OUT_MS?1-ease((t-BREATH_IN_MS)/BREATH_OUT_MS):0;
-    }
+    const dot=gap*.13, width=Math.max(2,gap*.08), dash=gap*.09;
+    // How far each breath under way has run, in lines from the liberties;
+    // a breath is one line long, and a deep group may hold more than one.
+    const fronts=[];
+    if(moving)for(let k=0;k<3;k++)fronts.push((now()%BREATH_MS+k*BREATH_MS)/BREATH_STEP_MS);
     const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
     const dots=new Map(), seen=new Set();
     ctx.save();
@@ -306,9 +293,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
           if(g.stones.has(n) && !depth.has(n)){depth.set(n,depth.get(s)+1);next.push(n);}
         front=next;
       }
-      // Each line runs from a (a liberty at depth 0, or a stone) to stone b;
-      // the air goes half a line past the deepest stone, across any line
-      // between two stones at the same depth.
+      // Each line runs from a (a liberty at depth 0, or a stone) to stone b.
       const lines=[];
       for(const s of g.stones)for(const n of neighbors(s,SIZE)){
         if(!board[n]){
@@ -317,20 +302,24 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
           dots.get(n).push({toward:s,color});
         }else if(g.stones.has(n) && n>s)lines.push({a:s,b:n,from:depth.get(s),to:depth.get(n),start:0});
       }
-      const deepest=Math.max(...depth.values());
-      const reach=g.liberties.size===1?air*(1-.44):air*(deepest+.5);
+      const reach=g.liberties.size===1?1-.44:Infinity;
       for(const line of lines){
         const [ax,ay]=xy(line.a),[bx,by]=xy(line.b);
-        const along=(u,v)=>{ctx.moveTo(ax+(bx-ax)*u,ay+(by-ay)*u);ctx.lineTo(ax+(bx-ax)*v,ay+(by-ay)*v);};
+        const along=(u,v)=>{if(v>u){ctx.moveTo(ax+(bx-ax)*u,ay+(by-ay)*u);ctx.lineTo(ax+(bx-ax)*v,ay+(by-ay)*v);}};
         ctx.strokeStyle=tone[color];
         // The dashes start at the stone so they line up through the group.
         ctx.globalAlpha=.75;ctx.setLineDash([dash,dash]);ctx.lineDashOffset=0;
-        ctx.beginPath();along(1,line.start);ctx.stroke();
-        // The air: every point of the line no further in than the reach.
+        ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(ax+(bx-ax)*line.start,ay+(by-ay)*line.start);ctx.stroke();
+        // A point u along the line is min(from+u, to+1-u) lines from air:
+        // the breath comes in from a up to the middle, and from b past it.
         ctx.globalAlpha=1;ctx.setLineDash([]);ctx.beginPath();
-        const near=Math.min(1,reach-line.from), far=Math.max(0,1-(reach-line.to));
-        if(near>line.start)along(line.start,near);
-        if(far<1)along(Math.max(line.start,far),1);
+        const middle=Math.min(1,Math.max(0,(line.to+1-line.from)/2));
+        for(const ahead of fronts){
+          const near=ahead-1, far=Math.min(ahead,reach);
+          if(far<=near)continue;
+          along(Math.max(line.start,near-line.from),Math.min(middle,far-line.from));
+          along(Math.max(line.start,middle,line.to+1-far),Math.min(1,line.to+1-near));
+        }
         ctx.stroke();
       }
     }
@@ -376,154 +365,22 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     ctx.restore();
   }
 
-  // 一つの形: every group is one shape, its stones' circles joined by bars
-  // as wide as a stone, with one rim around the whole. Four stones in a
-  // square also fill the gap in their middle. Each stone keeps a soft
-  // highlight, so a group still shows how many stones it has.
-  // 息の形 (`around` is the whole position): each stone also bulges toward
-  // the empty points next to it and is pressed flat where an opponent stone
-  // or the board's edge closes it in, so a group in atari looks squeezed.
-  // 四角: a square stone whose sides join its own colour, bulge toward an
-  // empty point and dent in where an opponent stone touches it.
-  function paintFusedStones(theme,board,gap,pad,around=null,square=false) {
-    const r=gap*(around?.4:.44), rim=.75;
-    function squareStone(i,x,y,w){
-      const sides=[[0,-1],[1,0],[0,1],[-1,0]];
-      const corners=[[-1,-1],[1,-1],[1,1],[-1,1]];
-      ctx.moveTo(x-w,y-w);
-      sides.forEach(([dx,dy],k)=>{
-        const nx=i%SIZE+dx, ny=Math.floor(i/SIZE)+dy;
-        const next=nx>=0 && ny>=0 && nx<SIZE && ny<SIZE ? around[ny*SIZE+nx] : null;
-        const push=next===0?gap*.24:next===null||next===board[i]?0:-gap*.16;
-        const [ex,ey]=corners[(k+1)%4];
-        ctx.quadraticCurveTo(x+dx*(w+push),y+dy*(w+push),x+ex*w,y+ey*w);
-      });
-      ctx.closePath();
-    }
-    const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
-    const same=(i,j,color)=>j<board.length && board[j]===color;
-    // The edge of a stone at angle `a`: round, bulged or flat by what lies that way.
-    function edge(i,a,w){
-      const k=((Math.round(a/(Math.PI/2))%4)+4)%4, phi=a-Math.round(a/(Math.PI/2))*Math.PI/2;
-      const x=i%SIZE+[1,0,-1,0][k], y=Math.floor(i/SIZE)+[0,1,0,-1][k];
-      const next=x>=0 && y>=0 && x<SIZE && y<SIZE ? around[y*SIZE+x] : null;
-      if(next===0)return w+gap*.12*Math.max(0,Math.cos(2*phi))**2;
-      if(next!==board[i])return Math.min(w,(w-r+gap*.31)/Math.cos(phi));
-      return w;
-    }
-    // A bar's side is pressed flat when either stone it joins is closed in on that side.
-    function side(i,j,dx,dy,w){
-      if(!around)return w;
-      const open=k=>{
-        const x=k%SIZE+dx, y=Math.floor(k/SIZE)+dy;
-        return x>=0 && y>=0 && x<SIZE && y<SIZE && (around[y*SIZE+x]===0 || around[y*SIZE+x]===board[k]);
-      };
-      return open(i) && open(j) ? w : w-r+gap*.31;
-    }
-    function bar(x,y,horizontal,i,j,w){
-      const [a,b]=horizontal?[side(i,j,0,-1,w),side(i,j,0,1,w)]:[side(i,j,-1,0,w),side(i,j,1,0,w)];
-      if(horizontal){ctx.moveTo(x,y-a);ctx.lineTo(x+gap,y-a);ctx.lineTo(x+gap,y+b);ctx.lineTo(x,y+b);}
-      else{ctx.moveTo(x-a,y);ctx.lineTo(x+b,y);ctx.lineTo(x+b,y+gap);ctx.lineTo(x-a,y+gap);}
-      ctx.closePath();
-    }
-    function outline(color,grow){
-      const w=r+grow;
-      ctx.beginPath();
-      for(let i=0;i<board.length;i++){
-        if(board[i]!==color)continue;
-        const [x,y]=xy(i), right=i%SIZE<SIZE-1 && same(i,i+1,color), down=same(i,i+SIZE,color);
-        if(square)squareStone(i,x,y,w);
-        else if(around){
-          for(let step=0;step<=72;step++){
-            const a=step*Math.PI/36, e=edge(i,a,w);
-            if(step)ctx.lineTo(x+e*Math.cos(a),y+e*Math.sin(a));else ctx.moveTo(x+e,y);
-          }
-          ctx.closePath();
-        }else{ctx.moveTo(x+w,y);ctx.arc(x,y,w,0,Math.PI*2);}
-        if(right)around && !square?bar(x,y,true,i,i+1,w):ctx.rect(x,y-w,gap,2*w);
-        if(down)around && !square?bar(x,y,false,i,i+SIZE,w):ctx.rect(x-w,y,2*w,gap);
-        if(right && down && same(i,i+SIZE+1,color))ctx.rect(x,y,gap,gap);
-      }
-    }
-    // Shaded white stones are lighter in the middle than at the edge; the
-    // body leans to the edge's tone, so each stone's highlight still shows.
-    const mid=(a,b)=>/^#[0-9a-f]{6}$/i.test(a+b.slice(1))?"#"+[1,3,5].map(k=>
-      Math.round(parseInt(a.slice(k,k+2),16)*.4+parseInt(b.slice(k,k+2),16)*.6).toString(16).padStart(2,"0")).join(""):a;
-    const clear=c=>/^#[0-9a-f]{6}$/i.test(c)?c+"00":null;
-    for(const [color,look] of [[BLACK,theme.stones.black],[WHITE,theme.stones.white]]){
-      if(!board.includes(color))continue;
-      ctx.save();
-      outline(color,rim);ctx.fillStyle=look.rim;ctx.fill();
-      outline(color,-rim);
-      ctx.fillStyle=theme.flatStones?look.outer:color===BLACK?look.outer:mid(look.inner,look.outer);
-      ctx.fill();
-      if(!theme.flatStones && clear(look.inner) && ctx.createRadialGradient){
-        for(let i=0;i<board.length;i++){
-          if(board[i]!==color)continue;
-          const [x,y]=xy(i), hx=x-r*.2, hy=y-r*.2;
-          const grad=ctx.createRadialGradient(hx,hy,2,hx,hy,r*.75);
-          grad.addColorStop(0,look.inner);grad.addColorStop(1,clear(look.inner));
-          ctx.fillStyle=grad;ctx.beginPath();ctx.arc(hx,hy,r*.75,0,Math.PI*2);ctx.fill();
-        }
-      }
-      ctx.restore();
-    }
-  }
-
   // 呼吸点の表示 on the board being played or replayed: the provisional
   // board while a stone is placed, otherwise the shown position.
-  const ATARI_MARK="#d95a4e", LOW_MARK="#eea23a";
-  function shownLiberties(view,display) {
+  const ATARI_MARK="#d95a4e";
+  function paintLiberties(theme,view,display,gap,pad) {
     const {game,boardReview,candidate}=view;
-    if(!view.liberties || view.liberties==="off" || isGomoku(game) || isFree(game))return [];
-    if(!boardReview && game.status!=="playing" || view.hideStones)return [];
+    if(!view.liberties || view.liberties==="off" || isGomoku(game) || isFree(game))return;
+    if(!boardReview && game.status!=="playing" || view.hideStones)return;
     const board=boardReview?boardReview.preview?.board||display.board:candidate?.board||game.board;
     const placed=boardReview?boardReview.preview?.board && boardReview.previewPosition:
       candidate?.moves.at(-1)?.position;
-    return libertyMarks(board,view.liberties,placed);
-  }
-  // 危ないときだけ: a band around each group down to two liberties (amber)
-  // or one (red), painted under the stones so it shows only at the edge.
-  function paintDangerBands(marks,gap,pad) {
-    const r=gap*.44+Math.max(3,gap*.09);
-    for(const mark of marks){
-      if(mark.kind!=="danger")continue;
-      const stones=new Set(mark.stones);
-      ctx.save();
-      ctx.fillStyle=mark.count===1?ATARI_MARK:LOW_MARK;
-      ctx.beginPath();
-      for(const i of stones){
-        const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
-        ctx.moveTo(x+r,y);ctx.arc(x,y,r,0,Math.PI*2);
-        if(i%SIZE<SIZE-1 && stones.has(i+1))ctx.rect(x,y-r,gap,2*r);
-        if(stones.has(i+SIZE))ctx.rect(x-r,y,2*r,gap);
-      }
-      ctx.fill();
-      ctx.restore();
-    }
-  }
-  function paintLiberties(theme,marks,gap,pad) {
     const tone={[BLACK]:theme.stones.black.outer,[WHITE]:theme.stones.white.inner};
     const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
-    for(const mark of marks){
-      if(mark.kind==="danger")continue;
+    for(const mark of libertyMarks(board,view.liberties,placed)){
       const [x,y]=xy(mark.position);
       ctx.save();
-      if(mark.kind==="tube"){
-        // The placed stone's group breathes through this point: a short
-        // tube from each of its stones that touch it, and a dot.
-        const color=mark.atari?ATARI_MARK:tone[mark.color];
-        ctx.strokeStyle=color;ctx.lineWidth=Math.max(2,gap*.1);ctx.lineCap="round";
-        ctx.beginPath();
-        for(const from of mark.from){
-          const [sx,sy]=xy(from);
-          ctx.moveTo(sx+(x-sx)*.42,sy+(y-sy)*.42);ctx.lineTo(x,y);
-        }
-        ctx.stroke();
-        ctx.beginPath();ctx.arc(x,y,gap*.13,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();
-        ctx.strokeStyle=mark.color===WHITE && !mark.atari?tone[BLACK]:"rgba(255,255,255,.75)";
-        ctx.lineWidth=Math.max(1,gap*.025);ctx.stroke();
-      }else if(mark.kind==="dot"){
+      if(mark.kind==="dot"){
         const r=gap*.12;
         if(mark.atari || mark.colors.length===1){
           ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
@@ -693,12 +550,10 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const live=!boardReview && game.status==="playing";
     if(!live){fading=[];sparks=[];}
     shownAlpha=[];
-    const liberties=shownLiberties(view,display);
-    paintDangerBands(liberties,gap,pad);
     paintStones(theme,view,display,gap,pad);
     noteCaptures(game,live,view.burst);
     if(fading.length)paintFading(theme,gap,pad);
-    paintLiberties(theme,liberties,gap,pad);
+    paintLiberties(theme,view,display,gap,pad);
     for(const {position,color} of kept)
       paintFillStone(theme,color,pad+(position%SIZE)*gap,pad+Math.floor(position/SIZE)*gap,gap);
     if(scoring)paintPrisonerFill(theme,fill,view.palette,gap,pad);
