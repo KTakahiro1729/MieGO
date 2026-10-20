@@ -34,6 +34,13 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
   let boardTheme = isBoardTheme(storedBoardTheme) ? storedBoardTheme : DEFAULT_BOARD_THEME;
   const storedLiberties = stored("miego-liberties");
   let liberties = isLibertyMode(storedLiberties) ? storedLiberties : DEFAULT_LIBERTY_MODE;
+  let linkStones = stored("miego-link-stones")==="on";
+  $("linkStones").checked=linkStones;
+  $("linkStones").onchange=e=>{
+    linkStones=!!e.target.checked;
+    store("miego-link-stones",linkStones?"on":"off");
+    draw();
+  };
   const storedOpacity = stored("miego-opacity")===null ? NaN : Number(stored("miego-opacity"));
   let opacity = storedOpacity>=0 && storedOpacity<=1 ? storedOpacity : DEFAULT_OPACITY;
   // With the stones hidden the colours are all there is, so "表示しない" falls
@@ -184,6 +191,8 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     palette=DEFAULT_PALETTE;opacity=DEFAULT_OPACITY;boardTheme=DEFAULT_BOARD_THEME;
     liberties=DEFAULT_LIBERTY_MODE;
     store("miego-liberties",liberties);
+    linkStones=false;
+    store("miego-link-stones","off");
     store("miego-palette",palette);
     store("miego-opacity",String(opacity));
     store("miego-board",boardTheme);
@@ -246,13 +255,14 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     check("palette",palette);
     check("boardTheme",boardTheme);
     check("liberties",liberties);
+    $("linkStones").checked=linkStones;
     check("opacityShape",opacityShape());
     fillColourInputs();
     $("opacity").value=String(Math.round(opacity*100));
     $("opacityValue").textContent=Math.round(opacity*100)+"%";
     updateGradient();
   }
-  return {palette:()=>palette,opacity:()=>opacity,boardTheme:()=>boardTheme,liberties:()=>liberties,
+  return {palette:()=>palette,opacity:()=>opacity,boardTheme:()=>boardTheme,liberties:()=>liberties,linkStones:()=>linkStones,
     editingBoard:()=>editing==="board",
     shownPalette,overlayOn,updateGradient,syncControls};
 }

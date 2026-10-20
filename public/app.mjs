@@ -692,6 +692,7 @@ const boardRenderer = createBoardRenderer({
     keptPlayout:keptPlayout(),
     lastPosition,
     liberties:appearance.liberties(),
+    linkStones:appearance.linkStones(),
     opacity:appearance.opacity(),
     palette:shownPalette(),
     sampleStones:appearance.editingBoard(),

@@ -193,6 +193,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const proposedBoard = boardReview?.preview?.board || (boardReview ? null : candidate?.board);
     const preview = boardReview ? boardReview.previewPosition :
       (candidate?.moves.at(-1)?.position ?? illegalCandidate?.position);
+    if(view.linkStones && !hidden)paintStoneLinks(theme,proposedBoard||display.board,gap,pad);
     for(let i=0;i<display.board.length;i++) {
       const {color:committedColor,captured} = stoneForPreview(display.board, proposedBoard, i);
       // A forbidden point is selectable, but the stone is never committed.
@@ -230,6 +231,31 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         ctx.stroke();
       }
     }
+  }
+
+  // つながった石を一つに描く: a bar under each pair of same-coloured stones
+  // that touch along a line, so a connected group reads as one shape and a
+  // diagonal pair stays apart.
+  function paintStoneLinks(theme,board,gap,pad) {
+    // Shaded white stones are lighter in the middle than at the edge; the
+    // bar takes the colour between, so it neither glows nor greys.
+    const mid=(a,b)=>/^#[0-9a-f]{6}$/i.test(a+b.slice(1))?"#"+[1,3,5].map(k=>
+      Math.round((parseInt(a.slice(k,k+2),16)+parseInt(b.slice(k,k+2),16))/2).toString(16).padStart(2,"0")).join(""):a;
+    const white=theme.stones.white;
+    const tone={[BLACK]:theme.stones.black.outer,[WHITE]:theme.flatStones?white.inner:mid(white.inner,white.outer)};
+    ctx.save();
+    ctx.lineCap="butt";ctx.lineWidth=gap*.6;
+    for(let i=0;i<board.length;i++){
+      const color=board[i];
+      if(color!==BLACK && color!==WHITE)continue;
+      const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
+      for(const [dx,dy,j] of [[1,0,i+1],[0,1,i+SIZE]]){
+        if(dx && i%SIZE===SIZE-1 || j>=board.length || board[j]!==color)continue;
+        ctx.strokeStyle=tone[color];
+        ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+dx*gap,y+dy*gap);ctx.stroke();
+      }
+    }
+    ctx.restore();
   }
 
   // 呼吸点の表示 on the board being played or replayed: the provisional
