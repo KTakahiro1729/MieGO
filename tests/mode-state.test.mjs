@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {gameStorageKey,parseGameSnapshot,needsSwitchConfirmation} from "../public/mode-state.mjs";
+import {TEXT} from "../public/texts.mjs";
 const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
 test("a 新規対戦 button opens one sheet with the three modes, board size, handicap and saved games",()=>{
@@ -121,7 +122,8 @@ test("reset discards endgame and dead-stone hints",()=>{
 test("the 新規対戦 sheet offers a way back to the current or an unfinished saved game",()=>{
   const sheet=html.slice(html.indexOf('<aside id="modePanel"'),html.indexOf('</aside>',html.indexOf('<aside id="modePanel"')));
   assert.match(sheet,/id="returnToGame"[^>]*hidden>現在の対局に戻る<\/button>/);
-  assert.match(app,/return \{mode:null,label:"現在の対局に戻る"\};/);
+  assert.match(app,/return \{mode:null,label:TEXT\.history\.returnCurrent\};/);
+  assert.equal(TEXT.history.returnCurrent,"現在の対局に戻る");
   assert.doesNotMatch(app,/label:[^\n]*手目/);
   // Finished games and friend rooms are not resumed from here.
   assert.match(app,/if\(kind==="online"\)return null;/);

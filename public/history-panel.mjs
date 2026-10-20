@@ -1,6 +1,7 @@
 import {parseSGF} from "./sgf.mjs";
 import {recordName,recordIcon,recordSummary} from "./history-navigation.mjs";
 import {recordThumbnailSvg} from "./board-thumbnail.mjs";
+import { TEXT } from "./texts.mjs";
 
 // The library sheet is a file picker and saved-game list. All board/replay
 // controls live on the main board; it never creates a second playing surface.
@@ -28,7 +29,7 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},g
         // Re-read to avoid opening a stale snapshot after another tab updated it.
         const selected=gameLibrary.load(record.id);
         if(!selected) {
-          $("historySaveNotice").textContent="棋譜が更新されました。もう一度選んでください。";
+          $("historySaveNotice").textContent=TEXT.history.updated;
           renderHistoryList();
           return;
         }
@@ -45,7 +46,7 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},g
   async function importHistoryFile(file) {
     if(!file)return;
     try {
-      if(file.size>512*1024)throw Error("SGFファイルは512KB以内にしてください。");
+      if(file.size>512*1024)throw Error(TEXT.history.sgfTooLarge);
       const parsed=parseSGF(await file.text());
       const record=gameLibrary.save({mode:"local",snapshot:parsed.snapshot,source:"sgf",
         sgfMeta:parsed.metadata,lastPosition:parsed.snapshot.moves.at(-1)?.position??null});
@@ -53,7 +54,7 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},g
       // A non-blocking notification is available in the replay controls.
     } catch(error) {
       $("modePanel").scrollTop=0;
-      $("historySaveNotice").textContent="SGFを読み込めません："+error.message;
+      $("historySaveNotice").textContent=TEXT.history.sgfFailed(error.message);
     } finally{$("historyImportFile").value="";}
   }
   return {renderHistoryList,showHistory,importHistoryFile};

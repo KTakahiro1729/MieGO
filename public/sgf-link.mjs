@@ -1,5 +1,6 @@
 import { exportSGF, parseSGF, replaySteps } from "./sgf.mjs";
 import { formatBoardSection } from "./board-text.mjs";
+import { TEXT } from "./texts.mjs";
 
 // A human- and AI-readable SGF (9x9, 13x13 or 19x19) is carried in the URL query string.
 // Keep the uncompressed SGF, rather than inventing a proprietary binary code.
@@ -10,12 +11,12 @@ export function makeReviewUrl(origin, record, step) {
   const {snapshot}=parseSGF(sgf);
   const total=snapshot.moves.length;
   if(!Number.isSafeInteger(step) || step<0 || step>total)
-    throw Error("共有する手数が棋譜の範囲外です");
+    throw Error(TEXT.link.stepOutside);
   const url=new URL("/",origin);
   url.searchParams.set("sgf",sgf);
   url.searchParams.set("move",String(step));
   if(url.href.length>MAX_SHARE_URL_LENGTH)
-    throw Error("URLが長すぎます。SGFファイルで共有してください");
+    throw Error(TEXT.link.tooLong);
   return url.href;
 }
 
@@ -25,17 +26,17 @@ export function readReviewUrl(input) {
   if(url.searchParams.has("room"))return {kind:"room"};
   if(!url.searchParams.has("sgf"))return {kind:"none"};
   if(url.href.length>MAX_SHARE_URL_LENGTH)
-    throw Error("棋譜URLが長すぎます（上限8192文字）");
+    throw Error(TEXT.link.urlTooLong);
   if(url.searchParams.getAll("sgf").length!==1 ||
-     url.searchParams.getAll("move").length>1)throw Error("棋譜URLの項目が重複しています");
+     url.searchParams.getAll("move").length>1)throw Error(TEXT.link.duplicate);
   const source=url.searchParams.get("sgf");
-  if(!source)throw Error("SGF棋譜が指定されていません");
+  if(!source)throw Error(TEXT.link.noSgf);
   const parsed=parseSGF(source);
   const stepValue=url.searchParams.get("move");
   const step=stepValue===null?parsed.snapshot.moves.length:
     /^(0|[1-9][0-9]*)$/.test(stepValue)?Number(stepValue):NaN;
   if(!Number.isSafeInteger(step) || step<0 || step>parsed.snapshot.moves.length)
-    throw Error("表示手数が棋譜の範囲外です");
+    throw Error(TEXT.link.moveOutside);
   return {kind:"review",snapshot:parsed.snapshot,step,sgf:source,metadata:parsed.metadata};
 }
 
@@ -45,7 +46,7 @@ export function shareableReviewUrl(input) {
   const url=new URL(input);
   if(!["https:","http:"].includes(url.protocol) || url.searchParams.has("room") ||
      !url.searchParams.get("sgf") || !url.searchParams.has("move"))
-    throw Error("共有できない棋譜URLです");
+    throw Error(TEXT.link.unshareable);
   return url;
 }
 
@@ -53,21 +54,17 @@ export function makeAiHandoff(reviewUrl) {
   const url=shareableReviewUrl(reviewUrl);
   const guide=new URL("/ai.md",url.origin);
   const review=readReviewUrl(url.href);
-  if(review.kind!=="review")throw Error("棋譜URLではありません");
+  if(review.kind!=="review")throw Error(TEXT.link.notReview);
   const shown=replaySteps(review.snapshot,review.step);
   return [
-    "MieGOの棋譜URL（9・13・19路盤）です。以下のURL仕様に従って解釈・生成できます。",
+    TEXT.prompts.handoffIntro,
     "",
-    "棋譜URL: "+url.href,
+    TEXT.prompts.reviewUrl(url.href),
     "",
-    formatBoardSection("選択している局面（"+review.step+"手目）の盤面",shown.board),
+    formatBoardSection(TEXT.prompts.handoffBoard(review.step),shown.board),
     "",
-    "sgf はURLエンコードされた標準SGFの全着手列です。move は表示する手数で、0は初期盤面、省略時は最終局面です。",
-    "同じ棋譜の別の局面はsgfを変えずmoveの値を変更して提示できます。",
-    "仮想的な別の着手を示すときはSGFの着手列を合法な手順に編集してURLエンコードしてください。",
-    "利用者はそのURLをMieGOの別タブで開き、一手ずつ前後に再生できます。",
-    "URLを直接参照できなくても、sgfクエリをURLデコードして棋譜を解析できます。",
+    ...TEXT.prompts.handoffSpec,
     "",
-    "詳細仕様: "+guide.href
+    TEXT.prompts.handoffGuide(guide.href)
   ].join("\n");
 }

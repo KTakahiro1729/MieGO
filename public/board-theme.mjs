@@ -1,9 +1,10 @@
+import { TEXT } from "./texts.mjs";
 // Board looks. Each look fixes its own board, line and stone colours; the
 // ownership colours that sit on top of it are tuned per look in territory-view.
 // `surface` is the average board colour the overlay is blended against.
 export const BOARD_THEMES = Object.freeze({
   wood: Object.freeze({
-    label:"木目",
+    label:TEXT.settings.themes.wood,
     surface:[229,197,140],
     fill:["#e5c58c"],
     line:"#685537", star:"#725b39",
@@ -15,7 +16,7 @@ export const BOARD_THEMES = Object.freeze({
   }),
   // A flat, light grey board with flat stones and no grain.
   light: Object.freeze({
-    label:"ライト",
+    label:TEXT.settings.themes.light,
     surface:[189,193,199],
     fill:["#bdc1c7"],
     line:"#7b818b", star:"#6b717b",
@@ -28,7 +29,7 @@ export const BOARD_THEMES = Object.freeze({
   // A dark board with a faint sheen; black stones carry a light rim
   // so they stay visible against it.
   dark: Object.freeze({
-    label:"ダーク",
+    label:TEXT.settings.themes.dark,
     surface:[38,50,63],
     fill:["#334457","#26323f","#1c2631"],
     line:"rgba(200,225,245,.4)", star:"rgba(200,225,245,.62)",

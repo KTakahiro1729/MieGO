@@ -1,12 +1,13 @@
 import { BLACK, WHITE, boardHash, handicapOf } from "./core.mjs";
 import { parseGameSnapshot } from "./mode-state.mjs";
+import { TEXT } from "./texts.mjs";
 
 export const ROOM_PATTERN = /^[a-f0-9]{32}$/;
 export const TOKEN_PATTERN = /^[a-f0-9]{48}$/;
 export const storageKey = room => "miego-online-v2-" + room;
 export const playerColor = (role, ownerColor) =>
   role === "owner" ? ownerColor : ownerColor === BLACK ? WHITE : BLACK;
-export const colorLabel = color => color === BLACK ? "黒番" : "白番";
+export const colorLabel = color => color === BLACK ? TEXT.online.colorBlack : TEXT.online.colorWhite;
 export const selectColor = (choice, cryptoSource = globalThis.crypto) => {
   if (choice === "black") return BLACK;
   if (choice === "white") return WHITE;
