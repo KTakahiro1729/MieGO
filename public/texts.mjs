@@ -620,6 +620,8 @@ export const TEXT = {
     sound: "効果音",
     soundNote: "石を打つ・取る、秒読み、終局で鳴らします",
     board: "碁盤",
+    liberties: "呼吸点の表示",
+    libertyModes: { off: "表示しない", candidate: "仮置き中だけ", atari: "アタリだけ", dots: "すべて（点）", count: "すべて（数）" },
     themes: { wood: "木目", light: "ライト", dark: "ダーク", custom: "カスタム" },
     boardColours: { board: "盤", line: "線", black: "黒石", white: "白石" },
     customBoardColours: "盤の色（カスタム）",

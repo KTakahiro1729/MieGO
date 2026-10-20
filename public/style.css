@@ -203,6 +203,8 @@ body.board-zoomed .board-bleed{opacity:1}
 .swatch{width:100%;height:45px;border-radius:8px;box-shadow:0 1px 4px #0005;border:1px solid #9a9a9a55}
 .palette-choices:not(.board-choices){grid-template-columns:repeat(2,minmax(0,1fr))}
 .board-choices{margin-bottom:16px;grid-template-columns:repeat(4,minmax(0,1fr))}
+.palette-choices.liberty-choices{grid-template-columns:repeat(3,minmax(0,1fr))}
+.liberty-choices .palette-choice{padding:10px 5px}
 /* The custom board's swatch takes its colours from the pickers. */
 .board-swatch.custom{background-color:var(--sw-board)}
 /* カスタム's colours: a row of swatches per colour, then "＋" for any other.

@@ -1,4 +1,4 @@
-import {SIZE as DEFAULT_SIZE, BLACK, WHITE, isGomoku, sizeOf, starPoints} from "./core.mjs";
+import {SIZE as DEFAULT_SIZE, BLACK, WHITE, isFree, isGomoku, sizeOf, starPoints} from "./core.mjs";
 import {
   countingOpacity,
   countingPalette,
@@ -9,6 +9,7 @@ import {
 } from "./territory-view.mjs";
 import {boardTheme} from "./board-theme.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
+import {libertyMarks} from "./liberty-view.mjs";
 import {scoringRegions,prisonerFill,prisonersFilled} from "./scoring-regions.mjs";
 
 // Stones taken by a move fade out over this long instead of vanishing.
@@ -231,6 +232,48 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     }
   }
 
+  // 呼吸点の表示 on the board being played or replayed: the provisional
+  // board while a stone is placed, otherwise the shown position.
+  const ATARI_MARK="#d95a4e";
+  function paintLiberties(theme,view,display,gap,pad) {
+    const {game,boardReview,candidate}=view;
+    if(!view.liberties || view.liberties==="off" || isGomoku(game) || isFree(game))return;
+    if(!boardReview && game.status!=="playing" || view.hideStones)return;
+    const board=boardReview?boardReview.preview?.board||display.board:candidate?.board||game.board;
+    const placed=boardReview?boardReview.preview?.board && boardReview.previewPosition:
+      candidate?.moves.at(-1)?.position;
+    const tone={[BLACK]:theme.stones.black.outer,[WHITE]:theme.stones.white.inner};
+    const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
+    for(const mark of libertyMarks(board,view.liberties,placed)){
+      const [x,y]=xy(mark.position);
+      ctx.save();
+      if(mark.kind==="dot"){
+        const r=gap*.12;
+        if(mark.atari || mark.colors.length===1){
+          ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+          ctx.fillStyle=mark.atari?ATARI_MARK:tone[mark.colors[0]];ctx.fill();
+        }else{
+          // A liberty both colours share: half of each.
+          ctx.beginPath();ctx.arc(x,y,r,Math.PI/2,Math.PI*3/2);ctx.fillStyle=tone[BLACK];ctx.fill();
+          ctx.beginPath();ctx.arc(x,y,r,-Math.PI/2,Math.PI/2);ctx.fillStyle=tone[WHITE];ctx.fill();
+        }
+        ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+        ctx.strokeStyle=mark.colors[0]===WHITE && mark.colors.length===1 && !mark.atari?tone[BLACK]:"rgba(255,255,255,.75)";
+        ctx.lineWidth=Math.max(1,gap*.025);ctx.stroke();
+      }else if(mark.kind==="atari"){
+        ctx.beginPath();ctx.arc(x,y,gap*.2,0,Math.PI*2);
+        ctx.strokeStyle=ATARI_MARK;ctx.lineWidth=Math.max(2.5,gap*.07);ctx.stroke();
+      }else if(mark.kind==="count"){
+        ctx.font="700 "+Math.max(11,Math.round(gap*.4))+"px Inter, system-ui, -apple-system, sans-serif";
+        ctx.textAlign="center";ctx.textBaseline="middle";
+        ctx.fillStyle=mark.count===1?(mark.color===BLACK?"#ff8a7a":"#c0392b"):
+          mark.color===BLACK?"#f6efdc":"#2a2f31";
+        ctx.fillText(String(mark.count),x,y+1);
+      }
+      ctx.restore();
+    }
+  }
+
   // The last move: a ring inside the stone in the opposite tone, so it shows
   // on either colour and on every board size. Sized like OGS's (radius 0.3
   // of a point) so it is still found on 19路 on a phone. With the stones
@@ -348,6 +391,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     paintStones(theme,view,display,gap,pad);
     noteCaptures(game,live);
     if(fading.length)paintFading(theme,gap,pad);
+    paintLiberties(theme,view,display,gap,pad);
     for(const {position,color} of kept)
       paintFillStone(theme,color,pad+(position%SIZE)*gap,pad+Math.floor(position/SIZE)*gap,gap);
     if(scoring)paintPrisonerFill(theme,fill,view.palette,gap,pad);
