@@ -532,6 +532,8 @@ body{overflow:hidden}
 .setting-note{font-size:11px;color:#8f97a5}
 .setting-group{border:0;padding:0;margin:18px 0 0;min-width:0}
 .settings-section .range-label{margin:14px 0 4px;font-size:12px;color:#aab0bc}
-.ownership-settings #resetAppearance{margin-top:20px}
+.settings-head h2{margin-right:auto}
+.reset-button{display:flex;align-items:center;gap:6px;border:0;background:transparent;color:#c5c8d1;font-size:13px;padding:8px 10px;min-height:44px;border-radius:10px;cursor:pointer}
+.reset-button:hover{color:#f1f0ed}
 .ownership-tuning{transition:opacity .2s}
 .ownership-settings.is-off .ownership-tuning{opacity:.38;pointer-events:none}

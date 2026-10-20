@@ -98,7 +98,7 @@ test("direct game controls replace hidden action menus; new local games start fr
  assert.match(row,/id="openHistory"/);
  assert.doesNotMatch(row,/<details|id="gameMenu"/);
  assert.match(html,/id="startLocal"/);
- assert.match(html,/id="openHistorySettings"/);
+ assert.doesNotMatch(html,/id="openHistorySettings"|id="openCurrentMode"/);
  assert.match(app,/if \(room \|\| gameMode!=="local"\) return;/);
  assert.match(app,/\$\("startLocal"\)\.onclick=startLocalGame/);
  assert.match(app,/game=freshLocalGame\(game,localHandicap,boardSize\);currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);

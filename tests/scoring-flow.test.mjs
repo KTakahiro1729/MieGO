@@ -38,15 +38,10 @@ test("stale or manually overridden automatic dead marks cannot replace correctio
 test("scoring actions occupy the existing action row, above which the score remains",()=>{
   assert.ok(html.indexOf('id="scoreBox"') < html.indexOf('id="actionRow"'));
   assert.ok(html.indexOf('id="actionRow"') < html.indexOf('id="scoringActions"'));
-  for(const id of ["agree","resume","scoreBox","scoringActions","openCurrentMode"])
+  for(const id of ["agree","resume","scoreBox","scoringActions"])
     assert.equal(html.split('id="'+id+'"').length-1,1);
   assert.match(app,/\$\("scoringActions"\)\.hidden=!isScoring/);
   assert.match(css,/\.inline-score-actions\{display:flex/);
-});
-test("context game menu supplies AI rematch and online re-invitation",()=>{
-  assert.match(app,/\$\("openCurrentMode"\)\.textContent=room\?"招待URLを表示":"AIの設定・再戦"/);
-  assert.match(app,/if\(room\)openPanel\("online"\)/);
-  assert.match(app,/else if\(gameMode==="ai"\)openPanel\("ai"\)/);
 });
 test("manual score correction sends desired state and blocks late AI proposals",()=>{
   assert.match(app,/selected:!game\.dead\.includes\(position\)/);
