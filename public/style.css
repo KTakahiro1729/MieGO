@@ -567,7 +567,8 @@ body{overflow:hidden}
    It is not drawn as a card: a frame and divider would only add lines next
    to the prisoner pills, so spacing alone sets it apart. */
 .score-box{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;align-items:baseline;
-  padding:2px 4px 0;margin-bottom:0;background:none;border:0;border-radius:0}
+  /* Line heights are fixed so the two lines fill the 48px endgame-bar slot whatever font the phone has. */
+  grid-template-rows:24px auto;padding:2px 4px 0;margin-bottom:0;background:none;border:0;border-radius:0}
 .score-head{grid-column:1;min-width:0}
 /* While scoring the step title sits in the turn label; only the result keeps its title here. */
 .game-panel.is-scoring .score-head strong{display:none}
@@ -575,7 +576,8 @@ body{overflow:hidden}
 .game-panel.is-finished .score-box>p{display:none}
 .score-box>p{grid-column:2;grid-row:1;min-width:0;margin:0}
 .score-table{grid-column:1/-1;grid-template-columns:1fr 1fr;column-gap:10px;margin-top:2px;padding-top:0;border-top:0}
-.score-table .score-row{gap:4px}
+.score-table .score-row{gap:4px;line-height:20px}
+.score-table .score-total,.score-table .score-name{line-height:20px}
 /* On narrow phones the stone alone names the side, so the breakdown keeps one line. */
 @media(max-width:360px){.score-table .score-name{display:none}}
-.score-row .score-detail{min-width:0;white-space:normal;overflow-wrap:anywhere}
+.score-row .score-detail{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:15px}
