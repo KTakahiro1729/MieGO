@@ -1,4 +1,4 @@
-import { BLACK, isGomoku, rulesOf, WHITE, BOARD_SIZES, isBoardSize, sizeOf, handicapPoints, maxHandicap, newGame, initialGame, handicapOf, komiOf, play, resume, boardHash } from "./core.mjs";
+import { BLACK, hasGomokuForbidden, isGomoku, rulesOf, WHITE, BOARD_SIZES, isBoardSize, sizeOf, handicapPoints, maxHandicap, newGame, initialGame, handicapOf, komiOf, play, resume, boardHash } from "./core.mjs";
 import { TEXT } from "./texts.mjs";
 import { UserError } from "./user-error.mjs";
 
@@ -99,7 +99,9 @@ export function parseSGF(text) {
   // Japanese (and Korean) territory rules are replayed as Japanese; anything else as Chinese.
   const rules=gomoku?"gomoku":
     /^\s*(japanese|korean|jp|ja|kr)\b/i.test(first(root,"RU")??"")?"japanese":"chinese";
-  let state=newGame(true,{handicap,size,rules}),seen=0;
+  // RU[Renju] on a GM[4] record is 五目並べ with Black's forbidden moves.
+  const gomokuForbidden=gomoku && /^\s*renju\b/i.test(first(root,"RU")??"");
+  let state=newGame(true,{gomokuForbidden,handicap,size,rules}),seen=0;
   for(const node of nodes){
     if(("B" in node)&&("W" in node))throw broken();
     const key="B" in node?"B":"W" in node?"W":null;
@@ -169,7 +171,7 @@ export function exportSGF(record) {
   const setup=handicap?"HA["+handicap+"]AB"+handicapPoints(size,handicap)
     .map(p=>"["+coord(p,size)+"]").join(""):"";
   // SGF game type 4 is Gomoku/Renju, which has no komi or Go ruleset.
-  const head=isGomoku(snapshot)?"(;GM[4]FF[4]CA[UTF-8]SZ["+size+"]":
+  const head=isGomoku(snapshot)?"(;GM[4]FF[4]CA[UTF-8]SZ["+size+"]"+(hasGomokuForbidden(snapshot)?"RU[Renju]":""):
     "(;GM[1]FF[4]CA[UTF-8]SZ["+size+"]KM["+esc(meta.komi??komiOf(snapshot))+"]RU["+
     esc(meta.rules??(rulesOf(snapshot)==="japanese"?"Japanese":"Chinese"))+"]";
   return head+setup+label("PB",meta.blackName)+

@@ -246,6 +246,7 @@
             </select>
           </div>
           <p id="handicapNote" class="explanation" hidden></p>
+          <div id="gomokuForbiddenRow" class="mode hide-stones" hidden><div><strong>{{newGame.gomokuForbidden}}</strong><p>{{newGame.gomokuForbiddenNote}}</p></div><input id="gomokuForbidden" type="checkbox" aria-label="{{newGame.gomokuForbidden}}"></div>
           <div id="hideStonesRow" class="mode hide-stones"><div><strong>{{newGame.hideStones}}</strong><p>{{newGame.hideStonesNote}}</p></div><input id="hideStones" type="checkbox" aria-label="{{newGame.hideStones}}"></div>
           <div id="aiOptions" class="ai-advanced" hidden>
             <div class="mode"><div><strong>{{ai.hints}}</strong><p>{{ai.hintsNote}}</p></div><input id="aiHints" type="checkbox" aria-label="{{ai.hintsAria}}"></div>

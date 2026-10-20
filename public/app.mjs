@@ -11,6 +11,7 @@ import {
   confirmDeadSolo,
   finalizeSoloScore,
   handicapOf,
+  hasGomokuForbidden,
   isGomoku,
   isJapanese,
   komiOf,
@@ -69,7 +70,7 @@ import {
 import { createBoardRenderer } from "./board-renderer.mjs";
 import { scoreBreakdown, scoreRows, PRISONER_OUTLINE } from "./scoring-regions.mjs";
 import { createBoardZoom } from "./board-zoom.mjs";
-import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal-moves.mjs";
+import {forbiddenMessage,inspectProvisionalMove,makeIllegalMovePrompt} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
@@ -142,7 +143,7 @@ const currentSideSelection=()=>document.querySelector('input[name="onlineSide"]:
 // Before play starts, a changed side, board size or handicap calls for a new invitation.
 const inviteMatchesChoice=()=>issuedSide===currentSideSelection() &&
   (connected || game.moveNumber>0 || (sizeOf(game.board)===boardSize && handicapOf(game)===onlineHandicap &&
-    rulesOf(game)===gameRules));
+    rulesOf(game)===gameRules && hasGomokuForbidden(game)===(gameRules==="gomoku" && gomokuForbiddenChoice)));
 // The player's own seat link moves the game to another device; it never sits in the address bar.
 function ownSeatLink() {
   try{return room && inviteKey ? (p2pRole==="owner"?ownUrl:guestUrl)(location.origin,room,inviteKey) : null;}
@@ -175,6 +176,8 @@ let illegalPromptCopied = false;
 // next game, which carries it (so a friend's game shows it to both players).
 // A replayed board follows its game; a shared SGF shows its stones.
 let hideStonesChoice = false;
+// 五目並べ's 禁じ手 (renju's forbidden moves for Black), for the next game.
+let gomokuForbiddenChoice = false;
 const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideStones===true;
 const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingStones,isCounting,show,draw,
   onOverlayOn:()=>boardReview?requestReviewOwnership():requestAnalysis()});
@@ -339,10 +342,10 @@ function updateEndUi() {
      takebackNotice.hash===boardHash(game.board))
     $("endStatus").textContent=takebackNotice.text;
   // The stable left-hand status slot doubles as a rule explanation for illegal previews.
-  $("endHelp").dataset.help=playing && illegalCandidate?"illegal":isGomoku(game)?"rules":"endgame";
+  // 五目並べ's forbidden moves are explained with its rules, not with ko and suicide.
+  $("endHelp").dataset.help=isGomoku(game)?"rules":playing && illegalCandidate?"illegal":"endgame";
   if(playing && illegalCandidate){
-    $("endStatus").textContent=illegalCandidate.reason===ILLEGAL_KO?
-      TEXT.rules.ko:TEXT.rules.suicide;
+    $("endStatus").textContent=forbiddenMessage(illegalCandidate.reason);
   }
 }
 
@@ -367,6 +370,7 @@ function rememberSettings() {
       aiStrength,
       boardSize,
       gameRules,
+      gomokuForbidden:gomokuForbiddenChoice,
       hideStones:hideStonesChoice,
       humanColor,
       invasion,
@@ -381,6 +385,7 @@ function rememberSettings() {
 // A new per-game option is added here only, one per line, alphabetically.
 function nextGameOptions(handicap) {
   return {
+    gomokuForbidden:gomokuForbiddenChoice,
     handicap,
     hideStones:hideStonesChoice,
     rules:gameRules,
@@ -552,7 +557,7 @@ function requestGomokuTurn() {
     if(aiJob!==job)return;
     aiThinking=false;aiJob=null;
     if(!isAiTurn() || game.moveNumber!==job.number || boardHash(game.board)!==job.hash){show();return;}
-    submitMove(gomokuMove(game.board,game.next),true);
+    submitMove(gomokuMove(game.board,game.next,Math.random,{forbidden:hasGomokuForbidden(game)}),true);
   },GOMOKU_AI_DELAY_MS);
 }
 /** The automatic dead-stone job still belongs to the position on the board. */
@@ -871,8 +876,9 @@ function show() {
   const handicap=handicapOf(game),size=sizeOf(game.board);
   canvas.setAttribute("aria-label",TEXT.game.boardLabel(shownSize()));
   const japanese=isJapanese(game);
-  $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,gomoku?"gomoku":japanese);
-  $("ruleLabel").textContent=TEXT.game.ruleLabel(size,rulesOf(game),komiOf(game),handicap);
+  const forbidden=hasGomokuForbidden(game);
+  $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,gomoku?"gomoku":japanese,forbidden);
+  $("ruleLabel").textContent=TEXT.game.ruleLabel(size,rulesOf(game),komiOf(game),handicap,forbidden);
   // Japanese territory scoring counts prisoners, so they sit under the ownership bar.
   $("captureCounts").hidden=!japanese;
   // While counting, the dead stones taken off the board are prisoners too.
@@ -1291,6 +1297,7 @@ $("endDecline").onclick=()=>{
     number:game.moveNumber,before:boardHash(game.board)});
 };
 $("hideStones").onchange=e=>{hideStonesChoice=e.target.checked;rememberSettings();};
+$("gomokuForbidden").onchange=e=>{gomokuForbiddenChoice=e.target.checked;rememberSettings();renderInviteButton();};
 // Two aligned rows: stone, name, what is added to the board area, total.
 function renderScoreboard(){
   const rows=scoreRows(game);
@@ -2050,9 +2057,9 @@ function syncHandicapUi() {
   const kind=newGameModeKind(),ai=kind==="ai";
   const shown=ai?aiHandicap:kind==="online"?onlineHandicap:localHandicap;
   for(const option of $("handicap").options)option.disabled=Number(option.value)>maxHandicap(boardSize);
-  // 五目並べ takes neither handicap stones nor 石を隠す (newGame() drops them).
+  // 五目並べ takes no handicap stones (newGame() drops them); 禁じ手 is its own choice.
   $("handicapSetup").hidden=gameRules==="gomoku";
-  $("hideStonesRow").hidden=gameRules==="gomoku";
+  $("gomokuForbiddenRow").hidden=gameRules!=="gomoku";
   $("handicap").value=String(shown);
   // The note only appears when stones are placed, so an even game shows no extra text.
   $("handicapNote").hidden=!shown || gameRules==="gomoku";
@@ -2163,6 +2170,7 @@ else try {
     onlineHandicap=toHandicap(settings.onlineHandicap);
     boardSize=toBoardSize(settings.boardSize);
     gameRules=toRules(settings.gameRules);
+    gomokuForbiddenChoice=settings.gomokuForbidden===true;
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
     onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
@@ -2176,6 +2184,7 @@ syncSideUi();
 updatePersonaUi();syncStrengthUi();syncHandicapUi();
 appearance.syncControls();
 $("hideStones").checked=hideStonesChoice;
+$("gomokuForbidden").checked=gomokuForbiddenChoice;
 if(!room && currentGameId===null)save();
 if(!room && params.has("sgf")){
   try{

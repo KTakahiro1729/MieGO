@@ -49,6 +49,12 @@ export const TEXT = {
     occupied: "空いている交点を選んでください。",
     suicide: "別の交点を選んでください。自殺手で打てません。",
     ko: "別の交点を選んでください。コウで打てません。",
+    // 五目並べ with 禁じ手: Black's forbidden shapes.
+    gomoku: {
+      doubleThree: "別の交点を選んでください。黒の三三で打てません。",
+      doubleFour: "別の交点を選んでください。黒の四四で打てません。",
+      overline: "別の交点を選んでください。黒の長連で打てません。",
+    },
   },
 
   takeback: {
@@ -155,13 +161,14 @@ export const TEXT = {
     moveLabel: move => move + "手目 ‹ ›",
     localPractice: "ローカル練習",
     boardLabel: size => size + "路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。",
-    ruleSummary: (size, komi, handicap, japanese = false) => japanese === "gomoku" ?
-      size + "路盤 · 五目並べ（自由ルール：5つ以上並べたら勝ち · 禁じ手なし）" : size + "路盤 · " +
+    ruleSummary: (size, komi, handicap, japanese = false, forbidden = false) => japanese === "gomoku" ?
+      size + "路盤 · 五目並べ" + (forbidden ? "（禁じ手あり：黒は三三・四四・長連を打てず、ちょうど5つで勝ち。白は5つ以上で勝ち）" :
+        "（禁じ手なし：5つ以上並べたら勝ち）") : size + "路盤 · " +
       (japanese ? "日本式ルール · " : "中国式ルール · ") + (handicap ?
       "置き石" + handicap + "子 · コミ" + komi + (japanese ? "目" : "＋置き石補正" + handicap + "目") : "コミ" + komi),
     // The short form of ruleSummary, shown in the turn row above the board.
-    ruleLabel: (size, rules, komi, handicap) => size + "路 · " +
-      (rules === "gomoku" ? "五目並べ" : (rules === "japanese" ? "日本式" : "中国式") +
+    ruleLabel: (size, rules, komi, handicap, forbidden = false) => size + "路 · " +
+      (rules === "gomoku" ? "五目並べ" + (forbidden ? " · 禁じ手あり" : "") : (rules === "japanese" ? "日本式" : "中国式") +
         (handicap ? " · 置き石" + handicap : " · コミ" + komi)),
     capturesLabel: "アゲハマ",
     captures: (black, white) => "アゲハマ　黒 " + black + "　白 " + white,
@@ -485,8 +492,9 @@ export const TEXT = {
     illegalTitle: size => "MieGO・" + size + "路盤の着手確認",
     illegalTurn: color => "手番：" + color + "、選択した空点は図中の◇です。",
     illegalReason: reason => "禁止理由：" + reason,
-    illegalReasons: { suicide: "自殺手", ko: "コウ" },
+    illegalReasons: { suicide: "自殺手", ko: "コウ", doubleThree: "黒の三三（禁じ手）", doubleFour: "黒の四四（禁じ手）", overline: "黒の長連（禁じ手）" },
     illegalAsk: "なぜこの手が打てないのか、盤面と囲碁のルールに沿って説明してください。",
+    illegalAskGomoku: "なぜこの手が打てないのか、盤面と五目並べの禁じ手（連珠のルール）に沿って説明してください。",
     handoffIntro: "MieGOの棋譜URL（9・13・19路盤）です。以下のURL仕様に従って解釈・生成できます。",
     handoffBoard: step => "選択している局面（" + step + "手目）の盤面",
     handoffSpec: [
@@ -548,6 +556,8 @@ export const TEXT = {
     rulesChoices: { chinese: "中国式", japanese: "日本式", gomoku: "五目並べ" },
     advanced: "詳細設定",
     hideStones: "石を隠す（地合いだけ表示）",
+    gomokuForbidden: "禁じ手あり（五目並べ）",
+    gomokuForbiddenNote: "黒だけ三三・四四・長連を打てなくなります。先手の黒が強すぎるのを抑える連珠のルールです。",
     hideStonesNote: "石を描かず、地合いの色だけで盤面を読みます。この対局の間は変えられず、対友人では相手の画面も同じになります。整地になると石が現れます。",
     start: "対局を始める",
   },
@@ -624,7 +634,8 @@ export const TEXT = {
         "新規対戦でルールを選べます。中国ルール（既定）は、盤上の自分の石と地の合計で勝敗を決めます。互先のコミは7.5目です。",
         "日本ルールは、地（囲んだ空き点）とアゲハマ（対局中に取った石と、終局時に取り除いた死石）の合計で勝敗を決めます。互先のコミは6.5目です。セキの中の空き点は地に数えません。アゲハマは地合いのバーの下に表示されます。採点中は、アゲハマを元の持ち主の地に小さな石で埋めて示します。まとまりの外枠の色は、アゲハマ表示の枠の色と同じです。",
         "置き碁は新規対戦の「詳細設定」で選べます。白が先に打ち、コミは0.5目です。中国ルールでは白に置き石の数だけ加点します（日本ルールでは加点しません）。",
-        "五目並べは同じ盤と石で遊ぶ別のゲームです。黒から交互に打ち、縦・横・斜めのどれかに自分の石を5つ以上続けて並べた方が勝ちです（自由ルール：6つ以上の長連も勝ち、禁じ手なし）。石を取ること、パス、採点はありません。盤が埋まったら引き分けです。置き石と「石を隠す」は使えません。",
+        "五目並べは同じ盤と石で遊ぶ別のゲームです。黒から交互に打ち、縦・横・斜めのどれかに自分の石を5つ以上続けて並べた方が勝ちです。石を取ること、パス、採点はありません。盤が埋まったら引き分けです。置き石は使えません。",
+        "五目並べの「禁じ手」は詳細設定で選べます。ありにすると連珠と同じく、黒だけ三三（活三を2つ同時に作る手）・四四（四を2つ同時に作る手）・長連（6つ以上）を打てず、ちょうど5つで勝ちになります。5つが同時にできる手は打てます。白に禁じ手はなく、長連でも勝ちです。",
       ],
       current: "現在の対局：",
     },

@@ -1,14 +1,18 @@
-import { BLACK, play, sizeOf } from "./core.mjs";
+import { BLACK, isGomoku, play, sizeOf } from "./core.mjs";
 import { formatBoardForAi, formatBoardSection } from "./board-text.mjs";
 import { shareableReviewUrl } from "./sgf-link.mjs";
 import { TEXT } from "./texts.mjs";
 
 export const ILLEGAL_SUICIDE = "suicide";
 export const ILLEGAL_KO = "ko";
+// 五目並べ's forbidden moves (gomoku.mjs) use their own names as reasons.
 const reasons = {
   [ILLEGAL_SUICIDE]: TEXT.rules.suicide,
-  [ILLEGAL_KO]: TEXT.rules.ko
+  [ILLEGAL_KO]: TEXT.rules.ko,
+  ...TEXT.rules.gomoku
 };
+/** What to tell the player about a forbidden point. */
+export const forbiddenMessage = reason => reasons[reason] ?? TEXT.rules.suicide;
 
 export function forbiddenMoveReason(error) {
   if(!(error instanceof Error))return null;
@@ -59,7 +63,7 @@ export function makeIllegalMovePrompt(game,forbidden,reviewUrl) {
     TEXT.prompts.illegalTitle(sizeOf(game.board)),
     TEXT.prompts.illegalTurn(color),
     TEXT.prompts.illegalReason(TEXT.prompts.illegalReasons[forbidden.reason]),
-    TEXT.prompts.illegalAsk,
+    isGomoku(game)?TEXT.prompts.illegalAskGomoku:TEXT.prompts.illegalAsk,
     TEXT.prompts.reviewUrl(url.href),
     "",
     formatBoardSection(TEXT.prompts.currentBoard,game.board,{selectedPosition:forbidden.position})+before

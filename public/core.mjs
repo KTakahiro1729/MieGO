@@ -1,6 +1,6 @@
 import { TEXT } from "./texts.mjs";
 import { UserError } from "./user-error.mjs";
-import { makesFive } from "./gomoku.mjs";
+import { forbiddenReason, makesFive } from "./gomoku.mjs";
 // Occupied points, suicide and ko are the rule messages players read (illegal
 // previews, SGF import). The other errors mean a caller or a peer acted out of
 // turn; the UI never offers those actions, so their messages are for developers.
@@ -18,6 +18,8 @@ export const RULES_KOMI = Object.freeze({ chinese: 7.5, japanese: 6.5, gomoku: 0
 export const rulesOf = state => RULESETS.includes(state?.rules) ? state.rules : "chinese";
 export const isJapanese = state => rulesOf(state) === "japanese";
 export const isGomoku = state => rulesOf(state) === "gomoku";
+/** 五目並べ with renju's forbidden moves for Black (三三・四四・長連). */
+export const hasGomokuForbidden = state => isGomoku(state) && state?.gomokuForbidden === true;
 export const BLACK = 1;
 export const WHITE = -1;
 export const isBoardSize = size => BOARD_SIZES.includes(size);
@@ -84,10 +86,11 @@ export const handicapBonusOf = state => isJapanese(state) ? 0 : handicapOf(state
 export const whiteCompensation = state => komiOf(state) + handicapBonusOf(state);
 // hideStones ("石を隠す") is part of the game: replays, 待った and the
 // opponent's copy keep it. It is only written when set, so other games are unchanged.
-// 五目並べ has no handicap stones and nothing to hide them behind.
-export function newGame(assisted = true, { handicap = 0, size = SIZE, rules = "chinese", hideStones = false } = {}) {
+// 五目並べ has no handicap stones. Its 禁じ手 choice, like hideStones, is
+// only written when set, so other games keep their shape.
+export function newGame(assisted = true, { gomokuForbidden = false, handicap = 0, size = SIZE, rules = "chinese", hideStones = false } = {}) {
   const gomoku = rulesOf({ rules }) === "gomoku";
-  if (gomoku) { handicap = 0; hideStones = false; }
+  if (gomoku) handicap = 0;
   const stones = handicapOf({ handicap }, size);
   const board = Array(size * size).fill(0);
   for (const p of handicapPoints(size, stones)) board[p] = BLACK;
@@ -96,12 +99,13 @@ export function newGame(assisted = true, { handicap = 0, size = SIZE, rules = "c
     assisted, handicap: stones, rules: rulesOf({ rules }),
     komi: stones ? HANDICAP_KOMI : RULES_KOMI[rulesOf({ rules })],
     dead: [], agreed: { black: false, white: false }, endProposal: null, result: null,
-    ...(hideStones ? { hideStones: true } : {}) };
+    ...(hideStones ? { hideStones: true } : {}),
+    ...(gomoku && gomokuForbidden ? { gomokuForbidden: true } : {}) };
 }
 /** The empty-or-handicap starting position a record's moves are replayed from. */
 export const initialGame = state => newGame(state?.assisted !== false,
   { handicap: handicapOf(state), size: sizeOf(state?.board), rules: rulesOf(state),
-    hideStones: state?.hideStones === true });
+    hideStones: state?.hideStones === true, gomokuForbidden: hasGomokuForbidden(state) });
 export function play(state, position) {
   if (state.status !== "playing") throw new Error("Not playing");
   // A real move answers any pending 待った request by moving on.
@@ -155,8 +159,12 @@ function playGomoku(state, position, color) {
   if (!Number.isInteger(position) || position < 0 || position >= state.board.length || state.board[position]) {
     throw new UserError(TEXT.rules.occupied);
   }
+  const renju = hasGomokuForbidden(state) && color === BLACK;
+  const forbidden = renju ? forbiddenReason(state.board, position) : null;
+  if (forbidden) throw new UserError(TEXT.rules.gomoku[forbidden]);
   const board = [...state.board]; board[position] = color;
-  const won = makesFive(board, position), full = !board.includes(0);
+  // Under 禁じ手 Black wins only with exactly five; White and free-style with five or more.
+  const won = makesFive(board, position, renju), full = !board.includes(0);
   return {
     ...state, board, next: -color, passes: 0, endProposal: null, moveNumber: state.moveNumber + 1,
     history: [...state.history, boardHash(board)], moves: [...state.moves, { color, position }],
@@ -379,7 +387,7 @@ export function toSGF(state) {
     .map(m => ";" + enc(m.color) + "[" + coord(m.position) + "]").join("");
   const handicap = handicapOf(state);
   // SGF game type 4 is Gomoku/Renju, which has no komi or Go ruleset.
-  const head = isGomoku(state) ? "(;GM[4]FF[4]CA[UTF-8]SZ[" + size + "]" :
+  const head = isGomoku(state) ? "(;GM[4]FF[4]CA[UTF-8]SZ[" + size + "]" + (hasGomokuForbidden(state) ? "RU[Renju]" : "") :
     "(;GM[1]FF[4]CA[UTF-8]SZ[" + size + "]KM[" + komiOf(state) + "]RU[" + (isJapanese(state) ? "Japanese" : "Chinese") + "]";
   return head +
     (handicap ? "HA[" + handicap + "]AB" + handicapPoints(size, handicap).map(p => "[" + coord(p) + "]").join("") : "") +

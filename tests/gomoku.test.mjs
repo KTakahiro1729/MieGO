@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {newGame,play,at,isGomoku,rulesOf,toSGF,BLACK,WHITE} from "../public/core.mjs";
-import {gomokuMove,makesFive,winningLine} from "../public/gomoku.mjs";
+import {newGame,play,at,isGomoku,hasGomokuForbidden,initialGame,rulesOf,toSGF,BLACK,WHITE} from "../public/core.mjs";
+import {gomokuMove,forbiddenReason,makesFive,winningLine} from "../public/gomoku.mjs";
+import {inspectProvisionalMove,forbiddenMessage} from "../public/illegal-moves.mjs";
 import {replaySteps,parseSGF,exportSGF} from "../public/sgf.mjs";
 import {takeBack} from "../public/takeback.mjs";
 import {reconcileGame} from "../public/p2p-session.mjs";
@@ -10,13 +11,17 @@ import {TEXT} from "../public/texts.mjs";
 
 const line=(game,moves)=>moves.reduce((state,[x,y])=>play(state,at(x,y,13)),game);
 
-test("五目並べ is a ruleset of its own, with no handicap or hidden stones",()=>{
+test("五目並べ is a ruleset of its own, with no handicap but with 石を隠す",()=>{
   const game=newGame(true,{size:13,rules:"gomoku",handicap:4,hideStones:true});
   assert.equal(isGomoku(game),true);
   assert.equal(rulesOf(game),"gomoku");
   assert.equal(game.handicap,0);
   assert.equal(game.next,BLACK);
-  assert.equal(Object.hasOwn(game,"hideStones"),false);
+  assert.equal(game.hideStones,true);
+  assert.equal(hasGomokuForbidden(game),false);
+  assert.equal(Object.hasOwn(game,"gomokuForbidden"),false);
+  // 禁じ手 belongs to 五目並べ only.
+  assert.equal(Object.hasOwn(newGame(true,{gomokuForbidden:true}),"gomokuForbidden"),false);
   assert.ok(game.board.every(stone=>stone===0));
   assert.equal(isGomoku(newGame()),false);
 });
@@ -120,4 +125,58 @@ test("五目並べ follows the UX policy: same action row, no new button kind",a
   assert.doesNotMatch(header,/gomoku|ruleLabel/);
   // The rule display is text, not a button.
   assert.doesNotMatch(html,/<button[^>]*id="ruleLabel"/);
+});
+
+// Black stones at (x,y) on an empty 13x13 board, for the 禁じ手 checks.
+const blackAt=points=>{const b=Array(169).fill(0);for(const [x,y] of points)b[at(x,y,13)]=BLACK;return b;};
+const p13=(x,y)=>at(x,y,13);
+
+test("禁じ手: Black's 三三, 四四 and 長連 are forbidden, five always wins",()=>{
+  // 三三: two open threes cross at (6,6).
+  assert.equal(forbiddenReason(blackAt([[4,6],[5,6],[6,4],[6,5]]),p13(6,6)),"doubleThree");
+  // One open three is fine; a three blocked by White is not a three.
+  assert.equal(forbiddenReason(blackAt([[4,6],[5,6]]),p13(6,6)),null);
+  const blocked=blackAt([[4,6],[5,6],[6,4],[6,5]]);blocked[p13(3,6)]=WHITE;
+  assert.equal(forbiddenReason(blocked,p13(6,6)),null);
+  // A split three (X_XX) counts.
+  assert.equal(forbiddenReason(blackAt([[3,6],[5,6],[6,4],[6,5]]),p13(6,6)),"doubleThree");
+  // 四四: two fours at once, also within one line (X_XXX_X).
+  assert.equal(forbiddenReason(blackAt([[3,6],[4,6],[5,6],[6,3],[6,4],[6,5]]),p13(6,6)),"doubleFour");
+  assert.equal(forbiddenReason(blackAt([[2,6],[4,6],[5,6],[8,6]]),p13(6,6)),"doubleFour");
+  // A four and a three (四三) is allowed: it is how Black wins under renju.
+  assert.equal(forbiddenReason(blackAt([[3,6],[4,6],[5,6],[6,4],[6,5]]),p13(6,6)),null);
+  // 長連: six or more.
+  assert.equal(forbiddenReason(blackAt([[1,6],[2,6],[3,6],[4,6],[5,6]]),p13(6,6)),"overline");
+  // Five takes precedence over 三三 made at the same time.
+  assert.equal(forbiddenReason(blackAt([[2,6],[3,6],[4,6],[5,6],[6,4],[6,5],[8,4],[7,5]]),p13(6,6)),null);
+});
+
+test("禁じ手 games forbid Black's shapes, keep White free, and survive replays and SGF",()=>{
+  let game=newGame(true,{size:13,rules:"gomoku",gomokuForbidden:true});
+  assert.equal(hasGomokuForbidden(game),true);
+  assert.equal(hasGomokuForbidden(initialGame(game)),true);
+  // Black (4,6),(5,6),(6,4),(6,5); White far away.
+  game=line(game,[[4,6],[0,0],[5,6],[0,2],[6,4],[0,4],[6,5],[12,12]]);
+  assert.throws(()=>play(game,p13(6,6)),{message:TEXT.rules.gomoku.doubleThree});
+  const shown=inspectProvisionalMove(game,p13(6,6));
+  assert.equal(shown.forbidden.reason,"doubleThree");
+  assert.equal(forbiddenMessage("doubleThree"),TEXT.rules.gomoku.doubleThree);
+  // The same point is fine without 禁じ手.
+  const free=line(newGame(true,{size:13,rules:"gomoku"}),[[4,6],[0,0],[5,6],[0,2],[6,4],[0,4],[6,5],[12,12]]);
+  assert.equal(play(free,p13(6,6)).board[p13(6,6)],BLACK);
+  // White may make an overline and wins with it.
+  let white=newGame(true,{size:13,rules:"gomoku",gomokuForbidden:true});
+  white=line(white,[[0,12],[0,6],[2,12],[1,6],[4,12],[2,6],[6,12],[4,6],[8,12],[5,6],[10,12]]);
+  white=play(white,p13(3,6));
+  assert.equal(white.result,"W+");
+  // The computer never picks a forbidden point for Black.
+  assert.notEqual(gomokuMove(game.board,BLACK,()=>0,{forbidden:true}),p13(6,6));
+  const sgf=exportSGF(game);
+  assert.match(sgf,/^\(;GM\[4\]FF\[4\]CA\[UTF-8\]SZ\[13\]RU\[Renju\];B/);
+  assert.equal(hasGomokuForbidden(parseSGF(sgf).snapshot),true);
+  assert.equal(hasGomokuForbidden(parseSGF(exportSGF(free)).snapshot),false);
+  // A friend's first board takes the inviter's 禁じ手 choice.
+  assert.equal(reconcileGame(newGame(true,{size:13,rules:"gomoku"}),0,
+    newGame(true,{size:13,rules:"gomoku",gomokuForbidden:true}),0).kind,"adopt");
+  assert.equal(TEXT.game.ruleLabel(13,"gomoku",0,0,true),"13路 · 五目並べ · 禁じ手あり");
 });
