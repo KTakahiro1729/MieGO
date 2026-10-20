@@ -29,7 +29,10 @@ test("review move handler never calls real apply, save, or P2P transport",()=>{
  const start=app.indexOf("function confirmReviewPreview()");
  const end=app.indexOf("function selectOriginalLine()",start);
  const body=app.slice(start,end);
- assert.match(body,/commitReviewStone\(boardReview,game,boardReview\.previewPosition\)/);
+ assert.match(body,/commitReviewMove\(boardReview\.previewPosition\)/);
+ assert.match(body,/commitReviewStone\(boardReview,game,position\)/);
+ // 「白の番にする」 commits a pass to the trial line in one tap, through the same path.
+ assert.match(app,/function passReviewTurn\(\)\{\n  if\(!boardReview\)return;\n  commitReviewMove\(null\);/);
  assert.doesNotMatch(body,/apply\(|p2pTransport|submitMove\(|game=|save\(/);
  assert.match(app,/function selectOriginalLine\(\)/);
  assert.match(app,/function selectVariationLine\(\)/);

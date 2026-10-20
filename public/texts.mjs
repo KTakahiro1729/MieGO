@@ -404,7 +404,6 @@ export const TEXT = {
     backOriginal: "元の棋譜に戻る",
     backGame: "対局に戻る",
     variationCreated: "元の棋譜は変わりません。",
-    passPreview: "パスを試し中",
     variationSaved: "試し打ちを履歴に追加しました。",
     variationSaveFailed: "もう一度お試しください。試し打ちを保存できませんでした。",
     ownershipFailed: "ほかの局面を選んでください。この局面の地の見込みは表示できません。",
@@ -415,7 +414,8 @@ export const TEXT = {
     range: "表示する手数",
     graphEnd: moves => moves + "手",
     showVariation: "試し打ちを見る",
-    tryPass: "パスを試す",
+    // A pass in the trial line, named by what it does: the other side moves next.
+    giveTurn: toPlay => toPlay === -1 ? "黒の番にする" : "白の番にする",
     saveVariation: "試し打ちを保存",
     continue: "ここから打つ",
     continueTitle: step => step + "手目から打つ",

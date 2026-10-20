@@ -1863,8 +1863,11 @@ function discardReviewPreview(){
 }
 function confirmReviewPreview(){
   if(!boardReview?.preview)return;
+  commitReviewMove(boardReview.previewPosition);
+}
+function commitReviewMove(position){
   try{
-    const result=commitReviewStone(boardReview,game,boardReview.previewPosition);
+    const result=commitReviewStone(boardReview,game,position);
     Object.assign(boardReview,result);
     boardReview.preview=null;boardReview.previewPosition=null;
     reviewFeedback("");
@@ -1890,13 +1893,10 @@ function selectVariationLine(){
   boardReview.display=replaySteps(line,boardReview.step);
   reviewFeedback("");show();requestReviewOwnership();
 }
-function previewReviewPass(){
+// 「白の番にする」: a pass in the trial line, so the other side can try two moves in a row.
+function passReviewTurn(){
   if(!boardReview)return;
-  try{
-    boardReview.preview=proposeReviewStone(boardReview,game,null);
-    boardReview.previewPosition=null;
-    reviewFeedback(TEXT.review.passPreview);show();requestReviewOwnership();
-  }catch(error){reviewFeedback(messageFor(error,TEXT.common.retry));}
+  commitReviewMove(null);
 }
 function saveReviewVariation(){
   if(!boardReview?.variation)return;
@@ -1930,6 +1930,7 @@ function renderBoardReview() {
   $("reviewSaveVariation").hidden=!boardReview.variation;
   $("reviewPass").disabled=isPreview;
   $("reviewPass").hidden=isGomoku(line); // 五目並べ has no pass.
+  $("reviewPass").textContent=TEXT.review.giveTurn(boardReview.display.next);
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?TEXT.review.newMoves(updates):"";
@@ -2274,7 +2275,7 @@ new ResizeObserver(()=>{if(boardReview)renderScoreGraph();}).observe($("reviewGr
 $("reviewConfirm").onclick=confirmReviewPreview;
 $("reviewCancel").onclick=discardReviewPreview;
 $("reviewVariation").onclick=selectVariationLine;
-$("reviewPass").onclick=previewReviewPass;
+$("reviewPass").onclick=passReviewTurn;
 $("reviewSaveVariation").onclick=saveReviewVariation;
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && boardReview?.preview){discardReviewPreview();return;}
