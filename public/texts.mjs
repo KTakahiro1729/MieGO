@@ -170,6 +170,7 @@ export const TEXT = {
     hintAiLoading: "KataGoの準備ができるまでお待ちください",
     hintAiThinking: "AIが着手を計算しています",
     hintWatching: "盤をタップすると、その手番の石を打って対局に加われます",
+    watchReturning: "観戦に戻ります…",
     hintWatchPaused: "「再開」を押すと続きを打ちます",
     resignAria: "投了する。確認のため二度押し",
     resignConfirmAria: "もう一度押すと投了します",
