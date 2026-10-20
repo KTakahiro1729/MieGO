@@ -190,6 +190,11 @@ const newCom = (strength=DEFAULT_AI_STRENGTH, invasion=50, reinforcement=50) =>
   ({strength,invasion,reinforcement});
 let watchAi = {black:newCom(), white:newCom()};
 const WATCH_STEP_MS = 1100;
+// A tap on the board while watching steps in: the COMs wait while the viewer
+// places a provisional stone for the side to move. ここに打つ takes that colour
+// over; × goes back to watching after a slightly longer pause.
+let intervening = false;
+const WATCH_RESUME_MS = 1800;
 let aiHandicap = 0, localHandicap = 0, onlineHandicap = 0;
 // The ruleset for the next new game, shared by every mode like the board size.
 let gameRules = "chinese";
@@ -350,10 +355,11 @@ function updateEndUi() {
 }
 
 const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" &&
-  (watching || game.next === -humanColor);
+  (watching ? !intervening : game.next === -humanColor);
 const isHumanTurn = () => room
   ? (connected && (myOnlineColor()!==null && game.next===myOnlineColor()))
-  : (gameMode !== "ai" || (katagoReady && !fallbackMode && !watching && game.next === humanColor));
+  : (gameMode !== "ai" || (katagoReady && !fallbackMode &&
+    (watching ? intervening : game.next === humanColor)));
 const isWatching = () => !room && gameMode === "ai" && watching;
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
@@ -941,10 +947,11 @@ function show() {
   $("confirm").hidden=isScoring || isFinished;
   $("copyIllegalPrompt").hidden=isScoring || isFinished || !blocked;
   $("actionRow").classList.toggle("finished-actions",isFinished);
-  // COM同士 has nothing to play: its one button pauses and resumes the game.
+  // COM同士: one button pauses and resumes; stepping in shows × and ここに打つ instead.
   const watchingPlay=spectating && game.status==="playing";
-  for(const id of ["watchTakeBlack","watchTakeWhite","watchToggle"])$(id).hidden=!watchingPlay;
-  if(watchingPlay)for(const id of ["cancel","confirm","pass","resign"])$(id).hidden=true;
+  $("watchToggle").hidden=!watchingPlay || intervening;
+  if(watchingPlay)for(const id of ["pass","resign"])$(id).hidden=true;
+  if(watchingPlay && !intervening)for(const id of ["cancel","confirm"])$(id).hidden=true;
   $("watchToggle").textContent=watchPaused?TEXT.game.watchResume:TEXT.game.watchPause;
   $("watchToggle").setAttribute("aria-pressed",String(watchPaused));
   $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:
@@ -1143,6 +1150,11 @@ canvas.addEventListener("click",e=>{
     if(settle){skipSettle();return;}
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
+  if(game.status==="playing" && isWatching() && !intervening && katagoReady && !fallbackMode &&
+     game.board[position]===0){
+    stopAiTurn(); // The COM's move being computed waits for the viewer's decision.
+    intervening=true;
+  }
   if(game.status!=="playing" || !isHumanTurn())return;
   if(!room && endExpanded)endExpanded=false;
   // Occupied intersections cannot hold a provisional stone.
@@ -1158,6 +1170,7 @@ canvas.addEventListener("click",e=>{
 $("confirm").onclick=()=>{
   if(candidate && !illegalCandidate && isHumanTurn()){
     const position=candidate.moves.at(-1).position;
+    if(isWatching() && intervening)takeOverWatchedGame(game.next);
     submitMove(position);
   }
 };
@@ -1172,6 +1185,10 @@ $("cancel").onclick=()=>{
   }
   candidate=null;illegalCandidate=null;illegalPromptCopied=false;
   $("illegalPromptFallbackPanel").hidden=true;
+  if(isWatching() && intervening){
+    // Back to watching: the COMs resume after a pause a little longer than a move's.
+    intervening=false;lastWatchMoveAt=performance.now()+WATCH_RESUME_MS-WATCH_STEP_MS;
+  }
   show();requestAnalysis();
 };
 $("copyIllegalPrompt").onclick=async()=>{
@@ -1368,7 +1385,7 @@ function savedGame(mode) {
   try{record=gameLibrary.active(mode);}catch(error){storageError(error);}
   currentGameId=record?.id||null;currentRevision=record?.revision||null;
   lastPosition=record?.lastPosition??null;
-  watching=mode==="ai" && record?.watch===true;watchPaused=false;
+  watching=mode==="ai" && record?.watch===true;watchPaused=false;intervening=false;
   if(mode==="ai" && record){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     aiStrength=normalizeStrength(record.aiStrength);
@@ -1988,7 +2005,7 @@ function resumeSelectedReview(){
   gameMode=record.mode;game=JSON.parse(JSON.stringify(record.snapshot));
   currentGameId=record.id;currentRevision=record.revision;
   lastPosition=record.lastPosition;candidate=null;
-  watching=gameMode==="ai" && record.watch===true;watchPaused=false;
+  watching=gameMode==="ai" && record.watch===true;watchPaused=false;intervening=false;
   if(gameMode==="ai"){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
@@ -2066,7 +2083,7 @@ $("startAi").onclick=()=>{
   clearBoardReview();
   stopAiTurn();
   gameMode="ai";
-  watching=aiSideChoice==="watch";watchPaused=false;
+  watching=aiSideChoice==="watch";watchPaused=false;intervening=false;
   // The empty board shows for a moment before the first watched move.
   lastWatchMoveAt=performance.now();
   // Handicap stones always belong to the human, who therefore plays Black.
@@ -2096,7 +2113,7 @@ for (const input of document.querySelectorAll('input[name="aiSide"]')) {
 // この対局を観戦する: a running AI game hands the player's colour to the COM too.
 function watchCurrentGame() {
   if(room || gameMode!=="ai" || watching || game.status!=="playing" || boardReview)return;
-  watching=true;watchPaused=false;hints=null;
+  watching=true;watchPaused=false;intervening=false;hints=null;
   // The player's colour goes to a COM like the one already playing.
   watchAi={black:newCom(aiStrength,invasion,reinforcement),white:newCom(aiStrength,invasion,reinforcement)};
   aiSideChoice="watch";rememberSettings();syncSideUi();syncStrengthUi();updatePersonaUi();
@@ -2106,11 +2123,11 @@ function watchCurrentGame() {
   save();closePanels();show();requestAnalysis();
 }
 $("watchCurrent").onclick=watchCurrentGame;
-// 黒で打つ / 白で打つ: the viewer takes one colour over mid-game; the COM keeps the other.
+// Confirming a stone placed while watching takes that colour over; the COM keeps the other.
 function takeOverWatchedGame(color) {
   if(!isWatching() || game.status!=="playing")return;
   stopAiTurn(); // A move being computed for the taken colour is dropped.
-  watching=false;watchPaused=false;humanColor=color;hints=null;
+  watching=false;watchPaused=false;intervening=false;humanColor=color;hints=null;
   // The COM left playing keeps its settings.
   ({strength:aiStrength,invasion,reinforcement}=watchAi[color===BLACK?"white":"black"]);
   if(aiSideChoice!=="random")aiSideChoice=color===BLACK?"black":"white";
@@ -2118,8 +2135,6 @@ function takeOverWatchedGame(color) {
   $("aiMatchStatus").textContent=TEXT.ai.tookOver(colorLabel(color));
   save();show();requestAnalysis();
 }
-$("watchTakeBlack").onclick=()=>takeOverWatchedGame(BLACK);
-$("watchTakeWhite").onclick=()=>takeOverWatchedGame(WHITE);
 $("watchToggle").onclick=()=>{
   if(!isWatching() || game.status!=="playing")return;
   watchPaused=!watchPaused;

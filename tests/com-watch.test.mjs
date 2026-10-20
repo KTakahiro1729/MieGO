@@ -23,21 +23,26 @@ test("a running AI game can switch to watching from the 対COM sheet",()=>{
   assert.match(app,/\$\("watchCurrent"\)\.hidden=kind!=="ai" \|\| !!room \|\| gameMode!=="ai" \|\| watching \|\|/);
 });
 
-test("a watched game swaps the playing controls for take-over and pause in the same row",()=>{
+test("while watching, the row holds 一時停止 alone; stepping in brings back × and ここに打つ",()=>{
   const row=between('id="actionRow"','id="illegalPromptFallbackPanel"');
-  for(const id of ["watchTakeBlack","watchTakeWhite","watchToggle"])
-    assert.match(row,new RegExp('id="'+id+'" class="(secondary|primary)" type="button"[^>]* hidden'));
-  // One gold button per row, and it is the rightmost of the watch controls.
-  assert.match(row,/id="watchToggle" class="primary"/);
-  assert.ok(row.indexOf('id="watchTakeWhite"')<row.indexOf('id="watchToggle"'));
-  assert.match(app,/if\(watchingPlay\)for\(const id of \["cancel","confirm","pass","resign"\]\)\$\(id\)\.hidden=true;/);
+  assert.match(row,/id="watchToggle" class="primary" type="button"[^>]* hidden/);
+  assert.doesNotMatch(row,/watchTake/);
+  const view=body("show");
+  assert.match(view,/\$\("watchToggle"\)\.hidden=!watchingPlay \|\| intervening;/);
+  assert.match(view,/if\(watchingPlay && !intervening\)for\(const id of \["cancel","confirm"\]\)\$\(id\)\.hidden=true;/);
 });
 
-test("the human never plays, and the AI plays both colours, while watching",()=>{
-  assert.match(app,/const isAiTurn = \(\) => [^;]*\(watching \|\| game\.next === -humanColor\)/);
-  assert.match(app,/const isHumanTurn = [^;]*!watching && game\.next === humanColor/);
-  // Taking a colour over drops a move being computed for it and ends the watching.
+test("a tap while watching steps in; ここに打つ takes the colour over and × resumes watching",()=>{
+  // The COMs play both colours unless the viewer has stepped in, and the viewer plays only then.
+  assert.match(app,/const isAiTurn = \(\) => [^;]*\(watching \? !intervening : game\.next === -humanColor\)/);
+  assert.match(app,/const isHumanTurn = [^;]*\(watching \? intervening : game\.next === humanColor\)/);
+  // A tap on an empty point while watching stops the COM's pending move and steps in.
+  assert.match(app,/isWatching\(\) && !intervening[^{]*game\.board\[position\]===0\)\{\s*stopAiTurn\(\);[^\n]*\n\s*intervening=true;/);
+  // ここに打つ hands the side to move to the viewer before the stone is played.
+  assert.match(app,/if\(isWatching\(\) && intervening\)takeOverWatchedGame\(game\.next\);\s*submitMove\(position\);/);
   assert.match(body("takeOverWatchedGame"),/stopAiTurn\(\);[\s\S]*watching=false;[\s\S]*humanColor=color;[\s\S]*save\(\);/);
+  // × ends the step-in, and the COMs wait a little longer than between moves.
+  assert.match(app,/intervening=false;lastWatchMoveAt=performance\.now\(\)\+WATCH_RESUME_MS-WATCH_STEP_MS;/);
 });
 
 test("a watched game is saved and resumed as watched",()=>{
