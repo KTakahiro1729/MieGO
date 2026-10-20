@@ -1,4 +1,4 @@
-import {SIZE as DEFAULT_SIZE, BLACK, WHITE, isFree, isGomoku, sizeOf, starPoints} from "./core.mjs";
+import {SIZE as DEFAULT_SIZE, BLACK, WHITE, group, isFree, isGomoku, sizeOf, starPoints} from "./core.mjs";
 import {
   countingOpacity,
   countingPalette,
@@ -210,11 +210,11 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     // placed and the ones it would take stay single, see-through stones.
     const shaped=view.linkStones==="breathing" || view.linkStones==="square";
     const fused=view.linkStones==="fused" || shaped ? Array(display.board.length).fill(0) : null;
+    // 息の形, 四角 and 盤の線 read the stones as shown, the one being placed included.
+    const around=Array(display.board.length).fill(0);
+    for(const {i,color,alpha} of shown)if(alpha!==.4)around[i]=color;
     if(fused){
       for(const {i,color,alpha} of shown)if(alpha===1)fused[i]=color;
-      // 息の形 and 四角 read the stones as shown, the one being placed included.
-      const around=Array(display.board.length).fill(0);
-      for(const {i,color,alpha} of shown)if(alpha!==.4)around[i]=color;
       paintFusedStones(theme,fused,gap,pad,shaped?around:null,view.linkStones==="square");
     }
     for(const {i,color,alpha} of shown) {
@@ -245,6 +245,42 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         ctx.stroke();
       }
     }
+    if(view.linkStones==="lines" && !hidden)paintBoardLines(theme,around,gap,pad);
+  }
+
+  // 盤の線: the board's line between two stones of one colour is drawn a
+  // little thicker in their colour, and from each stone toward an empty
+  // point next to it the line runs halfway there, so a stone shows where it
+  // breathes. A group down to two liberties draws those in amber, one in red.
+  function paintBoardLines(theme,board,gap,pad) {
+    const r=gap*.44, reach=gap*.72, width=Math.max(2.5,gap*.1);
+    const tone={[BLACK]:theme.stones.black.outer,[WHITE]:theme.stones.white.inner};
+    const edge={[BLACK]:null,[WHITE]:theme.stones.white.rim};
+    const liberties=new Map();
+    for(let i=0;i<board.length;i++)if(board[i] && !liberties.has(i)){
+      const g=group(board,i);
+      for(const s of g.stones)liberties.set(s,g.liberties.size);
+    }
+    const segment=(x1,y1,x2,y2,colour,rim)=>{
+      ctx.lineCap="butt";
+      if(rim){ctx.strokeStyle=rim;ctx.lineWidth=width+2;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}
+      ctx.strokeStyle=colour;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    };
+    ctx.save();
+    for(let i=0;i<board.length;i++){
+      const color=board[i];
+      if(!color)continue;
+      const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap,count=liberties.get(i);
+      const breath=count===1?ATARI_MARK:count===2?LOW_MARK:tone[color];
+      for(const [dx,dy] of [[1,0],[0,1],[-1,0],[0,-1]]){
+        const nx=i%SIZE+dx,ny=Math.floor(i/SIZE)+dy;
+        if(nx<0 || ny<0 || nx>=SIZE || ny>=SIZE)continue;
+        const next=board[ny*SIZE+nx];
+        if(next===color && dx+dy>0)segment(x+dx*r,y+dy*r,x+dx*(gap-r),y+dy*(gap-r),tone[color],edge[color]);
+        else if(next===0)segment(x+dx*r,y+dy*r,x+dx*reach,y+dy*reach,breath,count>2?edge[color]:null);
+      }
+    }
+    ctx.restore();
   }
 
   // つながった石を一つに描く: a bar under each pair of same-coloured stones

@@ -248,3 +248,14 @@ test("四角 bulges each side toward an empty point and dents it where an oppone
   assert.ok(at_(250+19.25-8,250),"dents in toward the white stone");
   assert.ok(at_(250,250+19.25),"straight toward its own stone below");
 });
+
+test("盤の線 joins same-coloured stones and runs halfway toward each liberty",()=>{
+  const game=newGame();
+  game.board[at(4,4)]=BLACK;game.board[at(5,4)]=BLACK;game.board[at(4,5)]=WHITE;
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"lines"}));
+  draw();
+  const ends=calls.filter(c=>c.kind==="line").map(c=>c.args.join(","));
+  assert.ok(ends.includes(String([300-22,250])),"the line between the two black stones");
+  assert.ok(ends.includes(String([250,250-36])),"halfway up toward the empty point");
+  assert.equal(ends.includes(String([250,250+36])),false,"nothing toward the white stone");
+});

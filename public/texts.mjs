@@ -623,7 +623,7 @@ export const TEXT = {
     liberties: "呼吸点の表示",
     linkStones: "つながった石の描き方",
     linkStonesNote: "縦横に隣り合う同じ色の石は、取られるときも一緒です",
-    linkModes: { off: "別々", bridge: "橋でつなぐ", fused: "一つの形", breathing: "息の形", square: "四角" },
+    linkModes: { off: "別々", bridge: "橋でつなぐ", fused: "一つの形", breathing: "息の形", square: "四角", lines: "盤の線" },
     libertyModes: { off: "表示しない", candidate: "仮置き中だけ", atari: "アタリだけ", danger: "危ないときだけ", dots: "すべて（点）", count: "すべて（数）" },
     themes: { wood: "木目", light: "ライト", dark: "ダーク", custom: "カスタム" },
     boardColours: { board: "盤", line: "線", black: "黒石", white: "白石" },
