@@ -137,7 +137,7 @@ body.board-zoomed .board-bleed{opacity:1}
  .board-frame{padding:4px;border-radius:10px}
  #board{border-radius:6px}
  .ownership-legend{margin-top:14px;width:92%}
- .settings-panel{left:0;right:0;bottom:0;top:auto;width:100%;max-height:min(84dvh,740px);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom))}
+ .settings-panel{left:0;right:0;bottom:0;top:auto;width:100%;max-height:min(84dvh,740px);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));--sheet-pad-bottom:calc(20px + env(safe-area-inset-bottom))}
  .mode-panel{height:min(84dvh,640px)}
 }
 @media(max-width:350px){
@@ -216,36 +216,49 @@ body.board-zoomed .board-bleed{opacity:1}
 .mode-icon{flex:none;color:#c9ced8}
 .handicap-select{width:100%;min-height:var(--control-h);background:#252c38;border:1px solid #4a5160;border-radius:var(--radius-sm);color:#f1f0ed;padding:10px 12px}
 .mode-panel .new-game-common{padding-top:0}
-/* The way back opens the sheet; under one line, the start button and then the choices. */
+/* The way back opens the sheet; under one line, the choices and then the start button. */
 .mode-panel>:not(.settings-head):not([hidden])~.new-game-common{margin-top:14px}
 .mode-panel .return-to-game{margin:0 0 14px}
 .mode-panel .return-to-game:not([hidden])~section:not([hidden]){border-top:1px solid #343b49;padding-top:14px}
 .mode-panel .return-to-game:not([hidden])~section:not([hidden])~section:not([hidden]){border-top:0;padding-top:0}
+/* The start button comes after the choices, so it is pressed once they have been seen. */
+.mode-panel .new-game-common~.settings-section:not([hidden]):not(.history-setup){margin-top:14px}
+/* 1台 and 対COM keep their start button in view at the bottom of the sheet while the choices scroll. */
+.mode-panel #localSetup,.mode-panel #aiSetup{--pad:var(--sheet-pad-bottom,22px);position:sticky;bottom:calc(-1 * var(--pad));z-index:1;
+  margin-bottom:calc(-1 * var(--pad));padding:10px 0 var(--pad);background:#181e2a;box-shadow:0 -10px 12px -4px #181e2a}
 .setup-row{display:contents}
 .setup-row[hidden]{display:none}
 .setup-label{margin:0;font-size:13px;color:#d6dae3;white-space:nowrap}
 /* 盤・ルール・自分の石・AIの強さ: underlined tabs naming each setting, over one panel of its choices. */
 .setup-tabs{display:flex;margin-top:14px;border-bottom:1px solid #3b4250}
-.setup-tab{flex:1 1 0;min-width:0;min-height:44px;margin:0;padding:0 2px;border:0;border-radius:0;background:none;
-  color:#9aa1ad;font-size:13px;font-weight:600;white-space:nowrap}
+.setup-tab{flex:1 1 0;display:grid;align-content:center;gap:1px;min-width:0;min-height:50px;margin:0;padding:0 2px;border:0;border-radius:0;background:none;
+  color:#9aa1ad;font-size:12px;font-weight:600;white-space:nowrap}
+/* Under each tab's name, the value it holds now. */
+.setup-tab-value{overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:650;color:#d6dae3}
+.setup-tab[aria-selected="true"] .setup-tab-value{color:#f8ddac}
+.setup-tab.is-unused .setup-tab-value{color:#5d6472}
 .setup-tab[aria-selected="true"]{color:#f8ddac;box-shadow:inset 0 -2px 0 #efcb81}
 .setup-tab.is-unused{color:#5d6472}
 .setup-tab.is-unused[aria-selected="true"]{color:#8a8273;box-shadow:inset 0 -2px 0 #6b6352}
 .setup-panels{padding-top:12px}
 .setup-panel{min-height:220px}
 .setup-panel[hidden]{display:none}
-/* Each tab lists its choices top to bottom, a button on the left and its note on the right. */
-.choice-list{display:grid;gap:6px;min-width:0;margin:0;padding:0;border:0}
-.choice-list .choice-row{display:grid;grid-template-columns:104px minmax(0,1fr);align-items:center;gap:12px;margin:0;cursor:pointer;position:relative}
+/* Each tab lists its choices top to bottom: a radio dot, the name, then its note; thin lines between rows. */
+.choice-list{display:grid;min-width:0;margin:0;padding:0;border:0}
+.choice-list .choice-row{display:grid;grid-template-columns:18px 64px minmax(0,1fr);align-items:center;gap:10px;min-height:48px;margin:0;padding:4px;cursor:pointer;position:relative}
+.choice-list .choice-row+.choice-row{border-top:1px solid #343b49}
+.choice-row::before{content:"";width:16px;height:16px;border:2px solid #6e7584;border-radius:50%;box-sizing:border-box}
 .choice-row input{position:absolute;opacity:0}
-.choice{display:flex;align-items:center;justify-content:center;gap:4px;min-height:44px;padding:0 6px;border:1px solid #505766;border-radius:var(--radius);
-  background:#252c38;font-size:13px;white-space:nowrap}
+.choice{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:650;white-space:nowrap}
 .choice-note{font-size:12px;line-height:1.5;color:#aeb3be}
-.choice-row input:checked+.choice{border-color:#efcb81;background:#38342d;color:#f8ddac}
-.choice-row input:checked+.choice .size-icon{color:#f8ddac}
-.choice-row input:focus-visible+.choice{outline:3px solid #f2c875;outline-offset:2px}
-.choice-row input:disabled+.choice{color:#6b7180;cursor:not-allowed}
-.choice-row input:checked:disabled+.choice{border-color:#6b6352;background:#2b2a29;color:#8a8273}
+.choice-row:has(input:checked)::before{border-color:#efcb81;background:radial-gradient(circle,#efcb81 0 4px,transparent 4.5px)}
+.choice-row input:checked+.choice,.choice-row input:checked+.choice .size-icon{color:#f8ddac}
+.choice-row input:checked~.choice-note{color:#e2d5bd}
+.choice-row:has(input:focus-visible){outline:3px solid #f2c875;outline-offset:-3px;border-radius:var(--radius-sm)}
+.choice-row:has(input:disabled)::before{border-color:#454b57}
+.choice-row:has(input:checked:disabled)::before{border-color:#6b6352;background:radial-gradient(circle,#6b6352 0 4px,transparent 4.5px)}
+.choice-row input:disabled+.choice{color:#6b7180}
+.choice-row input:checked:disabled+.choice{color:#8a8273}
 .choice-row input:disabled~.choice-note{color:#646b78}
 .choice-row:has(input:disabled){cursor:not-allowed}
 /* 観戦 is not a colour, so it sits a little apart from 黒・ランダム・白. */
@@ -262,9 +275,12 @@ body.board-zoomed .board-bleed{opacity:1}
 .ai-advanced{min-width:0;margin:0;padding:0;border:0}
 /* Board size reads at a glance: denser grid lines for larger boards. */
 .size-icon{flex:none;width:20px;height:20px;color:#9aa1ad}
-.new-game-advanced .advanced-row{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
-.new-game-advanced .advanced-row[hidden],.new-game-advanced [hidden]{display:none}
-.new-game-advanced .advanced-row label{margin:0;white-space:nowrap;font-size:13px}
+/* Under a tab's choices, the settings that only that tab's choice uses (置き石, ヒント, …), after a line and a small heading. */
+.setup-more{margin-top:14px;padding-top:12px;border-top:1px solid #343b49}
+.setup-more-head{margin:0 0 8px;font-size:12px;font-weight:600;color:#9aa1ad}
+.setup-more .advanced-row{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
+.setup-more .advanced-row[hidden],.setup-more [hidden]{display:none}
+.setup-more .advanced-row label{margin:0;white-space:nowrap;font-size:13px}
 /* Step sliders: a named tick under each stop; the thumb's 20px width sets the tick inset. */
 .step-slider{margin-top:14px}
 .step-slider[hidden]{display:none}
@@ -280,7 +296,6 @@ body.board-zoomed .board-bleed{opacity:1}
 /* The sheet should fit one phone screen: tight section spacing, no empty status lines. */
 .mode-panel .settings-head{margin-bottom:12px}
 .mode-panel .settings-section .primary.full{margin-top:0}
-.mode-panel .new-game-advanced{margin-top:10px;padding-top:0}
 .mode-panel .explanation:empty,.mode-panel .invite-status:empty{display:none}
 .mode-panel .history-setup{padding-top:12px}
 /* One button, two meanings: × discards a provisional stone, the labelled arrow is 待った. */
@@ -477,6 +492,8 @@ body{overflow:hidden}
 .fused input:checked+span{box-shadow:inset 0 0 0 1px #efcb81}
 .fused>label:first-child>span{border-radius:calc(var(--radius) - 1px) 0 0 calc(var(--radius) - 1px)}
 .fused>label:last-child>span{border-radius:0 calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0}
+/* A group of one rounds all four corners, so its chosen edge reaches each one. */
+.fused>label:only-child>span{border-radius:calc(var(--radius) - 1px)}
 .fused-column{flex-direction:column}
 .fused-column>*{flex:none}
 .settings-panel .fused-column{margin-top:14px}

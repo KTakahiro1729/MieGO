@@ -16,7 +16,7 @@ export const AI_STRENGTHS = Object.freeze({
   normal:{label:TEXT.ai.strengths.normal,kyu:12},
   strong:{label:TEXT.ai.strengths.strong,kyu:null}
 });
-export const DEFAULT_AI_STRENGTH = "easy";
+export const DEFAULT_AI_STRENGTH = "beginner";
 // Saved games from before strength levels existed used the full policy.
 export const normalizeStrength = (value, fallback="strong") =>
   Object.hasOwn(AI_STRENGTHS,value) ? value : fallback;
