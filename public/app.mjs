@@ -843,6 +843,7 @@ function show() {
   if(!room)$("netStatus").textContent=gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=TEXT.game.moveLabel(game.moveNumber);
+  $("moveLabel").disabled=!game.moves.length;
   $("hint").textContent=illegalCandidate?TEXT.game.hintIllegal:
     candidate?TEXT.game.hintCandidate:
     game.status==="scoring"?TEXT.game.hintScoring:
@@ -1676,16 +1677,19 @@ function renderBoardReview() {
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?TEXT.review.newMoves(updates):"";
-  $("moveLabel").textContent=TEXT.review.moveLabel(variationActive,step,count);
-  $("moveLabel").setAttribute("aria-label",TEXT.review.stop);
+  // The move chip is the way back: to the latest move, the original line, or the game.
+  const back=variationActive?TEXT.review.backOriginal:source==="live"?TEXT.review.backLatest:TEXT.review.backGame;
+  $("moveLabel").textContent=back+" ›";
+  $("moveLabel").setAttribute("aria-label",back);$("moveLabel").title=back;
+  $("moveLabel").classList.add("is-returning");
+  $("moveLabel").disabled=false;
   $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
   $("turn").classList.remove("no-stone");
-  $("turn").textContent=isPreview?TEXT.review.provisional:variationActive?TEXT.history.statusVariation:TEXT.review.checking;
+  $("turn").textContent=isPreview?TEXT.review.trying(step+1):variationActive?TEXT.review.trying(step):TEXT.review.showing(step);
   $("gamePanel").classList.remove("is-scoring","is-finished");
   $("netStatus").textContent=source==="archive"?TEXT.game.savedGames:source==="url"?TEXT.review.sourceUrl:
     gameMode==="ai"?TEXT.common.modeAi:room?TEXT.review.sourceOnline:TEXT.common.modeLocal;
   $("reviewResume").hidden=!canResumeSelectedReview();
-  $("reviewBack").textContent=variationActive?TEXT.review.backOriginal:source==="live"?TEXT.review.backLatest:TEXT.review.backGame;
   $("actionRow").hidden=true;
   $("endgameBar").hidden=true;
   $("scoreBox").hidden=true;
@@ -1801,7 +1805,8 @@ function clearBoardReview() {
   const wasUrl=boardReview.source==="url";
   boardReview=null;reviewSequence++;
   if(wasUrl)clearImportedReviewUrl();
-  $("moveLabel").setAttribute("aria-label",TEXT.review.play);
+  $("moveLabel").classList.remove("is-returning");
+  $("moveLabel").setAttribute("aria-label",TEXT.review.play);$("moveLabel").title=TEXT.review.play;
 }
 function leaveBoardReview() {
   if(!boardReview)return;
@@ -1900,7 +1905,9 @@ function openSharePanel(){
 }
 $("moveLabel").onclick=()=>{
   if(boardReview){leaveBoardReview();return;}
-  try{enterBoardReview(game,game.moves.length,"live");}
+  // Opening the replay steps back one move at once, so the tap visibly changes the board.
+  if(!game.moves.length)return;
+  try{enterBoardReview(game,game.moves.length-1,"live");}
   catch{$("saveStatus").hidden=false;$("saveStatus").textContent=TEXT.history.replayFailed;}
 };
 $("reviewStepToggle").onclick=()=>{$("reviewMenu").open=true;$("reviewStepRange").focus();};
@@ -1909,7 +1916,6 @@ $("reviewPrevious").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step
 $("reviewNext").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
 $("reviewLast").onclick=()=>boardReview&&setBoardReviewStep(boardReview.snapshot.moves.length);
 $("reviewStepRange").oninput=e=>setBoardReviewStep(Number(e.target.value));
-$("reviewBack").onclick=leaveBoardReview;
 $("reviewConfirm").onclick=confirmReviewPreview;
 $("reviewCancel").onclick=discardReviewPreview;
 $("reviewOriginal").onclick=selectOriginalLine;

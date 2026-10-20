@@ -7,7 +7,7 @@ const source=name=>readFileSync(new URL("../public/"+name,import.meta.url),"utf8
 const html=source("index.html"),app=source("app.mjs"),renderer=source("board-renderer.mjs"),style=source("style.css");
 test("replay and variations share a single action row with a non-scrolling overlay menu",()=>{
  const review=html.slice(html.indexOf('<section id="reviewPanel"'),html.indexOf('<p id="saveStatus"'));
- for(const id of ["reviewPrevious","reviewNext","reviewBack","reviewFirst","reviewLast",
+ for(const id of ["reviewPrevious","reviewNext","reviewFirst","reviewLast",
    "reviewStepRange","reviewResume","reviewBranch"])
    assert.match(review,new RegExp('id="'+id+'"'));
  assert.match(review,/class="review-navigation"/);
@@ -93,4 +93,12 @@ test("saved games are a repeatable command, not a persistent fourth mode",()=>{
  assert.match(app,/\$\("openHistory"\)\.onclick=openHistoryPanel/);
  assert.match(app,/if\(boardReview\?\.source==="url"\)clearImportedReviewUrl\(\)/);
  assert.match(app,/gamePanel"\)\.classList\.remove\("is-scoring","is-finished"\)/);
+});
+test("the move chip steps back one move at once and turns into the way back",()=>{
+  assert.match(app,/enterBoardReview\(game,game\.moves\.length-1,"live"\)/);
+  assert.match(app,/\$\("moveLabel"\)\.classList\.add\("is-returning"\)/);
+  assert.match(app,/\$\("moveLabel"\)\.classList\.remove\("is-returning"\)/);
+  assert.equal(TEXT.review.showing(28),"28手目を表示中");
+  assert.equal(TEXT.review.tryHere,"試しに打つ");
+  assert.match(html,/id="reviewConfirm"[^>]*><span id="reviewConfirmStone"[^>]*><\/span>試しに打つ/);
 });

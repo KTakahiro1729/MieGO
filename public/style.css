@@ -305,6 +305,7 @@ body{overflow:hidden}
 .move-history-toggle{position:relative;border:1px solid #525666;border-radius:9px;background:#212733;min-height:26px;height:26px;padding:2px 7px;color:#ead194;font-size:11px;line-height:20px}
 .move-history-toggle::before{content:"";position:absolute;inset:-9px 0}
 .move-history-toggle:hover{border-color:var(--gold)}
+.move-history-toggle.is-returning{border-color:var(--accent-text);color:var(--accent-text)}
 #reviewStepRange{flex:1;min-width:0;accent-color:var(--gold)}
 #reviewNotice{margin:0;color:#efca90;font-size:12px;line-height:1.4;overflow-wrap:anywhere}
 #reviewNotice:empty{display:none}
@@ -430,9 +431,8 @@ body{overflow:hidden}
 .review-navigation{display:flex;align-items:stretch;gap:7px;position:relative}
 .review-navigation>button,.review-navigation>.review-menu>summary{height:var(--action-h);min-height:var(--action-h);
   display:flex;align-items:center;justify-content:center;padding:7px}
-.review-navigation>button:not(.review-step-toggle):not(.review-back){flex:0 0 44px}
+.review-navigation>button:not(.review-step-toggle){flex:0 0 44px}
 .review-navigation>.review-step-toggle{flex:1;min-width:0;flex-direction:column;gap:2px;color:#eac981;font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
-.review-navigation>.review-back{flex:0 0 62px;font-size:12px;white-space:nowrap}
 .review-navigation>.review-menu{position:relative;flex:0 0 44px;min-width:44px}
 .review-navigation>.review-menu>summary{cursor:pointer;list-style:none}
 .review-navigation>.review-menu>summary::-webkit-details-marker{display:none}
@@ -458,8 +458,7 @@ body{overflow:hidden}
 @media(max-width:360px){
   .review-navigation{gap:4px}
   .review-navigation>.review-menu{flex-basis:42px;min-width:42px}
-  .review-navigation>button:not(.review-step-toggle):not(.review-back){flex-basis:42px}
-  .review-navigation>.review-back{flex-basis:54px;font-size:11px}
+  .review-navigation>button:not(.review-step-toggle){flex-basis:42px}
 }
 @media(max-width:350px){
   .endgame-bar .end-action{font-size:10px;padding:5px 6px}
