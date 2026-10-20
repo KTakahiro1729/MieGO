@@ -221,3 +221,30 @@ test("一つの形 draws a group as one shape and keeps the stone being placed a
   assert.equal(bars.length,10);
   assert.ok(bars.some(c=>c.args[0]===150&&c.args[1]===150&&c.args[2]===50&&c.args[3]===50),"the square's middle is filled");
 });
+
+test("息の形 bulges toward empty points and is pressed flat by the edge and the opponent",()=>{
+  const game=newGame();
+  game.board[at(0,0)]=BLACK;game.board[at(1,0)]=WHITE;
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"breathing"}));
+  draw();
+  assert.equal(calls.some(c=>c.kind==="arc"&&c.args[2]===22),false,"no round stones");
+  // The black stone's outline points, centred on (50,50) with 50 between points.
+  const black=calls.filter(c=>c.kind==="line"&&Math.hypot(c.args[0]-50,c.args[1]-50)<30).map(c=>c.args);
+  const reach=(dx,dy)=>Math.max(...black.map(([x,y])=>(x-50)*dx+(y-50)*dy));
+  assert.ok(reach(0,1)>25,"bulges down toward the empty point");
+  assert.ok(reach(-1,0)<17 && reach(0,-1)<17,"flat against the edge");
+  assert.ok(reach(1,0)<17,"flat against the white stone");
+});
+
+test("四角 bulges each side toward an empty point and dents it where an opponent touches",()=>{
+  const game=newGame();
+  game.board[at(4,4)]=BLACK;game.board[at(5,4)]=WHITE;game.board[at(4,5)]=BLACK;
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"square"}));
+  draw();
+  // The upper black stone at (250,250): its sides' control points, body pass (half side 19.25).
+  const sides=calls.filter(c=>c.kind==="curve"&&Math.hypot(c.args[0]-250,c.args[1]-250)<40).map(c=>c.args.slice(0,2));
+  const at_=(x,y)=>sides.some(([cx,cy])=>Math.abs(cx-x)<.01&&Math.abs(cy-y)<.01);
+  assert.ok(at_(250,250-19.25-12),"bulges up toward the empty point");
+  assert.ok(at_(250+19.25-8,250),"dents in toward the white stone");
+  assert.ok(at_(250,250+19.25),"straight toward its own stone below");
+});

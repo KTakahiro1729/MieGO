@@ -208,10 +208,14 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     }
     // 一つの形: the solid stones are drawn group by group; the stone being
     // placed and the ones it would take stay single, see-through stones.
-    const fused=view.linkStones==="fused" ? Array(display.board.length).fill(0) : null;
+    const shaped=view.linkStones==="breathing" || view.linkStones==="square";
+    const fused=view.linkStones==="fused" || shaped ? Array(display.board.length).fill(0) : null;
     if(fused){
       for(const {i,color,alpha} of shown)if(alpha===1)fused[i]=color;
-      paintFusedStones(theme,fused,gap,pad);
+      // 息の形 and 四角 read the stones as shown, the one being placed included.
+      const around=Array(display.board.length).fill(0);
+      for(const {i,color,alpha} of shown)if(alpha!==.4)around[i]=color;
+      paintFusedStones(theme,fused,gap,pad,shaped?around:null,view.linkStones==="square");
     }
     for(const {i,color,alpha} of shown) {
       const x=pad+(i%SIZE)*gap;
@@ -272,19 +276,68 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   // as wide as a stone, with one rim around the whole. Four stones in a
   // square also fill the gap in their middle. Each stone keeps a soft
   // highlight, so a group still shows how many stones it has.
-  function paintFusedStones(theme,board,gap,pad) {
-    const r=gap*.44, rim=.75;
+  // 息の形 (`around` is the whole position): each stone also bulges toward
+  // the empty points next to it and is pressed flat where an opponent stone
+  // or the board's edge closes it in, so a group in atari looks squeezed.
+  // 四角: a square stone whose sides join its own colour, bulge toward an
+  // empty point and dent in where an opponent stone touches it.
+  function paintFusedStones(theme,board,gap,pad,around=null,square=false) {
+    const r=gap*(around?.4:.44), rim=.75;
+    function squareStone(i,x,y,w){
+      const sides=[[0,-1],[1,0],[0,1],[-1,0]];
+      const corners=[[-1,-1],[1,-1],[1,1],[-1,1]];
+      ctx.moveTo(x-w,y-w);
+      sides.forEach(([dx,dy],k)=>{
+        const nx=i%SIZE+dx, ny=Math.floor(i/SIZE)+dy;
+        const next=nx>=0 && ny>=0 && nx<SIZE && ny<SIZE ? around[ny*SIZE+nx] : null;
+        const push=next===0?gap*.24:next===null||next===board[i]?0:-gap*.16;
+        const [ex,ey]=corners[(k+1)%4];
+        ctx.quadraticCurveTo(x+dx*(w+push),y+dy*(w+push),x+ex*w,y+ey*w);
+      });
+      ctx.closePath();
+    }
     const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
     const same=(i,j,color)=>j<board.length && board[j]===color;
+    // The edge of a stone at angle `a`: round, bulged or flat by what lies that way.
+    function edge(i,a,w){
+      const k=((Math.round(a/(Math.PI/2))%4)+4)%4, phi=a-Math.round(a/(Math.PI/2))*Math.PI/2;
+      const x=i%SIZE+[1,0,-1,0][k], y=Math.floor(i/SIZE)+[0,1,0,-1][k];
+      const next=x>=0 && y>=0 && x<SIZE && y<SIZE ? around[y*SIZE+x] : null;
+      if(next===0)return w+gap*.12*Math.max(0,Math.cos(2*phi))**2;
+      if(next!==board[i])return Math.min(w,(w-r+gap*.31)/Math.cos(phi));
+      return w;
+    }
+    // A bar's side is pressed flat when either stone it joins is closed in on that side.
+    function side(i,j,dx,dy,w){
+      if(!around)return w;
+      const open=k=>{
+        const x=k%SIZE+dx, y=Math.floor(k/SIZE)+dy;
+        return x>=0 && y>=0 && x<SIZE && y<SIZE && (around[y*SIZE+x]===0 || around[y*SIZE+x]===board[k]);
+      };
+      return open(i) && open(j) ? w : w-r+gap*.31;
+    }
+    function bar(x,y,horizontal,i,j,w){
+      const [a,b]=horizontal?[side(i,j,0,-1,w),side(i,j,0,1,w)]:[side(i,j,-1,0,w),side(i,j,1,0,w)];
+      if(horizontal){ctx.moveTo(x,y-a);ctx.lineTo(x+gap,y-a);ctx.lineTo(x+gap,y+b);ctx.lineTo(x,y+b);}
+      else{ctx.moveTo(x-a,y);ctx.lineTo(x+b,y);ctx.lineTo(x+b,y+gap);ctx.lineTo(x-a,y+gap);}
+      ctx.closePath();
+    }
     function outline(color,grow){
       const w=r+grow;
       ctx.beginPath();
       for(let i=0;i<board.length;i++){
         if(board[i]!==color)continue;
         const [x,y]=xy(i), right=i%SIZE<SIZE-1 && same(i,i+1,color), down=same(i,i+SIZE,color);
-        ctx.moveTo(x+w,y);ctx.arc(x,y,w,0,Math.PI*2);
-        if(right)ctx.rect(x,y-w,gap,2*w);
-        if(down)ctx.rect(x-w,y,2*w,gap);
+        if(square)squareStone(i,x,y,w);
+        else if(around){
+          for(let step=0;step<=72;step++){
+            const a=step*Math.PI/36, e=edge(i,a,w);
+            if(step)ctx.lineTo(x+e*Math.cos(a),y+e*Math.sin(a));else ctx.moveTo(x+e,y);
+          }
+          ctx.closePath();
+        }else{ctx.moveTo(x+w,y);ctx.arc(x,y,w,0,Math.PI*2);}
+        if(right)around && !square?bar(x,y,true,i,i+1,w):ctx.rect(x,y-w,gap,2*w);
+        if(down)around && !square?bar(x,y,false,i,i+SIZE,w):ctx.rect(x-w,y,2*w,gap);
         if(right && down && same(i,i+SIZE+1,color))ctx.rect(x,y,gap,gap);
       }
     }
