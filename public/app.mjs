@@ -1002,6 +1002,12 @@ function show() {
     isAiTurn()?TEXT.game.hintAiThinking:"";
   const blocked=!!illegalCandidate;
   $("confirm").disabled=!candidate || !myTurn || blocked;
+  // While it cannot be pressed, the button says why instead of showing a dim ここに打つ.
+  $("confirmLabel").textContent=blocked?TEXT.game.confirmBlocked:
+    !myTurn?(gameMode==="ai" && !gomoku && fallbackMode?TEXT.ai.startUnavailable:
+      gameMode==="ai" && !gomoku && (!katagoReady || waiting && strongWorkers.current().state==="loading")?
+      TEXT.game.confirmPreparing:TEXT.game.confirmWait):
+    candidate?TEXT.common.playHere:TEXT.game.confirmPick;
   // The stone on the button shows the colour that will be placed.
   $("confirmStone").classList.toggle("white",game.next===WHITE);
   $("copyIllegalPrompt").hidden=!blocked;
