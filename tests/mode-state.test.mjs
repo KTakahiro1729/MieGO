@@ -45,7 +45,7 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
     ["chick","steady","raider","brawler","wide","serious","master","custom"]);
   assert.equal((sheet.slice(sheet.indexOf('id="aiCharacterChoices"'),sheet.indexOf('</fieldset>',sheet.indexOf('id="aiCharacterChoices"'))).match(/<small class="choice-note">/g)||[]).length,8);
   assert.deepEqual([...sheet.matchAll(/name="aiStrength" value="(\w+)"/g)].map(m=>m[1]),["beginner","easy","normal","strong","strongest"]);
-  for(const name of ["aiInvasion","aiStance","aiHeight","aiTenuki"])
+  for(const name of ["aiStance","aiHeight","aiTenuki"])
     assert.deepEqual([...sheet.matchAll(new RegExp('name="'+name+'" value="(\\d+)"',"g"))].map(m=>m[1]),["0","50","100"]);
   // 自分の石・COMのキャラ・盤・ルール are one row of tabs over one panel of choices, the colour first.
   assert.deepEqual([...sheet.matchAll(/id="setupTab(\w+)"[^>]*role="tab"/g)].map(m=>m[1]),["Side","Strength","Board","Rules"]);

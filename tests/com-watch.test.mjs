@@ -71,7 +71,7 @@ test("each COM of a watched game plays with its own character",()=>{
   for(const [card,side] of [[cards[0],"Black"],[cards[1],"White"]]){
     assert.match(card,new RegExp('<select id="com'+side+'Character"'));
     assert.deepEqual([...card.matchAll(/name="(com[A-Za-z]+)"/g)].map(m=>m[1]).filter((v,i,a)=>a.indexOf(v)===i),
-      ["Strength","Invasion","Stance","Height","Tenuki"].map(field=>"com"+side+field));
+      ["Strength","Stance","Height","Tenuki"].map(field=>"com"+side+field));
   }
   assert.deepEqual(choices("comBlackStrength"),["beginner","easy","normal","strong","strongest"]);
   assert.deepEqual([...cards[0].matchAll(/<option value="([a-z]+)"/g)].map(m=>m[1]),
