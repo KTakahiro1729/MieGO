@@ -35,6 +35,12 @@ button:hover:not(:disabled){border-color:#748094}
 .connection-status{font-size:11px;color:#aeb6c0;white-space:nowrap;display:flex;align-items:center;gap:7px}
 .connection-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#7b8392;flex:none}
 .connection-status.online::before{background:#4fca8a;box-shadow:0 0 8px #4fca8a66}
+.meta-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+/* The current rules: plain text, not a button; its ? opens the rules help. */
+.rule-line{display:flex;align-items:center;min-width:0;padding-left:31px}
+.rule-label{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.rule-line .help-button{width:20px;height:20px}
+.rule-line .help-button svg{width:16px;height:16px}
 .board-frame{width:min(100%,calc(100dvh - 294px),675px);min-width:0;align-self:center;aspect-ratio:1;padding:5px;background:linear-gradient(135deg,#b28751,#e4c587 35%,#956c43 100%);border:1px solid #d3b078;border-radius:14px;box-shadow:0 2px 1px #ffffff13 inset,0 15px 40px #0008,0 0 0 1px #f2d69422;position:relative;isolation:isolate;transition:box-shadow .3s,border-color .3s}
 /* Board looks (board-theme.mjs): the frame matches the canvas. */
 .board-frame[data-board-theme="light"]{background:#a9aeb6;border-color:#c9cdd3;box-shadow:0 15px 40px #0008}
@@ -219,7 +225,7 @@ body.board-zoomed .board-bleed{opacity:1}
 .mode-panel .new-game-advanced{margin-top:10px;padding-top:0}
 .mode-panel .explanation:empty,.mode-panel .invite-status:empty{display:none}
 .mode-panel .history-setup{padding-top:12px}
-.side-choices{grid-template-columns:repeat(3,1fr)}
+.side-choices,.rules-choices{grid-template-columns:repeat(3,1fr)}
 /* One button, two meanings: × discards a provisional stone, the labelled arrow is 待った. */
 .undo-button .takeback-icon{display:none;flex-direction:column;align-items:center;gap:1px;line-height:1}
 .undo-button .takeback-icon small{font-size:10px;font-weight:700;letter-spacing:.02em}
@@ -397,10 +403,17 @@ body{overflow:hidden}
 .action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;font-size:12px;padding:6px 2px}
 /* The AI question follows the reason text directly. It is drawn about one
    line tall to sit with the 14px text; ::after keeps a 44px tap target. */
-.endgame-bar.has-illegal .end-status{flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The reason wraps onto a second line inside the bar's fixed height (UX policy §3.5). */
+.endgame-bar.has-illegal .end-status{flex:0 1 auto;min-width:0;white-space:pre-line;overflow:hidden;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
 @media(max-width:360px){
   .endgame-bar.has-illegal .end-status{font-size:13px}
   .endgame-bar .illegal-prompt-action{margin-left:6px;padding:0 8px}
+}
+/* On the narrowest phones the AI question keeps only its copy icon (and its
+   aria-label), so the reason still fits in two lines. */
+@media(max-width:340px){
+  .endgame-bar .illegal-prompt-action>span{display:none}
 }
 .endgame-bar.has-illegal .help-button{margin-left:auto}
 .endgame-bar .illegal-prompt-action{position:relative;display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;min-height:0;height:28px;margin-left:10px;padding:0 10px;font-size:13px;font-weight:650;white-space:nowrap;line-height:1}
