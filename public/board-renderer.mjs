@@ -250,10 +250,11 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
 
   // 盤の線: the board's line between two stones of one colour is drawn a
   // little thicker in their colour, and from each stone toward an empty
-  // point next to it the line runs halfway there, so a stone shows where it
-  // breathes. A group down to two liberties draws those in amber, one in red.
+  // point next to it the line runs up to a cup that holds the point, so a
+  // stone shows the points it needs. Stones sharing a point close its cup
+  // into a ring. A group down to two liberties draws those in amber, one in red.
   function paintBoardLines(theme,board,gap,pad) {
-    const r=gap*.44, reach=gap*.72, width=Math.max(2.5,gap*.1);
+    const r=gap*.44, cup=gap*.2, width=Math.max(2.5,gap*.1), thin=Math.max(2,gap*.08);
     const tone={[BLACK]:theme.stones.black.outer,[WHITE]:theme.stones.white.inner};
     const edge={[BLACK]:null,[WHITE]:theme.stones.white.rim};
     const liberties=new Map();
@@ -261,10 +262,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       const g=group(board,i);
       for(const s of g.stones)liberties.set(s,g.liberties.size);
     }
-    const segment=(x1,y1,x2,y2,colour,rim)=>{
-      ctx.lineCap="butt";
-      if(rim){ctx.strokeStyle=rim;ctx.lineWidth=width+2;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();}
-      ctx.strokeStyle=colour;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    const stroke=(path,lineWidth,colour,rim)=>{
+      if(rim){ctx.strokeStyle=rim;ctx.lineWidth=lineWidth+2;ctx.beginPath();path();ctx.stroke();}
+      ctx.strokeStyle=colour;ctx.lineWidth=lineWidth;ctx.beginPath();path();ctx.stroke();
     };
     ctx.save();
     for(let i=0;i<board.length;i++){
@@ -276,8 +276,18 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         const nx=i%SIZE+dx,ny=Math.floor(i/SIZE)+dy;
         if(nx<0 || ny<0 || nx>=SIZE || ny>=SIZE)continue;
         const next=board[ny*SIZE+nx];
-        if(next===color && dx+dy>0)segment(x+dx*r,y+dy*r,x+dx*(gap-r),y+dy*(gap-r),tone[color],edge[color]);
-        else if(next===0)segment(x+dx*r,y+dy*r,x+dx*reach,y+dy*reach,breath,count>2?edge[color]:null);
+        if(next===color && dx+dy>0){
+          ctx.lineCap="butt";
+          stroke(()=>{ctx.moveTo(x+dx*r,y+dy*r);ctx.lineTo(x+dx*(gap-r),y+dy*(gap-r));},width,tone[color],edge[color]);
+        }else if(next===0){
+          const px=x+dx*gap,py=y+dy*gap,back=Math.atan2(-dy,-dx);
+          ctx.lineCap="round";
+          stroke(()=>{
+            ctx.moveTo(x+dx*r,y+dy*r);ctx.lineTo(px-dx*cup,py-dy*cup);
+            ctx.moveTo(px+cup*Math.cos(back-Math.PI*.42),py+cup*Math.sin(back-Math.PI*.42));
+            ctx.arc(px,py,cup,back-Math.PI*.42,back+Math.PI*.42);
+          },thin,breath,count>2?edge[color]:null);
+        }
       }
     }
     ctx.restore();
