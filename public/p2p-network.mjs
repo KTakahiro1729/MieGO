@@ -5,7 +5,7 @@ export async function postP2PJson(path,data,fetchRequest=globalThis.fetch) {
   try {result=await response.json();}
   catch {throw Error("サーバーの応答が不正です");}
   if(!response.ok) {
-    const error=Error(result.error||"通信に失敗しました");
+    const error=Error(result?.error||"通信に失敗しました");
     error.status=response.status;
     throw error;
   }

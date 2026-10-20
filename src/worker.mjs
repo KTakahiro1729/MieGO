@@ -12,7 +12,9 @@ async function body(request) {
   if (Number(request.headers.get("content-length") || 0) > 4096) throw Error("Request too large");
   const text = await request.text();
   if (text.length > 4096) throw Error("Request too large");
-  return JSON.parse(text);
+  const value = JSON.parse(text);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw Error("Invalid request");
+  return value;
 }
 const sameOrigin = (request, url) => request.headers.get("Origin") === url.origin;
 

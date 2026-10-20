@@ -86,8 +86,10 @@ export function play(state, position) {
   };
   if (position === null) {
     const passes = state.passes + 1;
+    // Dead marks from an earlier, resumed count never carry into a new one.
     return { ...state, next: -color, passes, endProposal: null, moveNumber: state.moveNumber + 1,
       status: passes >= 2 ? "scoring" : "playing", agreed: { black: false, white: false },
+      dead: passes >= 2 ? [] : state.dead,
       history: [...state.history, boardHash(state.board)],
       moves: [...state.moves, { color, position: null }] };
   }
@@ -182,7 +184,7 @@ export function setDeadCandidates(state, positions) {
 }
 export function resume(state) {
   if (state.status !== "scoring") throw new Error("計算中ではありません");
-  return { ...state, status: "playing", passes: 0, endProposal: null, agreed: { black: false, white: false } };
+  return { ...state, status: "playing", passes: 0, endProposal: null, dead: [], agreed: { black: false, white: false } };
 }
 export function areaScore(state) {
   const board = [...state.board];

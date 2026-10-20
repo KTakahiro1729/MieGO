@@ -2,7 +2,7 @@ import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDe
 import { suggestDeadStones } from "./dead-stones.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
-import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame } from "./p2p-session.mjs";
+import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame, isPeerAction } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
 import { isPaletteChoice, normalizePalette, showsOwnership, paletteGradient, countingGradient, interpolateOwnership, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
 import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss, boardTheme as boardLook } from "./board-theme.mjs";
@@ -587,6 +587,9 @@ function apply(action, remote=false, isAiMove=false) {
   }
   let rewound=false;
   try{
+    // The friend's client acts only for the friend's color.
+    if(remote && !isPeerAction(action,game,{peerColor:myOnlineColor()===null?null:-myOnlineColor(),
+      peerIsOwner:p2pRole==="guest"}))throw new Error("相手の操作として受け付けられません");
     const wasScoring=game.status==="scoring";
     if(action.type==="move"){
       if(action.number!==game.moveNumber+1) throw new Error("手順が一致しません");
@@ -1153,7 +1156,7 @@ async function verifyP2P(){
 }
 function onPeerSync(message){
   const result=reconcileGame(game,onlineRevision,message.game,message.revision,
-    {localIsOwner:p2pRole==="owner"});
+    {localIsOwner:p2pRole==="owner",localColor:myOnlineColor()});
   if(result.kind==="conflict"||result.kind==="invalid"){
     connected=false;$("netStatus").textContent="局面が一致しません。自動上書きを停止しました";
     show();return false;
