@@ -31,7 +31,7 @@
 | Root directory | `/`（リポジトリ直下、既定のまま） |
 | Build command | `npm test` |
 | Deploy command | `npx wrangler deploy` |
-| Non-production branch builds / Preview | 初期段階は無効を推奨 |
+| Non-production branch builds / Preview | 有効にする場合は下の「CloudflareのPR Preview」を参照 |
 
 **Build commandの `npm test` はCloudflare側で実行されます。** 手元でコマンドを打つ必要はありません。自動テストが失敗した場合はデプロイを止め、Cloudflareのビルドログで原因を確認してください。
 
@@ -299,9 +299,13 @@ npm run dev
 
 ### CloudflareのPR Preview
 
-Cloudflare Workers BuildsのPRデプロイコマンドが `npx wrangler preview` の場合、`wrangler.jsonc` の `previews.durable_objects.bindings` と `previews.vars.TURNSTILE_SITE_KEY` が必要です。MieGOは `env.ROOMS` を使うため、`GameRoom` をPreviewにも宣言しています。CloudflareはPreviewごとに独立したDurable Object名前空間とストレージを作成します。Build commandは `npm test`、Preview deploy commandは `npx wrangler preview` のままで構いません。Productionへのデプロイには `npx wrangler deploy` を使用してください。
+PRのPreviewは `wrangler.preview.jsonc` から作ります。Cloudflare Workers Buildsの設定は、Build commandを `npm test`、**Preview deploy commandを `npx wrangler preview -c wrangler.preview.jsonc`** にしてください。Productionへのデプロイは今までどおり `npx wrangler deploy`（`wrangler.jsonc`）です。
 
-Cloudflare公式仕様: https://developers.cloudflare.com/workers/previews/resources/#durable-objects
+`wrangler.preview.jsonc` は `wrangler.jsonc` から対局ルーム（Durable Objectの`GameRoom`と移行設定）だけを除いた写しです（`tests/deployment.test.mjs` がずれを検出します）。CloudflareはDurable Objectを持つPreviewごとに専用の名前空間を作り、無料プランでは1アカウント100個までなので、ブランチごとにPreviewを作るとすぐ上限に達してビルドが失敗します。そのためPreviewでは対友人の対局は作れず、画面に「miego.fun でお試しください」と表示します。対友人の確認は本番で行います。
+
+この設定にする前に作られたPreviewの名前空間は、そのPreviewを削除すると一緒に消えます。無料プランのPreviewは1 Workerあたり100個までで、超えると最後のデプロイが最も古いものから自動で削除されるため、放っておいても順に減ります。すぐ空けたいときは `npx wrangler preview delete --name <Preview名>`（またはダッシュボードのPreview画面）で古いPreviewを削除してください。本番（Production）のWorkerやその名前空間は削除しないでください。
+
+Cloudflare公式仕様: https://developers.cloudflare.com/workers/previews/resources/#durable-objects 、 https://developers.cloudflare.com/durable-objects/platform/limits/
 
 ## 制限と注意
 

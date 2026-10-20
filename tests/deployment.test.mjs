@@ -21,6 +21,12 @@ test("Workers deployment configuration and static assets are present", () => {
   assert.ok(config.previews, "Workers Preview requires a previews configuration");
   assert.deepEqual(config.previews.durable_objects.bindings, config.durable_objects.bindings,
     "Preview must bind ROOMS to its own isolated GameRoom namespace");
+  // Each Preview with a Durable Object class gets its own namespace, and the Free plan allows
+  // 100 per account, so branch previews deploy from a copy without GameRoom.
+  const preview = JSON.parse(readFileSync(resolve(root, "wrangler.preview.jsonc"), "utf8"));
+  const { durable_objects, migrations, previews, vars, ...shared } = config;
+  assert.deepEqual({ ...preview, previews: undefined }, { ...shared, previews: undefined });
+  assert.deepEqual(preview.previews, { vars: previews.vars });
   for (const p of [config.main, "public/index.html", "public/app.mjs",
       "public/core.mjs", "public/analysis-worker.mjs", "public/style.css"]) {
     assert.ok(existsSync(resolve(root, p)), "Missing required file: " + p);
