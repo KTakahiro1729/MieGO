@@ -92,6 +92,11 @@ test("scoring and the result fit above the action row on every screen",{skip,tim
     await page.goto(origin);
     // The button is in the HTML before app.mjs has wired it up.
     await step(page,size,"app start",()=>page.waitForFunction(()=>typeof document.getElementById("pass").onclick==="function"));
+    // Two people on one device, so two passes go straight to scoring.
+    await page.locator("#newGameButton").click();
+    await page.locator('input[name="newGameMode"][value="local"]').check({force:true});
+    await page.locator("#startLocal").click();
+    await step(page,size,"local game",()=>page.locator("#modePanel").waitFor({state:"hidden"}));
     const playing=await layout(page);
     assertFits(playing,"playing",size);
     for(const pass of ["first pass","second pass"]){
