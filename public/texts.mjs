@@ -269,16 +269,17 @@ export const TEXT = {
     characters: {
       chick: { name: "ひよこ", note: "囲碁をはじめたばかり。よく見落とします。" },
       steady: { name: "石橋", note: "守りを固めて手堅く打ちます。無理な戦いはしません。" },
-      raider: { name: "荒らし屋", note: "相手の地に飛び込んでかき回します。守りは後回し。" },
-      brawler: { name: "喧嘩屋", note: "弱い石を見つけると、切って攻めにきます。" },
+      raider: { name: "荒らし屋", note: "相手の地に飛び込み、低く打って地を稼ぎます。" },
+      brawler: { name: "喧嘩屋", note: "相手の手のすぐ近くで受けて立ち、攻めにきます。" },
       wide: { name: "大場好き", note: "相手の手に付き合わず、広い場所へ向かいます。" },
       serious: { name: "本気", note: "KataGoの好みのまま、手加減なしで打ちます。" },
       custom: { name: "カスタム", note: "強さと打ち方を自分で選びます。" },
     },
-    attackNotes: {
-      low: "相手の石を攻める手を控えます。",
-      mid: "攻めを特に好みも避けもしません。",
-      high: "相手の石の呼吸点を減らし、切って攻めます。",
+    stanceStops: { low: "守る", mid: "ふつう", high: "攻める" },
+    stanceNotes: {
+      low: "自分の弱い石を補強し、相手の石を攻める手は控えます。",
+      mid: "攻めも守りも特に好みません。",
+      high: "相手の石の呼吸点を減らし、切って攻めます。守りは後回し。",
     },
     heightStops: { low: "低い", mid: "ふつう", high: "高い" },
     heightNotes: {
@@ -322,10 +323,10 @@ export const TEXT = {
     hints: "ヒントを表示",
     hintsNote: "あなたの番に、KataGoの候補手を1〜3で示します。",
     hintsAria: "ヒントを表示する",
-    attack: "攻め度",
     height: "高さ",
     invasion: "侵入度",
     reinforcement: "補強度",
+    stance: "攻守",
     tenuki: "応じ方",
   },
 

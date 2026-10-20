@@ -1,4 +1,4 @@
-import {STYLE_AXES} from "./ai-personality.mjs";
+import {stanceOf,STYLE_AXES} from "./ai-personality.mjs";
 import {normalizeStrength} from "./ai-strength.mjs";
 import {TEXT} from "./texts.mjs";
 
@@ -11,9 +11,9 @@ const define = (strength, style={}) => Object.freeze({strength,
   ...Object.fromEntries(STYLE_AXES.map(axis=>[axis,style[axis] ?? 50]))});
 export const AI_CHARACTERS = Object.freeze({
   chick: define("beginner"),
-  steady: define("easy", {attack:0, invasion:0, reinforcement:100}),
-  raider: define("easy", {height:0, invasion:100, reinforcement:0}),
-  brawler: define("normal", {attack:100, reinforcement:0, tenuki:0}),
+  steady: define("easy", {invasion:0, stance:0}),
+  raider: define("easy", {height:0, invasion:100}),
+  brawler: define("normal", {stance:100, tenuki:0}),
   wide: define("normal", {height:100, tenuki:100}),
   serious: define("strong"),
 });
@@ -25,8 +25,9 @@ const step = value => Math.round(Math.max(0,Math.min(100,Number(value ?? 50) || 
 
 /** A COM's full settings, with any missing or out-of-range field made valid. */
 export function normalizeCom(com={}, fallbackStrength="strong") {
+  const values={...com,stance:stanceOf(com)};
   return {strength:normalizeStrength(com.strength,fallbackStrength),
-    ...Object.fromEntries(STYLE_AXES.map(axis=>[axis,step(com[axis])]))};
+    ...Object.fromEntries(STYLE_AXES.map(axis=>[axis,step(values[axis])]))};
 }
 
 /** The character whose settings a COM matches exactly, or カスタム. */

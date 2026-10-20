@@ -1,6 +1,6 @@
 
 import {play} from "./core.mjs";
-import {personalityFeatures,STYLE_AXES} from "./ai-personality.mjs";
+import {personalityFeatures,stanceOf,STYLE_AXES,styleSignal} from "./ai-personality.mjs";
 import {samplePolicyCandidate} from "./ai-policy-sampling.mjs";
 import {AI_STRENGTHS,pickWeakenedMove} from "./ai-strength.mjs";
 export {personalityFeatures,STYLE_AXES} from "./ai-personality.mjs";
@@ -28,11 +28,12 @@ export function scorePolicyCandidates(state, logits, ownership, options={}) {
   // Weakened levels sample from every legal move, so keep the long tail.
   const window=options.allMoves ? Infinity : 8;
   // Each axis is 0..100 with 50 neutral and adds at most ±3 to a logit.
+  const values={...options,stance:stanceOf(options)};
   const weights=Object.fromEntries(STYLE_AXES.map(axis=>
-    [axis,(bounded(options[axis] ?? 50)-50)/50 * 3]));
+    [axis,(bounded(values[axis] ?? 50)-50)/50 * 3]));
   return legal.filter(p=>logits[p]>=best-window).map(position=>{
     const f=personalityFeatures(state,position,ownership);
-    const bonus=STYLE_AXES.reduce((sum,axis)=>sum+weights[axis]*f[axis],0);
+    const bonus=STYLE_AXES.reduce((sum,axis)=>sum+weights[axis]*styleSignal[axis](f),0);
     return {position,raw:logits[position],score:logits[position]+bonus,...f};
   });
 }

@@ -17,6 +17,9 @@ export const AI_STRENGTHS = Object.freeze({
   strong:{label:TEXT.ai.strengths.strong,kyu:null}
 });
 export const DEFAULT_AI_STRENGTH = "easy";
+// How far below the best drawn move (in policy logits) a weakened level may
+// go for a move its style prefers.
+export const STYLE_SLACK = 3;
 // Saved games from before strength levels existed used the full policy.
 export const normalizeStrength = (value, fallback="strong") =>
   Object.hasOwn(AI_STRENGTHS,value) ? value : fallback;
@@ -78,7 +81,11 @@ export function pickWeakenedMove(candidates, passLogit, options={}) {
     const j=i+Math.floor(r*(pool.length-i));
     [pool[i],pool[j]]=[pool[j],pool[i]];
   }
-  const chosen=pool.slice(0,n).reduce((a,b)=>b.score>a.score?b:a);
+  // Style picks among the drawn moves KataGo rates close to the best of them,
+  // so a character's taste does not cost more than a small mistake.
+  const drawn=pool.slice(0,n);
+  const bestRaw=Math.max(...drawn.map(c=>c.raw));
+  const chosen=drawn.filter(c=>c.raw>=bestRaw-STYLE_SLACK).reduce((a,b)=>b.score>a.score?b:a);
   // A weak pick that is worse than passing would only fill the board; KaTrain
   // falls back to the top policy move here.
   if(hasPass && chosen.prob<passProb)return best;

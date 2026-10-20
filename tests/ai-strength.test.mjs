@@ -2,7 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {newGame,play,at,boardHash} from "../public/core.mjs";
 import {choosePolicyMove} from "../public/ai-opponent.mjs";
-import {AI_STRENGTHS,pickCount,pickWeakenedMove,fillsOwnEye,normalizeStrength} from "../public/ai-strength.mjs";
+import {
+  AI_STRENGTHS,
+  fillsOwnEye,
+  normalizeStrength,
+  pickCount,
+  pickWeakenedMove,
+  STYLE_SLACK,
+} from "../public/ai-strength.mjs";
 import {policyHints} from "../public/ai-assist.mjs";
 
 // A deterministic generator so sampling tests do not flake.
@@ -78,4 +85,16 @@ test("policy hints list the top legal points for the player to move",()=>{
   assert.deepEqual(hints.map(h=>h.position),[at(2,2),at(6,6),at(2,6)]);
   assert.ok(hints[0].share>hints[1].share);
   assert.deepEqual(policyHints(g,null),[]);
+});
+
+test("a weakened level's style picks only among drawn moves close to the best of them",()=>{
+  const pick=badRaw=>{
+    const candidates=Array.from({length:9},(_,i)=>({position:i+10,raw:0,score:0}));
+    candidates.push({position:40,raw:badRaw,score:10});
+    const draws=[0.999];
+    return pickWeakenedMove(candidates,-Infinity,{strength:"normal",state:newGame(),
+      random:()=>draws.shift() ?? 0});
+  };
+  assert.equal(pick(-2),40);
+  assert.notEqual(pick(-2-STYLE_SLACK),40);
 });

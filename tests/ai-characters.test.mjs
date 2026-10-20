@@ -24,7 +24,7 @@ const scoreOf=(s,point,options)=>{
   return scorePolicyCandidates(s,policy,null,options).find(c=>c.position===point).score;
 };
 
-test("attack rewards ataris, captures and cuts, never a stone left in atari",()=>{
+test("the attack signal rewards ataris, captures and cuts, never a stone left in atari",()=>{
   // White stone at 4,4 with black on two sides: a third black stone puts it in atari.
   const s=position([[at(4,4),-1],[at(3,4),1],[at(4,3),1]]);
   assert.equal(personalityFeatures(s,at(5,4),null).attack,1);
@@ -35,9 +35,22 @@ test("attack rewards ataris, captures and cuts, never a stone left in atari",()=
   // Black at 1,0 would sit in atari between two white stones: not an attack.
   const thrown=position([[at(2,0),-1],[at(1,1),-1]]);
   assert.equal(personalityFeatures(thrown,at(1,0),null).attack,0);
-  const attacking={attack:100};
+  const attacking={stance:100};
   assert.ok(scoreOf(s,at(5,4),attacking)>scoreOf(s,at(5,4),{}));
   assert.equal(scoreOf(s,at(7,7),attacking),scoreOf(s,at(7,7),{}));
+  assert.ok(scoreOf(s,at(5,4),{stance:0})<scoreOf(s,at(5,4),{}));
+});
+
+test("攻守 trades attacking for reinforcing, and an old 補強度 reads as 守る",()=>{
+  // Black 1,1 has two liberties left; 1,2 adds liberties.
+  const s=position([[at(1,1),1],[at(0,1),-1],[at(1,0),-1],[at(2,1),-1]]);
+  const owners=Array(81).fill(0);owners[at(1,2)]=.45;
+  const policy=Array(81).fill(-50);policy[at(1,2)]=0;
+  const score=options=>scorePolicyCandidates(s,policy,owners,options).find(c=>c.position===at(1,2)).score;
+  assert.ok(score({stance:0})>score({})&&score({})>score({stance:100}));
+  assert.equal(score({reinforcement:100}),score({stance:0}));
+  assert.equal(score({reinforcement:0}),score({stance:100}));
+  assert.equal(normalizeCom({strength:"easy",reinforcement:100}).stance,0);
 });
 
 test("height sorts the 2nd-3rd lines from the 4th line and up, and fades as the board fills",()=>{
@@ -90,10 +103,11 @@ test("each character has a strength, a value on every axis and a one-line note",
 test("settings that match no character open as カスタム, with every axis snapped to a stop",()=>{
   assert.equal(characterOf({strength:"strong",invasion:50,reinforcement:50}),"serious");
   assert.equal(characterOf({strength:"easy",invasion:50,reinforcement:50}),CUSTOM_CHARACTER);
-  assert.equal(characterOf({strength:"easy",invasion:90,reinforcement:10,height:20}),"raider");
+  assert.equal(characterOf({strength:"easy",invasion:10,reinforcement:90}),"steady");
+  assert.equal(characterOf({strength:"easy",invasion:90,height:20}),"raider");
   assert.deepEqual(normalizeCom({strength:"nope",invasion:70}),
-    {strength:"strong",attack:50,height:50,invasion:50,reinforcement:50,tenuki:50});
-  assert.deepEqual(comFor(CUSTOM_CHARACTER,{strength:"easy",attack:100}),
-    {strength:"easy",attack:100,height:50,invasion:50,reinforcement:50,tenuki:50});
+    {strength:"strong",height:50,invasion:50,stance:50,tenuki:50});
+  assert.deepEqual(comFor(CUSTOM_CHARACTER,{strength:"easy",stance:100}),
+    {strength:"easy",height:50,invasion:50,stance:100,tenuki:50});
   assert.equal(characterLabel(CUSTOM_CHARACTER),"カスタム");
 });

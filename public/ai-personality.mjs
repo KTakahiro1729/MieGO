@@ -2,15 +2,25 @@ import {play,neighbors,group,sizeOf} from "./core.mjs";
 
 const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 
-// The style axes a COM carries, each matching a personalityFeatures signal.
-// height: 0 low, 100 high. tenuki: 0 answers close by, 100 plays elsewhere.
+// The style axes a COM carries, each 0..100 with 50 neutral.
+// height: 0 low, 100 high. stance: 0 defends, 100 attacks.
+// tenuki: 0 answers close by, 100 plays elsewhere.
 export const STYLE_AXES = Object.freeze([
-  "attack",
   "height",
   "invasion",
-  "reinforcement",
+  "stance",
   "tenuki",
 ]);
+// What each axis rewards, from personalityFeatures. Attacking and reinforcing
+// each moved few moves alone (docs/AI_PERSONALITIES.md), so they share one axis.
+export const styleSignal = Object.freeze({
+  height: f => f.height,
+  invasion: f => f.invasion,
+  stance: f => f.attack - f.reinforcement,
+  tenuki: f => f.tenuki,
+});
+// Saved settings from before 攻守 had 補強度 alone: 重視 reads as 守る.
+export const stanceOf = com => com.stance ?? (com.reinforcement==null ? 50 : 100-com.reinforcement);
 
 /** Style signals for one candidate move. invasion and reinforcement read the
  * ownership map; attack, height and tenuki read only the board and the last move.
