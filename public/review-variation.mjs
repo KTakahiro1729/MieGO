@@ -1,6 +1,5 @@
 import { play } from "./core.mjs";
 import { forkReview, replaySteps } from "./sgf.mjs";
-import { TEXT } from "./texts.mjs";
 
 // Variation is transient analysis data, never an edit to a live or saved game.
 // A variation stores the original shared prefix plus its own moves; the
@@ -13,8 +12,6 @@ export function activeReviewSnapshot(review,liveGame) {
 
 export function proposeReviewStone(review,liveGame,position) {
   const line=activeReviewSnapshot(review,liveGame);
-  if(!Number.isInteger(review.step) || review.step<0 || review.step>line.moves.length)
-    throw Error(TEXT.rules.badMoveCount);
   // Applying Go rules to a fork preserves ko and captured-stone histories.
   const base=forkReview(line,review.step);
   return play(base,position);

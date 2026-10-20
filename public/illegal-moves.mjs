@@ -45,9 +45,6 @@ export function illegalMoveReasons(state) {
  * Includes a public SGF replay URL and a highlighted glyph board, but never
  * a private P2P invitation URL or an on-board coordinate label. */
 export function makeIllegalMovePrompt(game,forbidden,reviewUrl) {
-  if(!forbidden || !Object.hasOwn(reasons,forbidden.reason) ||
-     game.board?.[forbidden.position]!==0 || game.status!=="playing")
-    throw Error(TEXT.prompts.illegalNothing);
   const color=game.next===BLACK?TEXT.common.black:TEXT.common.white;
   const url=shareableReviewUrl(reviewUrl);
   let before="";
@@ -61,7 +58,7 @@ export function makeIllegalMovePrompt(game,forbidden,reviewUrl) {
   return [
     TEXT.prompts.illegalTitle(sizeOf(game.board)),
     TEXT.prompts.illegalTurn(color),
-    TEXT.prompts.illegalReason(reasons[forbidden.reason]),
+    TEXT.prompts.illegalReason(TEXT.prompts.illegalReasons[forbidden.reason]),
     TEXT.prompts.illegalAsk,
     TEXT.prompts.reviewUrl(url.href),
     "",

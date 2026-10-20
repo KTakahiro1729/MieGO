@@ -125,7 +125,7 @@ MieGOの本変更では**WebRTC DataChannel + STUNのみ**を使用します。T
 | Durable Objects移行エラー | `wrangler.jsonc`の`durable_objects` / `migrations` の設定と利用権限を確認 |
 | HTMLだけ表示され、APIが404 | Workersとして配置されているか、`run_worker_first` と `/api/health` を確認 |
 | /api/healthが開かない | Worker URL、Buildsでのデプロイ成功状態を確認 |
-| P2Pの本人確認が失敗する | Turnstileウィジェットの許可ホスト名、Site Key／Secret Key、Workerの変数名とデプロイ反映を確認 |
+| P2PのTurnstile確認が失敗する | Turnstileウィジェットの許可ホスト名、Site Key／Secret Key、Workerの変数名とデプロイ反映を確認 |
 | 招待URLは開くがP2Pにならない | 2台の端末で確認し、異なるWi-Fi・モバイル回線を試す。STUNだけでは接続不能なネットワークもある |
 | 再デプロイ後も古い画面 | Deploymentsの日時、実際のURL、ブラウザのキャッシュを確認 |
 
@@ -290,7 +290,7 @@ Cloudflare公式仕様: https://developers.cloudflare.com/workers/previews/resou
 4. PRのCIを確認し、ブラウザ実機のP2P・リロード・旧リンク失効を確認後、GitHubのUIからmainにマージします。GitHub連携されたWorkers Buildsで自動デプロイします。
 5. `/api/health`で `turnstileConfigured:true`、`durableObjectBinding:true`を確認します。2端末で招待・着手・途中リロード・切断復帰をテストします。
 
-本番のCloudflare設定前にはルーム作成が本人確認エラーとなります。Previewおよび本番環境の実機検証は別途必要です。
+本番のCloudflare設定前にはルーム作成がTurnstile確認エラーとなります。Previewおよび本番環境の実機検証は別途必要です。
 
 ## 対局ごとの自動保存（第1段階）
 確定した着手・パス・終局相談・採点などの変更を、対局IDごとにブラウザのlocalStorageへ保存します。旧ローカル・AIの最新局面は初回に履歴へ移行し、旧データは削除しません。「… → 保存した棋譜」で履歴と最終盤面を閲覧でき、進行中の1台／AI対局は再開できます。新しい対局やAI再戦では旧棋譜を残したまま別の対局IDを作ります。

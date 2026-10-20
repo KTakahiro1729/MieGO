@@ -1,4 +1,4 @@
-import {BLACK,WHITE,areaScore,neighbors,isBoardSize,sizeOf,komiOf,handicapBonusOf,isJapanese,scoringStepOf} from "./core.mjs";
+import {BLACK,WHITE,areaScore,neighbors,sizeOf,komiOf,handicapBonusOf,isJapanese,scoringStepOf} from "./core.mjs";
 
 /** Outline colours of the filled-in prisoners, shared by the board and the アゲハマ counter. */
 export const PRISONER_OUTLINE=Object.freeze({black:"#e0a03a",white:"#3aaec4"});
@@ -10,8 +10,6 @@ import { TEXT } from "./texts.mjs";
  * original board for manual review until both players confirm.
  */
 export function scoringRegions(state, {prisonerPoints=null}={}) {
-  if(!state || !Array.isArray(state.board) || !isBoardSize(Math.sqrt(state.board.length)))
-    throw new Error(TEXT.rules.needsSizedBoard);
   const SIZE=sizeOf(state.board);
   const dead=new Set(state.dead||[]);
   const effective=state.board.map((stone,i)=>dead.has(i)?0:stone);

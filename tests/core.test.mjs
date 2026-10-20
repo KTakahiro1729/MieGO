@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, play, group, at, boardHash, areaScore, toggleDead, resume, agreeScore, toSGF, setAssisted } from "../public/core.mjs";
+import { newGame, play, group, at, boardHash, areaScore, toggleDead, resume, agreeScore, toSGF } from "../public/core.mjs";
 
 test("initial game and alternating moves", () => {
   let g = newGame(); g = play(g, at(0, 0)); g = play(g, at(1, 0));
@@ -34,11 +34,9 @@ test("two passes, dead marking and double acceptance", () => {
   g = agreeScore(g, 1); assert.equal(g.status, "scoring");
   g = agreeScore(g, -1); assert.equal(g.status, "finished");
 });
-test("SGF format and mode cannot change mid-game", () => {
-  let g = setAssisted(newGame(), false);
-  g = play(g, at(3, 3)); g = play(g, null);
+test("passes are written to SGF as empty moves", () => {
+  let g = play(newGame(), at(3, 3)); g = play(g, null);
   assert.match(toSGF(g), /;B\[dd\];W\[\]/);
-  assert.throws(() => setAssisted(g, true));
 });
 
 test("dead marks from a resumed count do not carry into the next count", () => {

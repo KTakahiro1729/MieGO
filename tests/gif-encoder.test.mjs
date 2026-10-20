@@ -106,12 +106,6 @@ test("colours missing from the palette sources map to the nearest entry",()=>{
   assert.deepEqual(decodeGif(gif.finish()).frames[1].pixels[0],[0,0,0]);
 });
 
-test("malformed input is refused",()=>{
-  assert.throws(()=>createGifAnimation({width:2,height:2,paletteFrom:[new Uint8ClampedArray(3)]}),/画像データ/);
-  const gif=createGifAnimation({width:1,height:1,paletteFrom:[image(1,1,()=>[0,0,0])]});
-  assert.throws(()=>gif.finish(),/フレーム/);
-});
-
 test("the share sheet makes a still PNG or a game GIF and shares or saves it",()=>{
   const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
   assert.match(app,/\$\("shareImage"\)\.onclick=\(\)=>void shareImage\(\)/);

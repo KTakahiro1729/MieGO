@@ -30,6 +30,7 @@ import { makeRulesPrompt, makePositionPrompt } from "./beginner-prompts.mjs";
 import { activeReviewSnapshot, proposeReviewStone, commitReviewStone, variationForSharing } from "./review-variation.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 import { TEXT } from "./texts.mjs";
+import { UserError, messageFor } from "./user-error.mjs";
 const $ = id => document.getElementById(id);
 const canvas = $("board");
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
@@ -86,7 +87,14 @@ function ownSeatLink() {
 }
 function renderInviteButton() {
   $("seatLinkBox").hidden=!ownSeatLink();
-  $("copy").disabled=!!room && p2pRole!=="owner";
+  // Only the owner's device that created the room holds the guest's key, and
+  // the side cannot change once the game has started.
+  $("copy").disabled=!!room && (p2pRole!=="owner" || !guestInviteKey);
+  const locked=!!room && (connected || game.moveNumber>0);
+  for(const input of document.querySelectorAll('input[name="onlineSide"]')) {
+    input.disabled=locked;
+    if(locked && issuedSide!==null)input.checked=input.value===issuedSide;
+  }
   $("copy").textContent=!room?TEXT.online.prepareInvite:
     issuedSide!==null && !inviteMatchesChoice()?
       TEXT.online.renewInvite:TEXT.online.copyInvite;
@@ -95,7 +103,7 @@ function persistOnline(){
   if(!room || !ROOM_PATTERN.test(room))return;
   if(!saveCheckpoint(roomingStorage,room,{role:p2pRole,ownerColor,session:onlineSession,
     inviteKey,guestInviteKey,issuedSide,revision:onlineRevision,game,lastPosition,seenPeerSignins}))
-    storageError(Error(TEXT.online.checkpointFailed));
+    storageError(new UserError(TEXT.online.checkpointFailed));
 }
 let game = newGame(), candidate = null, illegalCandidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
 let illegalPromptCopied = false;
@@ -191,7 +199,7 @@ catch(error){console.warn("Saved-game migration failed",error);}
 function storageError(error){
   $("saveStatus").hidden=false;
   $("saveStatus").textContent=TEXT.game.saveFailed;
-  $("historySaveNotice").textContent=error?.message||TEXT.game.saveFailedShort;
+  $("historySaveNotice").textContent=messageFor(error,TEXT.game.saveFailedShort);
   console.error("MieGO autosave",error);
 }
 function clearStorageError() {
@@ -268,7 +276,7 @@ function updateEndUi() {
   $("endHelp").dataset.help=playing && illegalCandidate?"illegal":"endgame";
   if(playing && illegalCandidate){
     $("endStatus").textContent=illegalCandidate.reason===ILLEGAL_KO?
-      TEXT.endgame.koIllegal:TEXT.endgame.suicideIllegal;
+      TEXT.rules.ko:TEXT.rules.suicide;
   }
 }
 
@@ -299,7 +307,7 @@ function syncStepSlider(id) {
 }
 // Invasion and reinforcement have three stops; older saves with any 0-100 value snap to the nearest.
 const personaStep=value=>Math.round(Math.max(0,Math.min(100,Number(value??50)||0))/50)*50;
-const personaLabel=value=>value<50?TEXT.ai.persona.low:value>50?TEXT.ai.persona.high:TEXT.ai.strengths.normal;
+const personaLabel=value=>value<50?TEXT.ai.persona.low:value>50?TEXT.ai.persona.high:TEXT.ai.persona.mid;
 function updatePersonaUi() {
   $("aiInvasion").value=String(invasion);
   $("aiReinforcement").value=String(reinforcement);
@@ -685,6 +693,7 @@ function show() {
   $("scoreBox").hidden=false;
   const myTurn=isHumanTurn();
   $("startAi").disabled=!katagoReady || fallbackMode;
+  renderInviteButton();
   $("startAi").textContent=fallbackMode?TEXT.ai.startUnavailable:
     !katagoReady?TEXT.ai.startLoading:gameMode==="ai"?TEXT.ai.restart:TEXT.ai.start;
   $("aiInvasion").disabled=false;
@@ -814,7 +823,8 @@ function show() {
 }
 function apply(action, remote=false, isAiMove=false) {
   // End-offer messages can race with an actual stone. Ignore stale metadata
-  // without tearing down the live Go DataChannel.
+  // without tearing down the live Go DataChannel. Local actions are built from
+  // the current position, so only a peer's can be stale.
   if(remote && ["end_offer","end_answer","takeback_request","takeback_answer",
                  "dead_auto","dead_unavailable"].includes(action?.type)) {
     if(action.number!==game.moveNumber || action.before!==boardHash(game.board))return;
@@ -825,24 +835,19 @@ function apply(action, remote=false, isAiMove=false) {
   try{
     // The friend's client acts only for the friend's color.
     if(remote && !isPeerAction(action,game,{peerColor:myOnlineColor()===null?null:-myOnlineColor(),
-      peerIsOwner:p2pRole==="guest"}))throw new Error(TEXT.online.peerActionRejected);
+      peerIsOwner:p2pRole==="guest"}))throw new Error("Not the peer's action");
     const wasScoring=game.status==="scoring";
     if(action.type==="move"){
-      if(action.number!==game.moveNumber+1) throw new Error(TEXT.game.moveMismatch);
-      if(action.before!==boardHash(game.board)) throw new Error(TEXT.game.boardMismatch);
+      if(action.number!==game.moveNumber+1) throw new Error("Move number mismatch");
+      if(action.before!==boardHash(game.board)) throw new Error("Board mismatch before the move");
       game=play(game,action.position);
-      if(action.after!==boardHash(game.board)) throw new Error(TEXT.game.verifyFailed);
+      if(action.after!==boardHash(game.board)) throw new Error("Board mismatch after the move");
       lastPosition=Number.isInteger(action.position)?action.position:null;
     } else if(action.type==="solo_scoring") {
-      if(room || remote || action.number!==game.moveNumber ||
-         action.before!==boardHash(game.board))
-        throw new Error(TEXT.game.cannotScore);
       stopAiTurn(); // Invalidate pending AI workers on the old position.
       game=beginSoloScoring(game);
       endExpanded=false;
     } else if(action.type==="solo_score") {
-      if(room || remote || !canApproveScoring(game,deadReview,room,connected))
-        throw new Error(TEXT.game.cannotFinalize);
       game=finalizeSoloScore(game);
     } else if(action.type==="dead") {
       if(game.status!=="scoring")return;
@@ -869,46 +874,30 @@ function apply(action, remote=false, isAiMove=false) {
         action.positions.length?"complete":"none";
     }
     else if(action.type==="agree") {
-      // UI disables this while analysis is pending; retain an action guard.
-      if(!canApproveScoring(game,deadReview,room,connected)) {
-        if(!remote)throw new Error(TEXT.game.finalizeAfterReview);
-        return;
-      }
+      // The button checks this too; a peer may agree before our review ends.
+      if(!canApproveScoring(game,deadReview,room,connected))return;
       game=agreeScore(game,action.color);
     }
     else if(action.type==="agree_dead" || action.type==="solo_dead") {
       // 日本式: the dead stones are agreed first; then the prisoners fill territory.
-      if(!canApproveScoring(game,deadReview,room,connected) ||
-         action.type==="solo_dead" && (room || remote)) {
-        if(!remote)throw new Error(TEXT.game.finalizeAfterReview);
-        return;
-      }
+      // The button checks this too; a peer may agree before our review ends.
+      if(!canApproveScoring(game,deadReview,room,connected))return;
       game=action.type==="solo_dead"?confirmDeadSolo(game):agreeDead(game,action.color);
     }
     else if(action.type==="back_to_dead") game=backToDead(game);
     else if(action.type==="resume") game=resume(game);
     // "mode" (the removed per-game overlay switch) from older peers is ignored below.
     else if(action.type==="end_offer") {
-      if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
-        throw new Error(TEXT.game.endProposalMismatch);
       game=proposeEnd(game,action.color);
       if(remote)endExpanded=false;
     } else if(action.type==="end_answer") {
-      if(action.number!==game.moveNumber || action.before!==boardHash(game.board) ||
-         action.proposalFrom!==game.endProposal?.from)
-        throw new Error(TEXT.game.endAnswerMismatch);
       game=answerEndProposal(game,action.color,Boolean(action.accept));
       if(!action.accept)endHintSuppressedUntil=game.moveNumber+4;
       endExpanded=false;
     } else if(action.type==="takeback_request") {
-      if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
-        throw new Error(TEXT.game.takebackRequestMismatch);
       game=requestTakeback(game,action.color);
       endExpanded=false;
     } else if(action.type==="takeback_answer") {
-      if(action.number!==game.moveNumber || action.before!==boardHash(game.board) ||
-         action.proposalFrom!==game.takebackRequest?.from)
-        throw new Error(TEXT.game.takebackAnswerMismatch);
       rewound=Boolean(action.accept);
       game=answerTakeback(game,action.color,rewound);
       if(rewound)afterTakeback();
@@ -932,7 +921,12 @@ function apply(action, remote=false, isAiMove=false) {
        (hadCandidate && game.status==="playing"))
       requestAnalysis();
     if(!remote&&room)p2pTransport.sendAction(action);
-  }catch(error){showNotice(error.message); if(remote){$("netStatus").textContent=TEXT.game.syncError;p2pTransport.refresh();}}
+  }catch(error){
+    // The UI offers only actions that apply, so a failure is a peer out of
+    // step (or a bug): the position is resynchronised, not explained.
+    console.warn("MieGO action rejected",action?.type,error);
+    if(remote){showNotice(TEXT.online.peerOutOfSync);$("netStatus").textContent=TEXT.online.syncing;p2pTransport.refresh();}
+  }
 }
 function submitMove(position,fromAi=false){
   if(boardReview && !fromAi)return;
@@ -940,7 +934,7 @@ function submitMove(position,fromAi=false){
   if(fromAi && !isAiTurn())return;
   const before=boardHash(game.board);
   let next;
-  try{next=play(game,position);}catch(error){showNotice(error.message);return;}
+  try{next=play(game,position);}catch(error){showNotice(messageFor(error,TEXT.common.retry));return;}
   apply({type:"move",position,number:game.moveNumber+1,before,after:boardHash(next.board)},false,fromAi);
 }
 canvas.addEventListener("click",e=>{
@@ -959,7 +953,7 @@ canvas.addEventListener("click",e=>{
       reviewFeedback("");show();requestReviewOwnership();
     }catch(error){
       boardReview.preview=null;boardReview.previewPosition=null;
-      reviewFeedback(error.message);show();requestReviewOwnership();
+      reviewFeedback(messageFor(error,TEXT.common.retry));show();requestReviewOwnership();
     }
     return;
   }
@@ -1030,7 +1024,7 @@ $("copyIllegalPrompt").onclick=async()=>{
     const link=makeReviewUrl(location.origin,{snapshot:game},game.moves.length);
     question=makeIllegalMovePrompt(game,selected,link);
   }catch(error){
-    $("endStatus").textContent=TEXT.game.reviewUrlFailed(error.message);
+    $("endStatus").textContent=messageFor(error,TEXT.common.retry);
     return;
   }
   try{
@@ -1398,27 +1392,28 @@ async function verifyP2P(){
   $("p2pVerify").hidden=false;
   if($("onlineSetup").hidden)openPanel("online");
   const config=await fetch("/api/p2p/config").then(r=>r.json());
-  if(!config.siteKey)throw Error(TEXT.online.turnstileMissing);
+  if(!config.siteKey)throw new UserError(TEXT.online.turnstileMissing);
   if(!window.turnstile){
     await new Promise((resolve,reject)=>{
       const script=document.createElement("script");
       script.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      script.onload=resolve;script.onerror=()=>reject(Error(TEXT.online.verifyLoadFailed));
+      script.onload=resolve;script.onerror=()=>reject(new UserError(TEXT.online.verifyLoadFailed));
       document.head.append(script);
     });
   }
   return new Promise((resolve,reject)=>{
     $("p2pTurnstile").replaceChildren();
     window.turnstile.render($("p2pTurnstile"),{sitekey:config.siteKey,action:"miego_p2p",
-      callback:resolve,"error-callback":()=>reject(Error(TEXT.online.verifyFailed)),
-      "expired-callback":()=>reject(Error(TEXT.online.verifyExpired))});
+      callback:resolve,"error-callback":()=>reject(new UserError(TEXT.online.verifyFailed)),
+      "expired-callback":()=>reject(new UserError(TEXT.online.verifyExpired))});
   });
 }
 function onPeerSync(message){
   const result=reconcileGame(game,onlineRevision,message.game,message.revision,
     {localIsOwner:p2pRole==="owner",localColor:myOnlineColor()});
   if(result.kind==="conflict"||result.kind==="invalid"){
-    connected=false;$("netStatus").textContent=TEXT.online.mismatch;
+    connected=false;$("netStatus").textContent=TEXT.online.statusStopped;
+    showSeatNotice(TEXT.online.mismatch);
     show();return false;
   }
   if(result.kind==="adopt"){
@@ -1461,8 +1456,12 @@ p2pTransport=createP2PTransport({
       $("netStatus").textContent=TEXT.online.seatElsewhere;
       showSeatNotice(TEXT.online.seatTakenNotice);
     }else if(error.stage==="ticket" && error.status===410){
-      $("netStatus").textContent=TEXT.online.roomGone;
-    }else $("netStatus").textContent=error.message||TEXT.online.connectionError;
+      $("netStatus").textContent=TEXT.online.statusCannotJoin;
+      showSeatNotice(TEXT.online.roomGone);
+    }else{
+      $("netStatus").textContent=TEXT.online.statusOffline;
+      showNotice(messageFor(error,TEXT.online.requestFailed));
+    }
     show();
   },
   getSnapshot:()=>({game,revision:onlineRevision,lastPosition,
@@ -1470,12 +1469,17 @@ p2pTransport=createP2PTransport({
     ["complete","none","modified","unavailable"].includes(deadReview)?deadReview:null})
 });
 async function joinRoom(){
-  if(!ROOM_PATTERN.test(room)){$("netStatus").textContent=TEXT.online.badInvite;return;}
+  if(!ROOM_PATTERN.test(room)){
+    $("netStatus").textContent=TEXT.online.statusCannotJoin;showSeatNotice(TEXT.online.badInvite);return;
+  }
   const targetRoom=room;
   try{
     await p2pTransport.join({room,role:p2pRole,session:onlineSession,inviteKey});
     if(targetRoom!==room)return;
-  }catch(error){if(targetRoom===room){$("netStatus").textContent=error.message;show();}}
+  }catch(error){
+    if(targetRoom!==room)return;
+    $("netStatus").textContent=TEXT.online.statusOffline;showNotice(messageFor(error,TEXT.online.requestFailed));show();
+  }
 }
 function showInviteLink() {
   if(!room||p2pRole!=="owner"||!guestInviteKey)return null;
@@ -1487,9 +1491,7 @@ function showInviteLink() {
 }
 async function beginOnlineRoom(){
   const choice=currentSideSelection();
-  if(room&&p2pRole!=="owner")throw Error(TEXT.online.ownerOnly);
   if(room&&inviteMatchesChoice())return showInviteLink();
-  if(room&&(connected||game.moveNumber>0))throw Error(TEXT.online.lockedAfterStart);
   if(room&&!confirm(TEXT.confirm.renewInvite))return null;
   if(!room && game.moveNumber>0 &&
      !confirm(TEXT.confirm.leaveForOnline))return null;
@@ -1498,7 +1500,7 @@ async function beginOnlineRoom(){
     {color:color===BLACK?"black":"white",turnstileToken:token});
   if(room){
     try{await p2pTransport.post("/api/rooms/"+room+"/revoke",{role:"owner",session:onlineSession});}
-    catch(error){$("inviteStatus").textContent=TEXT.online.revokeFailed;throw error;}
+    catch{throw new UserError(TEXT.online.revokeFailed);}
     leaveOnlineRoom();
   }else if(!save())return null;
   room=created.room;p2pRole="owner";seat="host";ownerColor=color;
@@ -1523,10 +1525,9 @@ async function copyLink(){
       return;
     }
     const url=showInviteLink();
-    if(!url)throw Error(TEXT.online.inviteUnavailable);
     const copied=await copyInviteText(url,{clipboard:navigator.clipboard,input:$("inviteUrl"),document});
     $("inviteStatus").textContent=copied?TEXT.online.inviteCopied:TEXT.online.inviteManual;
-  }catch(error){$("inviteStatus").textContent=error.message;}
+  }catch(error){$("inviteStatus").textContent=messageFor(error,TEXT.online.requestFailed);}
   finally{renderInviteButton();}
 }
 /** kind: "settings", "share", or a 新規対戦 tab ("local", "ai", "online", "history"). */
@@ -1603,7 +1604,7 @@ function confirmReviewPreview(){
     $("reviewNotice").textContent=result.created?TEXT.review.variationCreated:"";
     $("reviewMenu").open=false;
     show();requestReviewOwnership();
-  }catch(error){reviewFeedback(error.message);}
+  }catch(error){reviewFeedback(messageFor(error,TEXT.common.retry));}
 }
 function selectOriginalLine(){
   if(!boardReview)return;
@@ -1632,14 +1633,14 @@ function previewReviewPass(){
     boardReview.previewPosition=null;
     $("reviewMenu").open=false;
     reviewFeedback(TEXT.review.passPreview);show();requestReviewOwnership();
-  }catch(error){reviewFeedback(error.message);}
+  }catch(error){reviewFeedback(messageFor(error,TEXT.common.retry));}
 }
 function saveReviewVariation(){
   if(!boardReview?.variation)return;
   try{
     gameLibrary.save({mode:"local",snapshot:boardReview.variation.snapshot,source:"variation"});
     $("reviewNotice").textContent=TEXT.review.variationSaved;
-  }catch(error){$("reviewNotice").textContent=TEXT.review.variationSaveFailed(error.message);}
+  }catch(error){$("reviewNotice").textContent=messageFor(error,TEXT.review.variationSaveFailed);}
 }
 function renderBoardReview() {
   if(!boardReview)return;
@@ -1789,7 +1790,7 @@ function setBoardReviewStep(step) {
     boardReview.preview=null;boardReview.previewPosition=null;
     reviewFeedback("");$("reviewNotice").textContent="";
     show();requestReviewOwnership();
-  }catch(error){$("reviewNotice").textContent=TEXT.history.replayFailed(error.message);}
+  }catch(error){$("reviewNotice").textContent=TEXT.history.replayFailed;}
 }
 function clearBoardReview() {
   if(!boardReview)return;
@@ -1815,7 +1816,7 @@ function forkBoardReview() {
   if(!boardReview)return;
   let fork;
   try{fork=forkReview(activeReviewSnapshot(boardReview,game),boardReview.step);}
-  catch(error){$("reviewNotice").textContent=TEXT.review.branchFailed(error.message);return;}
+  catch{$("reviewNotice").textContent=TEXT.review.branchFailed;return;}
   if(room && connected && !confirm(TEXT.confirm.leaveForReview))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
@@ -1847,7 +1848,7 @@ async function copyShareUrl(ai) {
   try{
     const url=sharedUrl();
     await copyWithFallback(ai?makeAiHandoff(url):url,$("shareNotice"),$("shareCopyFallback"));
-  }catch(error){$("shareNotice").textContent=TEXT.share.urlFailed(error.message);}
+  }catch(error){$("shareNotice").textContent=messageFor(error,TEXT.share.urlFailed);}
 }
 function canResumeSelectedReview(){
   const review=boardReview,record=review?.record;
@@ -1868,7 +1869,7 @@ function openSavedBoard(record) {
     enterBoardReview(record.snapshot,count,"archive",record.sgfMeta,record);
     $("moveLabel").focus();
   }catch(error){
-    $("historySaveNotice").textContent=TEXT.history.showFailed(error.message);
+    $("historySaveNotice").textContent=TEXT.history.showFailed;
     if($("historySetup").hidden)openHistoryPanel();
   }
 }
@@ -1879,7 +1880,7 @@ function exportSharedSGF(){
     const id=boardReview?boardReview.record?.id||"shared":currentGameId||"game";
     downloadBlob(new Blob([contents],{type:"application/x-go-sgf;charset=utf-8"}),"miego-"+id+".sgf");
     $("shareNotice").textContent=TEXT.share.sgfSaved;
-  }catch(error){$("shareNotice").textContent=TEXT.share.sgfFailed(error.message);}
+  }catch(error){$("shareNotice").textContent=TEXT.share.sgfFailed;}
 }
 function downloadBlob(blob,name){
   const url=URL.createObjectURL(blob);
@@ -1939,7 +1940,7 @@ async function makeShareImage(kind,job){
     const bytes=await buildGameAnimation({snapshot,step,size:ANIMATION_SIZE,
       renderBoard:state=>renderFrameBoard(state,gameId),finalBoard:canvas,createCanvas:frameCanvas,labels,
       onProgress:(i,total)=>{
-        if(job!==shareImageJob)throw Error(TEXT.share.aborted);
+        if(job!==shareImageJob)throw Error("Superseded");
         shareImages.animation={progress:TEXT.share.progress(i,total)};renderShareImages();
       }});
     return new File([bytes],"miego-moves"+step+".gif",{type:"image/gif"});
@@ -1948,7 +1949,7 @@ async function makeShareImage(kind,job){
   const target=frameCanvas(width,height);
   paintShareFrame(target,canvas,labels);
   const blob=await new Promise((resolve,reject)=>
-    target.toBlob(b=>b?resolve(b):reject(Error(TEXT.share.imageFailedMake)),"image/png"));
+    target.toBlob(b=>b?resolve(b):reject(Error("Canvas export failed")),"image/png"));
   return new File([blob],"miego-move"+step+".png",{type:"image/png"});
 }
 const canShareFile=file=>{
@@ -1990,7 +1991,7 @@ async function prepareShareImages(){
     }catch(error){
       if(job!==shareImageJob)return;
       shareImages[kind]={failed:true};
-      $("shareNotice").textContent=TEXT.share.imageError(error.message);
+      $("shareNotice").textContent=TEXT.share.imageError;
     }
     renderShareImages();
   }
@@ -2006,7 +2007,7 @@ async function shareImage(){
   if(!file || !canShareFile(file))return;
   try{await navigator.share({files:[file]});$("shareNotice").textContent="";}
   catch(error){
-    if(error?.name!=="AbortError")$("shareNotice").textContent=TEXT.share.imageShareFailed(error.message);
+    if(error?.name!=="AbortError")$("shareNotice").textContent=TEXT.share.imageShareFailed;
   }
 }
 function openSharePanel(){
@@ -2018,7 +2019,7 @@ function openSharePanel(){
 $("moveLabel").onclick=()=>{
   if(boardReview){leaveBoardReview();return;}
   try{enterBoardReview(game,game.moves.length,"live");}
-  catch(error){$("saveStatus").hidden=false;$("saveStatus").textContent=TEXT.history.replayFailed(error.message);}
+  catch{$("saveStatus").hidden=false;$("saveStatus").textContent=TEXT.history.replayFailed;}
 };
 $("reviewStepToggle").onclick=()=>{$("reviewMenu").open=true;$("reviewStepRange").focus();};
 $("reviewFirst").onclick=()=>setBoardReviewStep(0);
@@ -2185,7 +2186,7 @@ async function copyBeginnerPrompt(make) {
   let link=null,question;
   try{link=makeReviewUrl(location.origin,{snapshot:game},game.moves.length);}catch{}
   try{question=make(game,link);}
-  catch(error){status.textContent=TEXT.prompts.failed(error.message);return;}
+  catch{status.textContent=TEXT.prompts.failed;return;}
   await copyWithFallback(question,status,area,TEXT.prompts.copiedForAi);
 }
 $("copyRulesPrompt").onclick=()=>void copyBeginnerPrompt(makeRulesPrompt);
@@ -2219,10 +2220,7 @@ $("settleSkip").onclick=()=>{
 };
 $("settleReplay").onclick=replaySettle;
 $("startAi").onclick=()=>{
-  if(!katagoReady || fallbackMode){
-    $("aiMatchStatus").textContent=TEXT.ai.cannotStart;
-    return;
-  }
+  if(!katagoReady || fallbackMode)return; // The button is disabled meanwhile.
   if(room && connected &&
      !confirm(TEXT.confirm.leaveForAi))return;
   if(!save())return;
@@ -2233,7 +2231,7 @@ $("startAi").onclick=()=>{
   // Handicap stones always belong to the human, who therefore plays Black.
   // Otherwise: the same choices and the same random draw as a friend invitation.
   try{humanColor=aiHandicap?BLACK:selectColor(aiSideChoice);}
-  catch(error){$("aiMatchStatus").textContent=error.message;return;}
+  catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
   aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
   game=newGame(true,{handicap:aiHandicap,size:boardSize,rules:gameRules});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
@@ -2397,7 +2395,7 @@ if(!room && params.has("sgf")){
       enterBoardReview(imported.snapshot,imported.step,"url",imported.metadata);
   }catch(error){
     $("saveStatus").hidden=false;
-    $("saveStatus").textContent=TEXT.history.sharedLoadFailed(error.message);
+    $("saveStatus").textContent=TEXT.history.sharedLoadFailed;
   }
 }
 compactOwnership();

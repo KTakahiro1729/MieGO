@@ -121,6 +121,6 @@ test("AI scoring waits for a computing move instead of pausing the AI",()=>{
 test("a disconnected online bar says why its buttons are disabled",()=>{
   assert.match(app,/const offline=!!room && \(!connected \|\| color===null\);/);
   assert.match(app,/!playing\?"":offline\?TEXT\.endgame\.offline:/);
-  assert.equal(TEXT.endgame.offline,"接続を待っています");
+  assert.equal(TEXT.endgame.offline,"相手を待っています");
   assert.match(app,/\$\(id\)\.disabled=offline;/);
 });

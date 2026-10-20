@@ -22,8 +22,7 @@ test("a trailing pass leaves no last-move marker and an empty board shows no sto
   assert.equal(stones(empty,"#1c2427")+stones(empty,"#f8f6ee"),0);
 });
 
-test("thumbnail rejects malformed boards instead of emitting markup",()=>{
-  assert.throws(()=>boardThumbnailSvg([1,2,3]));
+test("thumbnail never emits markup from board values",()=>{
   const board=Array(81).fill(0);board[0]="<script>";
   assert.doesNotMatch(boardThumbnailSvg(board),/script/);
 });

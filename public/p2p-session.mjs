@@ -52,16 +52,18 @@ export function saveCheckpoint(storage, room, value) {
   try { storage.setItem(storageKey(room), JSON.stringify(value)); return true; }
   catch {return false;}
 }
-// Actions a peer may only take in its own name, and those only the room owner sends.
+// Actions a peer may only take in its own name, those only the room owner sends,
+// and those of games without a friend.
 const OWN_COLOR_ACTIONS=new Set(["agree","agree_dead","end_offer","end_answer","takeback_request","takeback_answer"]);
 const OWNER_ACTIONS=new Set(["dead_auto","dead_unavailable"]);
+const SOLO_ACTIONS=new Set(["solo_scoring","solo_score","solo_dead"]);
 /** A peer plays only on its own turn and offers, answers or agrees only for its own color. */
 export function isPeerAction(action, game, {peerColor, peerIsOwner=false}) {
   if(![BLACK,WHITE].includes(peerColor))return false;
   if(action?.type==="move")return game.next===peerColor;
   if(OWN_COLOR_ACTIONS.has(action?.type))return action.color===peerColor;
   if(OWNER_ACTIONS.has(action?.type))return peerIsOwner===true;
-  return true;
+  return !SOLO_ACTIONS.has(action?.type);
 }
 const isColor=value=>value===BLACK||value===WHITE;
 const isOffer=offer=>offer==null || (typeof offer==="object" && isColor(offer.from));

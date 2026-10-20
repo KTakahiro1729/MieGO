@@ -1,4 +1,3 @@
-import { TEXT } from "./texts.mjs";
 // A minimal animated GIF89a encoder. The board mixes wood/sheen gradients,
 // anti-aliased stones and the ownership overlay, so the colours are reduced
 // to at most 256 by median cut over a 5-bit-per-channel histogram, weighted
@@ -117,14 +116,6 @@ function lzw(indices, minCodeSize, out) {
   out.push(0);
 }
 
-function checkSize(width,height) {
-  if(!Number.isInteger(width) || !Number.isInteger(height) || width<1 || height<1 ||
-     width>65535 || height>65535)throw Error(TEXT.share.badImage);
-}
-function checkPixels(data,width,height) {
-  if(data?.length!==width*height*4)throw Error(TEXT.share.badImage);
-}
-
 function startFile(width,height,palette) {
   let depth=1;
   while(1<<depth<palette.length)depth++;
@@ -148,13 +139,11 @@ function startFile(width,height,palette) {
  * frame just lengthens the previous one. Delays are in hundredths of a second.
  */
 export function createGifAnimation({width,height,paletteFrom}) {
-  checkSize(width,height);
-  paletteFrom.forEach(data=>checkPixels(data,width,height));
   const {palette,indexPixels}=buildPalette(paletteFrom,256);
   const {out,word,image}=startFile(width,height,palette);
   // NETSCAPE2.0: loop forever.
   out.push(0x21,0xff,11,...[..."NETSCAPE2.0"].map(c=>c.charCodeAt(0)),3,1,0,0,0);
-  let previous=null,pending=null,done=false;
+  let previous=null,pending=null;
   const flush=()=>{
     if(!pending)return;
     // Graphic control: leave each frame in place for the next to draw over.
@@ -164,8 +153,6 @@ export function createGifAnimation({width,height,paletteFrom}) {
   };
   return {
     addFrame(data,delay) {
-      if(done)throw Error(TEXT.share.animationDone);
-      checkPixels(data,width,height);
       const indices=indexPixels(data);
       let left=0,top=0,right=width-1,bottom=height-1;
       if(previous) {
@@ -184,8 +171,7 @@ export function createGifAnimation({width,height,paletteFrom}) {
       previous=indices;
     },
     finish() {
-      if(!pending)throw Error(TEXT.share.noFrame);
-      flush();done=true;
+      flush();
       out.push(0x3b);
       return Uint8Array.from(out);
     }
