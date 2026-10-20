@@ -222,16 +222,17 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   // The last move: a ring inside the stone in the opposite tone, so it shows
-  // on either colour and on every board size. With the stones hidden it is
-  // drawn in the mover's own colour instead.
+  // on either colour and on every board size. Sized like OGS's (radius 0.3
+  // of a point) so it is still found on 19路 on a phone. With the stones
+  // hidden it is drawn in the mover's own colour instead.
   function paintMoveMark(theme,color,stoneShown,x,y,gap) {
     const black=color===BLACK;
     const tone=black===stoneShown?theme.stones.white.inner:theme.stones.black.outer;
     ctx.save();
     ctx.strokeStyle=tone;
-    ctx.lineWidth=Math.max(2.5,gap*.07);
+    ctx.lineWidth=Math.max(3,gap*.09);
     ctx.beginPath();
-    ctx.arc(x,y,gap*.2,0,Math.PI*2);
+    ctx.arc(x,y,gap*.28,0,Math.PI*2);
     ctx.stroke();
     ctx.restore();
   }
