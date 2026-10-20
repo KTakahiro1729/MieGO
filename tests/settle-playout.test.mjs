@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BLACK, WHITE, at, newGame, beginSoloScoring } from "../public/core.mjs";
-import { damePoints, settleLimit, settleStart, pickSettleMove, settleStep, deadFromPlayout, replayPlayout } from "../public/settle-playout.mjs";
+import { BLACK, WHITE, at, boardHash, newGame, beginSoloScoring, play } from "../public/core.mjs";
+import { damePoints, settleMax, settleStart, pickSettleMove, settleStep, deadFromPlayout, replayPlayout } from "../public/settle-playout.mjs";
 
 // Black walls off the left, White the right; one white stone sits dead inside Black's area.
 function position() {
@@ -16,8 +16,8 @@ const logits = (best = []) => {
   return policy;
 };
 
-test("the playout limit is a third of the board", () => {
-  assert.deepEqual([9, 13, 19].map(settleLimit), [27, 56, 120]);
+test("only a runaway guard of four thirds of the board stops a playout before two passes", () => {
+  assert.deepEqual([9, 13, 19].map(settleMax), [108, 225, 481]);
 });
 
 test("the playout starts from the scoring position without touching the match", () => {
@@ -100,4 +100,45 @@ test("a dame fill that would put the mover's own group in atari is left open", (
   const start = settleStart(beginSoloScoring({ ...newGame(), board, history: [board.map(n => n + 1).join("")] }));
   // Black's corner pair has one liberty left at (2,0); filling it would be its last.
   assert.ok(!damePoints(start).has(at(2, 0)));
+});
+
+test("the playout never plays inside an area KataGo calls settled, except to close its own border", () => {
+  const start = settleStart(position());
+  // Without the dead white stone, nothing is left to capture.
+  start.board = [...start.board];
+  start.board[at(1, 1)] = 0;
+  const ownership = Array(81).fill(0);
+  for (let y = 0; y < 9; y++) {
+    for (let x = 0; x < 4; x++) ownership[at(x, y)] = 0.95;
+    for (let x = 6; x < 9; x++) ownership[at(x, y)] = -0.95;
+  }
+  // Black to move: a ko threat in White's settled area and a move inside its own are both skipped.
+  assert.equal(pickSettleMove(start, logits([at(7, 4), at(2, 6), at(3, 2)]), -15, ownership), null);
+  // An open point is still played.
+  ownership[at(2, 6)] = 0.5;
+  assert.equal(pickSettleMove(start, logits([at(7, 4), at(2, 6)]), -15, ownership), at(2, 6));
+  // A settled point of one's own next to an opponent stone closes the border.
+  const border = { ...start, board: [...start.board] };
+  border.board[at(4, 7)] = 0;
+  border.board[at(5, 7)] = WHITE;
+  ownership[at(4, 7)] = 0.9;
+  assert.equal(pickSettleMove(border, logits([at(7, 4), at(4, 7)]), -15, ownership), at(4, 7));
+});
+
+test("a dame the opponent's area already holds is left for the opponent to fill", () => {
+  const board = Array(81).fill(0);
+  for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(5, y)] = WHITE; }
+  const start = settleStart(beginSoloScoring({ ...newGame(), board, history: [board.map(n => n + 1).join("")] }));
+  const ownership = Array(81).fill(0);
+  for (let y = 0; y < 9; y++) ownership[at(4, y)] = -0.9;
+  assert.equal(pickSettleMove(start, logits([at(4, 4)]), 20, ownership), null);
+  assert.equal(pickSettleMove({ ...start, next: WHITE }, logits([at(4, 4)]), 20, ownership.map(v => v)), at(4, 4));
+});
+
+test("the playout never brings back a board it has already had", () => {
+  const start = settleStart(position());
+  const after = play(start, at(0, 1));
+  // The board after Black's move at (0,1) is marked as seen: that move is skipped for the next one.
+  const seen = { ...start, history: [...start.history, boardHash(after.board)] };
+  assert.equal(pickSettleMove(seen, logits([at(0, 1), at(2, 6)]), -15), at(2, 6));
 });
