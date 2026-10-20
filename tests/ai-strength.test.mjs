@@ -59,8 +59,7 @@ test("weakened AI only returns legal points and never fills its own eye by sampl
 test("weakened AI passes only when passing is allowed and policy favours it",()=>{
   const s=newGame(),logits=flatPolicy();
   assert.notEqual(choosePolicyMove(s,logits,20,{strength:"easy",random:seeded(1)}),null);
-  s.moveNumber=70;
-  assert.equal(choosePolicyMove(s,logits,20,{strength:"easy",random:seeded(1)}),null);
+  assert.equal(choosePolicyMove(s,logits,20,{strength:"easy",endgameStage:"near",random:seeded(1)}),null);
   assert.throws(()=>pickWeakenedMove([{position:0,raw:0,score:0}],0,{strength:"strong"}),/Unknown/);
 });
 
