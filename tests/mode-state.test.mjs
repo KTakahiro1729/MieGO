@@ -57,7 +57,7 @@ test("the COM is eight characters with notes, then カスタム's strength and f
     ["chick","steady","raider","brawler","wide","serious","master","custom"]);
   assert.equal((between(sheet,'id="aiCharacterChoices"','</fieldset>').match(/<small class="choice-note">/g)||[]).length,8);
   assert.deepEqual([...sheet.matchAll(/name="aiStrength" value="(\w+)"/g)].map(m=>m[1]),["beginner","easy","normal","strong","strongest"]);
-  for(const name of ["aiInvasion","aiStance","aiHeight","aiTenuki"])
+  for(const name of ["aiStance","aiHeight","aiTenuki"])
     assert.deepEqual([...sheet.matchAll(new RegExp('name="'+name+'" value="(\\d+)"',"g"))].map(m=>m[1]),["0","50","100"]);
 });
 

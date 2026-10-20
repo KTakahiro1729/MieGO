@@ -23,7 +23,7 @@ test("an unsettled board cannot pass, a settled one can",()=>{
   assert.notEqual(choosePolicyMove(s,p,1000,{random:()=>.5}),null);
   assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"near",random:()=>.5}),null);
 });
-test("invasion and reinforcement sliders adjust separate candidate scores",()=>{
+test("攻守 rewards invading and penalises reinforcing at 攻める, and the reverse at 守る",()=>{
   const s=newGame();
   s.board[at(1,1)]=1;
   for(const q of [at(0,1),at(1,0),at(2,1)])s.board[q]=-1;
@@ -36,12 +36,14 @@ test("invasion and reinforcement sliders adjust separate candidate scores",()=>{
   assert.equal(featuresIn.reinforcement,0);
   assert.ok(featuresSafe.reinforcement>.3);
   const policy=Array(81).fill(-50);policy[invading]=0;policy[defending]=0;
-  const get=(inv,rein)=>scorePolicyCandidates(s,policy,owners,{invasion:inv,reinforcement:rein});
+  const get=stance=>scorePolicyCandidates(s,policy,owners,{stance});
   const find=(xs,p)=>xs.find(x=>x.position===p).score;
-  assert.ok(find(get(100,50),invading)>find(get(50,50),invading));
-  assert.equal(find(get(50,100),invading),find(get(50,50),invading));
-  assert.ok(find(get(50,100),defending)>find(get(50,50),defending));
-  assert.equal(find(get(100,50),defending),find(get(50,50),defending));
+  assert.ok(find(get(100),invading)>find(get(50),invading));
+  assert.ok(find(get(0),invading)<find(get(50),invading));
+  assert.ok(find(get(0),defending)>find(get(50),defending));
+  assert.ok(find(get(100),defending)<find(get(50),defending));
+  // Saved settings from before: 侵入 重視 alone reads as 攻める.
+  assert.equal(find(scorePolicyCandidates(s,policy,owners,{invasion:100,reinforcement:0}),invading),find(get(100),invading));
 });
 test("invalid policy and finished games cannot generate AI turns",()=>{
   assert.throws(()=>choosePolicyMove(newGame(),[1],0),/Invalid/);
