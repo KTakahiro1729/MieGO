@@ -36,16 +36,8 @@ import {
   WHITE,
   withPlayoutFill,
 } from "./core.mjs";
-import { suggestDeadStones } from "./dead-stones.mjs";
-import {
-  deadFromPlayout,
-  pickSettleMove,
-  replayPlayout,
-  settleMax,
-  settleStart,
-  settleStep,
-  settleStepMs,
-} from "./settle-playout.mjs";
+import { replayPlayout } from "./settle-playout.mjs";
+import { createSettleControl } from "./settle-control.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import {
   BYOYOMI_CHOICES,
@@ -77,10 +69,13 @@ import { createP2PTransport } from "./p2p-transport.mjs";
 import { interpolateOwnership, prisonerOutline } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
 import {
+  CALM_VOICES,
   countdownSound,
   createSoundEffects,
+  DOPA_VOICES,
   moveSound,
 } from "./sound.mjs";
+import { createDopaMode, dopaEvent } from "./dopa-mode.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
 import { playerSides } from "./player-row.mjs";
@@ -94,7 +89,7 @@ import {
   readCom,
   setComValue,
 } from "./ai-characters.mjs";
-import { strongNetworkFor } from "./strong-networks.mjs";
+import { createStrongWorkers } from "./strong-worker.mjs";
 import {
   answerTakeback,
   requestTakeback,
@@ -245,8 +240,13 @@ const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideSton
 const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingStones,isCounting,show,draw,
   onOverlayOn:()=>boardReview?requestReviewOwnership():requestAnalysis()});
 const {shownPalette,overlayOn,updateGradient}=appearance;
-// 効果音: off until the 設定 sheet turns them on.
-const sound = createSoundEffects({$});
+// 効果音: off until the 設定 sheet turns them on. ドパガキモード swaps in louder voices.
+const sound = createSoundEffects({$,voices:()=>dopa.level()==="off"?CALM_VOICES:DOPA_VOICES});
+const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),reducedMotion:()=>reducedMotion(),
+  score:()=>$("scoreBox").querySelector("strong")});
+// Whom ドパガキモード cheers for a win: the player's own colour, or either side
+// when watching the COMs or sharing one board.
+const dopaViewer = () => isWatching() || (gameMode!=="ai" && !room) ? null : room ? myOnlineColor() : humanColor;
 let connected = false;
 // A first visit starts against the COM; later visits restore the saved mode.
 let gameMode = room ? "online" : "ai";
@@ -300,11 +300,28 @@ let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
 let endExpanded = false, analysisContext = null;
 let deadEvaluation=null, deadReview="idle", deadReviewTouched=false;
-// 決着手順: KataGo's playout shown on the board while it settles the dead
-// stones (settle), and the last playout kept for 再生 (settlePlayout).
-let settle=null, settlePlayout=null, settleShow=null;
-const SETTLE_HOLD_MS=1100;
-const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+// 決着手順: KataGo's playout of the scoring position, and the one kept for 再生.
+const settleControl = createSettleControl({
+  getGame:()=>game,
+  isReviewing:()=>!!boardReview,
+  post:postToWorker,
+  show,
+  draw,
+  jobCurrent:id=>deadEvaluation?.id===id && scoringJobCurrent(deadEvaluation),
+  onUnavailable() {
+    deadEvaluation=null;reviewUnavailable();
+  },
+  onSettled(run) {
+    const job=deadEvaluation;
+    deadEvaluation=null;
+    if(!scoringJobCurrent(job)){show();return;}
+    settleControl.keep({positions:run.positions,board:run.state.board,initialOwnership:run.initialOwnership});
+    apply(scoringReviewAction("dead_auto",{positions:run.dead,playout:run.positions}));
+    // Stones tapped during the playout are corrections to its result, applied on top of it.
+    for(const position of run.taps||[])
+      apply({type:"dead",position,selected:!game.dead.includes(position)});
+  },
+});
 function scoringReviewAction(type, extra={}) {
   return {type,number:game.moveNumber,before:boardHash(game.board),
     deadBefore:deadSignature(game.dead),...extra};
@@ -502,66 +519,36 @@ const isWatching = () => !room && gameMode === "ai" && watching;
 const comToMove = () => watching ? watchAi[sideKey(game.next)] : aiCom;
 const gameUsesStrongest = () => !room && gameMode==="ai" && game.status==="playing" && !isGomoku(game) &&
   (watching ? watchAi.black.strength==="strongest" || watchAi.white.strength==="strongest" : aiCom.strength==="strongest");
-// 最強 has its own worker and network (about 100 MB, 9路 or larger boards),
-// started only once a game against it is under way. If it cannot load, the
-// COM plays on with the small network instead.
-const strongNets = {};
-// Behind by this many points, 最強 reads one or two moves ahead.
-const STRONG_READ = {one:2,two:6};
-const strongNet = () => {
-  const key=strongNetworkFor(sizeOf(game.board));
-  return strongNets[key] ??= {key,worker:null,state:"idle",progress:0};
-};
-function startStrongWorker(net=strongNet()) {
-  if(net.worker || net.state==="failed")return;
-  net.state="loading";net.progress=0;
-  net.worker=new Worker("/katago-worker.bundle.mjs?net="+net.key,{type:"module"});
-  net.worker.onerror=e=>strongFailed(net,e.message || "worker startup error");
-  net.worker.onmessage=event=>onStrongMessage(net,event);
-}
-function strongFailed(net, reason) {
-  console.warn("Strongest ("+net.key+") network unavailable; the COM plays with the small network:",reason);
-  net.state="failed";
-  net.worker?.terminate();net.worker=null;
-  if(net!==strongNet())return;
-  if(aiJob?.strong){aiThinking=false;aiJob=null;}
-  if(gameMode==="ai")$("aiMatchStatus").textContent=TEXT.ai.strongestFailed;
-  if(isAiTurn())requestAnalysis();
-}
-function onStrongMessage(net, event) {
-  const result=event.data;
-  if(result?.kind==="progress") {
-    net.progress=result.total>0?Math.floor(100*result.loaded/result.total):0;
-    if(net===strongNet() && isAiTurn() && !aiThinking && comToMove().strength==="strongest"){
-      $("aiMatchStatus").textContent=TEXT.ai.strongestLoading(net.progress);
+const strongWorkers = createStrongWorkers({
+  boardSize:()=>sizeOf(game.board),
+  onProgress(progress) {
+    if(isAiTurn() && !aiThinking && comToMove().strength==="strongest"){
+      $("aiMatchStatus").textContent=TEXT.ai.strongestLoading(progress);
       show();
     }
-    return;
-  }
-  if(result?.kind==="availability") {
-    if(!result.available){strongFailed(net,result.error || TEXT.analysis.initFailed);return;}
-    net.state="ready";
-    if(net===strongNet() && isAiTurn())requestAnalysis();
-    return;
-  }
-  if(result?.kind==="reading") {
+  },
+  onReady() {
+    if(isAiTurn())requestAnalysis();
+  },
+  onFailed() {
+    if(aiJob?.strong){aiThinking=false;aiJob=null;}
+    if(gameMode==="ai")$("aiMatchStatus").textContent=TEXT.ai.strongestFailed;
+    if(isAiTurn())requestAnalysis();
+  },
+  onReading(result) {
     if(aiJob?.id!==result.id)return;
     aiJob.read={depth:result.depth,done:result.done,total:result.total,
       remainingMs:Math.max(0,result.total-result.done)*(Number(result.evalMs)||0)};
     $("aiMatchStatus").textContent=TEXT.ai.strongestReading;
     show();
-    return;
-  }
-  if(result?.kind==="move") {
-    if(result.error){strongFailed(net,result.error);return;}
-    finishAiMove(result);
-  }
-}
+  },
+  onMove:result=>finishAiMove(result),
+});
 /** While 最強 is to move: what it is doing, with how far along it is, in full
  * and short enough for its side of the turn row; null for any other move. */
 function strongWait() {
   if(!isAiTurn() || isGomoku(game) || comToMove().strength!=="strongest")return null;
-  const net=strongNet();
+  const net=strongWorkers.current();
   if(net.state==="loading")return net.progress<100?
     {text:TEXT.game.thinkDownloading(net.progress),short:TEXT.game.sideDownloading(net.progress)}:
     {text:TEXT.game.thinkPreparing,short:TEXT.game.sidePreparing};
@@ -684,6 +671,7 @@ const boardRenderer = createBoardRenderer({
     boardReview,
     boardTheme:appearance.boardTheme(),
     breathParticles:appearance.breathParticles(),
+    burst:dopa.level(),
     candidate,
     displayedOwnership,
     game,
@@ -697,7 +685,7 @@ const boardRenderer = createBoardRenderer({
     opacity:appearance.opacity(),
     palette:shownPalette(),
     sampleStones:appearance.editingBoard(),
-    settle:settleView(),
+    settle:settleControl.view(),
   })
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
@@ -731,7 +719,7 @@ function requestAnalysis() {
   clearTimeout(analysisTimer);
   analysisContext=null;
   // The 最強 network downloads while the player thinks about the first move.
-  if(gameUsesStrongest())startStrongWorker();
+  if(gameUsesStrongest())strongWorkers.start();
   if(game.status==="scoring") {
     pending=++seq;
     analysisContext=null;
@@ -751,7 +739,7 @@ function requestAnalysis() {
     const id=pending;
     deadEvaluation={id,number:game.moveNumber,hash:boardHash(game.board),
       dead:deadSignature(game.dead)};
-    startSettle(id);
+    settleControl.start(id);
     show();return;
   }
   if(game.status!=="playing") {
@@ -771,9 +759,9 @@ function requestAnalysis() {
       $("aiMatchStatus").textContent = TEXT.ai.unavailableContinue;
       show();return;
     }
-    const net = strongNet(), strong = comToMove().strength==="strongest" && net.state!=="failed";
+    const net = strongWorkers.current(), strong = comToMove().strength==="strongest" && net.state!=="failed";
     if (strong && net.state!=="ready") {
-      startStrongWorker(net);
+      strongWorkers.start(net);
       $("aiMatchStatus").textContent = TEXT.ai.strongestLoading(net.progress);
       requestOwnership(); show(); return;
     }
@@ -789,7 +777,7 @@ function requestAnalysis() {
     aiJob={id,number:game.moveNumber,hash:boardHash(game.board),strong};
     $("analysisStatus").textContent = TEXT.analysis.thinking;
     $("aiMatchStatus").textContent = TEXT.ai.thinking;
-    if(strong)net.worker.postMessage({id,kind:"move",state:game,read:STRONG_READ});
+    if(strong)strongWorkers.requestMove(net,id,game);
     else postToWorker({id,kind:"move",state:game});
     show();return;
   }
@@ -842,126 +830,12 @@ function scoringJobCurrent(job) {
     boardHash(game.board)===job.hash && deadSignature(game.dead)===job.dead &&
     !deadReviewTouched && !game.agreed.black && !game.agreed.white;
 }
-function startSettle(id) {
-  stopSettleShow();
-  settle={id,state:settleStart(game),positions:[],ownership:null,initialOwnership:null,shownAt:0,timer:null,
-    limit:settleMax(sizeOf(game.board))};
-  postToWorker({id,kind:"settle",state:settle.state});
-}
-function cancelSettle() {
-  if(settle?.timer)clearTimeout(settle.timer);
-  settle=null;
-}
-/** One KataGo answer during the playout: play its best move, or finish. */
-function continueSettle(result) {
-  const job=deadEvaluation;
-  if(!settle || settle.id!==result.id || !job || job.id!==result.id || !scoringJobCurrent(job)) {
-    cancelSettle();draw();return;
-  }
-  if(result.error || result.engine!=="katago" || !Array.isArray(result.ownership) ||
-     result.ownership.length!==game.board.length || !result.ownership.every(Number.isFinite)) {
-    cancelSettle();deadEvaluation=null;reviewUnavailable();return;
-  }
-  settle.ownership=result.ownership;
-  settle.initialOwnership??=result.ownership;
-  if(settle.state.status!=="playing" || settle.positions.length>=settle.limit)return finishSettle();
-  const position=pickSettleMove(settle.state,result.policy,result.passLogit,result.ownership);
-  const step=settle.skip || reducedMotion()?0:settleStepMs(sizeOf(game.board));
-  const wait=Math.max(0,settle.shownAt+step-performance.now());
-  settle.timer=setTimeout(()=>{
-    if(!settle || settle.id!==result.id)return;
-    settle.timer=null;
-    settle.state=settleStep(settle.state,position);
-    settle.positions.push(position);settle.shownAt=performance.now();
-    show();
-    postToWorker({id:settle.id,kind:"settle",state:settle.state});
-  },wait);
-}
-/** The playout is over: hold its final board briefly, then mark the dead stones. */
-function finishSettle() {
-  const run=settle;
-  let positions;
-  try {
-    // Groups the playout captured, plus the conservative estimate on the real board.
-    const marked=new Set([...deadFromPlayout(game,run.state.board,run.ownership),
-      ...suggestDeadStones(game,run.initialOwnership)]);
-    positions=[...marked].sort((a,b)=>a-b);
-  }catch(error) {
-    console.error("KataGo dead-stone candidates",error);
-    cancelSettle();deadEvaluation=null;reviewUnavailable();return;
-  }
-  // A playout stopped at its move limit is not a finished game; the text says so.
-  run.cut=run.state.status==="playing";
-  run.dead=positions;run.finished=true;show();
-  run.timer=setTimeout(()=>commitSettle(run),run.skip || reducedMotion()?0:SETTLE_HOLD_MS);
-}
-function commitSettle(run) {
-  if(settle!==run)return;
-  const job=deadEvaluation;
-  settle=null;deadEvaluation=null;
-  if(!scoringJobCurrent(job)){show();return;}
-  settlePlayout={number:game.moveNumber,hash:boardHash(game.board),positions:run.positions,
-    board:run.state.board,initialOwnership:run.initialOwnership};
-  apply(scoringReviewAction("dead_auto",{positions:run.dead,playout:run.positions}));
-  // Stones tapped during the playout are corrections to its result, applied on top of it.
-  for(const position of run.taps||[])
-    apply({type:"dead",position,selected:!game.dead.includes(position)});
-}
-/** 再生: the kept playout again, without asking KataGo. */
-function skipSettle() {
-  if(!settle)return;
-  settle.skip=true;
-  if(settle.timer && !settle.finished){
-    // The pending move plays at once; later ones follow without the pause.
-    clearTimeout(settle.timer);settle.timer=null;
-    postToWorker({id:settle.id,kind:"settle",state:settle.state});
-  } else if(settle.finished){
-    clearTimeout(settle.timer);
-    commitSettle(settle);
-  }
-}
-function replaySettle() {
-  if(!currentPlayout() || settle)return;
-  const frames=replayPlayout(game,settlePlayout.positions);
-  if(!frames)return;
-  stopSettleShow();
-  const run={frames,index:0,timer:null};settleShow=run;
-  const tick=()=>{
-    if(settleShow!==run)return;
-    if(run.index>=frames.length-1 || game.status!=="scoring"){
-      run.finished=true;show();
-      run.timer=setTimeout(()=>{if(settleShow===run){settleShow=null;show();}},SETTLE_HOLD_MS);
-      return;
-    }
-    run.index++;show();
-    run.timer=setTimeout(tick,reducedMotion()?0:settleStepMs(sizeOf(game.board)));
-  };
-  show();run.timer=setTimeout(tick,settleStepMs(sizeOf(game.board)));
-}
-function stopSettleShow() {
-  if(settleShow?.timer)clearTimeout(settleShow.timer);
-  settleShow=null;
-}
-const currentPlayout=()=>settlePlayout && game.status==="scoring" &&
-  settlePlayout.number===game.moveNumber && settlePlayout.hash===boardHash(game.board) &&
-  settlePlayout.positions.length ? settlePlayout : null;
+
 /** The playout's border stones stay on the board, as fill stones, and count. */
 function keptPlayout() {
-  if(boardReview || settle || settleShow)return null;
+  if(boardReview || settleControl.busy())return null;
   const counted=game.status==="scoring" || game.status==="finished" && !game.result?.endsWith("+R");
   return counted?fillStones(game):null;
-}
-/** What the board shows during a playout: its position over the real stones. */
-function settleView() {
-  if(boardReview || game.status!=="scoring")return null;
-  if(settle)return {board:settle.state.board,base:game.board,last:settle.positions.at(-1)??null,
-    moves:settle.positions.length,ownership:settle.ownership,finished:!!settle.finished,cut:!!settle.cut};
-  if(settleShow && currentPlayout()){
-    const frame=settleShow.frames[settleShow.index];
-    return {board:frame.board,base:game.board,last:frame.moves.at(-1)?.position??null,
-      moves:settleShow.index,ownership:null,finished:!!settleShow.finished};
-  }
-  return null;
 }
 function finishAiMove(result) {
   const job=aiJob;
@@ -1041,7 +915,7 @@ function handleAnalysis(event) {
   }
   if(result.id!==pending)return;
   if(result.kind==="settle") {
-    continueSettle(result);
+    settleControl.receive(result);
     return;
   }
   if(result.kind==="move") {
@@ -1217,11 +1091,11 @@ function show() {
   $("watchToggle").setAttribute("aria-pressed",String(watchPaused));
   $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:
     scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
-  const playout=settleView();
+  const playout=settleControl.view();
   $("settleSkip").hidden=!playout;
   // While counting, the action row holds 死石の確認に戻る instead.
   const counting=scoringStepOf(game)==="count";
-  $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout() || counting;
+  $("settleReplay").hidden=!!playout || !isScoring || !settleControl.current() || counting;
   $("scoreInstruction").textContent=playout?
     (playout.finished?(playout.cut?TEXT.scoring.settleCut(playout.moves):TEXT.scoring.settleDone(playout.moves)):
       TEXT.scoring.settling(playout.moves)):
@@ -1334,9 +1208,8 @@ function apply(action, remote=false, isAiMove=false) {
         replayPlayout(game,action.playout) : null;
       game=withPlayoutFill(game,frames?.at(-1).board);
       if(frames) {
-        settlePlayout={number:game.moveNumber,hash:boardHash(game.board),positions:[...action.playout],
-          board:frames.at(-1).board,initialOwnership:settlePlayout?.initialOwnership};
-        if(remote)setTimeout(replaySettle,0);
+        settleControl.keep({positions:[...action.playout],board:frames.at(-1).board});
+        if(remote)setTimeout(settleControl.replay,0);
       }
       deadReview=action.type==="dead_unavailable"?"unavailable":
         action.positions.length?"complete":"none";
@@ -1394,7 +1267,9 @@ function apply(action, remote=false, isAiMove=false) {
     if(action.type==="move" && (remote || isAiMove && !watching))boardZoom.reset();
     candidate=null;save();show();
     const cue=moveSound(before,game,action.type==="move"?action.position:null);
-    if(cue)sound.play(cue);
+    const cheer=dopaEvent(before,game,dopaViewer());
+    if(cue)sound.play(cue,cheer?.kind==="capture"?{count:cheer.count}:undefined);
+    dopa.celebrate(cheer);
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
        (action.type==="end_answer" && game.status==="scoring") ||
@@ -1444,10 +1319,7 @@ canvas.addEventListener("click",e=>{
     if(room&&!connected)return;
     // Counting stones are drawn on empty territory; only real stones can be marked dead.
     if(!game.board[position])return;
-    // A tap on a stone during the playout skips ahead to its result and corrects
-    // that stone, as it would once the playout is over (UX方針 4: 死石解析中).
-    if(settleShow)stopSettleShow();
-    else if(settle){settle.taps=[...(settle.taps||[]),position];skipSettle();return;}
+    if(settleControl.tap(position))return;
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
   // While watching, the board takes stones only after 介入する.
@@ -2669,11 +2541,8 @@ $("closeMode").onclick=()=>{closePanels();$("newGameButton").focus();};
 // The help sheet stacks above any open sheet; a local ? shows one topic of it.
 const {closeHelpPopover}=createHelpSheet({$,getGame:()=>game,setBackgroundInert,closePanels});
 $("newGameButton").onclick=()=>openPanel(room?"online":gameMode);
-$("settleSkip").onclick=()=>{
-  if(settleShow){stopSettleShow();show();}
-  else skipSettle();
-};
-$("settleReplay").onclick=replaySettle;
+$("settleSkip").onclick=()=>settleControl.skip();
+$("settleReplay").onclick=settleControl.replay;
 $("startAi").onclick=()=>{
   if(continueFrom){forkBoardReview("ai");return;}
   // The button is disabled meanwhile, except for 五目並べ, which needs no KataGo.

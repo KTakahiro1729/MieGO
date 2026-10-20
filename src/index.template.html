@@ -48,6 +48,7 @@
           <div class="board-viewport">
             <canvas id="board" width="720" height="720" aria-label="{{game.boardLabel(9)}}"></canvas>
           </div>
+          <div id="dopaStage" class="dopa-stage" aria-hidden="true"></div>
           <button id="boardZoomReset" class="board-zoom-reset secondary" type="button" hidden>{{game.zoomReset}}</button>
           <div id="pinchHint" class="pinch-hint" role="status" hidden>
             <span class="pinch-finger pinch-finger-a" aria-hidden="true"></span>
@@ -159,6 +160,7 @@
       <div class="settings-head"><h2>{{settings.title}}</h2><button id="resetAppearance" class="reset-button" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span>{{settings.reset}}</span></button><button id="closeSettings" class="icon-button" type="button" aria-label="{{settings.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <section class="settings-section sound-settings">
         <div class="mode"><div><strong>{{settings.sound}}</strong><p>{{settings.soundNote}}</p></div><input id="soundEffects" type="checkbox" aria-label="{{settings.sound}}"></div>
+        <div class="mode"><div><strong>{{settings.dopa}}</strong><p>{{settings.dopaNote}}</p></div><select id="dopaMode" aria-label="{{settings.dopa}}"><option value="off">{{settings.dopaLevels.off}}</option><option value="on">{{settings.dopaLevels.on}}</option><option value="ultra">{{settings.dopaLevels.ultra}}</option></select></div>
       </section>
       <section class="settings-section">
         <h3>{{settings.board}}</h3>

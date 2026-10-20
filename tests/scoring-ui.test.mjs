@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {source} from "./helpers/source.mjs";
 const app=source("app.mjs");
+const settle=source("settle-control.mjs");
 const worker=source("../src/katago/neural-worker.ts");
 const html=source("index.html");
 
@@ -13,9 +14,9 @@ test("AI mode starts from the 新規対戦 sheet with a readiness-gated start",(
 });
 test("automatic dead-stone inference reuses scoring panel, no new permanent UI",()=>{
   // The dead stones come from KataGo's settle playout plus the ownership estimate.
-  assert.match(app,/kind:"settle"/);
-  assert.match(app,/deadFromPlayout\(game,run\.state\.board,run\.ownership\)/);
-  assert.match(app,/suggestDeadStones\(game,run\.initialOwnership\)/);
+  assert.match(settle,/kind:"settle"/);
+  assert.match(settle,/deadFromPlayout\(game,run\.state\.board,run\.ownership\)/);
+  assert.match(settle,/suggestDeadStones\(game,run\.initialOwnership\)/);
   assert.match(app,/scoringReviewAction\("dead_auto"/);
   assert.match(app,/deadReviewTouched/);
   assert.doesNotMatch(html,/id="autoDeadButton"/);
