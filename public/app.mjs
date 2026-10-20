@@ -96,6 +96,7 @@ function renderInviteButton() {
   $("copy").textContent=!room?TEXT.online.prepareInvite:
     issuedSide!==null && !inviteMatchesChoice()?
       TEXT.online.renewInvite:TEXT.online.copyInvite;
+  keepArmedLabel($("copy"));
 }
 function persistOnline(){
   if(!room || !ROOM_PATTERN.test(room))return;
@@ -566,6 +567,7 @@ function show() {
   renderInviteButton();
   $("startAi").textContent=fallbackMode?TEXT.ai.startUnavailable:
     !katagoReady?TEXT.ai.startLoading:gameMode==="ai"?TEXT.ai.restart:TEXT.ai.start;
+  keepArmedLabel($("startAi"));
   $("aiInvasion").disabled=false;
   $("aiReinforcement").disabled=false;
   $("turn").classList.toggle("white-to-play",game.next===WHITE);
@@ -876,27 +878,51 @@ $("closeIllegalPromptFallback").onclick=()=>{
 };
 // A mistaken pass is undone with 待った, so every mode passes on one tap.
 $("pass").onclick=()=>submitMove(null);
-let resignArmed=false;
-function resetResignButton() {
-  resignArmed=false;
-  $("resign").textContent=TEXT.common.resign;
-  $("resign").setAttribute("aria-label",TEXT.game.resignAria);
-  $("resign").classList.remove("danger-armed");
-}
+// The armed label names the action ("投了？"): a bare "確定" reads like the
+// adjacent move confirmation.
 $("resign").onclick=()=>{
-  if(!resignArmed){
-    resignArmed=true;
-    // Name the action: a bare "確定" reads like the adjacent move confirmation.
-    $("resign").textContent=TEXT.game.resignConfirm;
-    $("resign").setAttribute("aria-label",TEXT.game.resignConfirmAria);
-    $("resign").classList.add("danger-armed");
-    return;
-  }
-  resetResignButton();submitMove("resign");
+  if(!confirmByRetap($("resign"),null,TEXT.game.resignConfirmAria))return;
+  submitMove("resign");
 };
-function resetArmedButtons(){resetResignButton();}
+// Irreversible actions (投了, leaving a friend's match) are confirmed in place:
+// the first tap arms the button itself (danger color and a trailing ？ on its
+// label), optionally explaining below it; only a second tap on it proceeds.
+let armedConfirm=null;
+function confirmByRetap(button,message=null,armedAria=null) {
+  if(armedConfirm?.button===button){disarmConfirm();return true;}
+  disarmConfirm();
+  armedConfirm={button,note:null,label:button.textContent,aria:button.getAttribute("aria-label")};
+  if(message){
+    const note=document.createElement("p");
+    note.id="armedConfirmNote";note.className="armed-note";note.setAttribute("role","status");
+    note.textContent=TEXT.confirm.retap(message);
+    button.setAttribute("aria-describedby",note.id);
+    button.after(note);
+    armedConfirm.note=note;
+  }
+  if(armedAria)button.setAttribute("aria-label",armedAria);
+  button.classList.add("danger-armed");
+  button.textContent=TEXT.confirm.armedLabel(armedConfirm.label);
+  return false;
+}
+// Renderers rewrite these labels; keep the armed ？ on whatever they wrote.
+function keepArmedLabel(button) {
+  if(armedConfirm?.button!==button)return;
+  armedConfirm.label=button.textContent;
+  button.textContent=TEXT.confirm.armedLabel(armedConfirm.label);
+}
+function disarmConfirm() {
+  if(!armedConfirm)return;
+  armedConfirm.button.classList.remove("danger-armed");
+  armedConfirm.button.removeAttribute("aria-describedby");
+  armedConfirm.button.textContent=armedConfirm.label;
+  if(armedConfirm.aria!==null)armedConfirm.button.setAttribute("aria-label",armedConfirm.aria);
+  armedConfirm.note?.remove();
+  armedConfirm=null;
+}
+function resetArmedButtons(){disarmConfirm();}
 document.addEventListener("pointerdown",e=>{
-  if(resignArmed && e.target!==$("resign"))resetResignButton();
+  if(armedConfirm && !armedConfirm.button.contains(e.target))disarmConfirm();
 });
 // Signals computed for the abandoned line must not survive a rewind.
 function afterTakeback() {
@@ -945,7 +971,7 @@ function freshLocalBoard() {
 /** 新規対戦 → 1台で打つ: leaves an AI or friend match (kept in the library). */
 function startLocalGame() {
   if(room && connected &&
-    !confirm(TEXT.confirm.leaveForLocal))return;
+    !confirmByRetap($("startLocal"),TEXT.confirm.leaveForLocal))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
   clearBoardReview();stopAiTurn();gameMode="local";
@@ -1179,9 +1205,8 @@ function leaveOnlineRoom() {
 }
 /** Resume the unfinished saved game of another offline mode (1台 or AI). */
 function resumeModeGame(mode) {
-  resetArmedButtons();
   if(room && connected &&
-    !confirm(TEXT.confirm.leaveFor(mode)))return;
+    !confirmByRetap($("returnToGame"),TEXT.confirm.leaveFor(mode)))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
   clearBoardReview();
@@ -1206,7 +1231,7 @@ function returnTarget(kind) {
 function syncReturnButton(kind) {
   const target=returnTarget(kind);
   $("returnToGame").hidden=!target;
-  if(target)$("returnToGame").textContent=target.label;
+  if(target){$("returnToGame").textContent=target.label;keepArmedLabel($("returnToGame"));}
 }
 $("returnToGame").onclick=()=>{
   const target=returnTarget(newGameModeKind());
@@ -1319,9 +1344,9 @@ function showInviteLink() {
 async function beginOnlineRoom(){
   const choice=currentSideSelection();
   if(room&&inviteMatchesChoice())return showInviteLink();
-  if(room&&!confirm(TEXT.confirm.renewInvite))return null;
+  if(room&&!confirmByRetap($("copy"),TEXT.confirm.renewInvite))return null;
   if(!room && game.moveNumber>0 &&
-     !confirm(TEXT.confirm.leaveForOnline))return null;
+     !confirmByRetap($("copy"),TEXT.confirm.leaveForOnline))return null;
   const color=selectColor(choice),token=await verifyP2P();
   const created=await p2pTransport.post("/api/rooms",
     {color:color===BLACK?"black":"white",turnstileToken:token});
@@ -1637,7 +1662,7 @@ function forkBoardReview() {
   let fork;
   try{fork=forkReview(activeReviewSnapshot(boardReview,game),boardReview.step);}
   catch{$("reviewNotice").textContent=TEXT.review.branchFailed;return;}
-  if(room && connected && !confirm(TEXT.confirm.leaveForReview))return;
+  if(room && connected && !confirmByRetap($("reviewBranch"),TEXT.confirm.leaveForReview))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
   stopAiTurn();gameMode="local";game=fork;
@@ -1875,7 +1900,7 @@ function resumeSelectedReview(){
   if(!canResumeSelectedReview())return;
   const selected=boardReview.record;
   if(room && connected &&
-    !confirm(TEXT.confirm.leaveForArchive))return;
+    !confirmByRetap($("reviewResume"),TEXT.confirm.leaveForArchive))return;
   // Reload the record before mutating anything; another tab may have advanced it.
   let record=gameLibrary.load(selected.id);
   if(!record || (record.revision!==selected.revision &&
@@ -2037,7 +2062,7 @@ $("newGameButton").onclick=()=>openPanel(room?"online":gameMode);
 $("startAi").onclick=()=>{
   if(!katagoReady || fallbackMode)return; // The button is disabled meanwhile.
   if(room && connected &&
-     !confirm(TEXT.confirm.leaveForAi))return;
+     !confirmByRetap($("startAi"),TEXT.confirm.leaveForAi))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
   clearBoardReview();

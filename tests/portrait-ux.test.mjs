@@ -58,10 +58,9 @@ test("autosaved everyday navigation has no blocking browser confirmation",()=>{
 test("resignation is a visible button with inline two-tap safety",()=>{
   assert.doesNotMatch(html,/id="gameMenu"/);
   assert.doesNotMatch(app,/confirm\("投了しますか？"\)/);
-  assert.match(app,/\$\("resign"\)\.textContent=TEXT\.game\.resignConfirm/);
-  assert.equal(TEXT.game.resignConfirm,"投了？");
-  assert.match(app,/if\(!resignArmed\)/);
-  assert.match(app,/resignArmed && e\.target!==\$\("resign"\)/);
+  assert.match(app,/if\(!confirmByRetap\(\$\("resign"\),null,TEXT\.game\.resignConfirmAria\)\)return;/);
+  assert.equal(TEXT.confirm.armedLabel(TEXT.common.resign),"投了？");
+  assert.match(app,/armedConfirm && !armedConfirm\.button\.contains\(e\.target\)/);
 });
 test("finished view exposes next match and history without hidden menus",()=>{
   assert.match(html,/id="newMatch"/);
@@ -122,4 +121,17 @@ test("a disconnected online bar says why its buttons are disabled",()=>{
   assert.match(app,/!playing\?"":offline\?TEXT\.endgame\.offline:/);
   assert.equal(TEXT.endgame.offline,"相手を待っています");
   assert.match(app,/\$\(id\)\.disabled=offline;/);
+});
+
+test("leaving a friend's match is confirmed in place, never by a browser dialog",()=>{
+  assert.doesNotMatch(app,/[^\w.]confirm\(/);
+  assert.doesNotMatch(app,/[^\w.]alert\([^)]/);
+  assert.match(app,/function confirmByRetap\(button,message=null,armedAria=null\)/);
+  assert.match(app,/button\.classList\.add\("danger-armed"\)/);
+});
+
+test("an armed button itself changes: danger color and a trailing ？ on its label",()=>{
+  assert.equal(TEXT.confirm.armedLabel("対局を始める"),"対局を始める？");
+  assert.match(app,/button\.textContent=TEXT\.confirm\.armedLabel/);
+  assert.match(app,/keepArmedLabel\(\$\("copy"\)\)/);
 });

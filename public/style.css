@@ -367,6 +367,7 @@ body{overflow:hidden}
 .secondary{background:var(--btn-bg);border:1px solid var(--btn-edge);color:var(--btn-text);border-radius:var(--radius)}
 .accent-outline{border-color:var(--accent-edge);color:var(--accent-text)}
 .danger-armed{background:var(--danger-bg);border-color:var(--danger-edge);color:var(--danger-text)}
+.armed-note{margin:6px 0 0;color:var(--danger-text);font-size:12px;line-height:1.5}
 @media(max-width:700px){:root{--action-h:54px}}
 
 /* Bottom action row: undo, confirm, pass, resign — or scoring, or the finished pair. */

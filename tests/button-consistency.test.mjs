@@ -14,9 +14,9 @@ test("buttons draw colours from the four shared kinds, not per-button overrides"
   assert.doesNotMatch(html,/class="([^"]*\s)?outline[\s"]/);
 });
 
-test("the armed resign button is marked by a class, not by its aria-label text",()=>{
-  assert.match(app,/\$\("resign"\)\.classList\.add\("danger-armed"\)/);
-  assert.match(app,/\$\("resign"\)\.classList\.remove\("danger-armed"\)/);
+test("an armed button is marked by a class, not by its aria-label text",()=>{
+  assert.match(app,/button\.classList\.add\("danger-armed"\)/);
+  assert.match(app,/armedConfirm\.button\.classList\.remove\("danger-armed"\)/);
   assert.doesNotMatch(css,/aria-label\^=/);
 });
 
