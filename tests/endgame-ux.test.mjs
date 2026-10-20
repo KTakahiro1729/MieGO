@@ -4,6 +4,7 @@ import {readFileSync} from "node:fs";
 import {settleStepMs} from "../public/settle-playout.mjs";
 import {TEXT} from "../public/texts.mjs";
 const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+const settle=readFileSync(new URL("../public/settle-control.mjs",import.meta.url),"utf8");
 const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
 
 test("a full-length playout is shown in about ten seconds on every board",()=>{
@@ -31,18 +32,19 @@ test("the bar draws attention when a decision is asked, and honours reduced moti
   assert.match(css,/prefers-reduced-motion:reduce\)\{\*,\*::before,\*::after\{[^}]*animation:none!important/);
 });
 test("a stone tapped during the playout is corrected on top of its result",()=>{
-  assert.match(app,/else if\(settle\)\{settle\.taps=\[\.\.\.\(settle\.taps\|\|\[\]\),position\];skipSettle\(\);return;\}/);
+  assert.match(app,/if\(settleControl\.tap\(position\)\)return;/);
+  assert.match(settle,/settle\.taps=\[\.\.\.\(settle\.taps\|\|\[\]\),position\];skip\(\);return true;/);
   assert.match(app,/for\(const position of run\.taps\|\|\[\]\)\n\s*apply\(\{type:"dead",position,selected:!game\.dead\.includes\(position\)\}\);/);
 });
 test("a playout stopped at its move limit is not described as settled",()=>{
   assert.match(TEXT.scoring.settleCut(27),/^上限の27手で停止/);
-  assert.match(app,/run\.cut=run\.state\.status==="playing";/);
+  assert.match(settle,/run\.cut=run\.state\.status==="playing";/);
 });
 test("a playout runs to two passes, with no stop to carry it on",()=>{
   const html=readFileSync(new URL("../src/index.template.html",import.meta.url),"utf8");
   assert.doesNotMatch(html,/settleExtend/);
   assert.equal(TEXT.scoring.settleExtend,undefined);
-  assert.match(app,/limit:settleMax\(sizeOf\(game\.board\)\)/);
+  assert.match(settle,/limit:settleMax\(sizeOf\(game\.board\)\)/);
 });
 test("starting scoring before the board has settled says the result can still swing",()=>{
   assert.match(app,/const unsettled=localPrompt && hint===TEXT\.endgame\.playing;/);
