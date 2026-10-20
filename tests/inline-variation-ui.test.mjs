@@ -16,7 +16,8 @@ test("preview buttons replace navigation without increasing the number of perman
  assert.match(controls,/id="reviewPlayActions"/);
  assert.match(controls,/id="reviewCancel"/);
  assert.match(controls,/id="reviewConfirm"/);
- assert.match(controls,/id="reviewOriginal"/);
+ // The back button is the only way to the original line; no second button repeats it.
+ assert.doesNotMatch(controls,/id="reviewOriginal"/);
  assert.match(controls,/id="reviewVariation"/);
  assert.match(controls,/id="reviewPass"/);
  assert.match(controls,/id="reviewSaveVariation"/);

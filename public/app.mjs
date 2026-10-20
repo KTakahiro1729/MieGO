@@ -1887,16 +1887,14 @@ function renderBoardReview() {
   $("moveLabel").textContent=TEXT.review.step(step,count);
   $("reviewStepRange").max=String(count);
   $("reviewStepRange").value=String(step);
-  $("reviewFirst").disabled=step===0 || isPreview;
   $("stepBack").disabled=step===0 || isPreview;
   $("stepForward").disabled=step>=count || isPreview;
-  $("reviewLast").disabled=step>=count || isPreview;
   $("reviewStepRange").disabled=isPreview;
   renderScoreGraph();
-  $("reviewBack").hidden=isPreview;
+  // One way back: at the live game's latest move 続きを打つ already returns to it.
+  $("reviewBack").hidden=isPreview || atLiveLatest();
   $("reviewPlayActions").hidden=!isPreview;
   $("reviewConfirmStone").classList.toggle("white",boardReview.preview?.moves.at(-1)?.color===WHITE);
-  $("reviewOriginal").hidden=!variationActive;
   $("reviewVariation").hidden=variationActive || !boardReview.variation;
   $("reviewSaveVariation").hidden=!boardReview.variation;
   $("reviewPass").disabled=isPreview;
@@ -2198,8 +2196,6 @@ $("stepBack").onclick=()=>{
 };
 $("stepForward").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
 $("reviewBack").onclick=leaveBoardReview;
-$("reviewFirst").onclick=()=>setBoardReviewStep(0);
-$("reviewLast").onclick=()=>boardReview&&setBoardReviewStep(boardReview.snapshot.moves.length);
 $("reviewStepRange").oninput=e=>setBoardReviewStep(Number(e.target.value));
 $("reviewGraph").addEventListener("pointerdown",e=>{
   if(!scoreGraphShown())return;
@@ -2212,7 +2208,6 @@ $("reviewGraph").addEventListener("pointermove",e=>{
 addEventListener("resize",()=>{if(boardReview)renderScoreGraph();});
 $("reviewConfirm").onclick=confirmReviewPreview;
 $("reviewCancel").onclick=discardReviewPreview;
-$("reviewOriginal").onclick=selectOriginalLine;
 $("reviewVariation").onclick=selectVariationLine;
 $("reviewPass").onclick=previewReviewPass;
 $("reviewSaveVariation").onclick=saveReviewVariation;

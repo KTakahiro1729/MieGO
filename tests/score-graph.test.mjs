@@ -62,6 +62,6 @@ test("values that are not numbers are left out like missing estimates",()=>{
 test("the graph takes the step slider's place and keeps the range for keyboards",async()=>{
   const {readFile}=await import("node:fs/promises");
   const html=await readFile(new URL("../src/index.template.html",import.meta.url),"utf8");
-  const scrubber=html.match(/<div class="review-scrubber">[\s\S]*?id="reviewLast"/)?.[0]??"";
+  const scrubber=html.match(/<div class="review-scrubber">[\s\S]*?<\/div>\s*<\/div>/)?.[0]??"";
   assert.match(scrubber,/id="reviewGraph"[\s\S]*id="reviewGraphPlot"[\s\S]*id="reviewStepRange"/);
 });
