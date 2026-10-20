@@ -1,3 +1,4 @@
+import { isFree } from "./core.mjs";
 import { exportSGF, parseSGF, replaySteps } from "./sgf.mjs";
 import { formatBoardSection } from "./board-text.mjs";
 import { TEXT } from "./texts.mjs";
@@ -8,9 +9,17 @@ import { UserError } from "./user-error.mjs";
 export const MAX_SHARE_URL_LENGTH = 8192;
 
 export function makeReviewUrl(origin, record, step) {
+  const source=record?.snapshot||record;
+  // A free board is shared as the position at that step, which opens on its last stone.
+  if(isFree(source)){
+    if(!Number.isSafeInteger(step) || step<0 || step>source.moves.length)
+      throw Error("Step outside the record");
+    record={snapshot:replaySteps(source,step)};
+  }
   const sgf=exportSGF(record);
   const {snapshot}=parseSGF(sgf);
   const total=snapshot.moves.length;
+  if(isFree(source))step=total;
   if(!Number.isSafeInteger(step) || step<0 || step>total)
     throw Error("Step outside the record");
   const url=new URL("/",origin);

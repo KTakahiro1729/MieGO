@@ -1,4 +1,4 @@
-import { initialGame, play, resume } from "./core.mjs";
+import { initialGame, replayMove, resume } from "./core.mjs";
 
 // Background ownership for a replayed game: the positions nearest the one on
 // screen are estimated first, while the KataGo worker has nothing else to do.
@@ -7,10 +7,10 @@ import { initialGame, play, resume } from "./core.mjs";
 export function replayLine(snapshot) {
   let state=initialGame(snapshot);
   const states=[state];
-  for(const {position} of snapshot.moves){
+  for(const move of snapshot.moves){
     if(state.status==="scoring")state=resume(state);
     if(state.status!=="playing")break;
-    state=play(state,position);
+    state=replayMove(state,move);
     states.push(state);
   }
   return states;

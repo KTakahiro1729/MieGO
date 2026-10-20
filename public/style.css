@@ -422,6 +422,8 @@ body{overflow:hidden}
 .action-row .undo-button{flex:0 0 48px;min-width:48px;width:48px;padding:0;display:grid;place-items:center}
 .action-row #pass{flex:0 0 60px;min-width:60px;width:60px;padding:9px 5px}
 .action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;font-size:12px;padding:6px 2px}
+.action-row .free-colors{flex:1 1 auto}
+.action-row .free-colors span{display:grid;place-items:center;min-height:var(--action-h);padding:0 6px;font-size:14px;box-sizing:border-box}
 /* The AI question follows the reason text directly. It is drawn about one
    line tall to sit with the 14px text; ::after keeps a 44px tap target. */
 /* The reason wraps onto a second line inside the bar's fixed height (UX policy §3.5). */

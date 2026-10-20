@@ -1,4 +1,24 @@
-import { BLACK, hasGomokuForbidden, isGomoku, rulesOf, WHITE, BOARD_SIZES, isBoardSize, sizeOf, handicapPoints, maxHandicap, newGame, initialGame, handicapOf, komiOf, play, resume, boardHash } from "./core.mjs";
+import {
+  BLACK,
+  BOARD_SIZES,
+  boardHash,
+  handicapOf,
+  handicapPoints,
+  hasGomokuForbidden,
+  initialGame,
+  isBoardSize,
+  isFree,
+  isGomoku,
+  komiOf,
+  maxHandicap,
+  newGame,
+  play,
+  replayMove,
+  resume,
+  rulesOf,
+  sizeOf,
+  WHITE,
+} from "./core.mjs";
 import { TEXT } from "./texts.mjs";
 import { UserError } from "./user-error.mjs";
 
@@ -85,15 +105,21 @@ export function parseSGF(text) {
   for(const node of nodes.slice(1))
     if(["AB","AW","AE","PL","HA"].some(prop=>prop in node))
       throw new UserError(TEXT.sgf.setupMidGame);
-  if(["AW","AE"].some(prop=>prop in root))throw new UserError(TEXT.sgf.setupWhite);
   const placed=(root.AB||[]).map(value=>decodeMove(value,size));
   const handicap=placed.length;
-  if(gomoku && handicap)throw new UserError(TEXT.sgf.setupGomoku);
-  if(handicap===1 || handicap>maxHandicap(size) ||
+  const handicapSetup=!(handicap===1 || handicap>maxHandicap(size) ||
      (first(root,"HA")!==null && Number(first(root,"HA"))!==handicap) ||
      placed.some(p=>!handicapPoints(size,handicap).includes(p)) ||
-     new Set(placed).size!==handicap)
-    throw new UserError(TEXT.sgf.handicap(maxHandicap(size)));
+     new Set(placed).size!==handicap);
+  // A position without moves (MieGO's 自由に置く, or a problem set up in other
+  // software) opens as a free board holding its stones.
+  const hasMoves=nodes.some(node=>"B" in node || "W" in node);
+  if(!gomoku && !hasMoves && !("AE" in root) &&
+     (/^\s*free\b/i.test(first(root,"RU")??"") || "AW" in root || !handicapSetup))
+    return parseFreePosition(root,size);
+  if(["AW","AE"].some(prop=>prop in root))throw new UserError(TEXT.sgf.setupWhite);
+  if(gomoku && handicap)throw new UserError(TEXT.sgf.setupGomoku);
+  if(!handicapSetup)throw new UserError(TEXT.sgf.handicap(maxHandicap(size)));
   if(first(root,"PL")!==null && first(root,"PL")!==(handicap?"W":"B"))
     throw new UserError(TEXT.sgf.player);
   // Japanese (and Korean) territory rules are replayed as Japanese; anything else as Chinese.
@@ -128,6 +154,19 @@ export function parseSGF(text) {
     state={...state,status:"finished",result};
   return {snapshot:state,metadata,variationsIgnored:hasVariations(parseTree(text)),steps:seen};
 }
+function parseFreePosition(root,size){
+  let state=newGame(true,{rules:"free",size});
+  for(const [key,color] of [["AB",BLACK],["AW",WHITE]])
+    for(const value of root[key]||[]){
+      const position=decodeMove(value,size);
+      if(position===null || state.board[position])throw broken();
+      state=replayMove(state,{color,position});
+    }
+  if(state.moves.length>MAX_STEPS)throw new UserError(TEXT.sgf.tooLong);
+  const metadata={komi:first(root,"KM")??"0",rules:first(root,"RU")??"Free",result:null,
+    blackName:first(root,"PB")||null,whiteName:first(root,"PW")||null};
+  return {snapshot:state,metadata,variationsIgnored:false,steps:state.moves.length};
+}
 function hasVariations(tree){
   if(tree.children.length>1)return true;
   return tree.children.some(hasVariations);
@@ -138,9 +177,9 @@ export function replaySteps(game,through=game.moves.length){
   let state=initialGame(game);
   for(let i=0;i<through;i++){
     const {color,position}=game.moves[i];
-    if(color!==state.next)throw broken();
+    if(color!==state.next && !isFree(state))throw broken();
     if(state.status==="scoring")state=resume(state);
-    try { state=play(state,position); }
+    try { state=replayMove(state,{color,position}); }
     catch {throw broken();}
   }
   return state;
@@ -162,6 +201,7 @@ export function exportSGF(record) {
   // independent final result/komi that is not computed with MieGO's rules.
   replaySteps(snapshot);
   const meta=record?.sgfMeta||{};
+  if(isFree(snapshot))return exportFreePosition(snapshot,meta);
   const label=(key,value)=>value?key+"["+esc(value)+"]":"";
   const size=sizeOf(snapshot.board);
   const moves=snapshot.moves.filter(m=>m.position!=="resign").map(m=>
@@ -176,4 +216,11 @@ export function exportSGF(record) {
     esc(meta.rules??(rulesOf(snapshot)==="japanese"?"Japanese":"Chinese"))+"]";
   return head+setup+label("PB",meta.blackName)+
     label("PW",meta.whiteName)+label("RE",result)+moves+")";
+}
+/** A free board is saved as the position on it, in setup stones, which any SGF reader can show. */
+function exportFreePosition(snapshot,meta){
+  const size=sizeOf(snapshot.board);
+  const stones=color=>snapshot.board.flatMap((v,p)=>v===color?["["+coord(p,size)+"]"]:[]).join("");
+  const black=stones(BLACK),white=stones(WHITE);
+  return "(;GM[1]FF[4]CA[UTF-8]SZ["+size+"]RU[Free]"+(black?"AB"+black:"")+(white?"AW"+white:"")+")";
 }

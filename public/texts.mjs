@@ -86,6 +86,7 @@ export const TEXT = {
     ready: "終局をご検討ください",
     unavailable: "終局は自分で判断してください。目安を出せません",
     gomoku: "縦・横・斜めに5つ並べたら勝ち",
+    free: "交点をタップして置く・取り除く",
     checking: "終局の目安を確認中",
     updating: "終局の目安を更新中",
     offline: "相手を待っています",
@@ -165,6 +166,9 @@ export const TEXT = {
   game: {
     turnBlack: "黒の番です",
     turnWhite: "白の番です",
+    freeBlack: "黒を置きます",
+    freeWhite: "白を置きます",
+    freeColorLabel: "置く石の色",
     yourTurn: "あなたの番",
     opponentTurn: "相手の番",
     waitingOpponent: "対局相手を待っています",
@@ -177,14 +181,15 @@ export const TEXT = {
     moveLabel: move => move + "手目",
     localPractice: "ローカル練習",
     boardLabel: size => size + "路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。",
-    ruleSummary: (size, komi, handicap, japanese = false, forbidden = false) => japanese === "gomoku" ?
+    ruleSummary: (size, komi, handicap, japanese = false, forbidden = false) => japanese === "free" ?
+      size + "路盤 · 自由に置く（ルールなし：空いた交点に置き、石をタップすると取り除く）" : japanese === "gomoku" ?
       size + "路盤 · 五目並べ" + (forbidden ? "（禁じ手あり：黒は三三・四四・長連を打てず、ちょうど5つで勝ち。白は5つ以上で勝ち）" :
         "（禁じ手なし：5つ以上並べたら勝ち）") : size + "路盤 · " +
       (japanese ? "日本式ルール · " : "中国式ルール · ") + (handicap ?
       "置き石" + handicap + "子 · コミ" + komi + (japanese ? "目" : "＋置き石補正" + handicap + "目") : "コミ" + komi),
     // The short form of ruleSummary, shown in the turn row above the board.
     ruleLabel: (size, rules, komi, handicap, forbidden = false) => size + "路 · " +
-      (rules === "gomoku" ? "五目並べ" + (forbidden ? " · 禁じ手あり" : "") : (rules === "japanese" ? "日本式" : "中国式") +
+      (rules === "free" ? "自由に置く" : rules === "gomoku" ? "五目並べ" + (forbidden ? " · 禁じ手あり" : "") : (rules === "japanese" ? "日本式" : "中国式") +
         (handicap ? " · 置き石" + handicap : " · コミ" + komi)),
     capturesLabel: "アゲハマ",
     captures: (black, white) => "アゲハマ　黒 " + black + "　白 " + white,
@@ -583,7 +588,7 @@ export const TEXT = {
     comBlack: "● 黒のCOM",
     comWhite: "○ 白のCOM",
     rules: "ルール",
-    rulesChoices: { chinese: "中国式", japanese: "日本式", gomoku: "五目並べ" },
+    rulesChoices: { chinese: "中国式", japanese: "日本式", gomoku: "五目並べ", free: "自由" },
     advanced: "詳細設定",
     hideStones: "石を隠す（地合いだけ表示）",
     gomokuForbidden: "禁じ手あり（五目並べ）",
@@ -667,6 +672,7 @@ export const TEXT = {
         "日本ルールは、地（囲んだ空き点）とアゲハマ（対局中に取った石と、終局時に取り除いた死石）の合計で勝敗を決めます。互先のコミは6.5目です。セキの中の空き点は地に数えません。アゲハマは地合いのバーの下に表示されます。採点中は、アゲハマを元の持ち主の地に小さな石で埋めて示します。まとまりの外枠の色は、アゲハマ表示の枠の色と同じです。",
         "置き碁は新規対戦の「詳細設定」で選べます。白が先に打ち、コミは0.5目です。中国ルールでは白に置き石の数だけ加点します（日本ルールでは加点しません）。",
         "五目並べは同じ盤と石で遊ぶ別のゲームです。黒から交互に打ち、縦・横・斜めのどれかに自分の石を5つ以上続けて並べた方が勝ちです。石を取ること、パス、採点はありません。盤が埋まったら引き分けです。置き石は使えません。",
+        "「自由」はルールのない盤です（1台で打つ・対友人。対COMでは選べません）。空いた交点をタップすると、操作列で選んだ色（● 黒／○ 白）の石を置き、石をタップすると取り除きます。手番はなく、対友人ではどちらもいつでも両方の色を置けます。石を取ること、着手禁止点、パス、採点はありません。地合いの色は表示されるので、局面を並べて検討できます。待ったで直前の操作を戻せます（対友人では相手が受け入れたら）。",
         "五目並べの「禁じ手」は詳細設定で選べます。ありにすると連珠と同じく、黒だけ三三（活三を2つ同時に作る手）・四四（四を2つ同時に作る手）・長連（6つ以上）を打てず、ちょうど5つで勝ちになります。5つが同時にできる手は打てます。白に禁じ手はなく、長連でも勝ちです。",
       ],
       current: "現在の対局：",

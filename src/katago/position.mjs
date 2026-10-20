@@ -25,8 +25,10 @@ export function toKataGoPosition(state) {
       || !Array.isArray(state.moves) || ![-1, 1].includes(state.next)) {
     throw new Error("Invalid board supplied to KataGo");
   }
-  const history = Array.isArray(state.history) ? state.history : [];
-  const moves = state.moves.filter(m => m && [1, -1].includes(m.color) &&
+  // A free board's stones were set up, not played: it has no move history to read.
+  const free = state.rules === "free";
+  const history = Array.isArray(state.history) && !free ? state.history : [];
+  const moves = free ? [] : state.moves.filter(m => m && [1, -1].includes(m.color) &&
     (m.position === null || Number.isInteger(m.position) && m.position >= 0 && m.position < size * size));
   return {
     size,
