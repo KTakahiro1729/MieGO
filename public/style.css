@@ -47,10 +47,15 @@ button:hover:not(:disabled){border-color:#748094}
 .status-sub{display:flex;justify-content:center;gap:10px;min-width:0;max-width:100%;color:var(--muted);font-size:11px;line-height:14px}
 .turn{font-size:19px;font-weight:700;letter-spacing:.01em;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:24px}
 .turn::before{content:"";display:inline-block;vertical-align:-4px;margin-right:9px;width:22px;height:22px;box-sizing:border-box;background:radial-gradient(circle at 32% 28%,#56575c,#0c1013 72%);border:1px solid #6c7073;border-radius:50%;box-shadow:0 3px 9px #0008}
-/* 最強 is thinking: its turn stone breathes until it moves. */
-.turn.is-waiting::before{animation:turn-wait 1.2s ease-in-out infinite}
-@keyframes turn-wait{50%{opacity:.35;transform:scale(.82)}}
-@media(prefers-reduced-motion:reduce){.turn.is-waiting::before{animation:none;opacity:.6}}
+/* 最強 is thinking: a gold arc turns round its turn stone until it moves.
+   .thinking-ring is the same arc on its own, for any other spot that shows a side thinking. */
+.thinking-ring,.turn.is-waiting::after{display:inline-block;width:22px;height:22px;box-sizing:border-box;border:2.5px solid transparent;border-top-color:var(--accent-text);border-right-color:var(--accent-text);border-radius:50%;animation:thinking-spin .9s linear infinite}
+.turn.is-waiting{position:relative}
+/* The stone shrinks inside the arc, so the arc stays clear of a white stone's rim. */
+.turn.is-waiting::before{width:14px;height:14px;margin:0 13px 0 4px;vertical-align:0}
+.turn.is-waiting::after{content:"";position:absolute;left:0;top:50%;margin-top:-11px}
+@keyframes thinking-spin{to{transform:rotate(1turn)}}
+@media(prefers-reduced-motion:reduce){.thinking-ring,.turn.is-waiting::after{animation-duration:3s}}
 .turn.white-to-play::before{background:radial-gradient(circle at 32% 27%,#fff,#deddd6 72%);border:1px solid #b7b6b0}
 .connection-status{font-size:11px;color:#aeb6c0;white-space:nowrap;display:flex;align-items:center;gap:7px}
 .connection-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#7b8392;flex:none}
