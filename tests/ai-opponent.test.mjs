@@ -18,11 +18,10 @@ test("legal move list rejects suicide",()=>{
   assert.equal(legalAiMoves(s).includes(at(8,8)),false);
   assert.equal(legalAiMoves(s).includes(at(1,1)),false);
 });
-test("opening cannot pass, late policy can pass",()=>{
+test("an unsettled board cannot pass, a settled one can",()=>{
   const s=newGame(),p=logits(at(4,4));
   assert.notEqual(choosePolicyMove(s,p,1000,{random:()=>.5}),null);
-  s.moveNumber=70;
-  assert.equal(choosePolicyMove(s,p,1000,{random:()=>.5}),null);
+  assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"near",random:()=>.5}),null);
 });
 test("invasion and reinforcement sliders adjust separate candidate scores",()=>{
   const s=newGame();
@@ -49,44 +48,39 @@ test("invalid policy and finished games cannot generate AI turns",()=>{
   assert.equal(legalAiMoves({...newGame(),status:"finished"}).length,0);
 });
 
-test("KataGo pass eligibility uses soft advice but never mandates passing",()=>{
+test("KataGo pass eligibility follows how settled the board is, not the move number",()=>{
   const s=newGame(),position=at(4,4),p=logits(position);
-  s.moveNumber=44;
-  assert.equal(canConsiderAiPass(s,"ready"),false);
-  s.moveNumber=45;
-  assert.equal(canConsiderAiPass(s,"ready"),true);
-  assert.equal(canConsiderAiPass(s,"near"),false);
-  assert.equal(canConsiderAiPass(s,"playing"),false);
+  for(const moveNumber of [3,45,145,400]){
+    s.moveNumber=moveNumber;
+    assert.equal(canConsiderAiPass("ready"),true);
+    assert.equal(canConsiderAiPass("near"),true);
+    assert.equal(canConsiderAiPass("playing"),false);
+    assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"playing",random:()=>.5}),position);
+    assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"ready",random:()=>.5}),null);
+    assert.equal(choosePolicyMove(s,p,-1000,{endgameStage:"ready",random:()=>.5}),position);
+  }
+  // The other side's pass does not open passing on an unsettled board.
+  s.moveNumber=60;s.passes=1;
   assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"playing",random:()=>.5}),position);
-  assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"ready",random:()=>.5}),null);
-  assert.equal(choosePolicyMove(s,p,-1000,{endgameStage:"ready",random:()=>.5}),position);
-  s.moveNumber=52;
-  assert.equal(canConsiderAiPass(s,"near"),true);
-  assert.equal(canConsiderAiPass(s,"playing"),false);
-  s.moveNumber=58;
-  assert.equal(canConsiderAiPass(s,"playing"),true);
-  s.moveNumber=18;s.passes=1;
-  assert.equal(canConsiderAiPass(s,"playing"),true);
+  assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"near",random:()=>.5}),null);
 });
-test("no forced pass on move 145; actual KataGo policy remains decisive",()=>{
+test("no forced pass on a settled board; actual KataGo policy remains decisive",()=>{
   const s=newGame(),p=logits(at(4,4));
   s.moveNumber=145;
-  assert.equal(choosePolicyMove(s,p,-1000,{random:()=>.5}),at(4,4));
-  assert.equal(choosePolicyMove(s,p,1000,{random:()=>.5}),null);
+  assert.equal(choosePolicyMove(s,p,-1000,{endgameStage:"ready",random:()=>.5}),at(4,4));
+  assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"ready",random:()=>.5}),null);
 });
 test("weakened strengths use the same endgame-aware pass eligibility",()=>{
   const s=newGame(),position=at(4,4),p=logits(position);
-  s.moveNumber=44;
-  assert.equal(choosePolicyMove(s,p,105,{strength:"easy",endgameStage:"ready",random:()=>.5}),position);
-  s.moveNumber=45;
+  assert.equal(choosePolicyMove(s,p,105,{strength:"easy",endgameStage:"playing",random:()=>.5}),position);
   assert.equal(choosePolicyMove(s,p,105,{strength:"easy",endgameStage:"ready",random:()=>.5}),null);
-  s.moveNumber=145;
-  assert.equal(choosePolicyMove(s,p,-1000,{strength:"easy",random:()=>.5}),position);
+  assert.equal(choosePolicyMove(s,p,-1000,{strength:"easy",endgameStage:"ready",random:()=>.5}),position);
 });
 
-test("AI pass eligibility scales with the board area",()=>{
-  const s={...newGame(true,{size:19}),moveNumber:58};
-  assert.equal(canConsiderAiPass(s,"playing"),false);
-  s.moveNumber=Math.ceil(58*361/81);
-  assert.equal(canConsiderAiPass(s,"playing"),true);
+test("AI pass eligibility is the same on every board size",()=>{
+  for(const size of [9,13,19]){
+    const s=newGame(true,{size}),p=Array(size*size).fill(-100);p[0]=100;
+    assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"playing",random:()=>.5}),0);
+    assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"near",random:()=>.5}),null);
+  }
 });
