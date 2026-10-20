@@ -280,19 +280,16 @@ export const TEXT = {
     startUnavailable: "AIを使えません",
     startLoading: "KataGo準備中…",
     restart: "設定して再戦",
-    start: "AIと対局を始める",
     preparing: "準備中…",
     preparingMatch: "対局を準備しています…",
     started: colorLabel => "対局を開始しました。あなたは" + colorLabel + "です。",
-    startWatch: "COM同士の対局を始める",
-    watchCurrent: "この対局を観戦する",
     watchStarted: "COM同士の対局を始めました。一手ごとに少し間を置いて打ちます。",
     watchPaused: "「再開」を押すと続きを打ちます。一時停止中です。",
     tookOver: colorLabel => "ここから" + colorLabel + "を引き継ぎました。相手はCOMのままです。",
     nextHandicap: handicap => "置き石" + handicap + "子で次の対局を始めます（あなたは黒）。",
     nextEven: "互先で次の対局を始めます。",
     nextMove: "次のAI着手から反映します。",
-    strengthSplit: "黒と白で強さが違います。「詳細設定」で変えられます。",
+    strengthInAdvanced: "観戦では、黒と白のCOMの強さを「詳細設定」で決めます。",
     nextStrength: strength => "次のAI着手から「" + strength + "」で打ちます。",
     strengthLabel: "AIの強さ",
     strengthShort: "強さ",
@@ -586,18 +583,31 @@ export const TEXT = {
     comBlack: "● 黒のCOM",
     comWhite: "○ 白のCOM",
     rules: "ルール",
-    // Under the rules row, one per choice, two lines at most at 320px (about 44 characters).
-    // Komi is left out when a handicap note says it.
-    rulesNotes: {
-      chinese: komi => "石と地（囲んだ空き点）の合計で数えます。" +
-        (komi ? "先手の黒が有利なので白にコミ" + komi + "目。" : ""),
-      japanese: komi => "地とアゲハマの合計で数え、勝敗は中国式とほぼ同じ。" +
-        (komi ? "先手の黒が有利なので白にコミ" + komi + "目。" : ""),
-      gomoku: "黒から交互に打ち、縦・横・斜めに自分の石を5つ並べたら勝ちです。",
-      free: "ルールのない盤です。好きな色の石を置いたり、取り除いたりできます。",
-    },
+    // Under the rule choices: what komi is, one line at 320px.
+    komiNote: komi => "先手の黒が有利なので白にコミ" + komi + "目。",
+    komiNoteHandicap: (komi, japanese) => "置き碁なので白にコミ" + komi + "目" + (japanese ? "。" : "＋置き石の数。"),
     rulesChoices: { chinese: "中国式", japanese: "日本式", gomoku: "五目並べ", free: "自由" },
     advanced: "詳細設定",
+    setupTabs: "対局の設定",
+    // Beside each choice under the 盤, ルール and 自分の石 tabs; two lines at most at 320px.
+    boardNotes: {
+      9: "小さな盤。短い時間で1局打てます。はじめての人向け。",
+      13: "9路と19路の中間の大きさ。",
+      19: "正式な大きさ。1局が長くなります。",
+    },
+    rulesChoiceNotes: {
+      chinese: "石と地の合計で数えます。迷ったらこれ。",
+      japanese: "地とアゲハマで数えます。勝敗はほぼ同じ。",
+      gomoku: "縦・横・斜めに5つ並べたら勝ち。",
+      free: "ルールなし。石を好きに置けます。対COMでは使えません。",
+    },
+    sideNotes: {
+      black: "先に打ちます。",
+      random: "黒か白かを対局ごとにくじで決めます。",
+      white: "あとから打ちます。",
+      watch: "自分は打たず、COM同士の対局を見ます。対COMだけ。",
+      local: "1台で打つでは、黒と白を交互に打ちます。",
+    },
     hideStones: "石を隠す（地合いだけ表示）",
     gomokuForbidden: "禁じ手あり（五目並べ）",
     gomokuForbiddenNote: "黒だけ三三・四四・長連を打てなくなります。先手の黒が強すぎるのを抑える連珠のルールです。",
@@ -700,7 +710,7 @@ export const TEXT = {
         "初回はAIの準備に時間がかかります。",
         "強さは4段階です。段級位とは対応していません。",
         "「詳細設定」の「ヒントを表示」をオンにすると、あなたの番に候補手を1〜3の番号で示します。「侵入度」「補強度」でAIの打ち方の好みを変えられます。",
-        "「自分の石」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。「AIの強さ」は両方のCOMに効き、「詳細設定」では黒と白それぞれの強さ・侵入度・補強度を決められます。手の間に少し間を置き、「一時停止」でいつでも止められます。観戦中に盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。対局中に「新規対戦」→「対COM」の「この対局を観戦する」を押すと、自分の石もCOMに任せて観戦に切り替わります。",
+        "「自分の石」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。黒と白それぞれのCOMの強さ・侵入度・補強度は「詳細設定」で決めます。手の間に少し間を置き、「一時停止」でいつでも止められます。観戦中に盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。",
       ],
     },
     online: {
@@ -717,6 +727,7 @@ export const TEXT = {
       summary: "履歴",
       items: [
         "対局は自動で保存されます。保存先はこの端末のブラウザなので、ほかの端末では見られません。",
+        "新規対戦で対局を始めても、それまでの対局は「履歴」に残ります。",
         "新規対戦の「履歴」で棋譜を選ぶと再生できます。盤をタップすると別の手を試せます。",
         "再生中は盤の下の「ここから打つ」で、表示中の局面から対COMや1台で続けられます。履歴の対局の最後の局面では、終局していなければ「続きを打つ」で再開できます。",
         "「SGFファイルを読み込む」でほかのアプリの棋譜も開けます。",
