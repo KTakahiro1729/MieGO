@@ -21,7 +21,7 @@ button:hover:not(:disabled){border-color:#748094}
 [hidden],.hidden{display:none!important}
 .app-shell{min-height:100dvh;max-width:1100px;margin:0 auto}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;height:68px;padding:8px 18px}
-.brand{font-family:Georgia,"Times New Roman",serif;font-size:24px;letter-spacing:.2px;font-weight:700;white-space:nowrap}
+.brand{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:24px;letter-spacing:.2px;font-weight:700;white-space:nowrap}
 .brand span{color:var(--gold)}
 .header-actions{display:flex;align-items:center;gap:10px}
 
@@ -400,9 +400,6 @@ body{overflow:hidden}
   .ownership-legend{margin-top:5px}
 }
 
-/* Keep the final score and its actions together at the bottom on tall phones. */
-.game-panel.is-scoring .score-box,.game-panel.is-finished .score-box{margin-top:auto}
-
 /* Two-person P2P invitation: compact color selector and conditional human check. */
 #p2pVerify{margin:12px 0}
 #p2pVerify p{font-size:12px;opacity:.85;margin:0 0 8px}
@@ -450,7 +447,6 @@ body{overflow:hidden}
   position:absolute!important;width:1px!important;height:1px!important;
   clip:rect(0,0,0,0)!important;overflow:hidden!important;white-space:nowrap!important
 }
-.game-panel.is-scoring .score-box,.game-panel.is-finished .score-box{margin-top:7px}
 
 .review-feedback{position:absolute;bottom:calc(100% + 4px);left:4px;right:4px;margin:0 auto;padding:5px 10px;width:max-content;max-width:calc(100% - 8px);border-radius:9px;background:#272e3e;border:1px solid #645842;color:#efd398;font-size:12px;line-height:1.5;z-index:5}
 .review-feedback[hidden]{display:none}
@@ -477,7 +473,6 @@ body{overflow:hidden}
 
 /* Status and controls sit together within thumb reach; spare height goes under the board. */
 .game-panel .endgame-bar{margin-top:auto}
-.game-panel.is-scoring .score-box,.game-panel.is-finished .score-box{margin-top:auto}
 
 /* Buttons: four kinds only.
    .primary         the one advancing, reversible action of a row (gold)
@@ -640,6 +635,7 @@ body{overflow:hidden}
 .sheet-head-actions .help-button svg{width:21px;height:21px}
 .help-panel{z-index:11}
 .help-topics{padding-top:0;border-top:0}
+.help-intro{margin:0 0 10px}
 .help-topic:first-child{margin-top:0;border-top:0;padding-top:0}
 .help-list{margin:4px 0 12px;padding-left:1.2em;font-size:12px;line-height:1.7;color:#aeb3be}
 .help-list li+li{margin-top:4px}

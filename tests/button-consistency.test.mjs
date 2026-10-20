@@ -1,9 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {readFileSync} from "node:fs";
 import {TEXT} from "../public/texts.mjs";
-const get=name=>readFileSync(new URL("../public/"+name,import.meta.url),"utf8");
-const html=get("index.html"),app=get("app.mjs"),css=get("style.css"),retap=get("confirm-retap.mjs");
+import {source} from "./helpers/source.mjs";
+const html=source("index.html"),app=source("app.mjs"),css=source("style.css"),retap=source("confirm-retap.mjs");
 
 test("buttons draw colours from the four shared kinds, not per-button overrides",()=>{
   for(const kind of [".secondary{",".accent-outline{",".danger-armed{"])assert.ok(css.includes(kind),kind);

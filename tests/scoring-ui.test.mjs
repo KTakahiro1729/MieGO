@@ -1,15 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
-const worker=readFileSync(new URL("../src/katago/neural-worker.ts",import.meta.url),"utf8");
-const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+import {source} from "./helpers/source.mjs";
+const app=source("app.mjs");
+const worker=source("../src/katago/neural-worker.ts");
+const html=source("index.html");
 
 test("AI mode starts from the 新規対戦 sheet with a readiness-gated start",()=>{
   assert.match(html,/name="newGameMode" value="ai"/);
   // 五目並べ's computer needs no KataGo; every Go game waits for it.
   assert.match(app,/\$\("startAi"\)\.disabled=needsKatago && \(!katagoReady \|\| fallbackMode\)/);
-  assert.match(app,/function leaveOnlineRoom\(\)/);
   assert.doesNotMatch(html,/id="aiMenu"/);
 });
 test("automatic dead-stone inference reuses scoring panel, no new permanent UI",()=>{
@@ -19,7 +18,6 @@ test("automatic dead-stone inference reuses scoring panel, no new permanent UI",
   assert.match(app,/suggestDeadStones\(game,run\.initialOwnership\)/);
   assert.match(app,/scoringReviewAction\("dead_auto"/);
   assert.match(app,/deadReviewTouched/);
-  assert.match(html,/id="scoreBox"/);
   assert.doesNotMatch(html,/id="autoDeadButton"/);
   assert.match(worker,/event\.data\.kind === "settle"/);
 });

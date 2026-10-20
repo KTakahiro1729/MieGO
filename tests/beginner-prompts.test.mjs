@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {readFileSync} from "node:fs";
 import {newGame,play} from "../public/core.mjs";
 import {makeRulesPrompt,makePositionPrompt} from "../public/beginner-prompts.mjs";
-const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
-const help=readFileSync(new URL("../public/help-sheet.mjs",import.meta.url),"utf8");
+import {source} from "./helpers/source.mjs";
+const html=source("index.html");
+const help=source("help-sheet.mjs");
 
 test("the rules question says the asker is a beginner and names this game's rules",()=>{
   const text=makeRulesPrompt(newGame(true,{size:13}));

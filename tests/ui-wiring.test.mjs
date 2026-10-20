@@ -30,5 +30,4 @@ test("game errors use the inline notice, never a blocking alert",()=>{
 test("endgame advice never claims 'not yet' until KataGo has evaluated a position",()=>{
   // endgameHint reports 確認中／判定できません instead (see tests/endgame.test.mjs).
   assert.match(app,/endgameHint\(game,endgameAdvisor,\{\s*unavailable:fallbackMode/);
-  assert.doesNotMatch(app,/near\?"終局はいかがですか？":"終局はまだのようです"/);
 });

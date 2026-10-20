@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {readFileSync} from "node:fs";
 import {IDENTITY_VIEW,HINT_MIN_SIZE,clampView,pinchView,panView,zoomAround,maxScaleFor,
   createRepeatTapDetector} from "../public/board-zoom.mjs";
+import {source} from "./helpers/source.mjs";
 
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-9,`${a} ≈ ${b}`);
 
@@ -49,7 +49,7 @@ test("the hint fires only after repeated taps around one area",()=>{
 });
 
 test("opponent moves return to the whole-board view and gesture clicks never place stones",()=>{
-  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+  const app=source("app.mjs");
   // A watched COM同士 game is the exception: the viewer's zoom stays.
   assert.match(app,/if\(action\.type==="move" && \(remote \|\| isAiMove && !watching\)\)boardZoom\.reset\(\)/);
   assert.match(app,/apply\(\{type:"move",position,.*\},false,fromAi\)/);
