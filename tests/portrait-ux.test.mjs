@@ -72,7 +72,7 @@ test("finished view exposes next match and history without hidden menus",()=>{
   assert.match(html,/id="openHistory"/);
   // 新規対戦 opens the sheet; もう一局 plays the same game again, except with a friend.
   // They are one fused button, each half naming how it differs.
-  assert.match(html,/<div class="fused next-game">\s*<button id="newMatchSheet" class="secondary"[^>]*><span>新規対戦<\/span><small aria-hidden="true">設定を選ぶ<\/small><\/button>\s*<button id="newMatch" class="primary"[^>]*><span>もう一局<\/span><small aria-hidden="true">同じ設定で<\/small><\/button>\s*<\/div>/);
+  assert.match(html,/<div class="fused next-game">\s*<button id="newMatchSheet" class="secondary"[^>]*><span>新規対戦<\/span><small aria-hidden="true">別の設定で<\/small><\/button>\s*<button id="newMatch" class="primary"[^>]*><span>もう一局<\/span><small aria-hidden="true">同じ設定で<\/small><\/button>\s*<\/div>/);
   assert.match(app,/\$\("newMatchSheet"\)\.hidden=!isFinished/);
   assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished \|\| !!room/);
   assert.match(app,/\$\("openHistory"\)\.hidden=!isFinished/);
