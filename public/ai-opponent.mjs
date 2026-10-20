@@ -1,9 +1,9 @@
 
 import {play} from "./core.mjs";
-import {personalityFeatures} from "./ai-personality.mjs";
+import {personalityFeatures,STYLE_AXES} from "./ai-personality.mjs";
 import {samplePolicyCandidate} from "./ai-policy-sampling.mjs";
 import {AI_STRENGTHS,pickWeakenedMove} from "./ai-strength.mjs";
-export {personalityFeatures} from "./ai-personality.mjs";
+export {personalityFeatures,STYLE_AXES} from "./ai-personality.mjs";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const bounded = v => clamp(Number(v) || 0, 0, 100);
@@ -27,13 +27,13 @@ export function scorePolicyCandidates(state, logits, ownership, options={}) {
   const best=Math.max(...legal.map(p=>logits[p]));
   // Weakened levels sample from every legal move, so keep the long tail.
   const window=options.allMoves ? Infinity : 8;
-  const invasionWeight=(bounded(options.invasion ?? 50)-50)/50 * 3;
-  const reinforceWeight=(bounded(options.reinforcement ?? 50)-50)/50 * 3;
+  // Each axis is 0..100 with 50 neutral and adds at most ±3 to a logit.
+  const weights=Object.fromEntries(STYLE_AXES.map(axis=>
+    [axis,(bounded(options[axis] ?? 50)-50)/50 * 3]));
   return legal.filter(p=>logits[p]>=best-window).map(position=>{
     const f=personalityFeatures(state,position,ownership);
-    return {position,raw:logits[position],
-      score:logits[position]+invasionWeight*f.invasion+reinforceWeight*f.reinforcement,
-      invasion:f.invasion,reinforcement:f.reinforcement};
+    const bonus=STYLE_AXES.reduce((sum,axis)=>sum+weights[axis]*f[axis],0);
+    return {position,raw:logits[position],score:logits[position]+bonus,...f};
   });
 }
 

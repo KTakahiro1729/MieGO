@@ -265,6 +265,33 @@ export const TEXT = {
       mid: "補強を特に好みも避けもしません。",
       high: "自分の石の補強や守りを優先します。",
     },
+    // A character's note fits one line at 360px; the help says more.
+    characters: {
+      chick: { name: "ひよこ", note: "囲碁をはじめたばかり。よく見落とします。" },
+      steady: { name: "石橋", note: "守りを固めて手堅く打ちます。無理な戦いはしません。" },
+      raider: { name: "荒らし屋", note: "相手の地に飛び込んでかき回します。守りは後回し。" },
+      brawler: { name: "喧嘩屋", note: "弱い石を見つけると、切って攻めにきます。" },
+      wide: { name: "大場好き", note: "相手の手に付き合わず、広い場所へ向かいます。" },
+      serious: { name: "本気", note: "KataGoの好みのまま、手加減なしで打ちます。" },
+      custom: { name: "カスタム", note: "強さと打ち方を自分で選びます。" },
+    },
+    attackNotes: {
+      low: "相手の石を攻める手を控えます。",
+      mid: "攻めを特に好みも避けもしません。",
+      high: "相手の石の呼吸点を減らし、切って攻めます。",
+    },
+    heightStops: { low: "低い", mid: "ふつう", high: "高い" },
+    heightNotes: {
+      low: "序盤に2〜3線の低い手で地を取ります。",
+      mid: "高さを特に気にしません。",
+      high: "序盤に4線より内側の高い手で勢力を作ります。",
+    },
+    tenukiStops: { low: "近く", mid: "ふつう", high: "遠く" },
+    tenukiNotes: {
+      low: "相手が打った手の近くで応じます。",
+      mid: "応じるか離れるかを特に好みません。",
+      high: "相手の手に付き合わず、離れた場所へ打ちます。",
+    },
     unavailable: "ページを開き直してください。KataGoを読み込めず、AIと対局できません。",
     unavailableContinue: "ページを開き直してください。KataGoを読み込めず、AIと対局を続けられません。",
     waitingLoad: "KataGoの読み込みが終わるまでお待ちください。",
@@ -295,8 +322,11 @@ export const TEXT = {
     hints: "ヒントを表示",
     hintsNote: "あなたの番に、KataGoの候補手を1〜3で示します。",
     hintsAria: "ヒントを表示する",
+    attack: "攻め度",
+    height: "高さ",
     invasion: "侵入度",
     reinforcement: "補強度",
+    tenuki: "応じ方",
   },
 
   handicap: {
