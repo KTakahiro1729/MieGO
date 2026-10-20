@@ -1746,6 +1746,7 @@ function renderBoardReview() {
   $("reviewVariation").hidden=variationActive || !boardReview.variation;
   $("reviewSaveVariation").hidden=!boardReview.variation;
   $("reviewPass").disabled=isPreview;
+  $("reviewPass").hidden=isGomoku(line); // 五目並べ has no pass.
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?TEXT.review.newMoves(updates):"";
@@ -1897,7 +1898,8 @@ function clearImportedReviewUrl() {
 }
 // 「ここから打つ」: the shown position starts a new game record. The game it came
 // from is saved as it stands and stays in the saved-game list.
-const canContinueWithAi=()=>katagoReady && !fallbackMode;
+// 五目並べ's COM is a small line counter and needs no KataGo.
+const canContinueWithAi=()=>!!boardReview && isGomoku(activeReviewSnapshot(boardReview,game)) || katagoReady && !fallbackMode;
 function continueChoice(name){return document.querySelector('input[name="'+name+'"]:checked')?.value;}
 function syncContinueSide(){$("continueSideRow").hidden=continueChoice("continueKind")!=="ai";}
 function openContinuePanel(){
