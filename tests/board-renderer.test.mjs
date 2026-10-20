@@ -139,3 +139,23 @@ test("counting paints flat cells in the chosen colour map and rings neutral poin
   view.palette="none";draw();
   assert.deepEqual(pixel(at(0,0)),ownershipPixel(1,"mono",countingOpacity(.2),"wood"));
 });
+
+test("hidden stones leave only the ownership while playing and reappear when counting",()=>{
+  let game=play(play(newGame(),at(2,2)),at(6,6));
+  const ownership=Array(81).fill(.9);
+  let candidate=null;
+  const {draw,calls}=mockBoard(()=>({...baseView(game),hideStones:true,displayedOwnership:ownership,candidate}));
+  draw();
+  assert.equal(calls.filter(c=>c.kind==="arc"&&c.args[2]===22).length,0,"no committed stones");
+  assert.ok(calls.some(c=>c.kind==="image"),"ownership still painted");
+  calls.length=0;
+  candidate=play(game,at(4,4));
+  draw();
+  const shown=calls.filter(c=>c.kind==="arc"&&c.args[2]===22);
+  assert.deepEqual(shown.map(c=>c.args.slice(0,2)),[[250,250]],"only the move being placed");
+  calls.length=0;
+  candidate=null;
+  game={...game,status:"scoring",dead:[]};
+  draw();
+  assert.equal(calls.filter(c=>c.kind==="arc"&&c.args[2]===22).length,2,"counting shows the stones");
+});

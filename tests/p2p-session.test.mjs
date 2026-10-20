@@ -125,3 +125,12 @@ test("only new sign-ins of the other seat on another device are reported", () =>
   assert.deepEqual(newPeerSignins({ owner: 3, guest: 9 }, "guest", 2), { seen: 3, notify: true });
   assert.deepEqual(newPeerSignins({ owner: "x" }, "guest", 2), { seen: 2, notify: false });
 });
+
+test("the inviter's 石を隠す reaches a guest who has not received the game yet",()=>{
+  const host=newGame(true,{hideStones:true}), guest=newGame();
+  const adopted=reconcileGame(guest,0,host,0,{localIsOwner:false});
+  assert.equal(adopted.kind,"adopt");
+  assert.equal(adopted.game.hideStones,true);
+  assert.equal(reconcileGame(host,0,guest,0,{localIsOwner:true}).kind,"send");
+  assert.equal(isConsistentSnapshot(play(host,0)),true);
+});

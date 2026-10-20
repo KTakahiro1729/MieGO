@@ -171,6 +171,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
   function paintStones(theme, view, display, gap, pad) {
     const {game,boardReview,candidate,illegalCandidate} = view;
+    // "Stones hidden" leaves only the ownership colours (and the move being
+    // placed) while playing or replaying; counting shows every stone again.
+    const hidden = !!view.hideStones && (!!boardReview || game.status==="playing");
     const proposedBoard = boardReview?.preview?.board || (boardReview ? null : candidate?.board);
     const preview = boardReview ? boardReview.previewPosition :
       (candidate?.moves.at(-1)?.position ?? illegalCandidate?.position);
@@ -179,7 +182,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       // A forbidden point is selectable, but the stone is never committed.
       const color=!boardReview && illegalCandidate?.position===i && display.board[i]===0
         ? game.next : committedColor;
-      if(!color)continue;
+      if(!color || hidden && i!==preview)continue;
       // Dead stones are off the board once the count is final, or filled under Japanese rules.
       if(!boardReview && (game.status==="finished" && !game.result?.endsWith("+R") ||
          prisonersFilled(game)) && game.dead?.includes(i))continue;

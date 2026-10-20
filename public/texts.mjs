@@ -167,7 +167,6 @@ export const TEXT = {
     hintAiLoading: "KataGoの準備ができるまでお待ちください",
     hintAiThinking: "AIが着手を計算しています",
     resignAria: "投了する。確認のため二度押し",
-    resignConfirm: "投了？",
     resignConfirmAria: "もう一度押すと投了します",
     zoomReset: "全体を表示",
     pinchHint: "2本の指で広げると拡大できます",
@@ -187,6 +186,8 @@ export const TEXT = {
     leaveForReview: "友人との対局から離れて、この局面を1台で検討しますか？",
     leaveForArchive: "友人との対局から離れ、保存した棋譜を再開しますか？",
     leaveForAi: "友人との対局から離れて、AIと新しい対局を始めますか？",
+    armedLabel: label => label.replace(/[？?]$/, "") + "？",
+    retap: question => question + "もう一度押すと実行します。",
   },
 
   analysis: {
@@ -536,6 +537,8 @@ export const TEXT = {
     rules: "ルール",
     rulesChoices: { chinese: "中国式", japanese: "日本式" },
     advanced: "詳細設定",
+    hideStones: "石を隠す（地合いだけ表示）",
+    hideStonesNote: "石を描かず、地合いの色だけで盤面を読みます。この対局の間は変えられず、対友人では相手の画面も同じになります。整地になると石が現れます。",
     start: "対局を始める",
   },
 
