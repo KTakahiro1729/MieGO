@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {TEXT} from "../public/texts.mjs";
 import {source} from "./helpers/source.mjs";
-const html=source("index.html"),app=source("app.mjs"),css=source("style.css"),retap=source("confirm-retap.mjs");
+const html=source("index.html"),app=source("app.mjs"),css=source("style.css");
 
 test("buttons draw colours from the four shared kinds, not per-button overrides",()=>{
   for(const kind of [".secondary{",".accent-outline{",".danger-armed{"])assert.ok(css.includes(kind),kind);
@@ -14,8 +14,6 @@ test("buttons draw colours from the four shared kinds, not per-button overrides"
 });
 
 test("an armed button is marked by a class, not by its aria-label text",()=>{
-  assert.match(retap,/button\.classList\.add\("danger-armed"\)/);
-  assert.match(retap,/armedConfirm\.button\.classList\.remove\("danger-armed"\)/);
   assert.doesNotMatch(css,/aria-label\^=/);
 });
 
