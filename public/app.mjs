@@ -242,7 +242,7 @@ const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingSto
 const {shownPalette,overlayOn,updateGradient}=appearance;
 // 効果音: off until the 設定 sheet turns them on. ドパガキモード swaps in louder voices.
 const sound = createSoundEffects({$,voices:()=>dopa.level()==="off"?CALM_VOICES:DOPA_VOICES});
-const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),reducedMotion:()=>reducedMotion(),
+const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),
   score:()=>$("scoreBox").querySelector("strong")});
 // Whom ドパガキモード cheers for a win: the player's own colour, or either side
 // when watching the COMs or sharing one board.
@@ -1266,13 +1266,14 @@ function apply(action, remote=false, isAiMove=false) {
     const cue=moveSound(before,game,action.type==="move"?action.position:null);
     const cheer=dopaEvent(before,game,dopaViewer());
     if(cue)sound.play(cue,cheer?.kind==="capture"?{count:cheer.count}:undefined);
-    dopa.celebrate(cheer);
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
        (action.type==="end_answer" && game.status==="scoring") ||
        (hadCandidate && game.status==="playing"))
       requestAnalysis();
     if(!remote&&room)p2pTransport.sendAction(action);
+    // Show last: an effect must never keep the move from being analysed or sent.
+    dopa.celebrate(cheer);
   }catch(error){
     // The UI offers only actions that apply, so a failure is a peer out of
     // step (or a bug): the position is resynchronised, not explained.

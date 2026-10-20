@@ -106,14 +106,21 @@ export const CALM_VOICES = {
 
 // C major from C5 up: the notes ドパガキモード climbs through.
 const SCALE = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
-/** ドパガキモード's louder sounds: a capture rings one rising note per stone taken (up to 8), a win plays a fanfare. */
+/**
+ * ドパガキモード's louder sounds: each stone adds a bright chime, a capture
+ * rings one rising note per stone taken (at least three, up to 8), a win plays a fanfare.
+ */
 export const DOPA_VOICES = {
   ...CALM_VOICES,
   capture(ctx, out, at, { count = 1 } = {}) {
     CALM_VOICES.capture(ctx, out, at);
-    const notes = Math.max(1, Math.min(SCALE.length, count));
+    const notes = Math.max(3, Math.min(SCALE.length, count + 2));
     for (let i = 0; i < notes; i++)
-      tone(ctx, out, at + .05 + i * .06, { frequency: SCALE[i], gain: .12, length: .18 });
+      tone(ctx, out, at + .04 + i * .05, { frequency: SCALE[i], gain: .14, length: .2 });
+  },
+  move(ctx, out, at) {
+    CALM_VOICES.move(ctx, out, at);
+    tone(ctx, out, at + .02, { frequency: SCALE[5], gain: .07, length: .16 });
   },
   end(ctx, out, at) {
     [0, 2, 3, 5].forEach((note, i) => tone(ctx, out, at + i * .11, { frequency: SCALE[note], gain: .13, length: .35 }));
