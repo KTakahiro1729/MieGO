@@ -21,7 +21,9 @@ test("a friend's answer to an end offer is shown to the one who offered",()=>{
   assert.match(app,/peerAgreed\(\)\?\(scoringStepOf\(game\)==="dead"\?TEXT\.scoring\.peerAgreedDead:TEXT\.scoring\.peerAgreed\)/);
 });
 test("keeping on playing holds back the strongest advice in every mode",()=>{
-  assert.match(app,/endHintSuppressedUntil=game\.moveNumber\+4;\n    endExpanded=false;updateEndUi\(\);/);
+  assert.match(app,/endgameAdvisor\.hold\(\);\n    endExpanded=false;updateEndUi\(\);/);
+  assert.match(app,/if\(!action\.accept\)endgameAdvisor\.hold\(\);/);
+  assert.doesNotMatch(app,/endHintSuppressedUntil/);
 });
 test("the bar draws attention when a decision is asked, and honours reduced motion",()=>{
   assert.match(app,/classList\.toggle\("is-calling"/);
