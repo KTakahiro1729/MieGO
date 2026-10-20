@@ -27,7 +27,7 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   assert.doesNotMatch(html,/id="historyPanel"|id="closeHistory"/);
   assert.match(app,/function openHistoryPanel\(\)\{openPanel\("history"\);\}/);
   assert.equal((sheet.match(/name="boardSize"[^>]*><span class="choice"><svg class="size-icon"/g)||[]).length,3);
-  // No 詳細設定 disclosure: handicap sits under ルール's choices, the AI's style under AIの強さ's; the sampling-variance setting is gone.
+  // No 詳細設定 disclosure: handicap sits under ルール's choices, the AI's style under COMのキャラ's; the sampling-variance setting is gone.
   assert.doesNotMatch(sheet,/id="newGameAdvanced"/);
   const panel=key=>{
     const start=sheet.indexOf('id="setupPanel'+key+'"'),next=sheet.indexOf('<div id="setupPanel',start);
@@ -35,18 +35,21 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   };
   const advanced=panel("Strength");
   for(const id of ["handicap","gomokuForbidden","hideStones"])assert.match(panel("Rules"),new RegExp('id="'+id+'"'));
-  for(const id of ["aiInvasion","aiReinforcement","aiHints"])assert.match(advanced,new RegExp('id="'+id+'"'));
-  // Strength is five choices under its own tab, each with its note, above the style; the style sliders have three stops.
-  assert.ok(advanced.indexOf('name="aiStrength"')<advanced.indexOf('id="aiOptions"'));
+  assert.doesNotMatch(html+app,/aiHints|policyHints/);
+  // The COM is eight choices under its own tab, each with its note, above the style;
+  // カスタム's strength and four style rows follow the list directly, with no card around them.
+  assert.ok(advanced.indexOf('name="aiCharacter"')<advanced.indexOf('id="aiOptions"'));
+  assert.ok(advanced.indexOf('id="aiCharacterChoices"')<advanced.indexOf('id="aiCustom"') && advanced.indexOf('id="aiCustom"')<advanced.indexOf('id="aiStrengthNote"'));
+  assert.match(advanced,/<fieldset id="aiCustom" class="ai-advanced com-rows" hidden>\s*<legend class="visually-hidden">/);
+  assert.deepEqual([...sheet.matchAll(/name="aiCharacter" value="(\w+)"/g)].map(m=>m[1]),
+    ["chick","steady","raider","brawler","wide","serious","master","custom"]);
+  assert.equal((sheet.slice(sheet.indexOf('id="aiCharacterChoices"'),sheet.indexOf('</fieldset>',sheet.indexOf('id="aiCharacterChoices"'))).match(/<small class="choice-note">/g)||[]).length,8);
   assert.deepEqual([...sheet.matchAll(/name="aiStrength" value="(\w+)"/g)].map(m=>m[1]),["beginner","easy","normal","strong","strongest"]);
-  assert.equal((sheet.slice(sheet.indexOf('id="aiStrengthChoices"'),sheet.indexOf('</fieldset>',sheet.indexOf('id="aiStrengthChoices"'))).match(/<small class="choice-note">/g)||[]).length,5);
-  // 自分の石・AIの強さ・盤・ルール are one row of tabs over one panel of choices, the colour first.
+  for(const name of ["aiInvasion","aiStance","aiHeight","aiTenuki"])
+    assert.deepEqual([...sheet.matchAll(new RegExp('name="'+name+'" value="(\\d+)"',"g"))].map(m=>m[1]),["0","50","100"]);
+  // 自分の石・COMのキャラ・盤・ルール are one row of tabs over one panel of choices, the colour first.
   assert.deepEqual([...sheet.matchAll(/id="setupTab(\w+)"[^>]*role="tab"/g)].map(m=>m[1]),["Side","Strength","Board","Rules"]);
   for(const key of ["Board","Rules","Side","Strength"])assert.match(sheet,new RegExp('id="setupPanel'+key+'" class="setup-panel" role="tabpanel"'));
-  for(const id of ["aiInvasion","aiReinforcement"])
-    assert.match(advanced,new RegExp('id="'+id+'" type="range" min="0" max="100" step="50"'));
-  for(const id of ["aiInvasion","aiReinforcement"])
-    assert.equal((sheet.slice(sheet.indexOf('id="'+id+'Row"')).split('</div>')[0].match(/data-note=/g)||[]).length,3);
   assert.doesNotMatch(html+app,/aiLevel/);
   for(const id of ["startLocal","startAi","copy","openHistoryFromNew"])assert.match(sheet,new RegExp('id="'+id+'"'));
   // The way back tops the sheet, then the mode tabs and options, then the start button.
