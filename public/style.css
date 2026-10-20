@@ -295,9 +295,10 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .setup-row{display:contents}
 .setup-row[hidden]{display:none}
 .setup-label{margin:0;font-size:13px;color:#d6dae3;white-space:nowrap}
-/* 盤・ルール・自分の石・AIの強さ: underlined tabs naming each setting, over one panel of its choices. */
+/* 自分の石・COMのキャラ・盤・ルール・時間: underlined tabs naming each setting, over one panel of its choices.
+   Five fit at 320px only when each takes its own width first and shares the rest. */
 .setup-tabs{display:flex;margin-top:14px;border-bottom:1px solid #3b4250}
-.setup-tab{flex:1 1 0;display:grid;align-content:center;gap:1px;min-width:0;min-height:50px;margin:0;padding:0 2px;border:0;border-radius:0;background:none;
+.setup-tab{flex:1 1 auto;display:grid;align-content:center;gap:1px;min-width:0;min-height:50px;margin:0;padding:0 2px;border:0;border-radius:0;background:none;
   color:#9aa1ad;font-size:12px;font-weight:600;white-space:nowrap}
 /* Under each tab's name, the value it holds now. */
 .setup-tab-value{overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:650;color:#d6dae3}
@@ -344,6 +345,9 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .size-icon{flex:none;width:20px;height:20px;color:#9aa1ad}
 /* Under a tab's choices, the settings that only that tab's choice uses (置き石, …), after a line and a small heading. */
 .setup-more{margin-top:14px;padding-top:12px;border-top:1px solid #343b49}
+/* A tab whose panel is only such sections (時間) starts with the first one, without its line. */
+.setup-panel>.setup-more:first-child{margin-top:0;padding-top:4px;border-top:0}
+.setup-more.is-off .setup-more-head,.setup-more:has(>.time-control.is-off) .setup-more-head{color:#5d6472}
 .setup-more-head{margin:0 0 8px;font-size:12px;font-weight:600;color:#9aa1ad}
 .setup-more .advanced-row{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
 .setup-more .advanced-row[hidden],.setup-more [hidden]{display:none}
@@ -442,6 +446,8 @@ body{overflow:hidden}
 .status-sub .move-label{font-variant-numeric:tabular-nums;flex-shrink:0}
 .status-sub .connection-status{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .setup-more .time-control select{min-width:0;flex:1}
+/* 「30秒」 fits beside its arrow at 320px. */
+.setup-more .time-control select{padding-left:8px;padding-right:4px}
 .ownership-legend{margin-top:6px}
 .gradient{height:9px}
 .legend-labels{padding-top:3px;font-size:10px}

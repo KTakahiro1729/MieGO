@@ -1957,9 +1957,9 @@ function syncStartButtons() {
   keepArmedLabel($("startLocal"));
 }
 function startLabel(){return continueFrom?TEXT.review.continue:TEXT.newGame.start;}
-// 自分の石, COMのキャラ, 盤 and ルール are one row of underlined tabs, the colour first; the selected
+// 自分の石, COMのキャラ, 盤, ルール and 時間 are one row of underlined tabs, the colour first; the selected
 // tab's choices fill the one panel under it, one per line with a note beside it.
-const SETUP_TABS=["Side","Strength","Board","Rules"];
+const SETUP_TABS=["Side","Strength","Board","Rules","Time"];
 function selectSetupTab(key, focus=false) {
   for(const other of SETUP_TABS){
     const tab=$("setupTab"+other),selected=other===key;
@@ -1978,11 +1978,13 @@ SETUP_TABS.forEach((key,index)=>{
 });
 // A tab whose setting the chosen mode does not use is greyed out; its panel still opens.
 function syncSetupValues() {
-  const kind=newGameModeKind();
-  $("setupTabSide").classList.toggle("is-unused",kind==="local");
+  const kind=newGameModeKind(),watch=kind==="ai" && watchChoice;
+  $("setupTabSide").classList.toggle("is-unused",kind==="local" || watch);
   // While watching, the tab still holds each COM's card.
   $("setupTabStrength").classList.toggle("is-unused",kind!=="ai");
-  $("sideNote").textContent=kind==="local"?TEXT.newGame.sideNotes.local:"";
+  // 時間 holds the clock and 観戦's speed; a friend game or a free board uses neither.
+  $("setupTabTime").classList.toggle("is-unused",!watch && untimedRules(kind));
+  $("sideNote").textContent=kind==="local"?TEXT.newGame.sideNotes.local:watch?TEXT.newGame.sideNotes.watch:"";
   syncSetupTabValues();
 }
 // Each tab shows its chosen value under its name, so the game to start reads without opening every tab.
@@ -1993,11 +1995,20 @@ function syncSetupTabValues() {
     const checked=[...panel.querySelectorAll("input:checked")].find(input=>input.closest("[hidden]")===panel || !panel.contains(input.closest("[hidden]")));
     // ここから打つ fixes 盤 and ルール to the record's, so those still show the value.
     const fixed=continueFrom && (key==="Board" || key==="Rules");
+    if(key==="Time" && !tab.classList.contains("is-unused")){$("setupValueTime").textContent=timeTabValue();continue;}
     $("setupValue"+key).textContent=key==="Strength" && editsWatchAi() && !tab.classList.contains("is-unused")?TEXT.newGame.watchStrengthValue:
       !checked || tab.classList.contains("is-unused") && !fixed?"—":checked.nextElementSibling.textContent.trim();
   }
 }
 $("newGameSetup").addEventListener("change",syncSetupTabValues);
+// 観戦 shows its speed; the other modes their clock.
+function timeTabValue() {
+  if(newGameModeKind()==="ai" && watchChoice)return TEXT.newGame.watchSpeeds[watchSpeed];
+  const label=(id,value)=>value?$(id).selectedOptions[0]?.textContent.trim()||"":"";
+  return TEXT.newGame.timeValue(label("mainTime",mainTimeChoice),label("byoyomi",byoyomiChoice));
+}
+// A free board has no turns to time, a friend game no clock yet, and 観戦 its speed instead.
+const untimedRules=kind=>gameRules==="free" || kind==="online" || kind==="ai" && watchChoice;
 // The 新規対戦 sheet shows the same rows in every mode, so its height stays put;
 // a row the chosen mode does not use is greyed out.
 function showNewGameMode(kind) {
@@ -2015,13 +2026,13 @@ function showNewGameMode(kind) {
   $("newGameSetup").hidden=kind==="history";
   $("modePanel").scrollTop=0;
   if(kind==="history")historyPanel.showHistory();
-  // 1台で打つ has no side to choose: it shows 対COM's row greyed out.
-  // 観戦 has no side either: its first tab is the speed of the moves instead.
-  $("aiSideRow").hidden=kind==="online" || watch;
+  // 1台で打つ and 観戦 have no side to choose: they show 対COM's row greyed out.
+  $("aiSideRow").hidden=kind==="online";
   $("onlineSideRow").hidden=kind!=="online";
-  $("watchSpeedRow").hidden=!watch;
-  $("setupNameSide").textContent=watch?TEXT.newGame.watchSpeed:TEXT.newGame.mySide;
-  $("aiSideChoices").disabled=kind!=="ai";
+  $("aiSideChoices").disabled=kind!=="ai" || watch;
+  // 観戦's speed sits under 時間 in every mode, greyed out outside 観戦.
+  $("watchSpeedChoices").disabled=!watch;
+  $("watchSpeedRow").classList.toggle("is-off",!watch);
   syncSideUi();syncStrengthUi();updatePersonaUi();
   // 自由に置く has no computer opponent: under 対COM it is greyed out and the default rules apply.
   if(kind==="ai" && gameRules==="free" && !continueFrom){gameRules="chinese";rememberSettings();}
@@ -2611,7 +2622,8 @@ $("startAi").onclick=()=>{
   if(gameRules!=="gomoku" && (!katagoReady || fallbackMode))return;
   if(room && connected &&
      !confirmByRetap($("startAi"),TEXT.confirm.leaveForAi))return;
-  startAiGame(newGame(true,nextGameOptions(aiHandicap)),watchChoice,aiSideChoice);
+  // 観戦 runs at its own speed, without a clock.
+  startAiGame(newGame(true,{...nextGameOptions(aiHandicap),...(watchChoice?{timeControl:null}:{})}),watchChoice,aiSideChoice);
 };
 /** A new AI game from the empty board `fresh`: watched, or with the human's side drawn from `side`. */
 function startAiGame(fresh, watch, side) {
@@ -2689,8 +2701,7 @@ function syncHandicapUi() {
     ["hideStonesRow","hideStones",gameRules==="free"],["gomokuForbiddenRow","gomokuForbidden",gameRules!=="gomoku"]]){
     $(input).disabled=off;$(row).classList.toggle("is-off",off);
   }
-  // A free board has no turns to time, and a friend game no clock yet.
-  const untimed=gameRules==="free" || kind==="online";
+  const untimed=untimedRules(kind);
   for(const input of ["mainTime","byoyomi"])$(input).disabled=untimed;
   $("timeControlSetup").classList.toggle("is-off",untimed);
   $("handicap").value=String(shown);
