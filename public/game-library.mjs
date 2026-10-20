@@ -123,8 +123,8 @@ export class GameLibrary {
       aiCom:com,
       // The fields from before characters, for older copies of the app.
       aiStrength:com.strength,
-      invasion:com.invasion,
-      // 守る was 補強 重視.
+      // 攻守 took in 侵入度: 攻める was 侵入 重視, and 守る was 補強 重視.
+      invasion:com.stance,
       reinforcement:100-com.stance,
       // COM同士: the AI plays both colours and the player only watches.
       watch:mode==="ai" && watch===true,

@@ -11,8 +11,8 @@ const define = (strength, style={}) => Object.freeze({strength,
   ...Object.fromEntries(STYLE_AXES.map(axis=>[axis,style[axis] ?? 50]))});
 export const AI_CHARACTERS = Object.freeze({
   chick: define("beginner"),
-  steady: define("easy", {invasion:0, stance:0}),
-  raider: define("easy", {height:0, invasion:100}),
+  steady: define("easy", {stance:0}),
+  raider: define("easy", {height:0, stance:100}),
   brawler: define("normal", {stance:100, tenuki:0}),
   wide: define("normal", {height:100, tenuki:100}),
   serious: define("strong"),
@@ -55,8 +55,8 @@ export function pickCharacter(com, key) {
   return {...normalizeCom(com),character:CUSTOM_CHARACTER};
 }
 
-/** A saved COM, including saves from before characters: strength, 侵入度 and 補強度
- * alone read as the character they match, or カスタム. */
+/** A saved COM, including saves from before characters (strength, 侵入度 and 補強度
+ * alone) and before 侵入度 joined 攻守: each reads as the character it matches, or カスタム. */
 export function readCom(value, fallbackStrength="strong") {
   const values=normalizeCom(value ?? {},fallbackStrength);
   const key=value?.character;
@@ -71,7 +71,6 @@ export function setComValue(com, axis, value) {
 
 // Each axis's name and the labels of its three stops (0, 50, 100), in the order the sheet lists them.
 export const AXIS_TEXT = Object.freeze({
-  invasion: {name:TEXT.ai.invasion, stops:TEXT.ai.persona},
   stance: {name:TEXT.ai.stance, stops:TEXT.ai.stanceStops},
   height: {name:TEXT.ai.height, stops:TEXT.ai.heightStops},
   tenuki: {name:TEXT.ai.tenuki, stops:TEXT.ai.tenukiStops},
