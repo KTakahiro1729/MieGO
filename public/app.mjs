@@ -1886,10 +1886,10 @@ function renderBoardReview() {
   $("stepForward").disabled=step>=count || isPreview;
   $("reviewLast").disabled=step>=count || isPreview;
   $("reviewStepRange").disabled=isPreview;
-  $("reviewBack").hidden=isPreview;
+  // One way back: at the live game's latest move 続きを打つ already returns to it.
+  $("reviewBack").hidden=isPreview || atLiveLatest();
   $("reviewPlayActions").hidden=!isPreview;
   $("reviewConfirmStone").classList.toggle("white",boardReview.preview?.moves.at(-1)?.color===WHITE);
-  $("reviewOriginal").hidden=!variationActive;
   $("reviewVariation").hidden=variationActive || !boardReview.variation;
   $("reviewSaveVariation").hidden=!boardReview.variation;
   $("reviewPass").disabled=isPreview;
@@ -2163,7 +2163,6 @@ $("reviewLast").onclick=()=>boardReview&&setBoardReviewStep(boardReview.snapshot
 $("reviewStepRange").oninput=e=>setBoardReviewStep(Number(e.target.value));
 $("reviewConfirm").onclick=confirmReviewPreview;
 $("reviewCancel").onclick=discardReviewPreview;
-$("reviewOriginal").onclick=selectOriginalLine;
 $("reviewVariation").onclick=selectVariationLine;
 $("reviewPass").onclick=previewReviewPass;
 $("reviewSaveVariation").onclick=saveReviewVariation;

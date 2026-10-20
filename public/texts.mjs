@@ -418,7 +418,6 @@ export const TEXT = {
     first: "最初の局面",
     last: "最後の局面",
     range: "表示する手数",
-    original: "元の棋譜を見る",
     showVariation: "試し打ちを見る",
     tryPass: "パスを試す",
     saveVariation: "試し打ちを保存",
