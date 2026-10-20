@@ -70,7 +70,10 @@ test("resignation is a visible button with inline two-tap safety",()=>{
 test("finished view exposes next match and history without hidden menus",()=>{
   assert.match(html,/id="newMatch"/);
   assert.match(html,/id="openHistory"/);
-  assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished/);
+  // 新規対戦 opens the sheet; もう一局 plays the same game again, except with a friend.
+  assert.match(html,/<button id="newMatchSheet" class="secondary"[^>]*>新規対戦<\/button>\s*<button id="newMatch" class="primary"[^>]*>もう一局<\/button>/);
+  assert.match(app,/\$\("newMatchSheet"\)\.hidden=!isFinished/);
+  assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished \|\| !!room/);
   assert.match(app,/\$\("openHistory"\)\.hidden=!isFinished/);
 });
 
