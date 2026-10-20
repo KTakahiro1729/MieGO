@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {postP2PJson,reconnectDelay,isTerminalTicketFailure,signalingUrl} from "../public/p2p-network.mjs";
 import { TEXT } from "../public/texts.mjs";
+import {source} from "./helpers/source.mjs";
 
 test("P2P JSON API sends unchanged POST envelopes and handles server errors",async()=>{
   const requests=[];
@@ -42,9 +43,8 @@ test("signaling URL selects WSS on HTTPS and encodes the ticket as a parameter",
 });
 
 test("every server error code the client explains is sent by the worker",async()=>{
-  const {readFileSync}=await import("node:fs");
-  const worker=readFileSync(new URL("../src/worker.mjs",import.meta.url),"utf8");
-  const client=readFileSync(new URL("../public/p2p-network.mjs",import.meta.url),"utf8");
+  const worker=source("../src/worker.mjs");
+  const client=source("p2p-network.mjs");
   const codes=[...client.slice(client.indexOf("SERVER_ERRORS"),client.indexOf("};")).matchAll(/^\s*(\w+):/gm)].map(m=>m[1]);
   assert.ok(codes.length>=5);
   for(const code of codes)assert.match(worker,new RegExp('code:"'+code+'"'),code);

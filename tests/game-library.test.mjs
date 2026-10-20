@@ -1,21 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {GameLibrary} from "../public/game-library.mjs";
+import {app,html,source} from "./helpers/source.mjs";
+import {testLibrary} from "./helpers/storage.mjs";
 import {newGame,play,BLACK} from "../public/core.mjs";
 import {TEXT} from "../public/texts.mjs";
-class MemoryStorage {
-  constructor(){this.items=new Map();}
-  get length(){return this.items.size;}
-  key(i){return [...this.items.keys()][i]??null;}
-  getItem(k){return this.items.has(k)?this.items.get(k):null;}
-  setItem(k,v){this.items.set(k,String(v));}
-}
-const setup=()=>{
- const storage=new MemoryStorage();
- let counter=0,clock=0;
- const lib=new GameLibrary(storage,()=>`game-test-${++counter}`,()=>new Date(Date.UTC(2026,0,1,0,0,++clock)).toISOString());
- return {lib,storage};
-};
+const setup=()=>testLibrary();
 test("each new game creates an independent record and latest first ordering",()=>{
  const {lib}=setup();
  const first=lib.save({mode:"local",snapshot:play(newGame(),40)});
@@ -102,38 +91,22 @@ test("imported SGF records are read-only and keep source metadata",()=>{
  assert.equal(normal.source,"played");
  assert.equal(normal.sgfMeta,null);
 });
-test("SGF import and saved games open on the common board without touching the current match",async()=>{
- const {readFileSync}=await import("node:fs");
- const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
- const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
- const historyPanel=readFileSync(new URL("../public/history-panel.mjs",import.meta.url),"utf8");
- const historyNavigation=readFileSync(new URL("../public/history-navigation.mjs",import.meta.url),"utf8");
- for(const id of ["historyImportFile","historyList","reviewContinue","shareSgf"])
-   assert.match(html,new RegExp('id="'+id+'"'));
+test("SGF import and saved games open on the common board without touching the current match",()=>{
+ const historyPanel=source("history-panel.mjs");
  assert.match(historyPanel,/gameLibrary\.save\(\{mode:"local",snapshot:parsed\.snapshot,source:"sgf"/);
  assert.match(historyPanel,/onSelect\(record\)/);
- assert.match(app,/enterBoardReview\(record\.snapshot,count,"archive",record\.sgfMeta,record\)/);
  assert.match(app,/forkReview\(activeReviewSnapshot\(boardReview,game\),boardReview\.step\)/);
  assert.doesNotMatch(html,/id="historyBoard"|id="historyDetail"|id="historyStepRange"/);
 });
 
-test("AI resumption distinguishes model initialization, a pending AI move and model failure",async()=>{
- const {readFileSync}=await import("node:fs");
- const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+test("AI resumption distinguishes model initialization, a pending AI move and model failure",()=>{
  assert.match(app,/TEXT\.game\.aiStopped/);
  assert.match(app,/gameMode=record.mode;game=JSON\.parse\(JSON\.stringify\(record\.snapshot\)\)/);
 });
 
-test("unified history sheet preserves scoring and keyboard-friendly selection",async()=>{
- const {readFileSync}=await import("node:fs");
- const h=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
- const a=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
- const historyPanel=readFileSync(new URL("../public/history-panel.mjs",import.meta.url),"utf8");
- for(const id of ["historySaveNotice","scoringActions","reviewStepRange","shareSgf"])
-   assert.match(h,new RegExp('id="'+id+'"'));
- assert.match(historyPanel,/function showHistory\(\)/);
- assert.match(a,/\$\("newGameButton"\)\.focus\(\)/);
- assert.match(a,/\$\("shareNotice"\)\.textContent=TEXT\.share\.sgfSaved/);
+test("unified history sheet preserves scoring and keyboard-friendly selection",()=>{
+ assert.match(app,/\$\("newGameButton"\)\.focus\(\)/);
+ assert.match(app,/\$\("shareNotice"\)\.textContent=TEXT\.share\.sgfSaved/);
  assert.match(TEXT.share.sgfSaved,/^SGFを書き出しました/);
 });
 

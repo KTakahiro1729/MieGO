@@ -1,17 +1,17 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import {readFileSync} from "node:fs";
+import {source} from "./helpers/source.mjs";
 test("AI games are strictly KataGo-only",()=>{
- const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
- const worker=readFileSync(new URL("../src/katago/neural-worker.ts",import.meta.url),"utf8");
+ const app=source("app.mjs");
+ const worker=source("../src/katago/neural-worker.ts");
  assert.match(app,/katagoReady/);
  assert.match(app,/result\.kind\s*===\s*"availability"/);
  assert.doesNotMatch(app,/chooseFallbackMove/);
  assert.match(worker,/kind: "availability", available: true/);
 });
 test("the player can move while KataGo is still loading",async()=>{
- const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+ const app=source("app.mjs");
  const humanTurn=app.match(/const isHumanTurn = [^;]+;/s)[0];
  assert.doesNotMatch(humanTurn,/katagoReady/);
  // The AI answers once the model reports it is ready.

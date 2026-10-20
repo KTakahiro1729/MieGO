@@ -1,41 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {at,boardHash,newGame,play,WHITE} from "../public/core.mjs";
-import {createBoardRenderer} from "../public/board-renderer.mjs";
+import {recordingBoard,baseView} from "./helpers/board-canvas.mjs";
 import {ownershipPixel,countingOpacity} from "../public/territory-view.mjs";
-
-function mockBoard(getView) {
-  const calls=[];
-  let alpha=1;
-  const stack=[];
-  const ctx={
-    get globalAlpha(){return alpha;},
-    set globalAlpha(value){alpha=value;},
-    save(){stack.push(alpha);},restore(){alpha=stack.pop();},
-    clearRect(){},beginPath(){},moveTo(){},lineTo(){},stroke(){},
-    setLineDash(){},
-    fillRect(...args){calls.push({kind:"rect",args,alpha});},
-    arc(...args){calls.push({kind:"arc",args,alpha});},
-    fill(){},fillText(){},createRadialGradient(){return {addColorStop(){}};},
-    drawImage(...args){calls.push({kind:"image",args,smoothing:this.imageSmoothingEnabled});}
-  };
-  const overlay={data:null,createImageData(w,h){return {data:new Uint8ClampedArray(w*h*4)};},
-    putImageData(image){this.data=image.data.slice();}};
-  const renderer=createBoardRenderer({
-    canvas:{width:500,getContext:()=>ctx},
-    getView,createOverlayCanvas:()=>({getContext:()=>overlay})
-  });
-  return {draw:renderer.draw,calls,overlay};
-}
-const baseView=game=>({game,boardReview:null,candidate:null,lastPosition:null,
-  displayedOwnership:null,palette:"mono",opacity:.55,humanTurn:false});
 
 test("replay ignores a provisional move and paints the replay marker",()=>{
   const game=newGame();
   const candidate=play(game,at(1,1));
   const replay=play(game,at(6,6));
   const view={...baseView(game),candidate,boardReview:{display:replay,ownership:null}};
-  const {draw,calls}=mockBoard(()=>view);
+  const {draw,calls}=recordingBoard(()=>view);
   draw();
   const stones=calls.filter(c=>c.kind==="arc"&&c.args[2]===22);
   assert.equal(stones.length,1);
@@ -50,7 +24,7 @@ test("forbidden points are unmarked until selected and draw a provisional stone 
   for(const p of [at(1,0),at(0,1),at(2,1),at(1,2)])game.board[p]=WHITE;
   game.history=[boardHash(game.board)];
   let illegalCandidate=null;
-  const {draw,calls}=mockBoard(()=>({...baseView(game),illegalCandidate}));
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),illegalCandidate}));
   draw();
   assert.equal(calls.some(c=>c.kind==="arc"&&c.args[2]===9),false);
   assert.equal(calls.some(c=>c.kind==="arc"&&c.args[2]===22&&c.args[0]===100&&c.args[1]===100),false);
@@ -74,7 +48,7 @@ test("ownership overlay uses preview-independent review values and hides with th
   const boardReview={display:{...game},ownership:Array(81).fill(0)};
   boardReview.ownership[at(2,2)]=1;
   const view={...baseView(game),boardReview,displayedOwnership:Array(81).fill(-1)};
-  const {draw,calls,overlay}=mockBoard(()=>({...view,palette}));
+  const {draw,calls,overlay}=recordingBoard(()=>({...view,palette}));
   draw();
   assert.equal(calls.filter(c=>c.kind==="image").length,1);
   const alphaAt=(x,y)=>overlay.data[((y+1)*11+x+1)*4+3];
@@ -92,7 +66,7 @@ test("the overlay colours are the same on every board look",()=>{
   const fills=[];
   const ownership=Array(81).fill(1);
   const view={...baseView(game),displayedOwnership:ownership};
-  const {draw,overlay}=mockBoard(()=>({...view,boardTheme}));
+  const {draw,overlay}=recordingBoard(()=>({...view,boardTheme}));
   for(boardTheme of ["wood","light","dark","bogus"]){
     draw();
     fills.push(overlay.data.slice(12*4,12*4+4).join(","));
@@ -103,7 +77,7 @@ test("the overlay colours are the same on every board look",()=>{
 test("the estimate fades out past the outer lines instead of ending in a hard edge",()=>{
   const game=newGame();
   const view={...baseView(game),displayedOwnership:Array(81).fill(1)};
-  const {draw,calls,overlay}=mockBoard(()=>view);
+  const {draw,calls,overlay}=recordingBoard(()=>view);
   draw();
   const image=calls.find(c=>c.kind==="image");
   const gap=500/10;
@@ -123,7 +97,7 @@ test("counting paints flat cells in the chosen colour map and rings neutral poin
   const game={...newGame(),status:"scoring",board:Array(81).fill(0)};
   for(let y=0;y<9;y++){game.board[at(4,y)]=1;game.board[at(6,y)]=WHITE;}
   const view={...baseView(game),palette:"greenPurple",opacity:.2,boardTheme:"wood"};
-  const {draw,calls,overlay}=mockBoard(()=>view);
+  const {draw,calls,overlay}=recordingBoard(()=>view);
   draw();
   const pixel=i=>[...overlay.data.slice(i*4,i*4+4)];
   const black=ownershipPixel(1,"greenPurple",countingOpacity(.2),"wood");
@@ -144,7 +118,7 @@ test("hidden stones leave only the ownership while playing and reappear when cou
   let game=play(play(newGame(),at(2,2)),at(6,6));
   const ownership=Array(81).fill(.9);
   let candidate=null;
-  const {draw,calls}=mockBoard(()=>({...baseView(game),hideStones:true,displayedOwnership:ownership,candidate}));
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),hideStones:true,displayedOwnership:ownership,candidate}));
   draw();
   assert.equal(calls.filter(c=>c.kind==="arc"&&c.args[2]===22).length,0,"no committed stones");
   assert.ok(calls.some(c=>c.kind==="image"),"ownership still painted");
@@ -158,4 +132,29 @@ test("hidden stones leave only the ownership while playing and reappear when cou
   game={...game,status:"scoring",dead:[]};
   draw();
   assert.equal(calls.filter(c=>c.kind==="arc"&&c.args[2]===22).length,2,"counting shows the stones");
+});
+
+test("a provisional capture stays translucent until confirmed, and cancelling restores it",()=>{
+  const game=newGame();
+  game.board[at(1,1)]=WHITE;
+  for(const p of [at(1,0),at(0,1),at(2,1)])game.board[p]=1;
+  game.history=[boardHash(game.board)];
+  const committed=play(game,at(1,2));
+  let candidate=committed,boardReview=null;
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),boardReview,candidate}));
+  const stone=(x,y)=>calls.find(c=>c.kind==="arc"&&c.args[2]===22&&c.args[0]===x&&c.args[1]===y);
+  draw();
+  assert.equal(stone(100,100)?.alpha,.4,"captured stone is translucent before confirmation");
+  assert.equal(stone(100,150)?.alpha,.68,"preview stone retains its distinct alpha");
+  assert.equal(stone(100,50)?.alpha,1,"untouched stones remain opaque");
+  calls.length=0;
+  boardReview={display:committed,ownership:null}; // replay uses the committed position only
+  draw();
+  assert.equal(stone(100,100),undefined,"replay does not paint a captured stone");
+  calls.length=0;
+  boardReview=null;
+  candidate=null; // cancellation restores the original full-opacity stone
+  draw();
+  assert.equal(stone(100,100)?.alpha,1);
+  assert.equal(stone(100,150),undefined);
 });
