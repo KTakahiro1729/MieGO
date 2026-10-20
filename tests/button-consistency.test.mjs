@@ -44,7 +44,7 @@ test("the same action has the same name and glyph wherever it appears",()=>{
 });
 
 test("each control row keeps continue-left, advance-right with at most one gold button",()=>{
-  const row=html.slice(html.indexOf('id="reviewPlayActions"'),html.indexOf('id="reviewBack"'));
+  const row=html.slice(html.indexOf('id="reviewPlayActions"'),html.indexOf('id="reviewMenu"'));
   assert.ok(row.indexOf('id="reviewCancel"')<row.indexOf('id="reviewConfirm"'));
   assert.match(row,/id="reviewConfirm" class="review-confirm primary"/);
   const menu=html.slice(html.indexOf('class="review-menu-popover"'),html.indexOf('id="reviewNotice"'));
