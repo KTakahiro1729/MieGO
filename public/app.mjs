@@ -1999,7 +1999,10 @@ function pumpPrefetch() {
 // 形勢グラフ: Black's estimated lead at every step of the replayed line, drawn
 // where the step slider was. It fills in as KataGo estimates the positions.
 let scoreGraph=null;
-const scoreGraphShown = () => !!boardReview && !isGomoku(boardReview.display) && !isFree(boardReview.display);
+// No graph while stepping back through a game still being played: it would
+// tell the player who is ahead mid-game.
+const scoreGraphShown = () => !!boardReview && !isGomoku(boardReview.display) && !isFree(boardReview.display) &&
+  !(boardReview.source==="live" && game.status!=="finished");
 function renderScoreGraph() {
   const box=$("reviewGraph"),shown=scoreGraphShown();
   box.classList.toggle("no-graph",!shown);
@@ -2016,7 +2019,10 @@ function renderScoreGraph() {
   leadSeries(scoreGraph.states,state=>ownershipStore.recall(gameId,state.board))
     .forEach((lead,step)=>{if(step<series.length)series[step]=lead;});
   scoreGraph.marks=swingSteps(series,line.moves,{minSwing:Math.max(3,line.board.length/27)});
-  const width=Math.max(1,Math.round(box.clientWidth)),height=Math.max(1,Math.round(box.clientHeight));
+  const width=Math.round(box.clientWidth),height=Math.round(box.clientHeight);
+  // Not laid out yet (the tools are still hidden): drawing at 1x1 would blow
+  // the marks up to the whole bar. The resize observer draws it once sized.
+  if(width<=0 || height<=0){$("reviewGraphPlot").innerHTML="";return;}
   $("reviewGraphPlot").innerHTML=scoreGraphSvg(series,{width,height,step:boardReview.step,marks:scoreGraph.marks,stepLabel:TEXT.review.graphEnd});
 }
 // A tap near a marked turning point lands on it; otherwise on the nearest step.
@@ -2264,7 +2270,7 @@ $("reviewGraph").addEventListener("pointerdown",e=>{
 $("reviewGraph").addEventListener("pointermove",e=>{
   if($("reviewGraph").hasPointerCapture(e.pointerId))pickGraphStep(e);
 });
-addEventListener("resize",()=>{if(boardReview)renderScoreGraph();});
+new ResizeObserver(()=>{if(boardReview)renderScoreGraph();}).observe($("reviewGraph"));
 $("reviewConfirm").onclick=confirmReviewPreview;
 $("reviewCancel").onclick=discardReviewPreview;
 $("reviewVariation").onclick=selectVariationLine;
