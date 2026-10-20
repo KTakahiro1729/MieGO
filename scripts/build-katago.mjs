@@ -36,6 +36,51 @@ async function ensureModel() {
   throw new Error("Unable to download pinned KataGo test model: " + error?.message);
 }
 await ensureModel();
+
+// 最強 plays with KataGo's 9x9 network. Cloudflare serves files of at most
+// 25 MiB, so the 98 MB file is published in parts; the page downloads them
+// only when a game against 最強 starts.
+const STRONG_SHA256 = "a1298ce1adc1dad7bd868ca962b2384cc8388ed373a00e6bae1114fa6f9e2d61";
+const STRONG_URL = "https://github.com/lightvector/KataGo/releases/download/v1.13.2-kata9x9/kata9x9-b18c384nbt-20231025.bin.gz";
+const STRONG_PART_BYTES = 24 * 1024 * 1024;
+const strongDir = resolve("public/models/kata9x9");
+const sha256 = bytes => createHash("sha256").update(bytes).digest("hex");
+async function ensureStrongModel() {
+  await mkdir(strongDir, { recursive: true });
+  try {
+    const manifest = JSON.parse(await readFile(join(strongDir, "parts.json"), "utf8"));
+    const parts = await Promise.all(manifest.parts.map(part => readFile(join(strongDir, part.path))));
+    if (manifest.sha256 === STRONG_SHA256 && sha256(Buffer.concat(parts)) === STRONG_SHA256) {
+      console.log("KataGo 9x9 model: verified cached parts");
+      return;
+    }
+  } catch {}
+  let error;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch(STRONG_URL, { redirect: "follow", signal: AbortSignal.timeout(300000) });
+      if (!response.ok) throw new Error("Model HTTP " + response.status);
+      const data = Buffer.from(await response.arrayBuffer());
+      if (sha256(data) !== STRONG_SHA256) throw new Error("Model SHA-256 differs from the pinned release");
+      const parts = [];
+      for (let start = 0; start < data.length; start += STRONG_PART_BYTES) {
+        const path = "part-" + parts.length + ".bin";
+        const chunk = data.subarray(start, start + STRONG_PART_BYTES);
+        await writeFile(join(strongDir, path), chunk);
+        parts.push({ path, bytes: chunk.length });
+      }
+      await writeFile(join(strongDir, "parts.json"),
+        JSON.stringify({ name: "kata9x9-b18c384nbt-20231025", sha256: STRONG_SHA256, bytes: data.length, parts }) + "\n");
+      console.log("KataGo 9x9 model downloaded and verified:", data.length, "bytes in", parts.length, "parts");
+      return;
+    } catch (e) {
+      error = e;
+      console.warn("KataGo 9x9 model download attempt", attempt + 1, e.message);
+    }
+  }
+  throw new Error("Unable to download pinned KataGo 9x9 model: " + error?.message);
+}
+await ensureStrongModel();
 await mkdir(resolve("public/tfjs"), { recursive: true });
 const wasmDir = resolve("node_modules/@tensorflow/tfjs-backend-wasm/dist");
 let wasmFiles = 0;

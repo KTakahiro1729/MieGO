@@ -30,10 +30,10 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   // Handicap and the AI's style live under 詳細設定; the sampling-variance setting is gone.
   const advanced=sheet.slice(sheet.indexOf('<details id="newGameAdvanced"'),sheet.indexOf('</details>',sheet.indexOf('<details id="newGameAdvanced"')));
   for(const id of ["handicap","aiInvasion","aiReinforcement","aiHints"])assert.match(advanced,new RegExp('id="'+id+'"'));
-  // Strength stays outside 詳細設定 as four choices under its own tab, each with its note; the style sliders have three stops.
+  // Strength stays outside 詳細設定 as five choices under its own tab, each with its note; the style sliders have three stops.
   assert.doesNotMatch(advanced,/name="aiStrength"/);
-  assert.deepEqual([...sheet.matchAll(/name="aiStrength" value="(\w+)"/g)].map(m=>m[1]),["beginner","easy","normal","strong"]);
-  assert.equal((sheet.slice(sheet.indexOf('id="aiStrengthChoices"'),sheet.indexOf('</fieldset>',sheet.indexOf('id="aiStrengthChoices"'))).match(/<small class="choice-note">/g)||[]).length,4);
+  assert.deepEqual([...sheet.matchAll(/name="aiStrength" value="(\w+)"/g)].map(m=>m[1]),["beginner","easy","normal","strong","strongest"]);
+  assert.equal((sheet.slice(sheet.indexOf('id="aiStrengthChoices"'),sheet.indexOf('</fieldset>',sheet.indexOf('id="aiStrengthChoices"'))).match(/<small class="choice-note">/g)||[]).length,5);
   // 盤・ルール・自分の石・AIの強さ are one row of tabs over one panel of choices.
   assert.deepEqual([...sheet.matchAll(/id="setupTab(\w+)"[^>]*role="tab"/g)].map(m=>m[1]),["Board","Rules","Side","Strength"]);
   for(const key of ["Board","Rules","Side","Strength"])assert.match(sheet,new RegExp('id="setupPanel'+key+'" class="setup-panel" role="tabpanel"'));

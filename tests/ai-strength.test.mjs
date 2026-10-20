@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {newGame,play,at,boardHash} from "../public/core.mjs";
 import {choosePolicyMove} from "../public/ai-opponent.mjs";
-import {AI_STRENGTHS,pickCount,pickWeakenedMove,fillsOwnEye,normalizeStrength} from "../public/ai-strength.mjs";
+import {AI_STRENGTHS,pickCount,pickWeakenedMove,fillsOwnEye,normalizeStrength,strengthForSize} from "../public/ai-strength.mjs";
 import {policyHints} from "../public/ai-assist.mjs";
 
 // A deterministic generator so sampling tests do not flake.
@@ -78,4 +78,21 @@ test("policy hints list the top legal points for the player to move",()=>{
   assert.deepEqual(hints.map(h=>h.position),[at(2,2),at(6,6),at(2,6)]);
   assert.ok(hints[0].share>hints[1].share);
   assert.deepEqual(policyHints(g,null),[]);
+});
+
+test("最強 plays the network's top move whatever the personality, and passes only when allowed",()=>{
+  const state=newGame(),logits=flatPolicy(at(2,6));
+  for(const invasion of [0,100])
+    assert.equal(choosePolicyMove(state,logits,-50,{strength:"strongest",invasion,reinforcement:100-invasion,
+      random:seeded(3)}),at(2,6));
+  assert.equal(choosePolicyMove(state,logits,5,{strength:"strongest",endgameStage:"ready"}),null);
+  assert.equal(choosePolicyMove(state,logits,5,{strength:"strongest",endgameStage:"playing"}),at(2,6));
+});
+
+test("最強 is a 9x9 level that plays as つよい on larger boards",()=>{
+  assert.equal(normalizeStrength("strongest"),"strongest");
+  assert.equal(strengthForSize("strongest",9),"strongest");
+  assert.equal(strengthForSize("strongest",13),"strong");
+  assert.equal(strengthForSize("strongest",19),"strong");
+  assert.equal(strengthForSize("easy",19),"easy");
 });

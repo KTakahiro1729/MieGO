@@ -18,14 +18,36 @@ let backend = "uninitialized";
 let newest: { id: number; state: unknown; kind?: "move" | "analyze" | "scoring" | "settle" } | null = null;
 let busy = false;
 
+// The page starts a second worker with ?net=kata9x9 for 最強; it only plays moves.
+const strong = new URLSearchParams(self.location.search).get("net") === "kata9x9";
+const modelName = strong ? "kata9x9 (9x9 network)" : "katago-small (test network)";
+async function fetchBytes(url: string) {
+  const response = await fetch(url, { cache: "force-cache" });
+  if (!response.ok) throw new Error("KataGo model HTTP " + response.status);
+  return new Uint8Array(await response.arrayBuffer());
+}
+/** The 9x9 network comes in parts (Cloudflare serves at most 25 MiB a file),
+ * reported as they arrive so the page can show how far the download is. */
+async function downloadStrongModel() {
+  const manifest = await (await fetch("/models/kata9x9/parts.json", { cache: "no-cache" })).json() as
+    { bytes: number; parts: { path: string; bytes: number }[] };
+  const whole = new Uint8Array(manifest.bytes);
+  let loaded = 0;
+  self.postMessage({ kind: "progress", loaded, total: manifest.bytes });
+  for (const part of manifest.parts) {
+    const bytes = await fetchBytes("/models/kata9x9/" + part.path);
+    if (bytes.length !== part.bytes) throw new Error("KataGo model part has the wrong size");
+    whole.set(bytes, loaded);
+    loaded += bytes.length;
+    self.postMessage({ kind: "progress", loaded, total: manifest.bytes });
+  }
+  return whole;
+}
 async function prepare() {
   if (boot) return boot;
   boot = (async () => {
     // The model is most of the download; fetch it while the backend starts.
-    const download = fetch("/models/katago-small.bin.gz", { cache: "force-cache" }).then(response => {
-      if (!response.ok) throw new Error("KataGo model HTTP " + response.status);
-      return response.arrayBuffer();
-    });
+    const download = strong ? downloadStrongModel() : fetchBytes("/models/katago-small.bin.gz");
     download.catch(() => {}); // Reported below, after the backend.
     setWasmPaths("/tfjs/");
     setThreadsCount(1); // Works without COOP/COEP and avoids heavy memory use on phones.
@@ -43,8 +65,7 @@ async function prepare() {
       }
     }
     if (!chosen) throw new Error("No compatible TensorFlow.js backend");
-    const bytes = new Uint8Array(await download);
-    const parsed = parseKataGoModelV8(ungzip(bytes));
+    const parsed = parseKataGoModelV8(ungzip(await download));
     if (parsed.metaEncoderVersion !== 0) throw new Error("A human-SL metadata model is not supported");
     model = new KataGoModelV8Tf(parsed);
   })();
@@ -103,7 +124,7 @@ async function evaluate(state: unknown) {
     let black = 0, white = whiteCompensation(state);
     for (const v of ownership) { black += (1 + v) / 2; white += (1 - v) / 2; }
     return {
-      engine: "katago", backend, model: "katago-small (test network)",
+      engine: "katago", backend, model: modelName,
       ownership, black, white, lead: evaled.blackScoreLead,
       winRate: evaled.blackWinProb,
       policy: policy && policy.every(Number.isFinite) ? policy : null

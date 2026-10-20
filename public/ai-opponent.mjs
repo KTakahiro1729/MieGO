@@ -53,6 +53,11 @@ export function choosePolicyMove(state, logits, passLogit, options={}) {
   if(!candidates.length)return null;
   const passAllowed=canConsiderAiPass(options.endgameStage);
   if(weakened)return pickWeakenedMove(candidates,passLogit,{...options,state,passAllowed});
+  // 最強 trusts the network: its top move, with no personality or sampling.
+  if(options.strength==="strongest"){
+    const top=candidates.reduce((a,b)=>b.raw>a.raw?b:a);
+    return passAllowed && Number.isFinite(passLogit) && passLogit>top.raw ? null : top.position;
+  }
   if(passAllowed && Number.isFinite(passLogit)){
     candidates.push({position:null,score:passLogit-0.3});
   }
