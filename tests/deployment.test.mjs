@@ -46,3 +46,19 @@ test("index.html preloads every module app.mjs imports, so they load in parallel
     assert.doesNotMatch(html, /module preloads -->/);
   } finally { process.chdir(cwd); }
 });
+test("search engines and link previews get a description, one canonical URL and the images it names", async () => {
+  const { renderIndex } = await import("../scripts/build-html.mjs");
+  const cwd = process.cwd();
+  process.chdir(root);
+  try {
+    const html = await renderIndex();
+    assert.match(html, /<meta name="description" content="[^"{]{40,}">/);
+    assert.match(html, /<link rel="canonical" href="https:\/\/miego\.fun\/">/);
+    assert.match(html, /<h1 class="brand"/);
+    for (const [, path] of html.matchAll(/(?:href|content)="(?:https:\/\/miego\.fun)?(\/[\w-]+\.(?:png|ico))"/g))
+      assert.ok(existsSync(resolve(root, "public" + path)), "Missing image: " + path);
+    assert.match(html, /og:image" content="https:\/\/miego\.fun\/og-image\.png"/);
+  } finally { process.chdir(cwd); }
+  assert.match(readFileSync(resolve(root, "public/robots.txt"), "utf8"), /^Sitemap: https:\/\/miego\.fun\/sitemap\.xml$/m);
+  assert.match(readFileSync(resolve(root, "public/sitemap.xml"), "utf8"), /<loc>https:\/\/miego\.fun\/<\/loc>/);
+});
