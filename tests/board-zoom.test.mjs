@@ -50,7 +50,8 @@ test("the hint fires only after repeated taps around one area",()=>{
 
 test("opponent moves return to the whole-board view and gesture clicks never place stones",()=>{
   const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
-  assert.match(app,/if\(action\.type==="move" && \(remote \|\| isAiMove\)\)boardZoom\.reset\(\)/);
+  // A watched COM同士 game is the exception: the viewer's zoom stays.
+  assert.match(app,/if\(action\.type==="move" && \(remote \|\| isAiMove && !watching\)\)boardZoom\.reset\(\)/);
   assert.match(app,/apply\(\{type:"move",position,.*\},false,fromAi\)/);
   assert.match(app,/if\(boardZoom\.consumeGestureClick\(\)\)return;/);
 });
