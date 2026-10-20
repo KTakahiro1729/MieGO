@@ -542,15 +542,14 @@ body{overflow:hidden}
 .ownership-tuning{transition:opacity .2s}
 .ownership-settings.is-off .ownership-tuning{opacity:.38;pointer-events:none}
 
-/* Score box: the title and instruction stack beside the 決着手順 button, and
-   both colours share one score line, so the box fits in the space under the
-   board on a 375×667 phone without shrinking the board. It is not drawn as a
-   card: a frame and divider would only add lines next to the prisoner pills,
-   so spacing alone sets it apart. */
-.score-box{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-items:center;
-  padding:8px 4px 2px;background:none;border:0;border-radius:0}
-.score-head,.score-box>p{grid-column:1;min-width:0}
-.settle-actions{grid-column:2;grid-row:1/3;display:flex;gap:6px}
-.settle-actions button{font-size:12px;padding:0 12px}
-.score-table{grid-column:1/-1;grid-template-columns:1fr 1fr;column-gap:14px;margin-top:6px;padding-top:0;border-top:0}
+/* Score box: two lines that fit where the endgame bar was, so the board keeps
+   its playing size. The title and instruction share the first line, both
+   colours share the second, and the 決着手順 buttons live in the action row.
+   It is not drawn as a card: a frame and divider would only add lines next
+   to the prisoner pills, so spacing alone sets it apart. */
+.score-box{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;align-items:baseline;
+  padding:2px 4px 0;margin-bottom:0;background:none;border:0;border-radius:0}
+.score-head{grid-column:1;min-width:0}
+.score-box>p{grid-column:2;grid-row:1;min-width:0;margin:0}
+.score-table{grid-column:1/-1;grid-template-columns:1fr 1fr;column-gap:14px;margin-top:2px;padding-top:0;border-top:0}
 .score-row .score-detail{min-width:0;white-space:normal;overflow-wrap:anywhere}

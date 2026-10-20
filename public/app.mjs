@@ -908,7 +908,8 @@ function show() {
     scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
   const playout=settleView();
   $("settleSkip").hidden=!playout;
-  $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout();
+  // While counting, the action row holds 死石の確認に戻る instead.
+  $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout() || scoringStepOf(game)==="count";
   $("scoreInstruction").textContent=playout?
     (playout.finished?(playout.cut?TEXT.scoring.settleCut(playout.moves):TEXT.scoring.settleDone(playout.moves)):
       TEXT.scoring.settling(playout.moves)):

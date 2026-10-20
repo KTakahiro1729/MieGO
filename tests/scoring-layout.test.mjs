@@ -13,11 +13,10 @@ const TYPES={".html":"text/html",".mjs":"text/javascript",".js":"text/javascript
   ".json":"application/json",".wasm":"application/wasm",".svg":"image/svg+xml",".txt":"text/plain"};
 // Portrait phones from docs/UX_POLICY_DRAFT.md §6, then tablet and desktop.
 const VIEWPORTS=[[320,568],[375,667],[390,844],[430,932],[768,1024],[1280,720]];
-// UX policy §2: the board's size comes first on a portrait screen, so from
-// 375×667 up the score box has to fit without shrinking the board. Smaller
-// phones and landscape desktops may shrink it rather than hide the score, and
-// so may Japanese rules, whose prisoner pills sit above the score box.
-const keepsBoard=([w,h],rules)=>rules==="chinese" && h>w && w>=375 && h>=667;
+// UX policy §2: the board's size comes first on a portrait screen, so the
+// score box has to fit where the endgame bar was, without shrinking the
+// board, under either rules. Landscape desktops may shrink it instead.
+const keepsBoard=([w,h])=>h>w;
 
 let chromium;
 try{({chromium}=await import("playwright"));}catch{}
@@ -136,7 +135,7 @@ test("scoring and the result fit above the action row on every screen",{skip,tim
     phases.push(["対局終了",await layout(page)]);
     for(const [phase,view] of phases){
       assertFits(view,phase,at);
-      if(keepsBoard(size,rules))assert.ok(view.board.width>=playing.board.width-0.5,
+      if(keepsBoard(size))assert.ok(view.board.width>=playing.board.width-0.5,
         `${at} ${phase}: the board shrank from ${playing.board.width}px to ${view.board.width}px`);
     }
     await page.close();
