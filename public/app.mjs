@@ -360,12 +360,12 @@ function updateEndUi() {
     endgameHint(game,endgameAdvisor,{unavailable:fallbackMode});
   const passed=playing && !offer && !localPrompt && !offline ? passNotice() : null;
   // Scoring an unsettled board leaves the rest to the playout's first-instinct moves,
-  // which can swing the result: the prompt says so before the player goes on.
+  // which can swing the result: the same question then keeps the advice above it.
   const unsettled=localPrompt && hint===TEXT.endgame.playing;
   $("endStatus").textContent=!playing?"":offline?TEXT.endgame.offline:
     incoming?TEXT.endgame.proposed:
     waiting?TEXT.endgame.waiting:
-    localPrompt?(unsettled?TEXT.endgame.askUnsettled:TEXT.endgame.askLocal):
+    localPrompt?(unsettled?hint+"\n"+TEXT.endgame.askLocal:TEXT.endgame.askLocal):
     passed?passed.text:hint;
   $("endPropose").hidden=!playing||!!offer||localPrompt||isGomoku(game);
   $("endAccept").hidden=!playing||!(incoming||localPrompt);
@@ -380,6 +380,7 @@ function updateEndUi() {
   // Answering an opponent's offer is a negotiation: neither choice is emphasized.
   $("endAccept").classList.toggle("primary",!room);
   $("actionRow").classList.toggle("end-prompt-open",localPrompt);
+  $("endgameBar").classList.toggle("is-asking",localPrompt);
   $("endDetail").textContent=incoming?TEXT.endgame.detailIncoming:
     localPrompt?(unsettled?TEXT.endgame.detailUnsettled:gameMode==="ai"?TEXT.endgame.detailLocalAi:
       TEXT.endgame.detailLocal):

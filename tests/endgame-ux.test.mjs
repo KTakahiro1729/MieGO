@@ -46,7 +46,8 @@ test("a playout runs to two passes, with no stop to carry it on",()=>{
 });
 test("starting scoring before the board has settled says the result can still swing",()=>{
   assert.match(app,/const unsettled=localPrompt && hint===TEXT\.endgame\.playing;/);
-  assert.match(app,/localPrompt\?\(unsettled\?TEXT\.endgame\.askUnsettled:TEXT\.endgame\.askLocal\)/);
-  assert.equal(TEXT.endgame.askUnsettled,"まだ決着前です");
+  // The same question as always, under the advice the bar already showed.
+  assert.match(app,/localPrompt\?\(unsettled\?hint\+"\\n"\+TEXT\.endgame\.askLocal:TEXT\.endgame\.askLocal\)/);
+  assert.match(app,/\$\("endgameBar"\)\.classList\.toggle\("is-asking",localPrompt\);/);
   assert.match(TEXT.endgame.detailUnsettled,/結果が大きく動く/);
 });
