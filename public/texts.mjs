@@ -333,8 +333,10 @@ export const TEXT = {
       mid: "応じるか離れるかを特に好みません。",
       high: "相手の手に付き合わず、離れた場所へ打ちます。",
     },
-    unavailable: "ページを開き直してください。COMを読み込めず、対局できません。",
-    unavailableContinue: "ページを開き直してください。COMを読み込めず、対局を続けられません。",
+    unavailable: "ページを開き直してください。COMを読み込めず、対局できません。「1台で打つ」と「対友人」はCOMなしで遊べます。",
+    unavailableContinue: "ページを開き直してください。COMを読み込めず、対局を続けられません。「1台で打つ」と「対友人」はCOMなしで遊べます。",
+    // Under the disabled start button of the 対COM tab, when KataGo failed to load.
+    startUnavailableNote: "ページを開き直すと直ることがあります。「1台で打つ」と「対友人」はCOMなしで遊べます。",
     waitingLoad: "COMの準備が終わるまでお待ちください。",
     thinking: "COMが次の手を考え中…",
     strongestLoading: percent => "最強のCOMを読み込み中… " + percent + "%",
@@ -458,7 +460,7 @@ export const TEXT = {
     sharedLoadFailed: "共有した人にURLをもう一度送ってもらってください。このURLは開けません。",
     intro: "棋譜を選ぶと大きな碁盤に表示します。",
     importSgf: "SGFファイルを読み込む",
-    empty: "保存された棋譜はまだありません。",
+    empty: "打ち始めると、棋譜がここに残ります。",
   },
 
   review: {

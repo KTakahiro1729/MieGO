@@ -31,3 +31,13 @@ test("endgame advice never claims 'not yet' until KataGo has evaluated a positio
   // endgameHint reports 確認中／判定できません instead (see tests/endgame.test.mjs).
   assert.match(app,/endgameHint\(game,endgameAdvisor,\{\s*unavailable:fallbackMode/);
 });
+test("when KataGo fails, the 対COM tab names the modes that work without it",()=>{
+  assert.match(app,/\$\("startAiNote"\)\.hidden=!\(needsKatago && fallbackMode\)/);
+  assert.match(html,/id="startAiNote"[^>]*hidden>[^<]*「1台で打つ」と「対友人」/);
+});
+test("iOS neither zooms into the manual copy fields nor on a double tap of a button",()=>{
+  // Safari zooms into a focused field under 16px; manipulation drops the double-tap zoom only.
+  for(const rule of ["#shareCopyFallback",".illegal-prompt-fallback textarea",".help-copy-fallback"])
+    assert.match(css,new RegExp(rule.replace(/[.#]/g,"\\$&")+"\\{[^}]*font-size:16px"));
+  assert.match(css,/\nbutton\{[^}]*touch-action:manipulation/);
+});

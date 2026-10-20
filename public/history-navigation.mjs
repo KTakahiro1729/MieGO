@@ -30,6 +30,12 @@ export function recordSummary(record,includeKomi=false) {
   return summary+(includeKomi && record.sgfMeta?TEXT.history.komi(record.sgfMeta.komi):"");
 }
 
+// A game nobody has played into yet (the one saved on first visit) says nothing in the list.
+export function isBlankRecord(record) {
+  return !["sgf","variation"].includes(record.source) && record.snapshot.status==="playing" &&
+    record.snapshot.moves.length===0;
+}
+
 export function readOnlyHint(record) {
   if(record.source==="variation")return TEXT.history.noteVariation;
   if(record.source==="sgf")return TEXT.history.noteSgf;
