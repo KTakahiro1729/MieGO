@@ -197,7 +197,7 @@ function updateEndUi() {
   $("endHelp").dataset.help=playing && illegalCandidate?"illegal":"endgame";
   if(playing && illegalCandidate){
     $("endStatus").textContent=illegalCandidate.reason===ILLEGAL_KO?
-      "コウのため打てません：AIに質問する":"自殺手のため打てません：AIに質問する";
+      "コウのため打てません":"自殺手のため打てません";
   }
 }
 
@@ -498,7 +498,7 @@ function show() {
   // The stone on the button shows the colour that will be placed.
   $("confirmStone").classList.toggle("white",game.next===WHITE);
   $("copyIllegalPrompt").hidden=!blocked;
-  $("copyIllegalPrompt").textContent=illegalPromptCopied?"コピー済み":"コピー";
+  $("copyIllegalPrompt").classList.toggle("is-copied",illegalPromptCopied);
   // With a provisional stone the button discards it; otherwise it is 待った.
   const provisional=!!candidate || blocked;
   const takeBack=!provisional && canTakeBack();
@@ -778,7 +778,7 @@ $("copyIllegalPrompt").onclick=async()=>{
     await writeClipboard(question);
     if(illegalCandidate===selected){
       illegalPromptCopied=true;
-      $("copyIllegalPrompt").textContent="コピー済み";
+      $("copyIllegalPrompt").classList.add("is-copied");
       $("illegalPromptFallbackPanel").hidden=true;
     }
   }catch(error){
