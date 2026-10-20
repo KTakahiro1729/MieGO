@@ -317,7 +317,7 @@ function updateEndUi() {
   const localPrompt=playing && !room && endExpanded && !offer;
   const waiting=!!(offer && !incoming);
   const offline=!!room && (!connected || color===null);
-  const hint=endgameHint(game,endgameAdvisor,{unavailable:fallbackMode});
+  const hint=preparingNotice() ?? endgameHint(game,endgameAdvisor,{unavailable:fallbackMode});
   const passed=playing && !offer && !localPrompt && !offline ? passNotice() : null;
   $("endStatus").textContent=!playing?"":offline?TEXT.endgame.offline:
     incoming?TEXT.endgame.proposed:
@@ -367,6 +367,12 @@ function peerAgreed() {
   return game.agreed[theirs] && !game.agreed[mine];
 }
 /** After one pass: who passed, and whether this player's pass would start scoring. */
+/** While KataGo loads, the status slot says so quietly instead of blocking play. */
+function preparingNotice() {
+  if(katagoReady || fallbackMode || isGomoku(game))return null;
+  if(gameMode!=="ai")return TEXT.endgame.preparingOverlay;
+  return isAiTurn()?TEXT.endgame.preparingAiTurn:TEXT.endgame.preparingAi;
+}
 function passNotice() {
   if(game.passes!==1 || game.moves.at(-1)?.position!==null)return null;
   const by=game.moves.at(-1).color;
@@ -378,7 +384,8 @@ function passNotice() {
 const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" && game.next === -humanColor;
 const isHumanTurn = () => room
   ? (connected && (myOnlineColor()!==null && game.next===myOnlineColor()))
-  : (gameMode !== "ai" || (game.next === humanColor && (isGomoku(game) || katagoReady && !fallbackMode)));
+  // The player moves while KataGo is still loading; the AI answers once it is ready.
+  : (gameMode !== "ai" || (game.next === humanColor && (isGomoku(game) || !fallbackMode)));
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
   analysisContext=null;deadEvaluation=null;
@@ -889,8 +896,8 @@ function show() {
     game.status==="scoring"?TEXT.common.scoring:
     room?(connected?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):TEXT.game.waitingOpponent):
     gameMode==="ai"?(gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
-      fallbackMode?TEXT.game.aiStopped:!katagoReady?TEXT.game.aiPreparing:
-      isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
+      fallbackMode?TEXT.game.aiStopped:
+      isAiTurn()?(!katagoReady?TEXT.game.aiPreparing:TEXT.game.aiTurn):TEXT.game.yourTurnAi):
     (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite);
   if(!room)$("netStatus").textContent=gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
   $("netStatus").classList.toggle("online",connected);
@@ -899,7 +906,7 @@ function show() {
     candidate?TEXT.game.hintCandidate:
     game.status==="scoring"?TEXT.game.hintScoring:
     gameMode==="ai" && !gomoku && fallbackMode?TEXT.game.hintAiStopped:
-    gameMode==="ai" && !gomoku && !katagoReady?TEXT.game.hintAiLoading:
+    isAiTurn() && !gomoku && !katagoReady?TEXT.game.hintAiLoading:
     isAiTurn()?TEXT.game.hintAiThinking:"";
   const blocked=!!illegalCandidate;
   $("confirm").disabled=!candidate || !myTurn || blocked;
@@ -923,6 +930,8 @@ function show() {
   updateGradient();
   // 五目並べ has no territory, so no ownership bar.
   $("ownershipLegend").hidden=gomoku;
+  // No colours are on the board yet, so the legend stays in place but faint.
+  $("ownershipLegend").classList.toggle("is-preparing",!!preparingNotice());
   const handicap=handicapOf(game),size=sizeOf(game.board);
   canvas.setAttribute("aria-label",TEXT.game.boardLabel(shownSize()));
   const japanese=isJapanese(game);

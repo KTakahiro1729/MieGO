@@ -148,6 +148,7 @@ body.board-zoomed .board-bleed{opacity:1}
 .board-swatch.light{--sw-black:#1b1f24;--sw-white:#f7f7f4;--sw-line:#7b818b;background-color:#bdc1c7}
 .board-swatch.dark{--sw-black:#0b0e12;--sw-white:#f2f6fa;--sw-line:rgba(200,225,245,.4);background-color:#26323f;box-shadow:0 1px 4px #0005,inset 0 1px 0 #ffffff26}
 .ownership-legend.overlay-off{visibility:hidden}
+.ownership-legend.is-preparing{opacity:.4;transition:opacity .4s}
 /* Japanese rules: prisoners under the ownership bar. Each pill holds the stones
    filled into territory on the board and wears the same outline colour. */
 .capture-counts{display:flex;align-items:center;justify-content:center;gap:10px;width:88%;max-width:490px;margin:6px auto 0;color:#aab0bc;font-size:12px;font-variant-numeric:tabular-nums}

@@ -110,7 +110,7 @@ test("SGF import and saved games open on the common board without touching the c
 test("AI resumption distinguishes model initialization, a pending AI move and model failure",async()=>{
  const {readFileSync}=await import("node:fs");
  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
- assert.match(app,/!katagoReady\?TEXT\.game\.aiPreparing/);
+ assert.match(app,/isAiTurn\(\)\?\(!katagoReady\?TEXT\.game\.aiPreparing/);
  assert.match(app,/TEXT\.game\.hintAiLoading/);
  assert.match(app,/TEXT\.game\.aiStopped/);
  assert.match(TEXT.game.aiPreparing,/^AIを準備中/);
