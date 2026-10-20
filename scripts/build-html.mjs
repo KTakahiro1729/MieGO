@@ -11,6 +11,9 @@ import { textAt } from "../public/texts.mjs";
 const TEMPLATE = resolve("src/index.template.html");
 const OUTPUT = resolve("public/index.html");
 const NOTICE = "<!-- Generated from src/index.template.html and public/texts.mjs. Do not edit. -->\n";
+// The site serves MieGO's license and the third-party notices as one file,
+// since the MIT and Apache licenses ask for them in every copy.
+const LICENSES = resolve("public/licenses.txt");
 
 function resolveArg(arg) {
   arg = arg.trim();
@@ -48,6 +51,11 @@ async function modulePreloads(indent) {
   return (await moduleGraph()).slice(1).map(name => indent + '<link rel="modulepreload" href="/' + name + '">').join("\n");
 }
 
+export async function renderLicenses() {
+  const [own, others] = await Promise.all(["LICENSE", "THIRD_PARTY_NOTICES.md"].map(name => readFile(resolve(name), "utf8")));
+  return "# MieGO\n\n" + own.trim() + "\n\n" + others;
+}
+
 export async function renderIndex() {
   let html = renderTemplate(await readFile(TEMPLATE, "utf8"));
   const marker = /^([ \t]*)<!-- module preloads -->$/m;
@@ -60,4 +68,6 @@ export async function renderIndex() {
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   await writeFile(OUTPUT, await renderIndex());
   console.log("index.html: rendered from texts.mjs");
+  await writeFile(LICENSES, await renderLicenses());
+  console.log("licenses.txt: LICENSE and THIRD_PARTY_NOTICES.md");
 }
