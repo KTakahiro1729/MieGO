@@ -1,3 +1,4 @@
+import { TEXT } from "./texts.mjs";
 // A minimal animated GIF89a encoder. The board mixes wood/sheen gradients,
 // anti-aliased stones and the ownership overlay, so the colours are reduced
 // to at most 256 by median cut over a 5-bit-per-channel histogram, weighted
@@ -118,10 +119,10 @@ function lzw(indices, minCodeSize, out) {
 
 function checkSize(width,height) {
   if(!Number.isInteger(width) || !Number.isInteger(height) || width<1 || height<1 ||
-     width>65535 || height>65535)throw Error("画像データが不正です");
+     width>65535 || height>65535)throw Error(TEXT.share.badImage);
 }
 function checkPixels(data,width,height) {
-  if(data?.length!==width*height*4)throw Error("画像データが不正です");
+  if(data?.length!==width*height*4)throw Error(TEXT.share.badImage);
 }
 
 function startFile(width,height,palette) {
@@ -163,7 +164,7 @@ export function createGifAnimation({width,height,paletteFrom}) {
   };
   return {
     addFrame(data,delay) {
-      if(done)throw Error("アニメーションは完成済みです");
+      if(done)throw Error(TEXT.share.animationDone);
       checkPixels(data,width,height);
       const indices=indexPixels(data);
       let left=0,top=0,right=width-1,bottom=height-1;
@@ -183,7 +184,7 @@ export function createGifAnimation({width,height,paletteFrom}) {
       previous=indices;
     },
     finish() {
-      if(!pending)throw Error("フレームがありません");
+      if(!pending)throw Error(TEXT.share.noFrame);
       flush();done=true;
       out.push(0x3b);
       return Uint8Array.from(out);

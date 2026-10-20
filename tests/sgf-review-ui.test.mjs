@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {TEXT} from "../public/texts.mjs";
 
 const source=name=>readFileSync(new URL("../public/"+name,import.meta.url),"utf8");
 const html=source("index.html"),app=source("app.mjs"),renderer=source("board-renderer.mjs"),style=source("style.css");
@@ -46,7 +47,8 @@ test("shared URLs open in review and do not replace active local saved positions
 test("AI copy is only a description of the link format, not separate SGF or a question prompt",()=>{
   const handoff=source("sgf-link.mjs");
   assert.match(handoff,/makeAiHandoff\(reviewUrl\)/);
-  assert.match(handoff,/SGFの着手列を合法な手順に編集/);
+  assert.match(handoff,/\.\.\.TEXT\.prompts\.handoffSpec/);
+  assert.ok(TEXT.prompts.handoffSpec.some(line=>/SGFの着手列を合法な手順に編集/.test(line)));
   assert.doesNotMatch(handoff,/SGF本文：|次の一手を教えて|私は囲碁の初心者です/);
   assert.match(html,/id="shareAiLink"/);
   assert.doesNotMatch(html,/id="historyAiLink"/);

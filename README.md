@@ -190,6 +190,14 @@ npm test
 npm run dev
 ```
 
+### 文言の管理
+
+画面の文言・状態表示・エラー・ヘルプ・AIへの質問文は、すべて **`public/texts.mjs`** にまとめています。文言を変えるときはこのファイルだけを編集します。
+
+- JavaScriptの各モジュールは `TEXT.*` を参照します。
+- `public/index.html` は `src/index.template.html` と `texts.mjs` から `scripts/build-html.mjs` が生成します（`npm test`・`npm run dev`・`npm run deploy` の前に自動生成）。`public/index.html` を直接編集しないでください。GitHubのWeb画面で `texts.mjs` を編集した場合も、Cloudflareのビルドで再生成されます。
+- テスト `tests/texts.test.mjs` が、モジュールへの日本語リテラルの再混入と、`index.html` の生成漏れを検出します。
+
 追加のライセンス・由来情報: `vendor/web-katrain/NOTICE.md` と `vendor/web-katrain/LICENSE`。
 
 ## ダークな碁盤中心デザイン

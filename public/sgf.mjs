@@ -1,4 +1,5 @@
 import { BLACK, WHITE, BOARD_SIZES, isBoardSize, sizeOf, handicapPoints, maxHandicap, newGame, initialGame, handicapOf, komiOf, play, resume, boardHash } from "./core.mjs";
+import { TEXT } from "./texts.mjs";
 
 const MAX_TEXT=512*1024, MAX_NODES=5000, MAX_DEPTH=40, MAX_STEPS=2000;
 const esc=value=>String(value??"").replace(/\\/g,"\\\\").replace(/\]/g,"\\]");
@@ -7,53 +8,53 @@ const coord=(position,size)=>position===null?"":String.fromCharCode(
 
 function parseTree(text) {
   if(typeof text!=="string" || !text.trim() || text.length>MAX_TEXT)
-    throw Error("SGFファイルが空か、大きすぎます（上限512KB）。");
+    throw Error(TEXT.sgf.tooLarge);
   let i=0,nodesRead=0;
   const skip=()=>{while(/\s/.test(text[i]||"") && i<text.length)i++;};
   const parseValue=()=>{
-    if(text[i]!=="[")throw Error("SGFの値が不正です。");
+    if(text[i]!=="[")throw Error(TEXT.sgf.badValue);
     i++;let value="",ended=false;
     while(i<text.length){
       let c=text[i++];
       if(c==="]"){ended=true;break;}
       if(c==="\\"){
-        if(i>=text.length)throw Error("SGFの末尾に不正なエスケープがあります。");
+        if(i>=text.length)throw Error(TEXT.sgf.badEscape);
         c=text[i++];
         if(c==="\r"){if(text[i]==="\n")i++;continue;}
         if(c==="\n")continue;
       }
       value+=c;
     }
-    if(!ended)throw Error("SGFのプロパティが閉じられていません。");
+    if(!ended)throw Error(TEXT.sgf.unclosedProperty);
     return value;
   };
   const sequence=depth=>{
-    if(depth>MAX_DEPTH)throw Error("SGFの分岐が深すぎます。");
-    skip();if(text[i++]!=="(")throw Error("SGFは括弧で囲まれた棋譜が必要です。");
+    if(depth>MAX_DEPTH)throw Error(TEXT.sgf.tooDeep);
+    skip();if(text[i++]!=="(")throw Error(TEXT.sgf.needsParens);
     const nodes=[],children=[];
     skip();
     while(text[i]===";"){
-      if(++nodesRead>MAX_NODES)throw Error("SGFの節点が多すぎます。");
+      if(++nodesRead>MAX_NODES)throw Error(TEXT.sgf.tooManyNodes);
       i++;const props=Object.create(null);
       skip();
       while(/[A-Za-z]/.test(text[i]||"")){
         const start=i;while(/[A-Za-z]/.test(text[i]||""))i++;
         const name=text.slice(start,i);
-        if(!/^[A-Z]+$/.test(name))throw Error("SGFのプロパティ名が不正です。");
-        skip();if(text[i]!=="[")throw Error("SGFプロパティの値がありません。");
+        if(!/^[A-Z]+$/.test(name))throw Error(TEXT.sgf.badPropertyName);
+        skip();if(text[i]!=="[")throw Error(TEXT.sgf.missingValue);
         const values=[];while(text[i]==="["){values.push(parseValue());skip();}
         if(props[name])props[name].push(...values);else props[name]=values;
         skip();
       }
       nodes.push(props);skip();
     }
-    if(!nodes.length)throw Error("SGFの節点がありません。");
+    if(!nodes.length)throw Error(TEXT.sgf.noNodes);
     while(text[i]==="("){children.push(sequence(depth+1));skip();}
-    if(text[i++]!==")")throw Error("SGFの閉じ括弧がありません。");
+    if(text[i++]!==")")throw Error(TEXT.sgf.missingClose);
     return {nodes,children};
   };
   skip();const root=sequence(0);skip();
-  if(i!==text.length)throw Error("複数対局を含むSGFには対応していません。");
+  if(i!==text.length)throw Error(TEXT.sgf.multipleGames);
   return root;
 }
 function first(root,name) {return root[name]?.[0]??null;}
@@ -62,7 +63,7 @@ function decodeMove(value,size){
   if(value==="" || value==="tt")return null;
   const x=value.charCodeAt(0)-97,y=value.charCodeAt(1)-97;
   if(!/^[a-s]{2}$/.test(value) || x>=size || y>=size)
-    throw Error(size+"路盤の外の座標を検出しました。");
+    throw Error(TEXT.sgf.outside(size));
   return y*size+x;
 }
 // SGF primary line only; unsupported setup nodes are rejected rather than misread.
@@ -70,38 +71,38 @@ export function parseSGF(text) {
   let tree=parseTree(text);const nodes=[];
   while(tree){nodes.push(...tree.nodes);tree=tree.children[0]||null;}
   const root=nodes[0];
-  if(first(root,"GM")!==null && first(root,"GM")!=="1")throw Error("囲碁以外のSGFは読み込めません。");
+  if(first(root,"GM")!==null && first(root,"GM")!=="1")throw Error(TEXT.sgf.notGo);
   const size=Number(first(root,"SZ"));
   if(!/^\d+$/.test(first(root,"SZ")??"") || !isBoardSize(size))
-    throw Error(BOARD_SIZES.join("・")+"路盤のSGF（SZ）だけに対応しています。");
-  if(first(root,"FF")!==null && first(root,"FF")!=="4")throw Error("SGF形式FF[4]にのみ対応しています。");
+    throw Error(TEXT.sgf.sizes(BOARD_SIZES.join("・")));
+  if(first(root,"FF")!==null && first(root,"FF")!=="4")throw Error(TEXT.sgf.format);
   // Handicap is accepted only as MieGO's fixed star-point placement in the root.
   for(const node of nodes.slice(1))
     if(["AB","AW","AE","PL","HA"].some(prop=>prop in node))
-      throw Error("途中の盤面編集を含むSGFには対応していません。");
-  if(["AW","AE"].some(prop=>prop in root))throw Error("白石の配置・盤面編集を含むSGFには対応していません。");
+      throw Error(TEXT.sgf.setupMidGame);
+  if(["AW","AE"].some(prop=>prop in root))throw Error(TEXT.sgf.setupWhite);
   const placed=(root.AB||[]).map(value=>decodeMove(value,size));
   const handicap=placed.length;
   if(handicap===1 || handicap>maxHandicap(size) ||
      (first(root,"HA")!==null && Number(first(root,"HA"))!==handicap) ||
      placed.some(p=>!handicapPoints(size,handicap).includes(p)) ||
      new Set(placed).size!==handicap)
-    throw Error("MieGOの置き石の配置（2〜"+maxHandicap(size)+"子・星）以外のSGFには対応していません。");
+    throw Error(TEXT.sgf.handicap(maxHandicap(size)));
   if(first(root,"PL")!==null && first(root,"PL")!==(handicap?"W":"B"))
-    throw Error("SGFの手番指定（PL）に対応していません。");
+    throw Error(TEXT.sgf.player);
   let state=newGame(true,{handicap,size}),seen=0;
   for(const node of nodes){
-    if(("B" in node)&&("W" in node))throw Error("同じ節点に白黒両方の着手があります。");
+    if(("B" in node)&&("W" in node))throw Error(TEXT.sgf.bothColors);
     const key="B" in node?"B":"W" in node?"W":null;
     if(!key)continue;
-    if(++seen>MAX_STEPS)throw Error("手順が多すぎます。");
-    if(node[key].length!==1)throw Error("SGFの着手が重複しています。");
+    if(++seen>MAX_STEPS)throw Error(TEXT.sgf.tooManySteps);
+    if(node[key].length!==1)throw Error(TEXT.sgf.duplicateMove);
     const color=key==="B"?BLACK:WHITE;
-    if(state.next!==color)throw Error(seen+"手目：黒白の着手順が正しくありません。");
+    if(state.next!==color)throw Error(TEXT.sgf.wrongOrder(seen));
     if(state.status==="scoring")state=resume(state);
-    if(state.status!=="playing")throw Error("終局後に着手があります。");
+    if(state.status!=="playing")throw Error(TEXT.sgf.afterEnd);
     try{state=play(state,decodeMove(node[key][0],size));}
-    catch(error){throw Error(seen+"手目："+error.message);}
+    catch(error){throw Error(TEXT.sgf.moveError(seen,error.message));}
   }
   const result=first(root,"RE");
   const metadata={
@@ -112,7 +113,7 @@ export function parseSGF(text) {
     whiteName:first(root,"PW")||null
   };
   if(!/^-?\d+(?:\.\d+)?$/.test(metadata.komi))
-    throw Error("SGFのコミ値が不正です。");
+    throw Error(TEXT.sgf.badKomi);
   if(result && /^(B|W)\+(R|\d+(?:\.\d+)?)$/.test(result))
     state={...state,status:"finished",result};
   return {snapshot:state,metadata,variationsIgnored:hasVariations(parseTree(text)),steps:seen};
@@ -122,16 +123,16 @@ function hasVariations(tree){
   return tree.children.some(hasVariations);
 }
 export function replaySteps(game,through=game.moves.length){
-  if(!game || !Array.isArray(game.moves))throw Error("棋譜の手順がありません。");
+  if(!game || !Array.isArray(game.moves))throw Error(TEXT.sgf.noMoves);
   if(!Number.isInteger(through)||through<0||through>game.moves.length)
-    throw Error("指定された手順がありません。");
+    throw Error(TEXT.sgf.noSteps);
   let state=initialGame(game);
   for(let i=0;i<through;i++){
     const {color,position}=game.moves[i];
-    if(color!==state.next)throw Error((i+1)+"手目の手番が一致しません。");
+    if(color!==state.next)throw Error(TEXT.sgf.wrongTurn(i+1));
     if(state.status==="scoring")state=resume(state);
     try { state=play(state,position); }
-    catch(error){throw Error((i+1)+"手目："+error.message);}
+    catch(error){throw Error(TEXT.sgf.moveError(i+1,error.message));}
   }
   return state;
 }
@@ -148,7 +149,7 @@ export function forkReview(game,through) {
 }
 export function exportSGF(record) {
   const snapshot=record?.snapshot||record;
-  if(!snapshot || !Array.isArray(snapshot.moves))throw Error("書き出す棋譜がありません。");
+  if(!snapshot || !Array.isArray(snapshot.moves))throw Error(TEXT.sgf.nothingToExport);
   // Revalidate the move sequence, except that an imported SGF may carry an
   // independent final result/komi that is not computed with MieGO's rules.
   replaySteps(snapshot);

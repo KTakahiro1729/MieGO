@@ -1,12 +1,13 @@
 import { BLACK, play, sizeOf } from "./core.mjs";
 import { formatBoardForAi, formatBoardSection } from "./board-text.mjs";
 import { shareableReviewUrl } from "./sgf-link.mjs";
+import { TEXT } from "./texts.mjs";
 
 export const ILLEGAL_SUICIDE = "suicide";
 export const ILLEGAL_KO = "ko";
 const reasons = {
-  [ILLEGAL_SUICIDE]: "自殺手は禁止です",
-  [ILLEGAL_KO]: "コウで直前の局面に戻せません"
+  [ILLEGAL_SUICIDE]: TEXT.rules.suicide,
+  [ILLEGAL_KO]: TEXT.rules.ko
 };
 
 export function forbiddenMoveReason(error) {
@@ -46,24 +47,24 @@ export function illegalMoveReasons(state) {
 export function makeIllegalMovePrompt(game,forbidden,reviewUrl) {
   if(!forbidden || !Object.hasOwn(reasons,forbidden.reason) ||
      game.board?.[forbidden.position]!==0 || game.status!=="playing")
-    throw Error("説明する禁止手がありません");
-  const color=game.next===BLACK?"黒":"白";
+    throw Error(TEXT.prompts.illegalNothing);
+  const color=game.next===BLACK?TEXT.common.black:TEXT.common.white;
   const url=shareableReviewUrl(reviewUrl);
   let before="";
   if(forbidden.reason===ILLEGAL_KO && game.history?.length>=2) {
     const hash=game.history.at(-2);
     if(typeof hash==="string" && hash.length===game.board.length && /^[012]+$/.test(hash)) {
       const previous=[...hash].map(n=>Number(n)-1);
-      before="\n\n直前の着手前の盤面：\n"+formatBoardForAi(previous);
+      before=TEXT.prompts.illegalBefore+formatBoardForAi(previous);
     }
   }
   return [
-    "MieGO・"+sizeOf(game.board)+"路盤の着手確認",
-    "手番："+color+"、選択した空点は図中の◇です。",
-    "禁止理由："+reasons[forbidden.reason],
-    "なぜこの手が打てないのか、盤面と囲碁のルールに沿って説明してください。",
-    "棋譜URL: "+url.href,
+    TEXT.prompts.illegalTitle(sizeOf(game.board)),
+    TEXT.prompts.illegalTurn(color),
+    TEXT.prompts.illegalReason(reasons[forbidden.reason]),
+    TEXT.prompts.illegalAsk,
+    TEXT.prompts.reviewUrl(url.href),
     "",
-    formatBoardSection("現在の盤面",game.board,{selectedPosition:forbidden.position})+before
+    formatBoardSection(TEXT.prompts.currentBoard,game.board,{selectedPosition:forbidden.position})+before
   ].join("\n");
 }

@@ -3,6 +3,7 @@ import { createGifAnimation } from "./gif-encoder.mjs";
 import { ownershipPixel, showsOwnership } from "./territory-view.mjs";
 import { boardTheme } from "./board-theme.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
+import { TEXT } from "./texts.mjs";
 export { resultLabel };
 
 // A shared image is a 4:5 card in the board's own colour, read top to bottom:
@@ -13,16 +14,21 @@ const CARD_RATIO = 1.25;
 const BOARD_X = 50, BOARD_Y = 128, BOARD = 700;
 const MOVE_DELAY = 45, FIRST_DELAY = 90, LAST_DELAY = 350;
 export const SHARE_LINKS = Object.freeze([
-  ["自分でプレイする","miego.fun"],
-  ["開発に参加する","github.com/KTakahiro1729/MieGO"]
+  [TEXT.share.cardPlay,"miego.fun"],
+  [TEXT.share.cardContribute,"github.com/KTakahiro1729/MieGO"]
 ]);
 // Ink and its muted tone, per board look.
 const INK = {wood:["#2e2416","rgba(46,36,22,.66)"],light:["#1d2127","rgba(29,33,39,.64)"],
   dark:["#eef3f8","rgba(238,243,248,.66)"]};
 const MINCHO = "'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', serif";
 const GOTHIC = "'Zen Kaku Gothic New', 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif";
-const FONT_TEXT = "MieGO0123456789.+〜·全手目まで白黒の投了時間切れで差が勝利引き分け対局中子局コミ"+
-  "地合いの推定自分でプレイする開発に参加abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/:-";
+// Every glyph the card can paint, taken from its wording in texts.mjs.
+const CARD_WORDS = [TEXT.share.cardMoves(""),TEXT.share.cardAllMoves(""),TEXT.share.cardUntil(""),
+  TEXT.share.cardHandicap(""),TEXT.share.cardKomi(""),TEXT.share.cardLegend,TEXT.share.cardPlay,
+  TEXT.share.cardContribute,TEXT.common.playing,TEXT.common.whiteArea,TEXT.common.blackArea,TEXT.result.draw,
+  TEXT.result.byResign("B","W"),TEXT.result.byTime("W","B"),TEXT.result.byPoints("B","")];
+export const FONT_TEXT = [...new Set("MieGO0123456789.+〜·"+CARD_WORDS.join("")+
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/:-")].join("");
 
 /** Loads the card's two typefaces (subset to its text); falls back to system fonts. */
 let fontsReady=null;
@@ -36,7 +42,7 @@ export function loadShareFonts(doc=globalThis.document,timeout=3000) {
         "&display=swap&text="+encodeURIComponent(FONT_TEXT)});
     doc.head.append(link);
   }).then(()=>Promise.all(["800 44px 'Shippori Mincho'","500 16px 'Zen Kaku Gothic New'",
-    "700 16px 'Zen Kaku Gothic New'"].map(font=>doc.fonts.load(font,"白黒全手"))));
+    "700 16px 'Zen Kaku Gothic New'"].map(font=>doc.fonts.load(font,FONT_TEXT))));
   return Promise.race([fontsReady,new Promise(resolve=>setTimeout(resolve,timeout))]).catch(()=>{});
 }
 
@@ -45,9 +51,9 @@ export function loadShareFonts(doc=globalThis.document,timeout=3000) {
  * animation ("全42手", "20手目まで"); `rules` names komi and any handicap.
  */
 export function shareLabels({step,total,result,animated,komi=7.5,handicap=0}) {
-  const moves=!animated ? step+"手目" : step===total ? "全"+total+"手" : step+"手目まで";
-  const rules=(handicap ? handicap+"子局 · " : "")+"コミ"+komi+"目";
-  return {moves,rules,result:resultLabel(result)||"対局中",winner:resultWinner(result)};
+  const moves=!animated ? TEXT.share.cardMoves(step) : step===total ? TEXT.share.cardAllMoves(total) : TEXT.share.cardUntil(step);
+  const rules=(handicap ? TEXT.share.cardHandicap(handicap) : "")+TEXT.share.cardKomi(komi);
+  return {moves,rules,result:resultLabel(result)||TEXT.common.playing,winner:resultWinner(result)};
 }
 
 export const shareFrameSize = width => ({width,height:Math.round(width*CARD_RATIO)});
@@ -70,7 +76,7 @@ function paintStone(ctx,theme,color,x,y,r) {
 function paintLegend(ctx,u,center,y,{palette,opacity,theme},muted) {
   const look=boardTheme(theme),w=220*u,h=8*u,x=center-w/2,steps=48;
   ctx.font="500 "+Math.round(14*u)+"px "+GOTHIC;ctx.fillStyle=muted;
-  ctx.textAlign="center";ctx.fillText("地合いの推定",center,y-14*u);
+  ctx.textAlign="center";ctx.fillText(TEXT.share.cardLegend,center,y-14*u);
   ctx.save();
   ctx.beginPath();ctx.roundRect?.(x,y-h/2,w,h,h/2);ctx.clip();
   ctx.fillStyle="rgb("+look.surface.join(",")+")";ctx.fillRect(x,y-h/2,w,h);
@@ -82,9 +88,9 @@ function paintLegend(ctx,u,center,y,{palette,opacity,theme},muted) {
   ctx.restore();
   ctx.textBaseline="middle";
   paintStone(ctx,look,"W",x-18*u,y,8*u);
-  ctx.fillStyle=muted;ctx.textAlign="right";ctx.fillText("白の地",x-34*u,y);
+  ctx.fillStyle=muted;ctx.textAlign="right";ctx.fillText(TEXT.common.whiteArea,x-34*u,y);
   paintStone(ctx,look,"B",x+w+18*u,y,8*u);
-  ctx.fillStyle=muted;ctx.textAlign="left";ctx.fillText("黒の地",x+w+34*u,y);
+  ctx.fillStyle=muted;ctx.textAlign="left";ctx.fillText(TEXT.common.blackArea,x+w+34*u,y);
   ctx.textBaseline="alphabetic";
 }
 

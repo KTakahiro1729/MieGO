@@ -1,20 +1,21 @@
 import { group } from "./core.mjs";
 import { OWNERSHIP_BANDS } from "./territory-view.mjs";
+import { TEXT } from "./texts.mjs";
 
 /** Non-authoritative endgame advice for 9x9 Chinese rules.
  * Evaluations must be from committed positions (never sandbox/preview moves).
  * Stable ownership is only a necessary hint, not a life-and-death proof.
  */
 export const ENDGAME_HINTS = Object.freeze({
-  playing:"終局まではまだまだです",
-  near:"そろそろ終局です",
-  ready:"終局をご検討ください"
+  playing:TEXT.endgame.playing,
+  near:TEXT.endgame.near,
+  ready:TEXT.endgame.ready
 });
 /** No KataGo evaluation is not the same thing as 'far from endgame'. */
 export function endgameHint(state,advisor,{unavailable=false,suppressedUntil=-1}={}) {
-  if(unavailable)return "終局の目安を判定できません";
-  if(!advisor.previous)return "終局の目安を確認中";
-  if(state.moveNumber-advisor.previous.move>3)return "終局の目安を更新中";
+  if(unavailable)return TEXT.endgame.unavailable;
+  if(!advisor.previous)return TEXT.endgame.checking;
+  if(state.moveNumber-advisor.previous.move>3)return TEXT.endgame.updating;
   // Three steps. After the player chose to keep playing, the strongest one
   // waits for the next move and the milder one stands in for it.
   if(advisor.stage==="ready" && state.moveNumber>suppressedUntil)return ENDGAME_HINTS.ready;

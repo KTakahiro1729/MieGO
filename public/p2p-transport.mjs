@@ -1,4 +1,5 @@
 import {postP2PJson,reconnectDelay,isTerminalTicketFailure,signalingUrl} from "./p2p-network.mjs";
+import { TEXT } from "./texts.mjs";
 
 // Signaling and WebRTC transport. Game rules and UI belong to app.mjs.
 export function createP2PTransport({verify,onSession,onSync,onAction,onConnected,onDisconnected,onError,getSnapshot}) {
@@ -30,7 +31,7 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
     rtc.onconnectionstatechange=()=>{
       if(epoch!==generation||peer!==rtc)return;
       if(["failed","disconnected","closed"].includes(rtc.connectionState)){
-        ready=false;onDisconnected("接続待機中");
+        ready=false;onDisconnected(TEXT.online.waitingConnection);
       }
     };
     rtc.ondatachannel=e=>setupChannel(e.channel,epoch);
@@ -44,12 +45,12 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
     channel=c;
     c.onopen=()=>{
       if(epoch!==generation||channel!==c)return;
-      ready=false;onDisconnected("局面を同期中");
+      ready=false;onDisconnected(TEXT.online.syncing);
       sendSync();
     };
     c.onclose=()=>{
       if(epoch!==generation||channel!==c)return;
-      ready=false;onDisconnected("接続待機中");
+      ready=false;onDisconnected(TEXT.online.waitingConnection);
     };
     c.onmessage=e=>{
       if(epoch!==generation||channel!==c||!current)return;
@@ -100,7 +101,7 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
       };
       s.onclose=()=>{
         if(epoch!==generation||socket!==s)return;
-        ready=false;closeRTC();onDisconnected("接続待機中");schedule(epoch);
+        ready=false;closeRTC();onDisconnected(TEXT.online.waitingConnection);schedule(epoch);
       };
     }catch(error){
       if(epoch!==generation)return;
@@ -113,7 +114,7 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
     const epoch=generation;
     current={room,role,session};
     if(!current.session){
-      if(!inviteKey)throw Error("招待URLの参加情報がありません");
+      if(!inviteKey)throw Error(TEXT.online.noInviteKey);
       const token=await verify();
       const claim=await post("/api/rooms/"+room+"/claim",{role,key:inviteKey,turnstileToken:token});
       if(epoch!==generation)return;

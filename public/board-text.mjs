@@ -1,17 +1,18 @@
 import { BLACK, WHITE, isBoardSize } from "./core.mjs";
+import { TEXT } from "./texts.mjs";
 
 // A coordinate-free diagram (9x9, 13x13 or 19x19) used by all AI handoffs.
 const GLYPHS={ [BLACK]:"●",[WHITE]:"○",0:"・" };
-export const AI_BOARD_LEGEND="●=黒、○=白、・=空点。上の行から下の行へ1行ずつ表示します。";
-export const AI_SELECTED_POINT="◇=打とうとした空点";
+export const AI_BOARD_LEGEND=TEXT.prompts.boardLegend;
+export const AI_SELECTED_POINT=TEXT.prompts.selectedPoint;
 
 export function formatBoardForAi(board,{selectedPosition=null}={}) {
   const SIZE=Math.sqrt(board?.length);
   if(!Array.isArray(board)||!isBoardSize(SIZE) ||
-     !board.every(n=>n===BLACK||n===WHITE||n===0))throw Error("盤面データが不正です");
+     !board.every(n=>n===BLACK||n===WHITE||n===0))throw Error(TEXT.rules.badBoard);
   if(selectedPosition!==null && (!Number.isInteger(selectedPosition) ||
      selectedPosition<0 || selectedPosition>=SIZE*SIZE || board[selectedPosition]!==0))
-    throw Error("指定した空点が不正です");
+    throw Error(TEXT.rules.badPoint);
   const rows=[];
   for(let y=0;y<SIZE;y++){
     rows.push(board.slice(y*SIZE,(y+1)*SIZE).map((stone,x)=>
@@ -23,5 +24,5 @@ export function formatBoardForAi(board,{selectedPosition=null}={}) {
 /** The legend, a heading and the diagram, in the order every AI handoff uses. */
 export function formatBoardSection(heading,board,{selectedPosition=null}={}) {
   const legend=selectedPosition===null?AI_BOARD_LEGEND:AI_BOARD_LEGEND+" "+AI_SELECTED_POINT;
-  return [legend,"",heading+"：",formatBoardForAi(board,{selectedPosition})].join("\n");
+  return [legend,"",TEXT.prompts.sectionHeading(heading),formatBoardForAi(board,{selectedPosition})].join("\n");
 }

@@ -1,5 +1,6 @@
 import { parseGameSnapshot } from "./mode-state.mjs";
 import {normalizeStrength} from "./ai-strength.mjs";
+import { TEXT } from "./texts.mjs";
 
 const PREFIX="miego:game:v1:";
 const ACTIVE="miego:active:v1:";
@@ -36,21 +37,21 @@ export class GameLibrary {
     return r?.mode===mode ? r : null;
   }
   setActive(mode,id) {
-    if(!["local","ai"].includes(mode))throw Error("無効な対局モード");
+    if(!["local","ai"].includes(mode))throw Error(TEXT.history.badMode);
     const record=this.load(id);
-    if(!record || record.mode!==mode)throw Error("保存棋譜を取得できません");
+    if(!record || record.mode!==mode)throw Error(TEXT.history.recordMissing);
     this.storage.setItem(ACTIVE+mode,id);
   }
   save({id=null,mode,snapshot,roomId=null,lastPosition=null,humanColor=1,
         aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null},expectedRevision=null) {
-    if(!MODES.has(mode))throw Error("無効な対局モード");
-    if(!parseGameSnapshot(JSON.stringify(snapshot)))throw Error("棋譜データが不正です");
-    if(mode==="online" && !ROOM_RE.test(roomId||""))throw Error("不正なルームID");
+    if(!MODES.has(mode))throw Error(TEXT.history.badMode);
+    if(!parseGameSnapshot(JSON.stringify(snapshot)))throw Error(TEXT.history.badRecord);
+    if(mode==="online" && !ROOM_RE.test(roomId||""))throw Error(TEXT.history.badRoom);
     const previous=id===null?null:this.load(id);
-    if(id!==null && !previous)throw Error("以前の棋譜を読み込めません");
-    if(previous && previous.mode!==mode)throw Error("対局モードが一致しません");
+    if(id!==null && !previous)throw Error(TEXT.history.previousMissing);
+    if(previous && previous.mode!==mode)throw Error(TEXT.history.modeMismatch);
     if(previous && expectedRevision!==null && previous.revision!==expectedRevision)
-      throw Error("別のタブで棋譜が更新されました。ページを再読み込みしてください");
+      throw Error(TEXT.history.otherTab);
     const timestamp=this.now();
     const result={
       version:1,id:previous?.id||this.createId(),mode,

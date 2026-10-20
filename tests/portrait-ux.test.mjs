@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {TEXT} from "../public/texts.mjs";
 const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
 const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
@@ -17,9 +18,11 @@ test("endgame choices share exactly one fixed-height horizontal strip",()=>{
   assert.match(css,/\.endgame-bar\{height:48px;min-height:48px;max-height:48px/);
   assert.match(css,/\.endgame-bar \.end-status\{flex:1/);
   assert.match(app,/endgameHint\(game,endgameAdvisor/);
-  assert.match(app,/\$\("endPropose"\)\.textContent=!room\?"採点を始める":"終局を提案"/);
+  assert.match(app,/\$\("endPropose"\)\.textContent=!room\?TEXT\.endgame\.startScoring:TEXT\.endgame\.propose/);
+  assert.deepEqual([TEXT.endgame.startScoring,TEXT.endgame.propose],["採点を始める","終局を提案"]);
   assert.doesNotMatch(app,/"終局しますか？"/);
-  assert.match(app,/\$\("endAccept"\)\.textContent=!room\?"採点へ進む":"受け入れる"/);
+  assert.match(app,/\$\("endAccept"\)\.textContent=!room\?TEXT\.endgame\.goScoring:TEXT\.common\.accept/);
+  assert.deepEqual([TEXT.endgame.goScoring,TEXT.common.accept],["採点へ進む","受け入れる"]);
 });
 test("final score is above sticky actions and visible in a compact score area",()=>{
   assert.ok(html.indexOf('id="scoreBox"')<html.indexOf('id="actionRow"'));
@@ -55,7 +58,8 @@ test("autosaved everyday navigation has no blocking browser confirmation",()=>{
 test("resignation is a visible button with inline two-tap safety",()=>{
   assert.doesNotMatch(html,/id="gameMenu"/);
   assert.doesNotMatch(app,/confirm\("投了しますか？"\)/);
-  assert.match(app,/\$\("resign"\)\.textContent="投了？"/);
+  assert.match(app,/\$\("resign"\)\.textContent=TEXT\.game\.resignConfirm/);
+  assert.equal(TEXT.game.resignConfirm,"投了？");
   assert.match(app,/if\(!resignArmed\)/);
   assert.match(app,/resignArmed && e\.target!==\$\("resign"\)/);
 });
@@ -86,7 +90,9 @@ test("confirm button uses the original shared gold-and-opacity disabled appearan
   assert.match(app,/\$\("confirm"\)\.disabled=!candidate \|\| !myTurn/);
 });
 test("solo endgame prompt names AI only in AI games",()=>{
-  assert.match(app,/localPrompt\?\(gameMode==="ai"\?"あなたの判断で採点へ進みます。AIが終局を承認するわけではありません。":\s*"採点に進み、死石を確認します。対局の再開もできます。"\)/);
+  assert.match(app,/localPrompt\?\(gameMode==="ai"\?TEXT\.endgame\.detailLocalAi:\s*TEXT\.endgame\.detailLocal\)/);
+  assert.match(TEXT.endgame.detailLocalAi,/AIが終局を承認するわけではありません/);
+  assert.doesNotMatch(TEXT.endgame.detailLocal,/AI/);
 });
 test("continue-style choices sit left of the advancing choice, in the bar and while scoring",()=>{
   const bar=html.slice(html.indexOf('id="endActions"'),html.indexOf('id="analysisStatus"'));
@@ -113,6 +119,7 @@ test("AI scoring waits for a computing move instead of pausing the AI",()=>{
 });
 test("a disconnected online bar says why its buttons are disabled",()=>{
   assert.match(app,/const offline=!!room && \(!connected \|\| color===null\);/);
-  assert.match(app,/!playing\?"":offline\?"接続を待っています":/);
+  assert.match(app,/!playing\?"":offline\?TEXT\.endgame\.offline:/);
+  assert.equal(TEXT.endgame.offline,"接続を待っています");
   assert.match(app,/\$\(id\)\.disabled=offline;/);
 });

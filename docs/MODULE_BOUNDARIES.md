@@ -11,7 +11,8 @@ Baseline: `main` commit `0fcfec229c3d6da4c10379d8490edbc4cc86e273`. This change 
 | AI / analysis | `public/ai-opponent.mjs`, `public/analysis-worker.mjs`, `src/katago/**`, `public/endgame.mjs`, `public/dead-stones.mjs` | Asynchronous analysis, AI turns, suggestions | Worker message kinds/IDs, committed-position checks remain compatible |
 | Online / P2P | `public/p2p-transport.mjs`, `public/p2p-session.mjs`, `src/worker.mjs` | Signaling, reconnection, checkpoint reconciliation | Preserve wire messages, invitation links, role checks and revision behavior |
 | Game rules / scoring | `public/core.mjs`, `public/scoring-flow.mjs`, `public/mode-state.mjs` | Rules, scoring and state validation | Preserve snapshots, move legality, hash and scoring semantics |
-| Integration owner | `public/app.mjs`, `public/index.html`, CI and integration tests | Wiring, mode switches, review-to-live transitions and public interface changes | Changes touching cross-team calls go through a small integration PR |
+| Text | `public/texts.mjs` | Every user-facing string: UI labels, status lines, errors, help and AI prompts | Modules read `TEXT.*`; `public/index.html` is rendered from `src/index.template.html` by `scripts/build-html.mjs` |
+| Integration owner | `public/app.mjs`, `src/index.template.html`, CI and integration tests | Wiring, mode switches, review-to-live transitions and public interface changes | Changes touching cross-team calls go through a small integration PR |
 
 ## Change coordination
 

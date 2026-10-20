@@ -1,5 +1,6 @@
 import { BLACK, WHITE, resume } from "./core.mjs";
 import { replaySteps } from "./sgf.mjs";
+import { TEXT } from "./texts.mjs";
 
 /** 待った for every mode. The position is rebuilt by replaying the remaining
  * moves, so captures, ko history and pass counts stay consistent with the rules.
@@ -17,7 +18,7 @@ export function takebackCut(state, {color=null, scope="own"}={}) {
 }
 export function takeBackTo(state, keep) {
   if(state?.status!=="playing" || !Number.isInteger(keep) || keep<0 || keep>=state.moves.length)
-    throw new Error("待ったできる手がありません");
+    throw new Error(TEXT.takeback.nothing);
   let game=replaySteps(state,keep);
   // Two passes followed by 対局を再開 must come back as a playable position.
   if(game.status==="scoring")game=resume(game);
@@ -35,8 +36,8 @@ export function takeBack(state, options) {
 /** Friend games: a takeback is a request the other side must accept, like an end offer. */
 export function requestTakeback(state, color) {
   if(state.status!=="playing" || ![BLACK, WHITE].includes(color))
-    throw new Error("対局中のみ待ったを申し出られます");
-  if(takebackCut(state,{color})<0)throw new Error("待ったできる手がありません");
+    throw new Error(TEXT.takeback.onlyWhilePlaying);
+  if(takebackCut(state,{color})<0)throw new Error(TEXT.takeback.nothing);
   const current=state.takebackRequest;
   // Simultaneous requests converge on both peers: Black's request is kept.
   if(current && (current.from===color || color===WHITE))return state;
@@ -46,8 +47,8 @@ export function requestTakeback(state, color) {
 export function answerTakeback(state, color, accept) {
   const request=state.takebackRequest;
   if(state.status!=="playing" || !request || ![BLACK, WHITE].includes(color))
-    throw new Error("返答する待ったの申し出がありません");
-  if(color===request.from && accept)throw new Error("自分の申し出には同意できません");
+    throw new Error(TEXT.takeback.noRequest);
+  if(color===request.from && accept)throw new Error(TEXT.takeback.ownRequest);
   const {takebackRequest, ...rest}=state;
   if(!accept)return rest; // declined, or withdrawn by the requester
   return takeBackTo(rest,takebackCut(rest,{color:request.from}));
