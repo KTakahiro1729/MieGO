@@ -35,3 +35,14 @@ test("browser-readable deployment health check exists", () => {
   assert.match(src, /turnstileConfigured:/);
   assert.match(src, /Human verification failed/);
 });
+test("index.html preloads every module app.mjs imports, so they load in parallel", async () => {
+  const { moduleGraph, renderIndex } = await import("../scripts/build-html.mjs");
+  const cwd = process.cwd();
+  process.chdir(root);
+  try {
+    const [graph, html] = [await moduleGraph(), await renderIndex()];
+    assert.ok(graph.includes("core.mjs") && graph.includes("gif-encoder.mjs"));
+    for (const name of graph.slice(1)) assert.match(html, new RegExp('<link rel="modulepreload" href="/' + name.replace(".", "\\.") + '">'));
+    assert.doesNotMatch(html, /module preloads -->/);
+  } finally { process.chdir(cwd); }
+});
