@@ -24,7 +24,7 @@ test("the action, scoring and replay rows share one height token",()=>{
   assert.match(css,/--action-h:55px/);
   assert.match(css,/@media\(max-width:700px\)\{:root\{--action-h:54px\}\}/);
   assert.match(css,/\.action-row button\{white-space:nowrap;min-height:var\(--action-h\)\}/);
-  assert.match(css,/\.review-navigation>button,\.review-navigation>\.review-menu>summary\{height:var\(--action-h\)/);
+  assert.match(css,/\.review-navigation>button\{height:var\(--action-h\)/);
   assert.match(css,/\.review-play-actions button\{[^}]*height:var\(--action-h\)/);
   assert.match(css,/@media\(max-width:700px\)\{\.action-row,\.review-panel\{padding-top:3px\}\}/);
   assert.doesNotMatch(css,/min-height:(3\d|4[0-3])px/);
@@ -44,10 +44,10 @@ test("the same action has the same name and glyph wherever it appears",()=>{
 });
 
 test("each control row keeps continue-left, advance-right with at most one gold button",()=>{
-  const row=html.slice(html.indexOf('id="reviewPlayActions"'),html.indexOf('id="reviewMenu"'));
+  const row=html.slice(html.indexOf('id="reviewPlayActions"'),html.indexOf('id="reviewContinue"'));
   assert.ok(row.indexOf('id="reviewCancel"')<row.indexOf('id="reviewConfirm"'));
   assert.match(row,/id="reviewConfirm" class="review-confirm primary"/);
-  const menu=html.slice(html.indexOf('class="review-menu-popover"'),html.indexOf('id="reviewNotice"'));
+  const menu=html.slice(html.indexOf('id="reviewTools"'),html.indexOf('id="reviewNotice"'));
   assert.doesNotMatch(menu,/primary/);
 });
 test("related buttons fuse into one group; the primary stays apart (UX policy §3.6)",()=>{
