@@ -141,7 +141,7 @@ test("one primary slot in the replay row starts a game from the shown position",
   assert.doesNotMatch(html,/id="continuePanel"|name="continueKind"/);
   assert.match(app,/openPanel\(fromLocal \|\| !canContinueWithAi\(\)\?"local":"ai"\)/);
   assert.match(app,/if\(continueFrom\)\{forkBoardReview\("ai"\);return;\}/);
-  assert.match(app,/watching=ai && aiSideChoice==="watch";/);
+  assert.match(app,/watching=ai && watchChoice;/);
   // The record fixes the board and rules; a friend game and 履歴 cannot start from a position.
   assert.match(app,/input\.value==="online" \|\| input\.value==="history"/);
   assert.match(app,/\["boardSize",sizeOf\(line\.board\)\],\["gameRules",rulesOf\(line\)\]/);

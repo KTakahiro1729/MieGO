@@ -219,9 +219,11 @@ let endNotice = null;
 let aiSideChoice = "black";
 // Set while 「ここから打つ」 shows the 新規対戦 sheet: the replayed line and its step.
 let continueFrom = null;
-// COM同士 (aiSide "watch"): the AI plays both colours with a pause between
+// COM同士 (the 観戦 mode): the AI plays both colours with a pause between
 // moves, so each one can be followed; the player can pause and resume it.
 let watching = false, watchPaused = false, watchTimer = null, lastWatchMoveAt = 0;
+// The 新規対戦 sheet's 観戦 choice, kept apart from the colour 対COM plays.
+let watchChoice = false;
 // Each colour's COM when two COMs play.
 const newCom = (com={character:DEFAULT_AI_CHARACTER}) => readCom(com,DEFAULT_AI_STRENGTH);
 // A saved game's COM. Games saved before characters kept strength, 侵入度 and
@@ -229,10 +231,14 @@ const newCom = (com={character:DEFAULT_AI_CHARACTER}) => readCom(com,DEFAULT_AI_
 const recordCom = record => readCom(record.aiCom ?? {strength:record.aiStrength,
   invasion:record.invasion,reinforcement:record.reinforcement},"strong");
 let watchAi = {black:newCom(), white:newCom()};
-const WATCH_STEP_MS = 1100;
-// A tap on the board while watching steps in: the COMs wait while the viewer
-// places a provisional stone for the side to move. ここに打つ takes that colour
-// over; × goes back to watching after a slightly longer pause, which the turn line announces.
+// The pause between watched moves, chosen under 観戦's 速さ tab; a running game follows it.
+const WATCH_STEP_MS = {fast:250, normal:1100, slow:2200};
+const toWatchSpeed = value => Object.hasOwn(WATCH_STEP_MS,value) ? value : "normal";
+let watchSpeed = "normal";
+const watchStep = () => WATCH_STEP_MS[watchSpeed];
+// 介入する steps in: the COMs wait while the viewer places a provisional stone
+// for the side to move. ここに打つ takes that colour over; × goes back to
+// watching after a slightly longer pause, which the turn line announces.
 let intervening = false;
 const WATCH_RESUME_MS = 1800;
 // True during that pause, so the turn line says watching is about to resume.
@@ -387,7 +393,8 @@ function updateEndUi() {
   for(const id of ["endPropose","endAccept","endDecline"])
     $(id).disabled=offline;
   // A move being computed is about to arrive; scoring waits for it instead of pausing the AI.
-  if(aiThinking)$("endPropose").disabled=true;
+  // While watching, a COM is nearly always thinking, so 採点を始める stops it instead.
+  if(aiThinking && !isWatching())$("endPropose").disabled=true;
   // Answering an opponent's offer is a negotiation: neither choice is emphasized.
   $("endAccept").classList.toggle("primary",!room);
   $("actionRow").classList.toggle("end-prompt-open",localPrompt);
@@ -425,6 +432,7 @@ function passNotice() {
   if(game.passes!==1 || game.moves.at(-1)?.position!==null)return null;
   const by=game.moves.at(-1).color;
   if(!room && gameMode!=="ai")return {text:TEXT.endgame.passedLocal(by===BLACK?"B":"W"),second:true};
+  if(isWatching())return {text:TEXT.endgame.passedWatch(by===BLACK?"B":"W"),second:false};
   const me=myColorForEnd();
   if(by===me)return {text:TEXT.endgame.passedSelf,second:false};
   return {text:room?TEXT.endgame.passedOpponent:TEXT.endgame.passedAi,second:true};
@@ -503,7 +511,7 @@ function watchDue() {
   clearTimeout(watchTimer);watchTimer=null;
   if(!watching)return true;
   if(watchPaused){$("aiMatchStatus").textContent=TEXT.ai.watchPaused;return false;}
-  const wait=lastWatchMoveAt+WATCH_STEP_MS-performance.now();
+  const wait=lastWatchMoveAt+watchStep()-performance.now();
   if(wait<=0){watchReturning=false;return true;}
   watchTimer=setTimeout(requestAnalysis,wait);
   return false;
@@ -525,7 +533,9 @@ function rememberSettings() {
       localHandicap,
       mode:gameMode,
       onlineHandicap,
+      watch:watchChoice,
       watchAi,
+      watchSpeed,
     }));
   } catch {}
 }
@@ -540,11 +550,11 @@ function nextGameOptions(handicap) {
     size:boardSize,
   };
 }
-// The sheet's choices set the COM opponent. With two COMs, the character choices are
-// greyed out and 「COMの打ち方」 holds a card for each colour's COM.
-// The sheet's side choice follows a watched game, so the choices always set
+// The sheet's choices set the COM opponent. In 観戦, the COMのキャラ tab holds a
+// card for each colour's COM in place of the character list.
+// The sheet's 観戦 choice follows a watched game, so the choices always set
 // what the next game, and a running one, use.
-const editsWatchAi = () => aiSideChoice==="watch";
+const editsWatchAi = () => watchChoice;
 const COM_SLOTS = {Black:"black", White:"white"};
 // Each value a カスタム COM sets, by the name suffix of its choices.
 const COM_FIELDS = {
@@ -566,9 +576,11 @@ function syncComCards() {
     checkComChoices("com"+slot,watchAi[side]);
   }
 }
+// 観戦's COMのキャラ tab holds a card per COM in place of the character list.
 function syncWatchSliderRows() {
   const two=editsWatchAi();
-  $("watchAiOptions").hidden=$("aiOptionsMore").hidden=!two;
+  $("watchAiOptions").hidden=!two;
+  $("aiStrengthRow").hidden=two;
   // カスタム's own rows show only for the one COM it sets.
   $("aiCustom").hidden=two || aiCom.character!==CUSTOM_CHARACTER;
 }
@@ -1060,7 +1072,8 @@ function show() {
     candidate?TEXT.game.hintCandidate:
     game.status==="scoring"?TEXT.game.hintScoring:
     gameMode==="ai" && !gomoku && fallbackMode?TEXT.game.hintAiStopped:
-    spectating && game.status==="playing"?(watchPaused?TEXT.game.hintWatchPaused:TEXT.game.hintWatching):
+    spectating && game.status==="playing"?(intervening?TEXT.game.hintIntervening:
+      watchPaused?TEXT.game.hintWatchPaused:TEXT.game.hintWatching):
     isAiTurn()?TEXT.game.hintAiThinking:"";
   const blocked=!!illegalCandidate;
   $("confirm").disabled=!candidate || !myTurn || blocked;
@@ -1071,9 +1084,11 @@ function show() {
   // With a provisional stone the button discards it; otherwise it is 待った.
   const provisional=!!candidate || blocked;
   const takeBack=!provisional && canTakeBack();
-  $("cancel").classList.toggle("is-takeback",!provisional);
-  $("cancel").disabled=!provisional && !takeBack;
-  const cancelLabel=provisional?TEXT.takeback.undoProvisional:
+  // After 介入する, × goes back to watching, with or without a provisional stone.
+  const stepIn=spectating && intervening;
+  $("cancel").classList.toggle("is-takeback",!provisional && !stepIn);
+  $("cancel").disabled=!provisional && !takeBack && !stepIn;
+  const cancelLabel=stepIn?TEXT.game.watchBack:provisional?TEXT.takeback.undoProvisional:
     room?TEXT.takeback.labelOnline:
     gameMode==="ai"?TEXT.takeback.labelAi:TEXT.takeback.labelLocal;
   $("cancel").setAttribute("aria-label",cancelLabel);
@@ -1135,9 +1150,10 @@ function show() {
       input.checked=input.value===(freeColor===WHITE?"white":"black");
   }
   $("actionRow").classList.toggle("finished-actions",isFinished);
-  // COM同士: one button pauses and resumes; stepping in shows × and ここに打つ instead.
+  // COM同士: 介入する and 一時停止 (再開); stepping in shows × and ここに打つ instead.
   const watchingPlay=spectating && game.status==="playing";
-  $("watchToggle").hidden=!watchingPlay || intervening;
+  $("watchToggle").hidden=$("watchIntervene").hidden=!watchingPlay || intervening;
+  $("watchIntervene").disabled=!isGomoku(game) && (!katagoReady || fallbackMode);
   if(watchingPlay)for(const id of ["pass","resign"])$(id).hidden=true;
   if(watchingPlay && !intervening)for(const id of ["cancel","confirm"])$(id).hidden=true;
   $("watchToggle").textContent=watchPaused?TEXT.game.watchResume:TEXT.game.watchPause;
@@ -1361,11 +1377,7 @@ canvas.addEventListener("click",e=>{
     else if(settle){settle.taps=[...(settle.taps||[]),position];skipSettle();return;}
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
-  if(game.status==="playing" && isWatching() && !intervening && (isGomoku(game) || katagoReady && !fallbackMode) &&
-     game.board[position]===0){
-    stopAiTurn(); // The COM's move being computed waits for the viewer's decision.
-    intervening=true;watchReturning=false;
-  }
+  // While watching, the board takes stones only after 介入する.
   if(game.status!=="playing" || !isHumanTurn())return;
   // A free board places or takes off a stone at once; 待った undoes it.
   if(isFree(game)){submitMove(position);return;}
@@ -1388,6 +1400,13 @@ $("confirm").onclick=()=>{
   }
 };
 $("cancel").onclick=()=>{
+  if(isWatching() && intervening){
+    // Back to watching: the COMs resume after a pause a little longer than a move's.
+    candidate=null;illegalCandidate=null;illegalPromptCopied=false;
+    $("illegalPromptFallbackPanel").hidden=true;
+    intervening=false;watchReturning=!watchPaused;lastWatchMoveAt=performance.now()+WATCH_RESUME_MS-watchStep();
+    show();requestAnalysis();return;
+  }
   if(!candidate && !illegalCandidate) {
     if(!canTakeBack())return;
     // A takeback is itself reversible by replaying the move, so no second tap.
@@ -1398,10 +1417,6 @@ $("cancel").onclick=()=>{
   }
   candidate=null;illegalCandidate=null;illegalPromptCopied=false;
   $("illegalPromptFallbackPanel").hidden=true;
-  if(isWatching() && intervening){
-    // Back to watching: the COMs resume after a pause a little longer than a move's.
-    intervening=false;watchReturning=true;lastWatchMoveAt=performance.now()+WATCH_RESUME_MS-WATCH_STEP_MS;
-  }
   show();requestAnalysis();
 };
 $("copyIllegalPrompt").onclick=async()=>{
@@ -1524,6 +1539,8 @@ $("endPropose").onclick=()=>{
   if(game.status!=="playing" || game.endProposal || game.takebackRequest)return;
   const color=myColorForEnd();
   if(!color || (room&&!connected))return;
+  // While watching, the COM's move waits for the answer; 打ち続ける asks for it again.
+  if(isWatching()){stopAiTurn();intervening=false;watchReturning=false;}
   if(!room){
     if(aiThinking)return;
     // The prompt replaces any provisional stone; the board is not half-committed.
@@ -1886,8 +1903,12 @@ $("newGameSetup").addEventListener("change",syncSetupTabValues);
 // The 新規対戦 sheet shows the same rows in every mode, so its height stays put;
 // a row the chosen mode does not use is greyed out.
 function showNewGameMode(kind) {
+  // 観戦 is 対COM with two COMs: it opens as 観戦 while that is the sheet's choice.
+  if(kind==="ai" && watchChoice)kind="watch";
+  const watch=kind==="watch";
   const choice=document.querySelector('input[name="newGameMode"][value="'+kind+'"]');
   if(choice)choice.checked=true;
+  if(watch)kind="ai";
   $("localSetup").hidden=kind!=="local";
   $("onlineSetup").hidden=kind!=="online";
   $("aiSetup").hidden=kind!=="ai";
@@ -1896,10 +1917,13 @@ function showNewGameMode(kind) {
   $("newGameSetup").hidden=kind==="history";
   $("modePanel").scrollTop=0;
   if(kind==="history")historyPanel.showHistory();
-  // 1台で打つ has no side to choose: it shows 対COM's row greyed out, as 対友人 does 観戦.
-  $("aiSideRow").hidden=kind==="online";
+  // 1台で打つ has no side to choose: it shows 対COM's row greyed out.
+  // 観戦 has no side either: its first tab is the speed of the moves instead.
+  $("aiSideRow").hidden=kind==="online" || watch;
   $("onlineSideRow").hidden=kind!=="online";
-  $("aiSideChoices").disabled=$("aiOptions").disabled=kind!=="ai";
+  $("watchSpeedRow").hidden=!watch;
+  $("setupNameSide").textContent=watch?TEXT.newGame.watchSpeed:TEXT.newGame.mySide;
+  $("aiSideChoices").disabled=kind!=="ai";
   syncSideUi();syncStrengthUi();updatePersonaUi();
   // 自由に置く has no computer opponent: under 対COM it is greyed out and the default rules apply.
   if(kind==="ai" && gameRules==="free" && !continueFrom){gameRules="chinese";rememberSettings();}
@@ -1909,9 +1933,22 @@ function showNewGameMode(kind) {
   if(kind==="online" && room)showInviteLink();
   if(kind==="online")renderInviteButton();
 }
-const newGameModeKind=()=>document.querySelector('input[name="newGameMode"]:checked')?.value||"ai";
+// 観戦 starts a game against the COM, so the sheet treats it as 対COM.
+const newGameModeKind=()=>{
+  const kind=document.querySelector('input[name="newGameMode"]:checked')?.value||"ai";
+  return kind==="watch"?"ai":kind;
+};
 for(const input of document.querySelectorAll('input[name="newGameMode"]'))
-  input.onchange=e=>{if(e.target.checked)showNewGameMode(e.target.value);};
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    if(e.target.value==="ai" || e.target.value==="watch"){watchChoice=e.target.value==="watch";rememberSettings();}
+    showNewGameMode(e.target.value);
+  };
+for(const input of document.querySelectorAll('input[name="watchSpeed"]'))
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    watchSpeed=toWatchSpeed(e.target.value);rememberSettings();
+  };
 for(const input of document.querySelectorAll('input[name="boardSize"]')) {
   input.onchange=e=>{
     if(!e.target.checked)return;
@@ -2007,7 +2044,7 @@ function renderBoardReview() {
   $("turn").textContent=isPreview?TEXT.review.trying(step+1):variationActive?TEXT.review.trying(step):TEXT.review.showing(step);
   $("gamePanel").classList.remove("is-scoring","is-finished");
   $("netStatus").textContent=source==="archive"?TEXT.game.savedGames:source==="url"?TEXT.review.sourceUrl:
-    gameMode==="ai"?TEXT.common.modeAi:room?TEXT.review.sourceOnline:TEXT.common.modeLocal;
+    isWatching()?TEXT.common.modeWatch:gameMode==="ai"?TEXT.common.modeAi:room?TEXT.review.sourceOnline:TEXT.common.modeLocal;
   // One primary slot: resume the saved game at its end, otherwise start from here.
   $("reviewContinue").textContent=canResumeSelectedReview()||atLiveLatest()?TEXT.review.resume:TEXT.review.continue;
   $("reviewContinue").hidden=isPreview;
@@ -2067,9 +2104,9 @@ function pumpPrefetch() {
 // where the step slider was. It fills in as KataGo estimates the positions.
 let scoreGraph=null;
 // No graph while stepping back through a game still being played: it would
-// tell the player who is ahead mid-game.
+// tell the player who is ahead mid-game. A watched game has no player to tell.
 const scoreGraphShown = () => !!boardReview && !isGomoku(boardReview.display) && !isFree(boardReview.display) &&
-  !(boardReview.source==="live" && game.status!=="finished");
+  !(boardReview.source==="live" && game.status!=="finished" && !isWatching());
 function renderScoreGraph() {
   const box=$("reviewGraph"),shown=scoreGraphShown();
   box.classList.toggle("no-graph",!shown);
@@ -2138,6 +2175,10 @@ function showReviewOwnership() {
 }
 function enterBoardReview(snapshot,step,source="live",metadata=null,record=null) {
   const display=replaySteps(snapshot,step);
+  // Stepping back through a watched game pauses it, so the shown line stays put; 再開 carries it on.
+  if(source==="live" && isWatching() && game.status==="playing"){
+    stopAiTurn();watchPaused=true;intervening=false;watchReturning=false;candidate=null;
+  }
   boardReview={snapshot,display,step,source,metadata,record,ownership:null,
     activeLine:"main",variation:null,preview:null,previewPosition:null,
     openedAt:game.moveNumber,analysisId:0};
@@ -2200,7 +2241,7 @@ function syncContinueSheet(){
   // A friend game and the saved-game list cannot start from a position.
   for(const input of document.querySelectorAll('input[name="newGameMode"]'))
     input.disabled=!!line && (input.value==="online" || input.value==="history" ||
-      input.value==="ai" && !canContinueWithAi());
+      (input.value==="ai" || input.value==="watch") && !canContinueWithAi());
   if(line){
     for(const [name,value] of [["boardSize",sizeOf(line.board)],["gameRules",rulesOf(line)]])
       for(const input of document.querySelectorAll('input[name="'+name+'"]')){
@@ -2230,14 +2271,14 @@ function forkBoardReview(kind="local") {
   if(ai && !canContinueWithAi())return; // The choice is disabled meanwhile.
   if(room && connected && !confirmByRetap($(ai?"startAi":"startLocal"),TEXT.confirm.leaveForReview))return;
   let side=BLACK;
-  if(ai && aiSideChoice!=="watch"){
+  if(ai && !watchChoice){
     try{side=selectColor(aiSideChoice);}catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
   }
   if(!save())return;
   if(room)leaveOnlineRoom();
   stopAiTurn();gameMode=kind;game=fork;
   // 観戦 lets the two COMs set in the sheet play on from the shown position.
-  watching=ai && aiSideChoice==="watch";watchPaused=false;intervening=false;watchReturning=false;
+  watching=ai && watchChoice;watchPaused=false;intervening=false;watchReturning=false;
   if(watching)lastWatchMoveAt=performance.now();
   if(ai){humanColor=side;takebackNotice=null;}
   currentGameId=null;currentRevision=null;
@@ -2380,7 +2421,8 @@ function resumeSelectedReview(){
     if(watching)watchAi=readWatchAi(record.watchAi,aiCom);
     syncStrengthUi();
     // A random preference stays random; a fixed one follows the resumed game.
-    if(aiSideChoice!=="random")aiSideChoice=watching?"watch":humanColor===WHITE?"white":"black";
+    watchChoice=watching;
+    if(aiSideChoice!=="random" && !watching)aiSideChoice=humanColor===WHITE?"white":"black";
     syncSideUi();
     updatePersonaUi();
   }
@@ -2453,7 +2495,7 @@ $("startAi").onclick=()=>{
   clearBoardReview();
   stopAiTurn();
   gameMode="ai";
-  watching=aiSideChoice==="watch";watchPaused=false;intervening=false;watchReturning=false;
+  watching=watchChoice;watchPaused=false;intervening=false;watchReturning=false;
   // The empty board shows for a moment before the first watched move.
   lastWatchMoveAt=performance.now();
   // Handicap stones always belong to the human, who therefore plays Black.
@@ -2466,10 +2508,12 @@ $("startAi").onclick=()=>{
   $("aiMatchStatus").textContent=watching?TEXT.ai.watchStarted:TEXT.ai.started(colorLabel(humanColor));
   save();closePanels();show();requestAnalysis();
 };
-const SIDE_CHOICES=["black","random","white","watch"];
+const SIDE_CHOICES=["black","random","white"];
 function syncSideUi() {
   const input=document.querySelector('input[name="aiSide"][value="'+aiSideChoice+'"]');
   if(input)input.checked=true;
+  const speed=document.querySelector('input[name="watchSpeed"][value="'+watchSpeed+'"]');
+  if(speed)speed.checked=true;
 }
 for (const input of document.querySelectorAll('input[name="aiSide"]')) {
   input.onchange=e=>{
@@ -2485,11 +2529,19 @@ function takeOverWatchedGame(color) {
   watching=false;watchPaused=false;intervening=false;watchReturning=false;humanColor=color;
   // The COM left playing keeps its settings.
   aiCom=watchAi[color===BLACK?"white":"black"];
+  watchChoice=false;
   if(aiSideChoice!=="random")aiSideChoice=color===BLACK?"black":"white";
   syncSideUi();syncStrengthUi();updatePersonaUi();
   $("aiMatchStatus").textContent=TEXT.ai.tookOver(colorLabel(color));
   save();show();requestAnalysis();
 }
+$("watchIntervene").onclick=()=>{
+  if(!isWatching() || game.status!=="playing" || intervening)return;
+  if(!isGomoku(game) && (!katagoReady || fallbackMode))return;
+  stopAiTurn(); // The COM's move being computed waits for the viewer's decision.
+  intervening=true;watchReturning=false;endExpanded=false;
+  show();requestAnalysis();
+};
 $("watchToggle").onclick=()=>{
   if(!isWatching() || game.status!=="playing")return;
   watchPaused=!watchPaused;
@@ -2523,10 +2575,10 @@ function syncHandicapUi() {
   $("handicapNote").textContent=(ai?TEXT.handicap.noteAi:
     kind==="online"?TEXT.handicap.noteOnline:TEXT.handicap.noteLocal)+
     (gameRules==="japanese"?TEXT.handicap.noteRuleJapanese:TEXT.handicap.noteRule)+(boardSize===9?TEXT.handicap.note9:"");
-  // With handicap the human is Black (or watches); the saved side preference returns afterwards.
+  // With handicap the human is Black; the saved side preference returns afterwards.
   for(const input of document.querySelectorAll('input[name="aiSide"]'))
-    input.disabled=!!aiHandicap && gameRules!=="gomoku" && !["black","watch"].includes(input.value);
-  if(aiHandicap && gameRules!=="gomoku" && aiSideChoice!=="watch"){
+    input.disabled=!!aiHandicap && gameRules!=="gomoku" && input.value!=="black";
+  if(aiHandicap && gameRules!=="gomoku"){
     const black=document.querySelector('input[name="aiSide"][value="black"]');
     if(black)black.checked=true;
   }else syncSideUi();
@@ -2585,9 +2637,8 @@ function syncStrengthUi() {
   const input=document.querySelector('input[name="aiCharacter"][value="'+aiCom.character+'"]');
   if(input)input.checked=true;
   $("aiCharacterChoices").disabled=$("aiCustom").disabled=off;
-  // Two COMs take their characters from 「COMの打ち方」, and the panel says so;
-  // one COM's line names its strength and the style it leans on, which カスタム's rows already show.
-  $("aiStrengthNote").textContent=newGameModeKind()!=="ai"?"":two?TEXT.ai.strengthInAdvanced:aiCom.character===CUSTOM_CHARACTER?"":comSummary(aiCom);
+  // One COM's line names its strength and the style it leans on, which カスタム's rows already show.
+  $("aiStrengthNote").textContent=newGameModeKind()!=="ai" || two || aiCom.character===CUSTOM_CHARACTER?"":comSummary(aiCom);
   updatePersonaUi();
   syncSetupValues();
 }
@@ -2642,6 +2693,9 @@ else try {
     // Older settings stored only the resolved color.
     aiSideChoice=SIDE_CHOICES.includes(settings.aiSide)?settings.aiSide:
       humanColor===WHITE?"white":"black";
+    // Settings from before 観戦 was a mode kept it as a side choice.
+    watchChoice=settings.watch===true || settings.aiSide==="watch";
+    watchSpeed=toWatchSpeed(settings.watchSpeed);
     aiHandicap=toHandicap(settings.aiHandicap);
     localHandicap=toHandicap(settings.localHandicap);
     onlineHandicap=toHandicap(settings.onlineHandicap);
