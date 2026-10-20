@@ -13,14 +13,14 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   for(const size of [9,13,19])assert.match(sheet,new RegExp('name="boardSize" value="'+size+'"'));
   const handicap=sheet.slice(sheet.indexOf('<select id="handicap"'),sheet.indexOf('</select>',sheet.indexOf('<select id="handicap"')));
   for(const stones of [0,2,3,4,5,6,7,8,9])assert.match(handicap,new RegExp('<option value="'+stones+'"'));
-  // The three modes and 履歴 form one row of icon tabs in one sheet: [対COM|対友人] [1台で打つ] [履歴].
-  assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,4);
+  // The modes and 履歴 form one row of icon tabs in one sheet: [対COM|観戦|対友人] [1台で打つ] [履歴].
+  assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,5);
   const modes=sheet.slice(sheet.indexOf('<div class="new-game-modes">'),sheet.indexOf('<div id="newGameSetup">'));
   assert.deepEqual(modes.split('<div class="fused">').slice(1).map(group=>[...group.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1])),
-    [["ai","online"],["local"],["history"]]);
+    [["ai","watch","online"],["local"],["history"]]);
   assert.match(sheet,/id="openHistoryFromNew" type="radio" name="newGameMode" value="history"/);
   // 対COM first, 履歴 last; 対COM is the first-visit default.
-  assert.deepEqual([...sheet.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1]),["ai","online","local","history"]);
+  assert.deepEqual([...sheet.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1]),["ai","watch","online","local","history"]);
   assert.match(sheet,/name="newGameMode" value="ai" checked>/);
   assert.match(app,/let gameMode = room \? "online" : "ai";/);
   for(const id of ["historySetup","historyList","historyImportFile"])assert.match(sheet,new RegExp('id="'+id+'"'));
@@ -38,7 +38,8 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   assert.doesNotMatch(html+app,/aiHints|policyHints/);
   // The COM is eight choices under its own tab, each with its note, above the style;
   // カスタム's strength and four style rows follow the list directly, with no card around them.
-  assert.ok(advanced.indexOf('name="aiCharacter"')<advanced.indexOf('id="aiOptions"'));
+  // 観戦's two COM cards take the character list's place, so they come first.
+  assert.ok(advanced.indexOf('id="watchAiOptions"')<advanced.indexOf('name="aiCharacter"'));
   assert.ok(advanced.indexOf('id="aiCharacterChoices"')<advanced.indexOf('id="aiCustom"') && advanced.indexOf('id="aiCustom"')<advanced.indexOf('id="aiStrengthNote"'));
   assert.match(advanced,/<fieldset id="aiCustom" class="ai-advanced com-rows" hidden>\s*<legend class="visually-hidden">/);
   assert.deepEqual([...sheet.matchAll(/name="aiCharacter" value="(\w+)"/g)].map(m=>m[1]),
@@ -55,7 +56,7 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   // The way back tops the sheet, then the mode tabs and options, then the start button.
   for(const id of ["startLocal","startAi","copy"]) {
     assert.ok(sheet.indexOf('id="returnToGame"')<sheet.indexOf('name="newGameMode"'),id);
-    assert.ok(sheet.indexOf('id="aiOptions"')<sheet.indexOf('id="'+id+'"'),id);
+    assert.ok(sheet.indexOf('id="aiStrengthRow"')<sheet.indexOf('id="'+id+'"'),id);
   }
   assert.match(app,/\$\("newGameButton"\)\.onclick=\(\)=>openPanel\(room\?"online":gameMode\)/);
 });
