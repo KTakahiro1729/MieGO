@@ -28,19 +28,16 @@ button:hover:not(:disabled){border-color:#748094}
 .icon-button{border:0;background:transparent;color:#c5c8d1;font-size:28px;font-weight:400;padding:8px;display:grid;place-items:center;width:44px;height:44px}
 .game-layout{max-width:710px;margin:0 auto;padding:0 12px 12px}
 .game-panel{display:flex;flex-direction:column;align-items:stretch}
-/* Under the board: ◁ status ▷. The status line may be cut short, never wrapped, so the row keeps its height. */
-/* Turn and endgame (or the score while counting) share one panel right above the actions. */
-/* Under the board, tone and spacing separate things, not lines: the panel is a
-   tint without a frame or divider, and buttons drop their edges (fused groups
-   keep a dark seam). Gold edges stay where they mean something. */
+
+/* Under the board nothing is boxed in: no panel or card around the turn and the
+   endgame, and buttons drop their edges (fused groups keep a dark seam), so
+   blank space alone groups things. Gold edges stay where they mean something. */
 .game-panel,.topbar{--btn-edge:transparent;--fused-edge:#0d1018}
-.info-panel{--btn-bg:#252c38}
 .game-panel .gradient{border-color:transparent}
-.info-panel{flex:none;margin-top:auto;padding:0;background:var(--surface);border-radius:var(--radius)}
+.info-panel{flex:none;margin-top:auto;display:flex;flex-direction:column;gap:6px;padding:10px 0 6px}
 .info-panel>.endgame-bar,.info-panel>.score-box{margin-top:0!important}
-.info-panel>.endgame-bar{padding:0 6px 0 10px}
-.info-panel>.score-box{padding:2px 4px 3px}
 .info-panel>.endgame-bar:not(.has-illegal):not(.is-calling) .end-status{color:var(--muted)}
+/* ◁ status ▷. The status line may be cut short, never wrapped, so the row keeps its height. */
 .status-row{display:flex;align-items:center;gap:8px}
 .status-row .step-button{flex:0 0 44px;width:44px;height:44px;min-height:44px;padding:0;display:grid;place-items:center}
 .status-row .step-button:disabled{opacity:.25}
