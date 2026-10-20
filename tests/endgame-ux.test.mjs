@@ -28,3 +28,11 @@ test("the bar draws attention when a decision is asked, and honours reduced moti
   assert.match(css,/\.endgame-bar\.is-calling\{[^}]*animation:end-call/);
   assert.match(css,/prefers-reduced-motion:reduce\)\{\*,\*::before,\*::after\{[^}]*animation:none!important/);
 });
+test("a stone tapped during the playout is corrected on top of its result",()=>{
+  assert.match(app,/else if\(settle\)\{settle\.taps=\[\.\.\.\(settle\.taps\|\|\[\]\),position\];skipSettle\(\);return;\}/);
+  assert.match(app,/for\(const position of run\.taps\|\|\[\]\)\n\s*apply\(\{type:"dead",position,selected:!game\.dead\.includes\(position\)\}\);/);
+});
+test("a playout stopped at its move limit is not described as settled",()=>{
+  assert.match(TEXT.scoring.settleCut(27),/^上限の27手で止めた盤面/);
+  assert.match(app,/run\.cut=run\.state\.status==="playing";/);
+});

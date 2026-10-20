@@ -610,6 +610,8 @@ function finishSettle() {
     console.error("KataGo dead-stone candidates",error);
     cancelSettle();deadEvaluation=null;reviewUnavailable();return;
   }
+  // A playout stopped at its move limit is not a finished game; the text says so.
+  run.cut=run.state.status==="playing";
   run.dead=positions;run.finished=true;show();
   run.timer=setTimeout(()=>commitSettle(run),run.skip || reducedMotion()?0:SETTLE_HOLD_MS);
 }
@@ -621,6 +623,9 @@ function commitSettle(run) {
   settlePlayout={number:game.moveNumber,hash:boardHash(game.board),positions:run.positions,
     board:run.state.board};
   apply(scoringReviewAction("dead_auto",{positions:run.dead,playout:run.positions}));
+  // Stones tapped during the playout are corrections to its result, applied on top of it.
+  for(const position of run.taps||[])
+    apply({type:"dead",position,selected:!game.dead.includes(position)});
 }
 /** 再生: the kept playout again, without asking KataGo. */
 function skipSettle() {
@@ -674,7 +679,7 @@ function keptPlayout() {
 function settleView() {
   if(boardReview || game.status!=="scoring")return null;
   if(settle)return {board:settle.state.board,base:game.board,last:settle.positions.at(-1)??null,
-    moves:settle.positions.length,ownership:settle.ownership,finished:!!settle.finished};
+    moves:settle.positions.length,ownership:settle.ownership,finished:!!settle.finished,cut:!!settle.cut};
   if(settleShow && currentPlayout()){
     const frame=settleShow.frames[settleShow.index];
     return {board:frame.board,base:game.board,last:frame.moves.at(-1)?.position??null,
@@ -905,7 +910,8 @@ function show() {
   $("settleSkip").hidden=!playout;
   $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout();
   $("scoreInstruction").textContent=playout?
-    (playout.finished?TEXT.scoring.settleDone(playout.moves):TEXT.scoring.settling(playout.moves)):
+    (playout.finished?(playout.cut?TEXT.scoring.settleCut(playout.moves):TEXT.scoring.settleDone(playout.moves)):
+      TEXT.scoring.settling(playout.moves)):
     isFinished?
     (game.result?.endsWith("+R")?TEXT.scoring.finishedResign:
       japanese?TEXT.scoring.finishedScoreJapanese:TEXT.scoring.finishedScore):
@@ -1096,9 +1102,10 @@ canvas.addEventListener("click",e=>{
     if(room&&!connected)return;
     // Counting stones are drawn on empty territory; only real stones can be marked dead.
     if(!game.board[position])return;
-    // A tap during the playout ends the replay, or skips ahead to its result.
-    if(settleShow){stopSettleShow();show();return;}
-    if(settle){skipSettle();return;}
+    // A tap on a stone during the playout skips ahead to its result and corrects
+    // that stone, as it would once the playout is over (UX方針 4: 死石解析中).
+    if(settleShow)stopSettleShow();
+    else if(settle){settle.taps=[...(settle.taps||[]),position];skipSettle();return;}
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
   if(game.status!=="playing" || !isHumanTurn())return;
