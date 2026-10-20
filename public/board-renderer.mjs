@@ -25,10 +25,12 @@ import {scoringRegions,prisonerFill,prisonersFilled} from "./scoring-regions.mjs
 
 // Stones taken by a move fade out over this long instead of vanishing.
 export const CAPTURE_FADE_MS=200;
-// 呼吸の粒 (α, 9路 only): each step along a line takes this long; grains set
-// out every BREATH_BEAT steps and fade after BREATH_LIFE steps.
+// 呼吸の粒 (α, 9路 only): the time unit of the grains' drift. Every
+// BREATH_BEAT units BREATH_GRAINS grains set out from each liberty; each
+// takes BREATH_LEG units to drift to its next resting spot and fades after
+// BREATH_LIFE units.
 export const BREATH_STEP_MS=900;
-const BREATH_BEAT=2, BREATH_LIFE=7;
+const BREATH_BEAT=2, BREATH_GRAINS=3, BREATH_LEG=2.5, BREATH_LIFE=16;
 const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 // ドパガキモード's burst: sparks fly from each taken stone for this long.
 export const BURST_MS=650;
@@ -269,11 +271,12 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
        !isGomoku(game) && !isFree(game) && requestFrame && !stillMotion())paintBreath(view,around,gap,pad);
   }
 
-  // 呼吸の粒: on every beat, one grain of air sets out from each liberty of
-  // every group at once, along the board's line into the stone next to it.
-  // With two liberties or more it then wanders the lines between the
-  // group's stones, a step at a time, before it fades; a group in atari gets
-  // its one grain only as far as the edge of the stone facing the liberty.
+  // 呼吸の粒: on every beat, small grains of air set out from each liberty of
+  // every group at once and drift slowly into the stone next to it. With two
+  // liberties or more they then wander the group, each leg to a spot in the
+  // same stone or one connected to it, so they stay inside the group and
+  // spread through it before they fade; a group in atari gets its grains only
+  // as far as the edge of the stone facing the liberty, and not for long.
   // Each side's grains take that side's colour on the colour map. Every grain
   // follows from the time alone, so the drawing keeps no state between frames.
   function paintBreath(view,board,gap,pad) {
@@ -287,33 +290,45 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       for(const s of g.stones)for(const n of neighbors(s,SIZE))
         if(!board[n])sources.push({from:n,to:s,stones:g.stones,color:board[i],atari:g.liberties.size===1});
     }
-    // A repeatable pseudo-random number for a grain's step.
+    // A repeatable pseudo-random number in [0,1) for a grain's choices.
     const pick=(...keys)=>{const x=Math.sin(keys.reduce((h,k)=>h*31.7+k,7)*12.9898)*43758.5453;return x-Math.floor(x);};
     const time=now()/BREATH_STEP_MS, first=Math.max(0,Math.floor((time-BREATH_LIFE)/BREATH_BEAT));
     const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
+    const r=gap*.075, ease=u=>u*u*(3-2*u);
     ctx.save();
     for(let beat=first;beat*BREATH_BEAT<=time;beat++)sources.forEach((source,k)=>{
-      const age=time-beat*BREATH_BEAT, life=source.atari?1:BREATH_LIFE;
-      if(age>life)return;
-      // Where the grain is: the leg it is on, and how far along it.
-      let from=source.from,to=source.to,leg=Math.floor(age);
-      for(let step=1;step<=leg;step++){
-        const onward=neighbors(to,SIZE).filter(n=>source.stones.has(n));
-        const next=onward.filter(n=>n!==from);
-        const choices=next.length?next:onward;
-        // A lone stone has no line to wander: the grain rests in it.
-        [from,to]=choices.length?[to,choices[Math.floor(pick(beat,k,step)*choices.length)]]:[to,to];
+      for(let n=0;n<BREATH_GRAINS;n++){
+        const age=time-beat*BREATH_BEAT, life=source.atari?BREATH_LIFE/3:BREATH_LIFE;
+        if(age>life)continue;
+        const rand=(...keys)=>pick(beat,k,n,...keys);
+        const [lx,ly]=xy(source.from),[sx,sy]=xy(source.to);
+        // A spot: anywhere well inside a stone, or for a group in atari,
+        // between the liberty and the facing edge of its stone.
+        const spot=(stone,leg)=>{
+          if(source.atari){
+            const along=gap*(.15+.41*rand(leg,1))-r, aside=gap*.3*(rand(leg,2)-.5);
+            const dx=(sx-lx)/gap, dy=(sy-ly)/gap;
+            return [lx+dx*along-dy*aside,ly+dy*along+dx*aside];
+          }
+          const [x,y]=xy(stone), a=rand(leg,1)*Math.PI*2, d=gap*.3*Math.sqrt(rand(leg,2));
+          return [x+Math.cos(a)*d,y+Math.sin(a)*d];
+        };
+        let stone=source.to, from=[lx+gap*.3*(rand(0,1)-.5),ly+gap*.3*(rand(0,2)-.5)], to=spot(stone,1);
+        const leg=Math.floor(age/BREATH_LEG);
+        for(let step=2;step<=leg+1;step++){
+          const onward=[stone,...neighbors(stone,SIZE).filter(i=>source.stones.has(i))];
+          stone=onward[Math.floor(rand(step,0)*onward.length)];
+          [from,to]=[to,spot(stone,step)];
+        }
+        const u=ease(age/BREATH_LEG-leg), x=from[0]+(to[0]-from[0])*u, y=from[1]+(to[1]-from[1])*u;
+        ctx.globalAlpha=.9*Math.min(1,age,(life-age)/2);
+        // No outline: the grain is solid at its centre and fades out to its edge.
+        const [cr,cg,cb]=tone[source.color], glow=ctx.createRadialGradient(x,y,0,x,y,r);
+        glow.addColorStop(0,`rgba(${cr},${cg},${cb},1)`);
+        glow.addColorStop(.35,`rgba(${cr},${cg},${cb},.85)`);
+        glow.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);
+        ctx.fillStyle=glow;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
       }
-      const u=(age-leg)*(source.atari?1-.44:1);
-      const [ax,ay]=xy(from),[bx,by]=xy(to);
-      ctx.globalAlpha=.9*Math.min(1,age*4,(life-age)*1.5);
-      // No outline: the grain is solid at its centre and fades out to its edge.
-      const x=ax+(bx-ax)*u, y=ay+(by-ay)*u, r=gap*.15, [cr,cg,cb]=tone[source.color];
-      const glow=ctx.createRadialGradient(x,y,0,x,y,r);
-      glow.addColorStop(0,`rgba(${cr},${cg},${cb},1)`);
-      glow.addColorStop(.35,`rgba(${cr},${cg},${cb},.85)`);
-      glow.addColorStop(1,`rgba(${cr},${cg},${cb},0)`);
-      ctx.fillStyle=glow;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
     });
     ctx.restore();
     if(frame===null)frame=requestFrame(()=>{frame=null;draw();});

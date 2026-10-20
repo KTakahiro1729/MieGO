@@ -286,20 +286,25 @@ test("盤の線 joins same-coloured stones and reaches a cup around each liberty
   assert.equal(ends.includes(String([250,300-10])),false,"nothing toward the white stone");
 });
 
-test("呼吸の粒 sends a grain from each liberty into the stone on 9路 only, and keeps animating",()=>{
+test("呼吸の粒 sends grains from every liberty at once into the stone on 9路 only, and keeps animating",()=>{
   const game=newGame();
   game.board[at(4,4)]=BLACK;
   const frames=[];
-  let time=BREATH_STEP_MS/2, still=false, size=9;
+  let time=BREATH_STEP_MS*.5, still=false, size=9;
   const view=()=>{const g=size===9?game:newGame(size);if(size!==9)g.board[at(4,4,size)]=BLACK;
     return {...baseView(g),breathParticles:true};};
   const {draw,calls}=recordingBoard(view,{requestFrame:f=>frames.push(f),now:()=>time,stillMotion:()=>still});
   draw();
-  // Halfway along each of the four lines from a liberty into the stone at (250,250).
-  const grain=c=>c.kind==="arc"&&c.args[2]===7.5;
-  const grains=calls.filter(grain).map(c=>c.args.slice(0,2).join(","));
-  assert.deepEqual(grains.sort(),["225,250","250,225","250,275","275,250"].sort());
+  // A grain is a small soft dot (gap*.075); a star point is 4.
+  const grain=c=>c.kind==="arc"&&c.args[2]===3.75;
+  // Three from each of the four liberties, on their way into the stone at (250,250).
+  const grains=calls.filter(grain);
+  assert.equal(grains.length,12);
+  assert.ok(grains.every(c=>Math.hypot(c.args[0]-250,c.args[1]-250)<50+8),"between the liberties and the stone");
   assert.equal(frames.length,1,"asks for the next frame");
+  // Later they rest inside the lone stone they flowed into.
+  time=BREATH_STEP_MS*6;calls.length=0;draw();
+  assert.ok(calls.filter(grain).some(c=>Math.hypot(c.args[0]-250,c.args[1]-250)<22));
   still=true;calls.length=0;frames.length=0;
   draw();
   assert.equal(calls.some(grain),false,"still where motion is reduced");
@@ -311,17 +316,23 @@ test("呼吸の粒 sends a grain from each liberty into the stone on 9路 only, 
 
 test("呼吸の粒 fills a group with two liberties but stops at the edge of a group in atari",()=>{
   const game=newGame();
-  // Black (0,0)-(1,0) with liberties (2,0) and (0,1),(1,1): reaches both stones.
-  game.board[at(0,0)]=BLACK;game.board[at(1,0)]=BLACK;
+  // Black (0,0)-(1,0)-(2,0) with white on (1,1): the middle stone has no
+  // liberty of its own, yet air reaches it from the others.
+  game.board[at(0,0)]=BLACK;game.board[at(1,0)]=BLACK;game.board[at(2,0)]=BLACK;game.board[at(1,1)]=WHITE;
   // White (8,8) in atari: black on (7,8), one liberty at (8,7).
   game.board[at(8,8)]=WHITE;game.board[at(7,8)]=BLACK;
-  let time=BREATH_STEP_MS*1.5;
+  let time=0;
   const {draw,calls}=recordingBoard(()=>({...baseView(game),breathParticles:true}),
     {requestFrame:()=>{},now:()=>time,stillMotion:()=>false});
-  draw();
-  const grains=calls.filter(c=>c.kind==="arc"&&c.args[2]===7.5).map(c=>c.args.slice(0,2));
-  assert.ok(grains.some(([x,y])=>y===50&&x>50&&x<100),"the air passes on from one stone to the other");
-  time=BREATH_STEP_MS*.99;calls.length=0;draw();
-  const atari=calls.filter(c=>c.kind==="arc"&&c.args[2]===7.5&&c.args[0]===450);
-  assert.ok(atari.length===1 && atari[0].args[1]<450-22+.5,"the one grain stops at the white stone's edge");
+  const grains=()=>calls.filter(c=>c.kind==="arc"&&c.args[2]===3.75).map(c=>c.args.slice(0,2));
+  let reached=false, atari=0;
+  for(time=0;time<BREATH_STEP_MS*20;time+=BREATH_STEP_MS/4){
+    calls.length=0;draw();
+    for(const [x,y] of grains()){
+      if(Math.hypot(x-100,y-50)<22)reached=true;
+      if(x>430){atari++;assert.ok(y<=450-22-3.75+1e-9,"the white grains stay outside the stone in atari");}
+    }
+  }
+  assert.ok(reached,"the air passes on to the stone with no liberty of its own");
+  assert.ok(atari>0);
 });
