@@ -115,13 +115,13 @@ export const TEXT = {
     title: "死石を確認",
     resultTitle: "対局結果",
     ended: "終局",
-    instruction: "死石をタップして指定し、双方で結果を確認してください。",
+    instruction: "死石をタップで指定し、結果を確認してください",
     resume: "対局を再開",
     agree: "この計算に同意",
     agreeDead: "死石判定に同意",
     countTitle: "地の計算を確認",
     backToDead: "死石判定に戻る",
-    countStep: "アゲハマを相手の地に埋めました。数字は残った地です",
+    countStep: "アゲハマを相手の地に埋めた。数字は残りの地",
     agreedWaiting: "確認済み · 相手待ち",
     peerAgreed: "確認して同意してください。相手は同意済み",
     peerAgreedDead: "死石を確認して同意してください。相手は同意済み",
@@ -140,11 +140,11 @@ export const TEXT = {
     reviewCompleteJapanese: "数字は地。死石はタップで修正",
     reviewNoneJapanese: "数字は地。必要なら石をタップ",
     reviewModifiedJapanese: "数字は地。点数を確認してください",
-    reviewUnavailable: "死石をタップして指定してください。自動判定できません",
+    reviewUnavailable: "死石をタップで指定してください。自動判定なし",
     reviewChecking: "死石を確認しています…",
-    settling: moves => "石をタップで修正。AIが決着をつけています（" + moves + "手）",
-    settleCut: moves => "上限の" + moves + "手で止めた盤面。取られた石を死石にします",
-    settleDone: moves => moves ? "決着後の盤面（" + moves + "手）。取られた石を死石にします" : "打つ手がなく、そのまま判定します",
+    settling: moves => "石をタップで修正。AIが決着中（" + moves + "手）",
+    settleCut: moves => "上限の" + moves + "手で停止。取られた石を死石にします",
+    settleDone: moves => moves ? "決着後（" + moves + "手）。取られた石を死石にします" : "打つ手がなく、そのまま判定します",
     settleSkip: "スキップ",
     settleReplay: "決着手順を再生",
     settleExtend: "AIに続きを打たせる",
@@ -154,9 +154,8 @@ export const TEXT = {
       "\n白：" + (white.detail ? white.detail + "＝" : "") + white.total,
     breakdownAria: breakdown => breakdown.replace("\n", "、"),
     /** What is added to a board count; empty when nothing is. */
-    detail: (area, { prisoners = null, komi = null, bonus = 0 } = {}) => {
-      const parts = (prisoners !== null ? "＋アゲハマ" + prisoners : "") +
-        (komi !== null ? "＋コミ" + komi : "") + (bonus ? "＋置き石補正" + bonus : "");
+    detail: (area, { komi = null, bonus = 0 } = {}) => {
+      const parts = (komi !== null ? "＋コミ" + komi : "") + (bonus ? "＋置き石補正" + bonus : "");
       return parts ? area + parts : "";
     },
     seki: "セキの地は数えません",

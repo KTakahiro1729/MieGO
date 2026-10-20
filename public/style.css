@@ -45,7 +45,7 @@ button:hover:not(:disabled){border-color:#748094}
 .rule-label{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .rule-line .help-button{width:18px;height:18px;flex:none}
 .rule-line .help-button svg{width:16px;height:16px}
-.board-frame{width:min(100%,calc(100dvh - 294px),675px);min-width:0;align-self:center;aspect-ratio:1;padding:5px;background:linear-gradient(135deg,#b28751,#e4c587 35%,#956c43 100%);border:1px solid #d3b078;border-radius:14px;box-shadow:0 2px 1px #ffffff13 inset,0 15px 40px #0008,0 0 0 1px #f2d69422;position:relative;isolation:isolate;transition:box-shadow .3s,border-color .3s}
+.board-frame{width:min(100%,675px);min-width:0;align-self:center;aspect-ratio:1;padding:5px;background:linear-gradient(135deg,#b28751,#e4c587 35%,#956c43 100%);border:1px solid #d3b078;border-radius:14px;box-shadow:0 2px 1px #ffffff13 inset,0 15px 40px #0008,0 0 0 1px #f2d69422;position:relative;isolation:isolate;transition:box-shadow .3s,border-color .3s}
 /* Board looks (board-theme.mjs): the frame matches the canvas. */
 .board-frame[data-board-theme="light"]{background:#a9aeb6;border-color:#c9cdd3;box-shadow:0 15px 40px #0008}
 .board-frame[data-board-theme="dark"]{background:linear-gradient(135deg,#ffffff30,#ffffff08 40%,#ffffff18);border-color:#ffffff40;box-shadow:0 1px 0 #ffffff30 inset,0 15px 40px #000a,0 0 0 1px #9fc4e022;backdrop-filter:blur(6px)}
@@ -115,14 +115,13 @@ body.board-zoomed .board-bleed{opacity:1}
  .brand{font-size:22px}
  .game-layout{padding:0 10px}
  .turn{font-size:17px}
- .board-frame{padding:4px;border-radius:10px;width:min(100%,calc(100dvh - 265px))}
+ .board-frame{padding:4px;border-radius:10px}
  #board{border-radius:6px}
  .ownership-legend{margin-top:14px;width:92%}
  .settings-panel{left:0;right:0;bottom:0;top:auto;width:100%;max-height:min(84dvh,740px);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom))}
 }
 @media(max-width:350px){
  .turn{font-size:15px}
- .board-frame{width:min(100%,calc(100dvh - 254px))}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 
@@ -281,8 +280,12 @@ body.board-zoomed .board-bleed{opacity:1}
 body{overflow:hidden}
 .app-shell{height:100dvh;min-height:0;overflow:hidden;--topbar-height:68px}
 .game-layout{height:calc(100dvh - var(--topbar-height));overflow:hidden;padding-bottom:8px}
-.game-panel{height:100%;min-height:0;--board-reserve:292px}
-.board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px);flex-shrink:0}
+.game-panel{height:100%;min-height:0}
+/* The board takes the height the controls under it leave, so a taller score
+   box shrinks the board instead of sliding under the sticky action row.
+   The height cap stands in for the layout width, since aspect-ratio turns
+   the flexed height into the width. */
+.board-frame{flex:1 1 0;min-height:0;width:auto;max-width:100%;max-height:min(675px,calc(100vw - 24px))}
 .status-sub .move-label{font-variant-numeric:tabular-nums;flex-shrink:0}
 .status-sub .connection-status{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ownership-legend{margin-top:6px}
@@ -292,7 +295,6 @@ body{overflow:hidden}
 .endgame-bar #analysisStatus{flex:1;min-width:0;font-size:11px;text-align:right}
 
 
-.game-panel.is-scoring,.game-panel.is-finished{--board-reserve:346px}
 .score-box{flex:none;margin:3px 0 2px;padding:9px 12px 10px;min-height:0}
 .score-box strong{display:block;font-size:15px;line-height:1.25}
 .score-box p{margin:2px 0 0;font-size:11px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -300,13 +302,8 @@ body{overflow:hidden}
 @media(max-width:700px){
   .app-shell{--topbar-height:62px}
   .game-layout{padding:0 10px 6px}
-  .board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px)}
+  .board-frame{max-height:min(675px,calc(100vw - 20px))}
   .ownership-legend{margin-top:5px}
-  .game-panel{--board-reserve:285px}
-  .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:337px}
-}
-@media(max-width:350px){
-  .board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px)}
 }
 
 /* Keep the final score and its actions together at the bottom on tall phones. */
@@ -338,22 +335,10 @@ body{overflow:hidden}
   position:absolute!important;width:1px!important;height:1px!important;
   clip:rect(0,0,0,0)!important;overflow:hidden!important;white-space:nowrap!important
 }
-.game-panel.is-scoring,.game-panel.is-finished{--board-reserve:302px}
 .game-panel.is-scoring .score-box,.game-panel.is-finished .score-box{margin-top:7px}
-.game-panel:has(.review-panel:not([hidden])){--board-reserve:380px}
-@media(max-width:700px){
-  .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:294px}
-  .game-panel:has(.review-panel:not([hidden])){--board-reserve:369px}
-}
 
 .review-feedback{position:absolute;bottom:calc(100% + 4px);left:4px;right:4px;margin:0 auto;padding:5px 10px;width:max-content;max-width:calc(100% - 8px);border-radius:9px;background:#272e3e;border:1px solid #645842;color:#efd398;font-size:12px;line-height:1.5;z-index:5}
 .review-feedback[hidden]{display:none}
-
-/* A variation never reserves more height than the regular playing controls. */
-.game-panel:has(.review-panel:not([hidden])){--board-reserve:292px}
-@media(max-width:430px){
- .game-panel:has(.review-panel:not([hidden])){--board-reserve:285px}
-}
 
 /* Forbidden points are not marked in advance; the existing endgame status displays the reason. */
 /* Match the status text to the size of "ここに打つ" in all states.
@@ -384,7 +369,7 @@ body{overflow:hidden}
    .secondary       everything else; plain <button> already looks like this
    .accent-outline  a secondary that leaves the current view or explains (gold edge)
    .danger-armed    an irreversible action waiting for its second tap
-   .icon-button is the transparent header/sheet glyph; .move-history-toggle is a status chip. */
+   .icon-button is the transparent header/sheet glyph. */
 .secondary{background:var(--btn-bg);border:1px solid var(--btn-edge);color:var(--btn-text);border-radius:var(--radius)}
 .accent-outline{border-color:var(--accent-edge);color:var(--accent-text)}
 .danger-armed{background:var(--danger-bg);border-color:var(--danger-edge);color:var(--danger-text)}
@@ -599,6 +584,23 @@ body{overflow:hidden}
 .ownership-tuning{transition:opacity .2s}
 .ownership-settings.is-off .ownership-tuning{opacity:.38;pointer-events:none}
 
-/* 決着手順: the playout controls under the scoring instruction. */
-.settle-actions{display:flex;gap:8px;justify-content:center}
-.settle-actions:has(button:not([hidden])){margin:6px 0}
+/* Score box: two lines that fit where the endgame bar was, so the board keeps
+   its playing size. The title and instruction share the first line, both
+   colours share the second, and the 決着手順 buttons live in the action row.
+   It is not drawn as a card: a frame and divider would only add lines next
+   to the prisoner pills, so spacing alone sets it apart. */
+.score-box{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;align-items:baseline;
+  /* Line heights are fixed so the two lines fill the 48px endgame-bar slot whatever font the phone has. */
+  grid-template-rows:24px auto;padding:2px 4px 0;margin-bottom:0;background:none;border:0;border-radius:0}
+.score-head{grid-column:1;min-width:0}
+/* While scoring the step title sits in the turn label; only the result keeps its title here. */
+.game-panel.is-scoring .score-head strong{display:none}
+/* After the game the rule line under the turn label already says how it was counted. */
+.game-panel.is-finished .score-box>p{display:none}
+.score-box>p{grid-column:2;grid-row:1;min-width:0;margin:0}
+.score-table{grid-column:1/-1;grid-template-columns:1fr 1fr;column-gap:10px;margin-top:2px;padding-top:0;border-top:0}
+.score-table .score-row{gap:4px;line-height:20px}
+.score-table .score-total,.score-table .score-name{line-height:20px}
+/* On narrow phones the stone alone names the side, so the breakdown keeps one line. */
+@media(max-width:360px){.score-table .score-name{display:none}}
+.score-row .score-detail{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:15px}
