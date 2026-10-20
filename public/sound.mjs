@@ -6,7 +6,7 @@ import { clockSeconds } from "./game-clock.mjs";
 // hears nothing until they turn it on. On an iPhone Web Audio also follows
 // the silent switch, which is left as it is.
 // Each sound has a name; play(name) is all other code calls. A louder mode
-// can pass its own voices for the same names.
+// (ドパガキモード) passes a getter that picks its own voices for the same names.
 // The browser keeps audio blocked until the page is tapped, so the context is
 // made, or resumed, inside the first tap or key press after the switch is on.
 const SOUND_KEY = "miego-sound";
@@ -104,6 +104,24 @@ export const CALM_VOICES = {
   move(ctx, out, at) { knock(ctx, out, at, { frequency: 900, gain: .09, length: .09 }); },
 };
 
+// C major from C5 up: the notes ドパガキモード climbs through.
+const SCALE = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
+/** ドパガキモード's louder sounds: a capture rings one rising note per stone taken (up to 8), a win plays a fanfare. */
+export const DOPA_VOICES = {
+  ...CALM_VOICES,
+  capture(ctx, out, at, { count = 1 } = {}) {
+    CALM_VOICES.capture(ctx, out, at);
+    const notes = Math.max(1, Math.min(SCALE.length, count));
+    for (let i = 0; i < notes; i++)
+      tone(ctx, out, at + .05 + i * .06, { frequency: SCALE[i], gain: .12, length: .18 });
+  },
+  end(ctx, out, at) {
+    [0, 2, 3, 5].forEach((note, i) => tone(ctx, out, at + i * .11, { frequency: SCALE[note], gain: .13, length: .35 }));
+    for (const note of [0, 2, 3, 5]) tone(ctx, out, at + .5, { frequency: SCALE[note], gain: .08, length: 1.1 });
+  },
+};
+
+/** `voices` is a set of voices, or a getter read at each play (so a mode can switch them). */
 export function createSoundEffects({ $, voices = CALM_VOICES, AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext, target = globalThis }) {
   let enabled = stored(SOUND_KEY) === "on";
   let ctx = null;
@@ -131,12 +149,13 @@ export function createSoundEffects({ $, voices = CALM_VOICES, AudioContextClass 
     if (enabled) { wake(); play("move"); }
   };
   $("resetAppearance").addEventListener?.("click", () => setEnabled(false));
-  function play(name) {
-    if (!enabled || !voices[name]) return;
+  function play(name, detail) {
+    const voice = (typeof voices === "function" ? voices() : voices)?.[name];
+    if (!enabled || !voice) return;
     // Only a tap makes the context, so a COM's move before any tap stays quiet.
     const context = ctx;
     if (!context) return;
-    const draw = () => { try { voices[name](context, context.destination, context.currentTime); } catch {} };
+    const draw = () => { try { voice(context, context.destination, context.currentTime, detail); } catch {} };
     if (context.state === "running") draw();
     // Safari can still be starting the context it made inside this tap; a
     // sound that would come late is dropped.
