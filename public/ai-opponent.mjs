@@ -1,5 +1,5 @@
 
-import {isJapanese,play} from "./core.mjs";
+import {isFree,isGomoku,isJapanese,play} from "./core.mjs";
 import {personalityFeatures,stanceOf,STYLE_AXES,styleSignal} from "./ai-personality.mjs";
 import {clamp,samplePolicyCandidate} from "./ai-policy-sampling.mjs";
 import {AI_STRENGTHS,pickWeakenedMove} from "./ai-strength.mjs";
@@ -82,4 +82,33 @@ function pickPolicyMove(state, logits, passLogit, options) {
     candidates.push({position:null,score:passLogit-0.3});
   }
   return samplePolicyCandidate(candidates,options);
+}
+
+/** 投了: how far behind a COM must be, by its 投了 setting (0 never resigns).
+ * Both the win rate and the score lead must agree, since the small network's
+ * win rate alone is far from calibrated on 9x9. Like KataGo's own default
+ * (resignConsecTurns 3), the COM resigns only after three of its turns in a row
+ * look hopeless, and not in the opening, where estimates swing most. */
+export const RESIGN_LEVELS = Object.freeze({
+  50: Object.freeze({winRate:.03, boardShare:1/4}),
+  100: Object.freeze({winRate:.1, boardShare:1/8}),
+});
+export const RESIGN_TURNS = 3;
+export function createResignWatch() {
+  let streak = {};
+  return {
+    reset() { streak = {}; },
+    /** True when the COM to move should resign now. winRate and lead are Black's. */
+    observe(state, resign, {winRate, lead}) {
+      const level = RESIGN_LEVELS[resign], color = state.next;
+      if (!level || !Number.isFinite(winRate) || !Number.isFinite(lead) || isGomoku(state) || isFree(state)) {
+        streak[color] = 0; return false;
+      }
+      const mine = color > 0 ? winRate : 1 - winRate, behind = -color * lead;
+      const area = state.board.length;
+      const hopeless = state.moveNumber >= area / 4 && mine <= level.winRate && behind >= area * level.boardShare;
+      streak[color] = hopeless ? (streak[color] || 0) + 1 : 0;
+      return streak[color] >= RESIGN_TURNS;
+    },
+  };
 }

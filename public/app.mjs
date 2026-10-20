@@ -81,7 +81,7 @@ import {
   createSoundEffects,
   moveSound,
 } from "./sound.mjs";
-import { choosePolicyMove } from "./ai-opponent.mjs";
+import { choosePolicyMove, createResignWatch } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
 import { playerSides } from "./player-row.mjs";
 import { DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
@@ -156,7 +156,7 @@ let fallbackMode = false;
 function switchToFallback(reason) {
   if (fallbackMode) return;
   fallbackMode = true;
-  endgameAdvisor.reset();
+  endgameAdvisor.reset();resignWatch.reset();
   katagoReady = false;
   aiThinking = false;
   aiJob = null;
@@ -298,6 +298,8 @@ let boardSize = 9;
 const shownSize = () => sizeOf((boardReview?.display||game).board);
 let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
+// A COM set to 投了 resigns once its game has looked lost for a few turns.
+const resignWatch = createResignWatch();
 let endExpanded = false, analysisContext = null;
 let deadEvaluation=null, deadReview="idle", deadReviewTouched=false;
 // 決着手順: KataGo's playout shown on the board while it settles the dead
@@ -637,6 +639,7 @@ const COM_SLOTS = {Black:"black", White:"white"};
 // Each value a カスタム COM sets, by the name suffix of its choices.
 const COM_FIELDS = {
   Height:"height",
+  Resign:"resign",
   Stance:"stance",
   Strength:"strength",
   Tenuki:"tenuki",
@@ -732,7 +735,7 @@ function requestAnalysis() {
   if(game.status==="scoring") {
     pending=++seq;
     analysisContext=null;
-    endgameAdvisor.reset();
+    endgameAdvisor.reset();resignWatch.reset();
     if(game.agreed.black || game.agreed.white) {
       deadReviewTouched=true;deadReview="modified";show();return;
     }
@@ -753,7 +756,7 @@ function requestAnalysis() {
   }
   if(game.status!=="playing") {
     pending=++seq;
-    endgameAdvisor.reset();
+    endgameAdvisor.reset();resignWatch.reset();
     updateEndUi();
     return;
   }
@@ -985,6 +988,7 @@ function finishAiMove(result) {
     if(valid)rememberOwnership(game.board,result.ownership);
     // Two COMs each play with their own settings.
     const com=comToMove();
+    if(resignWatch.observe(game,com.resign,result)){submitMove("resign",true);return;}
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
       ...com,ownership:result.ownership,endgameStage:passStage,
       readMove:result.readMove,temperature:0.38
@@ -1877,7 +1881,7 @@ function onPeerSync(message){
   }
   if(result.kind==="adopt"){
     game=result.game;onlineRevision=result.revision;lastPosition=message.lastPosition??null;
-    candidate=null;endgameAdvisor.reset();
+    candidate=null;endgameAdvisor.reset();resignWatch.reset();
     endExpanded=!!game.endProposal && game.endProposal.from!==myColorForEnd();
     deadReviewTouched=false;deadEvaluation=null;
     save();requestAnalysis();
@@ -2535,7 +2539,7 @@ function exportSharedSGF(){
 }
 /** A restored game carries on the endgame advice from the estimates kept while it was played. */
 function restoreEndgameAdvice(){
-  endgameAdvisor.reset();
+  endgameAdvisor.reset();resignWatch.reset();
   if(game.status!=="playing" || isFree(game) || isGomoku(game))return;
   let states=[];
   try{states=replayLine(game);}catch{return;}

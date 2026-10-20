@@ -6,6 +6,7 @@ import {
   answersPass,
   canConsiderAiPass,
   choosePolicyMove,
+  createResignWatch,
   legalAiMoves,
   personalityFeatures,
   scorePolicyCandidates,
@@ -104,4 +105,30 @@ test("after the other side passes, the AI passes back instead of playing on a se
   assert.equal(answersPass(state,at(4,4),ownership,"playing"),false,"an unsettled board plays on");
   assert.equal(answersPass(play(state,at(5,5)),at(4,4),ownership,"ready"),false,"only right after a pass");
   assert.equal(answersPass(state,null,ownership,"ready"),false);
+});
+
+test("a COM set to 投了 resigns only after three hopeless turns in a row",()=>{
+  const s=newGame(true,{size:9});s.moveNumber=30;
+  const lost={winRate:.01,lead:-30},close={winRate:.4,lead:-2};
+  const watch=createResignWatch();
+  // 最後まで never resigns.
+  for(let i=0;i<5;i++)assert.equal(watch.observe(s,0,lost),false);
+  assert.equal(watch.observe(s,50,lost),false);
+  assert.equal(watch.observe(s,50,close),false);
+  assert.equal(watch.observe(s,50,lost),false);
+  assert.equal(watch.observe(s,50,lost),false);
+  assert.equal(watch.observe(s,50,lost),true);
+  // 大差 waits for a quarter of the board; 早め gives up at an eighth.
+  const behind={winRate:.05,lead:-15},fresh=createResignWatch();
+  for(let i=0;i<3;i++)assert.equal(fresh.observe(s,50,behind),false);
+  for(let i=0;i<2;i++)assert.equal(fresh.observe(s,100,behind),false);
+  assert.equal(fresh.observe(s,100,behind),true);
+  // Nobody resigns in the opening, and White reads the numbers from its side.
+  const early=newGame(true,{size:9}),opening=createResignWatch();
+  for(let i=0;i<4;i++)assert.equal(opening.observe(early,100,lost),false);
+  const white=newGame(true,{size:9});white.moveNumber=30;white.next=-1;
+  const w=createResignWatch();
+  for(let i=0;i<4;i++)assert.equal(w.observe(white,100,lost),false);
+  for(let i=0;i<2;i++)w.observe(white,100,{winRate:.99,lead:30});
+  assert.equal(w.observe(white,100,{winRate:.99,lead:30}),true);
 });

@@ -82,14 +82,14 @@ test("each COM of a watched game plays with its own character",()=>{
   assert.match(body("finishAiMove"),/const com=comToMove\(\);/);
   assert.match(body("finishAiMove"),/choosePolicyMove\(game,result\.policy,result\.passLogit,\{\s*\.\.\.com,/);
   // In 観戦 the COMのキャラ tab holds one card per COM in place of the character list:
-  // a character, and カスタム's strength and four style rows.
+  // a character, and カスタム's strength, three style rows and 投了.
   const advanced=between('id="watchAiOptions"','id="aiStrengthRow"');
   const cards=[...advanced.matchAll(/<fieldset class="com-card">([\s\S]*?)<\/fieldset>/g)].map(m=>m[1]);
   assert.equal(cards.length,2);
   for(const [card,side] of [[cards[0],"Black"],[cards[1],"White"]]){
     assert.match(card,new RegExp('<select id="com'+side+'Character"'));
     assert.deepEqual([...card.matchAll(/name="(com[A-Za-z]+)"/g)].map(m=>m[1]).filter((v,i,a)=>a.indexOf(v)===i),
-      ["Strength","Stance","Height","Tenuki"].map(field=>"com"+side+field));
+      ["Strength","Stance","Height","Tenuki","Resign"].map(field=>"com"+side+field));
   }
   assert.deepEqual(choices("comBlackStrength"),["beginner","easy","normal","strong","strongest"]);
   assert.deepEqual([...cards[0].matchAll(/<option value="([a-z]+)"/g)].map(m=>m[1]),
