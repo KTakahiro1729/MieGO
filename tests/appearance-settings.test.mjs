@@ -52,7 +52,11 @@ test("カスタム's swatches change its colours without opening a picker", () =
   const settings = createAppearanceSettings(page);
   settings.syncControls();
   assert.equal(settings.boardTheme(), "custom");
-  assert.equal(page.$("customBoardColours").hidden, false, "the swatches show while カスタム is chosen");
+  assert.equal(page.$("customBoardColours").hidden, true, "the swatches wait for 色を変える");
+  assert.equal(page.$("editBoardColours").hidden, false);
+  page.$("editBoardColours").onclick();
+  assert.equal(page.$("customBoardColours").hidden, false, "the sheet shrinks to the swatches");
+  assert.equal(page.$("editBoardColours").hidden, true);
   const row = page.$("boardColour-board").children;
   const chip = row.find(c => c.dataset.colour === "#f3e1e6");
   chip.onclick();

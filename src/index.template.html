@@ -160,8 +160,9 @@
           <label class="palette-choice"><input type="radio" name="boardTheme" value="dark"><span class="board-swatch dark"></span><span>{{settings.themes.dark}}</span></label>
           <label class="palette-choice"><input type="radio" name="boardTheme" value="custom"><span class="board-swatch custom" id="customBoardSwatch"></span><span>{{settings.themes.custom}}</span></label>
         </fieldset>
-        <div class="setting-group" id="customBoardColours" hidden>
-          <div class="setting-label">{{settings.customBoardColours}}</div>
+        <button id="editBoardColours" class="edit-colours" type="button" hidden>{{settings.editColours}}</button>
+        <div class="setting-group custom-colours" id="customBoardColours" hidden>
+          <div class="custom-colours-head"><span>{{settings.customBoardColours}}</span><button class="done-button" type="button" data-done>{{settings.done}}</button></div>
           <div class="colour-row" role="radiogroup" aria-label="{{settings.boardColours.board}}" id="boardColour-board"></div>
           <div class="colour-row" role="radiogroup" aria-label="{{settings.boardColours.line}}" id="boardColour-line"></div>
           <div class="colour-row" role="radiogroup" aria-label="{{settings.boardColours.black}}" id="boardColour-black"></div>
@@ -177,20 +178,28 @@
           <label class="palette-choice"><input type="radio" name="palette" value="custom"><span class="swatch" data-palette="custom"></span><span>{{settings.palettes.custom}}</span></label>
           <label class="palette-choice"><input type="radio" name="palette" value="none"><span class="swatch" data-palette="none"></span><span>{{settings.palettes.none}}</span></label>
         </fieldset>
+        <button id="editPaletteColours" class="edit-colours" type="button" hidden>{{settings.editColours}}</button>
         <div class="setting-group ownership-tuning">
-          <div class="setting-label" id="colourLabel">{{settings.colour}}<span class="setting-note">{{settings.colourNote}}</span></div>
+          <div class="setting-label" id="colourLabel">{{settings.colour}}</div>
           <div class="ramp" role="group" aria-labelledby="colourLabel">
             <div class="ramp-ends" aria-hidden="true"><span class="ramp-stone white"></span><span>{{common.whiteArea}}</span><span class="ramp-spacer"></span><span>{{common.blackArea}}</span><span class="ramp-stone black"></span></div>
             <div class="ramp-track">
               <div class="ramp-preview" id="rampPreview" aria-hidden="true"></div>
               <span class="ramp-neutral" aria-hidden="true"></span>
-              <label class="ramp-stop" style="--at:0%"><input type="color" id="colour-whiteSettled" aria-label="{{settings.whiteSettled}}"></label>
-              <label class="ramp-stop" style="--at:27%"><input type="color" id="colour-whiteLeaning" aria-label="{{settings.whiteLeaning}}"></label>
-              <label class="ramp-stop" style="--at:73%"><input type="color" id="colour-blackLeaning" aria-label="{{settings.blackLeaning}}"></label>
-              <label class="ramp-stop" style="--at:100%"><input type="color" id="colour-blackSettled" aria-label="{{settings.blackSettled}}"></label>
+              <span class="ramp-stop" style="--at:0%" id="colour-whiteSettled" aria-hidden="true"></span>
+              <span class="ramp-stop" style="--at:27%" id="colour-whiteLeaning" aria-hidden="true"></span>
+              <span class="ramp-stop" style="--at:73%" id="colour-blackLeaning" aria-hidden="true"></span>
+              <span class="ramp-stop" style="--at:100%" id="colour-blackSettled" aria-hidden="true"></span>
             </div>
             <div class="ramp-captions" aria-hidden="true"><span style="--at:0%">{{settings.settled}}</span><span style="--at:27%">{{settings.leaning}}</span><span style="--at:50%">{{common.neutral}}</span><span style="--at:73%">{{settings.leaning}}</span><span style="--at:100%">{{settings.settled}}</span></div>
           </div>
+        </div>
+        <div class="setting-group ownership-tuning custom-colours" id="customPaletteColours" hidden>
+          <div class="custom-colours-head"><span>{{settings.customPaletteColours}}</span><button class="done-button" type="button" data-done>{{settings.done}}</button></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.whiteSettled}}" id="paletteColour-whiteSettled"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.whiteLeaning}}" id="paletteColour-whiteLeaning"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.blackLeaning}}" id="paletteColour-blackLeaning"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.blackSettled}}" id="paletteColour-blackSettled"></div>
         </div>
         <fieldset class="setting-group ownership-tuning shape-choices">
           <legend class="setting-label">{{settings.strength}}</legend>
