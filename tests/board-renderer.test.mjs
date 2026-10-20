@@ -186,27 +186,30 @@ test("a move's captured stones fade out instead of vanishing, unless motion is r
   }
 });
 
-test("ドパガキモード sends sparks out of a taken stone, none when off or with motion reduced",()=>{
+test("ドパガキモード rings out from each stone and bursts a taken one into sparks under +N",()=>{
   let game=newGame();
   for(const p of [at(1,0),at(0,1),at(2,1)])game.board[p]=BLACK;
   game.board[at(1,1)]=WHITE;
   game.history=[boardHash(game.board)];
-  // A spark starts at gap*.09 (4.5 on this 50-wide grid); a star point is 4.
-  const sparks=(calls,r)=>calls.filter(c=>c.kind==="arc"&&Math.abs(c.args[2]-r)<1e-9).length;
-  for(const [burst,still,expected] of [["off",false,0],["on",false,7],["ultra",false,12],["ultra",true,0]]){
+  // A spark starts at gap*.13 (6.5 on this 50-wide grid); the ring starts at gap*.45.
+  const count=(calls,r)=>calls.filter(c=>c.kind==="arc"&&Math.abs(c.args[2]-r)<1e-9).length;
+  for(const [burst,still,on] of [["off",false,false],["on",false,true],["on",true,false]]){
     let time=0,frames=[],shown=game;
-    const {draw,calls}=recordingBoard(()=>({...baseView(shown),burst}),{
+    const {draw,calls,labels}=recordingBoard(()=>({...baseView(shown),burst}),{
       requestFrame:f=>frames.push(f),now:()=>time,stillMotion:()=>still,random:()=>.5});
     draw();
     shown=play(game,at(1,2));
-    calls.length=0;draw();
-    assert.equal(sparks(calls,4.5),expected,burst);
-    if(!expected)continue;
+    calls.length=0;labels.length=0;draw();
+    assert.equal(count(calls,6.5),on?20:0,"sparks");
+    assert.equal(count(calls,22.5),on?1:0,"the ring around the placed stone");
+    assert.deepEqual(labels,on?["+1","+1"]:[],"+N with its shadow");
+    if(!on)continue;
     time=BURST_MS/2;calls.length=0;frames.shift()();
-    assert.equal(sparks(calls,3.375),expected,"they shrink as they fly");
-    time=BURST_MS;calls.length=0;
+    assert.equal(count(calls,6.5*.75),20,"they shrink as they fly");
+    time=BURST_MS;calls.length=0;labels.length=0;
     while(frames.length)frames.shift()();
-    assert.equal(sparks(calls,4.5)+sparks(calls,3.375),0);
+    assert.equal(count(calls,6.5)+count(calls,6.5*.75),0);
+    assert.deepEqual(labels,[]);
     assert.equal(frames.length,0,"stops once they are gone");
   }
 });

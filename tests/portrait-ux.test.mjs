@@ -90,17 +90,22 @@ test("AI turn cannot dismiss a visible scoring decision and resumes after cancel
   assert.match(app,/if\(endExpanded\)return;\s*if\(result\.engine!=="katago"\)/);
   assert.match(app,/stopAiTurn\(\); \/\/ Invalidate pending AI workers/);
 });
-test("confirm button uses the original shared gold-and-opacity disabled appearance",()=>{
+test("a gold button that cannot be pressed is an empty slot, and ここに打つ says why",()=>{
   assert.match(css,/button:disabled\{opacity:\.36;cursor:default\}/);
   assert.match(css,/\.primary\{color:#17191e;background:linear-gradient\(180deg,#f5d88f,#e4b85c\)/);
+  // No dimmed gold: it read as loading.
+  assert.match(css,/\.primary:disabled\{opacity:1;background:transparent;border:1px dashed var\(--accent-edge\)/);
   assert.doesNotMatch(css,/\.action-row #confirm:disabled/);
-  assert.match(html,/id="confirm" class="primary" type="button" disabled/);
+  assert.match(html,/id="confirm" class="primary" type="button" disabled>.*<span id="confirmLabel">打つ場所をタップ<\/span>/);
   assert.match(app,/\$\("confirm"\)\.disabled=!candidate \|\| !myTurn/);
+  for(const reason of ["confirmBlocked","confirmPreparing","confirmWait","confirmPick"])
+    assert.match(app,new RegExp("TEXT\\.game\\."+reason));
+  assert.match(app,/candidate\?TEXT\.common\.playHere:TEXT\.game\.confirmPick/);
 });
-test("solo endgame prompt names AI only in AI games",()=>{
+test("solo endgame prompt names the COM only in COM games",()=>{
   assert.match(app,/localPrompt\?\(unsettled\?TEXT\.endgame\.detailUnsettled:gameMode==="ai"\?TEXT\.endgame\.detailLocalAi:\s*TEXT\.endgame\.detailLocal\)/);
-  assert.match(TEXT.endgame.detailLocalAi,/AIが終局を承認するわけではありません/);
-  assert.doesNotMatch(TEXT.endgame.detailLocal,/AI/);
+  assert.match(TEXT.endgame.detailLocalAi,/COMが終局を承認するわけではありません/);
+  assert.doesNotMatch(TEXT.endgame.detailLocal,/COM/);
 });
 test("continue-style choices sit left of the advancing choice, in the bar and while scoring",()=>{
   const bar=html.slice(html.indexOf('id="endActions"'),html.indexOf('id="analysisStatus"'));
@@ -148,4 +153,13 @@ test("an armed button itself changes: danger color and a trailing ？ on its lab
   assert.equal(TEXT.confirm.armedLabel("対局を始める"),"対局を始める？");
   assert.match(retap,/button\.textContent=TEXT\.confirm\.armedLabel/);
   assert.match(app,/keepArmedLabel\(\$\("copy"\)\)/);
+});
+test("on a 320px phone the small controls keep 44px tap targets, and on/off is a switch",()=>{
+  const narrow=css.match(/@media\(max-width:350px\)\{\.topbar\{[^\n]*/)?.[0]||"";
+  assert.doesNotMatch(narrow,/icon-button\{width:38px/);
+  assert.match(narrow,/\.topbar \.header-actions\{gap:0\}/);
+  assert.match(css,/\.setup-tab\{min-width:44px\}/);
+  assert.match(css,/\.rule-line \.help-button::after\{inset:-13px\}/);
+  assert.match(css,/\.settings-section input\[type="range"\]\{width:100%;height:44px/);
+  assert.match(css,/\.mode input\[type=checkbox\]\{appearance:none/);
 });
