@@ -95,7 +95,8 @@ test("advice with no valid NN estimate is not reported as 'not near endgame'",()
   assert.equal(endgameHint(g,advisor),"そろそろ終局です");
   advisor.stage="ready";
   assert.equal(endgameHint(g,advisor),"終局をご検討ください");
-  assert.equal(endgameHint(g,advisor,{suppressedUntil:3}),"そろそろ終局です","after 打ち続ける the milder step stands in");
+  advisor.hold();
+  assert.equal(endgameHint(g,advisor),"そろそろ終局です","after 打ち続ける the milder step stands in");
 });
 
 // Ownership maps that move a given number of points from one estimate to the next.
@@ -149,3 +150,20 @@ test("a short, decisive game is offered scoring without any move or stone count"
   assert.equal(endgameHint({...newGame(),board,moveNumber:30},advisor),"終局をご検討ください");
 });
 
+
+test("after 打ち続ける the strongest advice returns once the board settles again, not after a move count",()=>{
+  const advisor=new EndgameAdvisor(),own=Array(81).fill(.9);
+  let g=newGame();
+  const step=(ownership)=>{g={...g,moveNumber:g.moveNumber+1};advisor.observe(g,ownership);return endgameHint(g,advisor);};
+  step(own);step(own);
+  assert.equal(step(own),"終局をご検討ください");
+  advisor.hold();
+  assert.equal(endgameHint(g,advisor),"そろそろ終局です");
+  // Moves that still shift the estimate keep the hold, however many there are.
+  for(let i=0;i<6;i++)assert.notEqual(step(shifted(own,i%2?0:6)),"終局をご検討ください");
+  assert.equal(advisor.held,true);
+  // Two settled readings in a row: the board has settled again.
+  assert.notEqual(step(own),"終局をご検討ください");
+  assert.equal(step(own),"終局をご検討ください");
+  assert.equal(advisor.held,false);
+});
