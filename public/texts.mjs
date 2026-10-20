@@ -271,6 +271,35 @@ export const TEXT = {
       mid: "補強を特に好みも避けもしません。",
       high: "自分の石の補強や守りを優先します。",
     },
+    // A character's note fits one line at 360px; the help says more.
+    characters: {
+      chick: { name: "ひよこ", note: "囲碁をはじめたばかり。よく見落とします。" },
+      steady: { name: "石橋", note: "守りを固めて手堅く打ちます。無理な戦いはしません。" },
+      raider: { name: "荒らし屋", note: "相手の地に飛び込み、低く打って地を稼ぎます。" },
+      brawler: { name: "喧嘩屋", note: "相手の手のすぐ近くで受けて立ち、攻めにきます。" },
+      wide: { name: "大場好き", note: "相手の手に付き合わず、広い場所へ向かいます。" },
+      serious: { name: "本気", note: "KataGoの好みのまま、手加減なしで打ちます。" },
+      master: { name: "名人", note: "大きいKataGo（約100MB）で全力で打ちます。" },
+      custom: { name: "カスタム", note: "強さと打ち方を自分で選びます。" },
+    },
+    stanceStops: { low: "守る", mid: "ふつう", high: "攻める" },
+    stanceNotes: {
+      low: "自分の弱い石を補強し、相手の石を攻める手は控えます。",
+      mid: "攻めも守りも特に好みません。",
+      high: "相手の石の呼吸点を減らし、切って攻めます。守りは後回し。",
+    },
+    heightStops: { low: "低い", mid: "ふつう", high: "高い" },
+    heightNotes: {
+      low: "序盤に2〜3線の低い手で地を取ります。",
+      mid: "高さを特に気にしません。",
+      high: "序盤に4線より内側の高い手で勢力を作ります。",
+    },
+    tenukiStops: { low: "近く", mid: "ふつう", high: "遠く" },
+    tenukiNotes: {
+      low: "相手が打った手の近くで応じます。",
+      mid: "応じるか離れるかを特に好みません。",
+      high: "相手の手に付き合わず、離れた場所へ打ちます。",
+    },
     unavailable: "ページを開き直してください。KataGoを読み込めず、AIと対局できません。",
     unavailableContinue: "ページを開き直してください。KataGoを読み込めず、AIと対局を続けられません。",
     waitingLoad: "KataGoの読み込みが終わるまでお待ちください。",
@@ -279,8 +308,10 @@ export const TEXT = {
     strongestReading: "最強のKataGoが悩んでいます…",
     strongestFailed: "最強のKataGoを読み込めなかったため、小さいKataGoで打っています。",
     playingStrongest: depth => "強さ「最強」（大きいKataGo・" + (depth ? "形勢が悪いので" + depth + "手読み" : "読みなし") + "）で対局中",
-    playingWith: (strength, invasion, reinforcement) => "強さ「" + strength + "」・侵入度「" + invasion +
-      "」・補強度「" + reinforcement + "」で対局中（探索なし）",
+    // The COM's strength and the axes it leans on, e.g. 強さ「やさしい」・侵入度「重視」・高さ「低い」.
+    comSummary: (strength, leans) => ["強さ「" + strength + "」",
+      ...leans.map(([name, value]) => name + "「" + value + "」")].join("・"),
+    playingWith: (character, summary) => "「" + character + "」と対局中（" + summary + "・探索なし）",
     playingGomoku: "五目並べのCOMは、並びの長さを数える簡単な読みで打ちます（強さの設定は使いません）。",
     ready: "KataGo準備完了。AI対局を開始できます。",
     startUnavailable: "AIを使えません",
@@ -295,15 +326,16 @@ export const TEXT = {
     nextHandicap: handicap => "置き石" + handicap + "子で次の対局を始めます（あなたは黒）。",
     nextEven: "互先で次の対局を始めます。",
     nextMove: "次のAI着手から反映します。",
-    strengthInAdvanced: "観戦では、黒と白のCOMの強さを下の「COMの打ち方」で決めます。",
-    nextStrength: strength => "次のAI着手から「" + strength + "」で打ちます。",
-    strengthLabel: "AIの強さ",
+    strengthInAdvanced: "観戦では、黒と白のCOMのキャラを下の「COMの打ち方」で決めます。",
+    nextCharacter: character => "次のAI着手から「" + character + "」で打ちます。",
+    characterShort: "キャラ",
+    strengthLabel: "COMのキャラ",
     strengthShort: "強さ",
-    hints: "ヒントを表示",
-    hintsNote: "あなたの番に、KataGoの候補手を1〜3で示します。",
-    hintsAria: "ヒントを表示する",
+    height: "高さ",
     invasion: "侵入度",
     reinforcement: "補強度",
+    stance: "攻守",
+    tenuki: "応じ方",
   },
 
   handicap: {
@@ -591,7 +623,7 @@ export const TEXT = {
     rulesChoices: { chinese: "中国式", japanese: "日本式", gomoku: "五目並べ", free: "自由" },
     aiOptions: "COMの打ち方",
     rulesOptions: "ルールの追加設定",
-    // Under the AIの強さ tab while watching: each COM has its own strength.
+    // Under the COMのキャラ tab while watching: each COM has its own character.
     watchStrengthValue: "COMごと",
     setupTabs: "対局の設定",
     // Beside each choice under the 盤, ルール and 自分の石 tabs; two lines at most at 320px.
@@ -714,9 +746,11 @@ export const TEXT = {
       summary: "対COM",
       items: [
         "初回はAIの準備に時間がかかります。",
-        "強さは5段階です。段級位とは対応していません。「最強」は、対局を始めたときに強いKataGo（約100MB、9路は9路専用のもの）を読み込みます。ふだんは読まずにKataGoが一番よいとする手を打ち、形勢が悪いときだけ読みます。2目以上負けているなら候補手を8手打ってみて、6目以上なら上位5手それぞれに相手の応手3手まで読んで、目数差が一番よくなる手を選びます。",
-        "「AIの強さ」タブの「ヒントを表示」をオンにすると、あなたの番に候補手を1〜3の番号で示します。「侵入度」「補強度」でAIの打ち方の好みを変えられます。",
-        "「自分の石」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。黒と白それぞれのCOMの強さ・侵入度・補強度は「AIの強さ」タブで決めます。手の間に少し間を置き、「一時停止」でいつでも止められます。観戦中に盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。",
+        "「COMのキャラ」タブで相手を選びます。キャラごとに強さ（はじめて／やさしい／ふつう／つよい／最強）と打ち方の好みが決まっています。強さは段級位とは対応していません。",
+        "「最強」の名人は、対局を始めたときに強いKataGo（約100MB、9路は9路専用のもの）を読み込みます。ふだんは読まずにKataGoが一番よいとする手を打ち、形勢が悪いときだけ読みます。2目以上負けているなら候補手を8手打ってみて、6目以上なら上位5手それぞれに相手の応手3手まで読んで、目数差が一番よくなる手を選びます。打ち方の好みは使いません。",
+        "打ち方の好みは4つです。侵入度は相手の地に入るか、攻守は相手の石を攻めるか自分の石を守るか、高さは序盤に低く地を取るか高く勢力を作るか、応じ方は相手の手の近くで応じるか離れて打つかです。キャラは読みをせず、KataGoの候補のうち好みに合う手を少し選びやすくするだけなので、違いは手の2〜3割に出ます。",
+        "「カスタム」を選ぶと、強さと4つの好みを自分で決められます。",
+        "「自分の石」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。黒と白それぞれのCOMのキャラは「COMのキャラ」タブで決めます。手の間に少し間を置き、「一時停止」でいつでも止められます。観戦中に盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。",
       ],
     },
     online: {

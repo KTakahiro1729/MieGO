@@ -46,7 +46,7 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
       frameRenderer={board,...createBoardRenderer({canvas:board,getView:()=>({game:frameState,
         boardReview:{display:frameState,ownership:frameOwnership},candidate:null,illegalCandidate:null,
         lastPosition:null,displayedOwnership:null,palette:shownPalette(),opacity:opacity(),
-        boardTheme:boardTheme(),hints:null})})};
+        boardTheme:boardTheme()})})};
     }
     frameState=state;
     frameOwnership=overlayOn() ? ownershipStore.recall(gameId,state.board) ?? influence(state.board) : null;
