@@ -78,7 +78,7 @@ export const TEXT = {
     near: "そろそろ終局です",
     ready: "終局をご検討ください",
     unavailable: "終局は自分で判断してください。目安を出せません",
-    gomoku: "縦・横・斜めのどれかに5つ並べたら勝ち",
+    gomoku: "縦・横・斜めに5つ並べたら勝ち",
     checking: "終局の目安を確認中",
     updating: "終局の目安を更新中",
     offline: "相手を待っています",
@@ -159,11 +159,10 @@ export const TEXT = {
       size + "路盤 · 五目並べ（自由ルール：5つ以上並べたら勝ち · 禁じ手なし）" : size + "路盤 · " +
       (japanese ? "日本式ルール · " : "中国式ルール · ") + (handicap ?
       "置き石" + handicap + "子 · コミ" + komi + (japanese ? "目" : "＋置き石補正" + handicap + "目") : "コミ" + komi),
-    // The short form of ruleSummary shown above the board; it opens the rules help.
-    ruleChip: (size, rules, komi, handicap) => size + "路 · " +
+    // The short form of ruleSummary, shown in the turn row above the board.
+    ruleLabel: (size, rules, komi, handicap) => size + "路 · " +
       (rules === "gomoku" ? "五目並べ" : (rules === "japanese" ? "日本式" : "中国式") +
         (handicap ? " · 置き石" + handicap : " · コミ" + komi)),
-    ruleChipAria: summary => "今のルール：" + summary + "。押すとルールの説明を開きます",
     capturesLabel: "アゲハマ",
     captures: (black, white) => "アゲハマ　黒 " + black + "　白 " + white,
     capturesAria: (black, white) => "アゲハマ：黒が取った石" + black + "、白が取った石" + white,

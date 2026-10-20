@@ -872,9 +872,7 @@ function show() {
   canvas.setAttribute("aria-label",TEXT.game.boardLabel(shownSize()));
   const japanese=isJapanese(game);
   $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,gomoku?"gomoku":japanese);
-  const ruleChip=TEXT.game.ruleChip(size,rulesOf(game),komiOf(game),handicap);
-  $("ruleChip").textContent=ruleChip;
-  $("ruleChip").setAttribute("aria-label",TEXT.game.ruleChipAria(ruleChip));
+  $("ruleLabel").textContent=TEXT.game.ruleLabel(size,rulesOf(game),komiOf(game),handicap);
   // Japanese territory scoring counts prisoners, so they sit under the ownership bar.
   $("captureCounts").hidden=!japanese;
   // While counting, the dead stones taken off the board are prisoners too.
@@ -903,8 +901,9 @@ function show() {
   if(isFinished)$("analysisStatus").textContent="";
   $("scoringActions").hidden=!isScoring;
   for(const id of ["cancel","pass"])$(id).hidden=isScoring || isFinished;
-  // 五目並べ has no pass: the game ends on five in a row, a full board or 投了.
-  if(gomoku)$("pass").hidden=true;
+  // 五目並べ has no pass (it ends on five in a row, a full board or 投了). The
+  // button stays greyed out in its place, so the row keeps the same layout.
+  if(gomoku)$("pass").disabled=true;
   $("confirm").hidden=isScoring || isFinished;
   $("copyIllegalPrompt").hidden=isScoring || isFinished || !blocked;
   $("actionRow").classList.toggle("finished-actions",isFinished);

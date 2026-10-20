@@ -101,8 +101,23 @@ test("the computer takes a win, blocks a four, and opens in the centre",()=>{
 });
 
 test("the current rules show above the board and open the rules help",()=>{
-  assert.equal(TEXT.game.ruleChip(9,"chinese",7.5,0),"9路 · 中国式 · コミ7.5");
-  assert.equal(TEXT.game.ruleChip(19,"japanese",0.5,3),"19路 · 日本式 · 置き石3");
-  assert.equal(TEXT.game.ruleChip(13,"gomoku",0,0),"13路 · 五目並べ");
+  assert.equal(TEXT.game.ruleLabel(9,"chinese",7.5,0),"9路 · 中国式 · コミ7.5");
+  assert.equal(TEXT.game.ruleLabel(19,"japanese",0.5,3),"19路 · 日本式 · 置き石3");
+  assert.equal(TEXT.game.ruleLabel(13,"gomoku",0,0),"13路 · 五目並べ");
   assert.match(TEXT.game.ruleSummary(13,0,0,"gomoku"),/五目並べ/);
+});
+
+test("五目並べ follows the UX policy: same action row, no new button kind",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  // パス is greyed out in place, not removed, so the buttons do not move.
+  assert.match(app,/if\(gomoku\)\$\("pass"\)\.disabled=true;/);
+  assert.doesNotMatch(app,/if\(gomoku\)\$\("pass"\)\.hidden/);
+  // The rules choice lives in the 新規対戦 sheet, not in the header.
+  assert.match(html,/name="gameRules" value="gomoku"/);
+  const header=html.slice(html.indexOf('<header class="topbar">'),html.indexOf("</header>"));
+  assert.doesNotMatch(header,/gomoku|ruleLabel/);
+  // The rule display is text, not a button.
+  assert.doesNotMatch(html,/<button[^>]*id="ruleLabel"/);
 });

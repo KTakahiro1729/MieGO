@@ -36,8 +36,8 @@ test("every local help button names an existing topic",()=>{
   assert.match(app,/\$\("endHelp"\)\.dataset\.help=playing && illegalCandidate\?"illegal":isGomoku\(game\)\?"rules":"endgame";/);
   assert.match(app,/dataset\.help=gomoku\?"rules":"scoring";/);
   for(const topic of ["rules","scoring"])assert.ok(topics.has(topic),topic);
-  // The rule display above the board opens the rules topic too.
-  assert.match(html,/<button id="ruleChip"[^>]*data-help="rules"/);
+  // The rules shown above the board are plain text with the usual ? beside them.
+  assert.match(html,/<span id="ruleLabel" class="rule-label">[^<]+<\/span><button class="help-button" type="button" data-help="rules"/);
 });
 
 test("help stacks above the open sheet and Escape closes it first",()=>{

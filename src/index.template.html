@@ -28,14 +28,14 @@
     <main class="game-layout">
       <section id="gamePanel" class="game-panel" aria-label="{{header.gamePanel}}">
         <div class="game-meta">
-          <div class="turn-and-move">
-            <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
-            <button id="moveLabel" class="move-label move-history-toggle" type="button" aria-label="{{review.play}}" title="{{review.play}}">{{game.moveLabel(0)}}</button>
+          <div class="meta-main">
+            <div class="turn-and-move">
+              <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
+              <button id="moveLabel" class="move-label move-history-toggle" type="button" aria-label="{{review.play}}" title="{{review.play}}">{{game.moveLabel(0)}}</button>
+            </div>
+            <div class="rule-line"><span id="ruleLabel" class="rule-label">{{game.ruleLabel(9,0,7.5,0)}}</span><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></div>
           </div>
-          <div class="meta-side">
-            <div id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</div>
-            <button id="ruleChip" class="rule-chip" type="button" data-help="rules">{{game.ruleChip(9,0,7.5,0)}}</button>
-          </div>
+          <div id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</div>
         </div>
         <div id="boardFrame" class="board-frame">
           <div class="board-viewport">
