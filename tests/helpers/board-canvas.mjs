@@ -3,7 +3,7 @@ import {createBoardRenderer} from "../../public/board-renderer.mjs";
 // A board renderer over a 2D context that records what it paints: each
 // fillRect, arc and drawImage with the alpha at that moment, the text of each
 // fillText, and the last pixels put into the ownership overlay.
-export function recordingBoard(getView,{width=500}={}) {
+export function recordingBoard(getView,{width=500,...options}={}) {
   const calls=[],labels=[],stack=[];
   let alpha=1;
   const ctx={
@@ -21,7 +21,7 @@ export function recordingBoard(getView,{width=500}={}) {
     putImageData(image){this.data=image.data.slice();}};
   const renderer=createBoardRenderer({
     canvas:{width,getContext:()=>ctx},
-    getView,createOverlayCanvas:()=>({getContext:()=>overlay})
+    getView,createOverlayCanvas:()=>({getContext:()=>overlay}),...options
   });
   return {draw:renderer.draw,calls,labels,overlay};
 }

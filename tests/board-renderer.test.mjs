@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {at,boardHash,newGame,play,WHITE} from "../public/core.mjs";
+import {at,BLACK,boardHash,newGame,play,WHITE} from "../public/core.mjs";
+import {CAPTURE_FADE_MS} from "../public/board-renderer.mjs";
 import {recordingBoard,baseView} from "./helpers/board-canvas.mjs";
 import {ownershipPixel,countingOpacity} from "../public/territory-view.mjs";
 
@@ -157,4 +158,30 @@ test("a provisional capture stays translucent until confirmed, and cancelling re
   draw();
   assert.equal(stone(100,100)?.alpha,1);
   assert.equal(stone(100,150),undefined);
+});
+
+test("a move's captured stones fade out instead of vanishing, unless motion is reduced",()=>{
+  let game=newGame();
+  for(const p of [at(1,0),at(0,1),at(2,1)])game.board[p]=BLACK;
+  game.board[at(1,1)]=WHITE;
+  game.history=[boardHash(game.board)];
+  const captured=([x,y])=>x===100&&y===100;
+  for(const still of [false,true]){
+    let time=0,frames=[];
+    let shown=game;
+    const {draw,calls}=recordingBoard(()=>baseView(shown),{
+      requestFrame:f=>frames.push(f),now:()=>time,stillMotion:()=>still});
+    draw();
+    shown=play(game,at(1,2));
+    calls.length=0;draw();
+    const ghost=calls.find(c=>c.kind==="arc"&&c.args[2]===22&&captured(c.args));
+    if(still){assert.equal(ghost,undefined);assert.equal(frames.length,0);continue;}
+    assert.equal(ghost?.alpha,1);
+    assert.equal(frames.length,1,"asks for the next frame");
+    time=CAPTURE_FADE_MS/2;calls.length=0;frames.shift()();
+    assert.equal(calls.find(c=>c.kind==="arc"&&c.args[2]===22&&captured(c.args))?.alpha,.5);
+    time=CAPTURE_FADE_MS;calls.length=0;frames.shift()();
+    assert.equal(calls.some(c=>c.kind==="arc"&&c.args[2]===22&&captured(c.args)),false);
+    assert.equal(frames.length,0,"stops once faded");
+  }
 });

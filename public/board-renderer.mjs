@@ -11,12 +11,18 @@ import {boardTheme} from "./board-theme.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
 import {scoringRegions,prisonerFill,prisonersFilled} from "./scoring-regions.mjs";
 
+// Stones taken by a move fade out over this long instead of vanishing.
+export const CAPTURE_FADE_MS=200;
+const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
 /**
  * Draws the current board without modifying the match. Each draw reads one
  * consistent view from getView, including its provisional/replayed position.
- * The optional canvas factory keeps this module testable without a DOM.
+ * The optional canvas factory and frame clock keep this module testable without a DOM.
  */
-export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>document.createElement("canvas")}) {
+export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>document.createElement("canvas"),
+  requestFrame=globalThis.requestAnimationFrame?.bind(globalThis),now=()=>performance.now(),
+  stillMotion=reducedMotion}) {
   const ctx = canvas.getContext("2d");
   const overlayCanvas = createOverlayCanvas();
   overlayCanvas.width = DEFAULT_SIZE;
@@ -24,6 +30,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   const overlayContext = overlayCanvas.getContext("2d");
   // The side length of the position being drawn; set at the start of each draw.
   let SIZE = DEFAULT_SIZE;
+  // The live position last drawn and each stone's alpha in it, to find what a move captured.
+  let lastLive=null, shownAlpha=[], fading=[], frame=null;
 
   function paintGrid(theme, d, gap, pad) {
     ctx.clearRect(0,0,d,d);
@@ -196,7 +204,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       const x=pad+(i%SIZE)*gap;
       const y=pad+Math.floor(i/SIZE)*gap;
       const r=gap*.44;
-      paintStone(theme,color,x,y,r,captured ? 0.4 : i===preview ? 0.68 : 1);
+      const alpha=captured ? 0.4 : i===preview ? 0.68 : 1;
+      shownAlpha[i]=alpha;
+      paintStone(theme,color,x,y,r,alpha);
 
       if(i===preview) {
         ctx.save();
@@ -245,6 +255,26 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     }
   }
 
+
+  // A live move that removed stones starts them fading from the alpha they were last shown at.
+  function noteCaptures(game,live) {
+    const before=lastLive;
+    lastLive=live?{board:[...game.board],moves:game.moves.length,alpha:shownAlpha}:null;
+    if(!live || !before || before.board.length!==game.board.length || game.moves.length!==before.moves+1 ||
+       !requestFrame || stillMotion())return;
+    const start=now();
+    for(let i=0;i<game.board.length;i++)
+      if(before.board[i] && !game.board[i] && before.alpha[i])
+        fading.push({position:i,color:before.board[i],from:before.alpha[i],start});
+  }
+  function paintFading(theme,gap,pad) {
+    const time=now();
+    fading=fading.filter(f=>time-f.start<CAPTURE_FADE_MS);
+    for(const f of fading)
+      paintStone(theme,f.color,pad+(f.position%SIZE)*gap,pad+Math.floor(f.position/SIZE)*gap,gap*.44,
+        f.from*(1-(time-f.start)/CAPTURE_FADE_MS));
+    if(fading.length && frame===null)frame=requestFrame(()=>{frame=null;draw();});
+  }
 
   /**
    * 決着手順: KataGo's playout over the real position. Stones it adds are
@@ -300,7 +330,12 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     if(scoring)paintCountingArea(view,scoring,gap,pad);
     paintStarPoints(theme,gap,pad);
     if(scoring)paintNeutralPoints(game,scoring,gap,pad);
+    const live=!boardReview && game.status==="playing";
+    if(!live)fading=[];
+    shownAlpha=[];
     paintStones(theme,view,display,gap,pad);
+    noteCaptures(game,live);
+    if(fading.length)paintFading(theme,gap,pad);
     for(const {position,color} of kept)
       paintFillStone(theme,color,pad+(position%SIZE)*gap,pad+Math.floor(position/SIZE)*gap,gap);
     if(scoring)paintPrisonerFill(theme,fill,view.palette,gap,pad);
