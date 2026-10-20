@@ -1,5 +1,6 @@
 import { DEFAULT_PALETTE, isPaletteChoice, normalizePalette, showsOwnership, countingPalette, paletteGradient, countingGradient, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
 import {
+  BOARD_COLOUR_CHOICES,
   BOARD_COLOUR_KEYS,
   BOARD_CUSTOM,
   boardColours,
@@ -9,6 +10,7 @@ import {
   setCustomBoardColours,
   surfaceCss,
 } from "./board-theme.mjs";
+import { TEXT } from "./texts.mjs";
 
 // The 設定 sheet's 碁盤 and 地合いの表示 groups: the board look, the colour
 // map, its opacity and curve, kept in localStorage, plus the legend and the
@@ -52,23 +54,57 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
       if (!e.target.checked) return;
       boardTheme=isBoardTheme(e.target.value)?e.target.value:DEFAULT_BOARD_THEME;
       store("miego-board",boardTheme);
-      fillBoardColourInputs();updateGradient();draw();
+      updateGradient();draw();
     };
   });
-  // The board pickers show the chosen board; editing one turns it into "カスタム".
-  function fillBoardColourInputs(){
-    const shown=boardColours(boardTheme);
-    for(const key of BOARD_COLOUR_KEYS)$("boardColour-"+key).value=shown[key];
+  // カスタム shows a row of swatches for each of its colours. A swatch applies
+  // at once; only the last button, "＋", opens the device's colour picker, so
+  // a stray tap never brings up a dialog.
+  const colourRows=Object.fromEntries(BOARD_COLOUR_KEYS.map(key=>[key,buildColourRow(key)]));
+  function buildColourRow(key){
+    const row=$("boardColour-"+key),item=TEXT.settings.boardColours[key];
+    if(!row.append)return {chips:[],other:{}};
+    const label=document.createElement("span");
+    label.className="colour-row-label";label.textContent=item;label.setAttribute("aria-hidden","true");
+    const chips=BOARD_COLOUR_CHOICES[key].map((colour,i)=>{
+      const chip=document.createElement("button");
+      chip.type="button";chip.className="colour-chip";chip.dataset.colour=colour;
+      chip.style.backgroundColor=colour;chip.setAttribute("role","radio");
+      chip.setAttribute("aria-label",TEXT.settings.colourChoice(item,i+1));
+      chip.onclick=()=>pickBoardColour(key,colour);
+      return chip;
+    });
+    const other=document.createElement("label");
+    other.className="colour-chip colour-other";other.title=TEXT.settings.otherColour(item);
+    const input=document.createElement("input");
+    input.type="color";input.setAttribute("aria-label",TEXT.settings.otherColour(item));
+    input.oninput=()=>pickBoardColour(key,input.value);
+    other.append(input);
+    row.append(label,...chips,other);
+    return {chips,other,input};
   }
-  for(const key of BOARD_COLOUR_KEYS)$("boardColour-"+key).oninput=()=>{
-    const chosen=Object.fromEntries(BOARD_COLOUR_KEYS.map(k=>[k,$("boardColour-"+k).value]));
+  function pickBoardColour(key,colour){
+    const chosen={...boardColours(BOARD_CUSTOM),[key]:colour};
     if(!setCustomBoardColours(chosen))return;
     store("miego-board-colours",JSON.stringify(chosen));
-    boardTheme=BOARD_CUSTOM;
-    store("miego-board",boardTheme);
-    check("boardTheme",BOARD_CUSTOM);
     updateGradient();draw();
-  };
+  }
+  function markBoardColours(){
+    const custom=boardColours(BOARD_CUSTOM);
+    for(const key of BOARD_COLOUR_KEYS){
+      const {chips,other,input}=colourRows[key];
+      let preset=false;
+      for(const chip of chips){
+        const on=chip.dataset.colour===custom[key];
+        preset||=on;
+        chip.setAttribute("aria-checked",String(on));
+      }
+      // A colour of the player's own shows on the "＋" button.
+      if(input)input.value=custom[key];
+      other.classList?.toggle("is-chosen",!preset);
+      if(other.style)other.style.backgroundColor=preset?"":custom[key];
+    }
+  }
   // The colour pickers show the chosen map; editing one turns it into "カスタム".
   function fillColourInputs(){
     const shown=paletteColours(showsOwnership(palette)?palette:PALETTE_CUSTOM);
@@ -143,6 +179,8 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
       swatch.style.backgroundColor=surface;
       swatch.style.backgroundImage=onBoardStrip(showsOwnership(name)?paletteGradient(name,opacity):null);
     });
+    $("customBoardColours").hidden=boardTheme!==BOARD_CUSTOM;
+    markBoardColours();
     const custom=boardColours(BOARD_CUSTOM),swatch=$("customBoardSwatch");
     swatch.style.setProperty("--sw-board",custom.board);
     swatch.style.setProperty("--sw-line",custom.line);
@@ -161,7 +199,7 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     check("palette",palette);
     check("boardTheme",boardTheme);
     check("opacityShape",opacityShape());
-    fillColourInputs();fillBoardColourInputs();
+    fillColourInputs();
     $("opacity").value=String(Math.round(opacity*100));
     $("opacityValue").textContent=Math.round(opacity*100)+"%";
     updateGradient();

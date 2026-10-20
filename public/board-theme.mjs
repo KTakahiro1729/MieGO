@@ -64,6 +64,14 @@ function customLook({board,line,black,white}) {
     flatStones:false
   });
 }
+// The swatches offered for each colour of the custom board; any other colour
+// can still be picked with the colour input next to them.
+export const BOARD_COLOUR_CHOICES = Object.freeze({
+  board:Object.freeze(["#e5c58c","#f0d9a8","#f1ede3","#f3e1e6","#6f9d7c","#26323f"]),
+  line:Object.freeze(["#685537","#7b818b","#8a5a6a","#2f4a37","#111111","#d0b25c"]),
+  black:Object.freeze(["#101718","#1d2050","#4a0f0f","#1f3a2a","#3a2a4a","#4a4f57"]),
+  white:Object.freeze(["#e8e8e2","#f0dfb8","#f6d6dc","#d6ecf6","#e2f0d6","#c9c9c0"])
+});
 // Until the player picks, the custom board starts from the wood board.
 let customColours = Object.freeze({board:"#e5c58c",line:"#685537",black:"#101718",white:"#e8e8e2"});
 let customTheme = customLook(customColours);

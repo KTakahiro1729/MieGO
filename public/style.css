@@ -167,13 +167,17 @@ body.board-zoomed .board-bleed{opacity:1}
 .board-choices{margin-bottom:16px;grid-template-columns:repeat(4,minmax(0,1fr))}
 /* The custom board's swatch takes its colours from the pickers. */
 .board-swatch.custom{background-color:var(--sw-board)}
-.board-colours{display:flex;justify-content:space-around;gap:8px}
-.settings-section .colour-stop{display:flex;flex-direction:column;align-items:center;gap:5px;margin:0;font-size:11px;color:#ccd0da;cursor:pointer}
-.colour-stop input{display:block;width:30px;height:30px;padding:0;margin:0;border:3px solid #f4f1ea;border-radius:50%;background:none;cursor:pointer;-webkit-appearance:none;appearance:none;box-shadow:0 2px 8px #000a}
-.colour-stop input:focus-visible{outline:3px solid #f2c875;outline-offset:2px}
-.colour-stop input::-webkit-color-swatch-wrapper{padding:0}
-.colour-stop input::-webkit-color-swatch{border:0;border-radius:50%}
-.colour-stop input::-moz-color-swatch{border:0;border-radius:50%}
+/* カスタム's colours: a row of swatches per colour, then "＋" for any other.
+   Only "＋" opens the device's colour picker. */
+#customBoardColours[hidden]{display:none}
+.colour-row{display:flex;align-items:center;gap:7px;margin:0 0 9px}
+.colour-row-label{width:34px;flex:none;font-size:12px;color:#ccd0da}
+.colour-chip{width:26px;height:26px;min-width:0;min-height:0;flex:none;padding:0;border:1px solid #ffffff3a;border-radius:50%;cursor:pointer;position:relative}
+.colour-chip[aria-checked="true"],.colour-other.is-chosen{box-shadow:0 0 0 2px #181e2a,0 0 0 4px #edc77c}
+.colour-chip:focus-visible,.colour-other:focus-within{outline:3px solid #f2c875;outline-offset:3px}
+.settings-section .colour-other{display:grid;place-items:center;margin:0;border:1px dashed #9aa1ae;background:none}
+.colour-other:not(.is-chosen)::before{content:"+";color:#b0b6c2;font-size:17px;line-height:1}
+.colour-other input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
 /* Swatch colours follow the chosen board and are set from territory-view. */
 .swatch{background-color:#e5c58c}
 .board-swatch{width:100%;height:45px;border-radius:8px;box-shadow:0 1px 4px #0005;border:1px solid #9a9a9a55;

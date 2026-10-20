@@ -41,17 +41,25 @@ test("saved choices are read back and the reset saves the defaults", () => {
   assert.equal(saved.get("miego-palette"), "mono");
 });
 
-test("editing a board colour picks the カスタム board and saves its colours", () => {
-  const saved = new Map();
+test("カスタム's swatches change its colours without opening a picker", () => {
+  const saved = new Map([["miego-board", "custom"]]);
   globalThis.localStorage = { getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value) };
+  const node = () => ({ style: {}, dataset: {}, attrs: {}, children: [], classList: { toggle() {} },
+    setAttribute(name, value) { this.attrs[name] = value; }, append(...c) { this.children.push(...c); } });
   const page = fakePage();
+  globalThis.document.createElement = node;
+  for (const key of ["board", "line", "black", "white"]) Object.assign(page.$("boardColour-" + key), node());
   const settings = createAppearanceSettings(page);
   settings.syncControls();
-  assert.equal(page.$("boardColour-board").value, "#e5c58c", "the pickers start on the wood board");
-  page.$("boardColour-board").value = "#f3e1e6";
-  page.$("boardColour-board").oninput();
   assert.equal(settings.boardTheme(), "custom");
-  assert.equal(saved.get("miego-board"), "custom");
+  assert.equal(page.$("customBoardColours").hidden, false, "the swatches show while カスタム is chosen");
+  const row = page.$("boardColour-board").children;
+  const chip = row.find(c => c.dataset.colour === "#f3e1e6");
+  chip.onclick();
   assert.equal(JSON.parse(saved.get("miego-board-colours")).board, "#f3e1e6");
+  assert.equal(chip.attrs["aria-checked"], "true");
   assert.equal(page.$("customBoardSwatch").style["--sw-board"], "#f3e1e6");
+  // Only the last button holds the device's colour picker.
+  assert.equal(row.filter(c => c.children.some(i => i.type === "color")).length, 1);
+  assert.equal(row.at(-1).children[0].type, "color");
 });

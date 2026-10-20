@@ -159,14 +159,12 @@
           <label class="palette-choice"><input type="radio" name="boardTheme" value="dark"><span class="board-swatch dark"></span><span>{{settings.themes.dark}}</span></label>
           <label class="palette-choice"><input type="radio" name="boardTheme" value="custom"><span class="board-swatch custom" id="customBoardSwatch"></span><span>{{settings.themes.custom}}</span></label>
         </fieldset>
-        <div class="setting-group">
-          <div class="setting-label" id="boardColourLabel">{{settings.colour}}<span class="setting-note">{{settings.boardColourNote}}</span></div>
-          <div class="board-colours" role="group" aria-labelledby="boardColourLabel">
-            <label class="colour-stop"><input type="color" id="boardColour-board"><span>{{settings.boardColours.board}}</span></label>
-            <label class="colour-stop"><input type="color" id="boardColour-line"><span>{{settings.boardColours.line}}</span></label>
-            <label class="colour-stop"><input type="color" id="boardColour-black"><span>{{settings.boardColours.black}}</span></label>
-            <label class="colour-stop"><input type="color" id="boardColour-white"><span>{{settings.boardColours.white}}</span></label>
-          </div>
+        <div class="setting-group" id="customBoardColours" hidden>
+          <div class="setting-label">{{settings.customBoardColours}}</div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.boardColours.board}}" id="boardColour-board"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.boardColours.line}}" id="boardColour-line"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.boardColours.black}}" id="boardColour-black"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.boardColours.white}}" id="boardColour-white"></div>
         </div>
       </section>
       <section class="settings-section ownership-settings" id="ownershipSettings">
