@@ -488,20 +488,22 @@ body{overflow:hidden}
   position:sticky;bottom:0;z-index:4;background:linear-gradient(180deg,#0d101800,#0d1018 12%)}
 .review-panel[hidden]{display:none}
 .review-navigation{display:flex;align-items:stretch;gap:7px;position:relative}
-.review-navigation>button,.review-navigation>.review-menu>summary{height:var(--action-h);min-height:var(--action-h);
+.review-navigation>button{height:var(--action-h);min-height:var(--action-h);
   display:flex;align-items:center;justify-content:center;padding:7px}
 .review-navigation>.review-back{flex:1 1 0;min-width:0;flex-direction:column;gap:1px;font-size:13px;white-space:nowrap}
 .review-navigation>.review-back[hidden]{display:none}
 .review-navigation>.review-continue{flex:1 1 0;min-width:0;padding:0 14px;font-size:13px;white-space:nowrap}
-.review-navigation>.review-menu{position:relative;flex:0 0 44px;min-width:44px}
-.review-navigation>.review-menu>summary{cursor:pointer;list-style:none}
-.review-navigation>.review-menu>summary::-webkit-details-marker{display:none}
-.review-navigation>.review-menu>summary:focus-visible{outline:3px solid #f2c875;outline-offset:2px}
-.review-navigation>.review-menu .review-menu-popover{position:absolute;bottom:calc(100% + 8px);right:0;width:min(300px,calc(100vw - 24px));max-height:min(70dvh,440px);overflow-y:auto;z-index:12;padding:9px;background:#242c39;border:1px solid #626c80;border-radius:var(--radius);box-shadow:0 14px 36px #000c;display:flex;flex-direction:column;gap:7px}
-.review-menu-popover>button{min-height:44px;flex:none;width:100%;padding:8px;border-radius:var(--radius-sm);font-size:12px}
-.review-menu-popover>button[hidden]{display:none}
-.review-scrubber{display:flex;gap:8px;align-items:center}
-.review-scrubber>button{flex:0 0 44px;height:44px;padding:4px;display:grid;place-items:center;border-radius:var(--radius-sm)}
+/* さかのぼり中の道具: 手番の上の空きに置く。 */
+.review-tools{display:flex;flex-direction:column;gap:4px;position:relative}
+.review-tools[hidden]{display:none}
+.review-extras{display:flex;justify-content:center;gap:6px}
+.review-extras>button{min-height:44px;min-width:0;padding:4px 12px;border-radius:999px;font-size:12px;white-space:nowrap}
+.review-extras>button[hidden]{display:none}
+/* Floats above the tools so a notice never pushes the board smaller. */
+.review-tools>p{position:absolute;bottom:calc(100% + 4px);left:4px;right:4px;margin:0 auto;padding:5px 10px;width:max-content;max-width:calc(100% - 8px);border-radius:9px;background:#272e3e;border:1px solid #645842;color:#efd398;font-size:12px;line-height:1.5;z-index:5}
+.review-tools>p:empty{display:none}
+/* ◁▷ in the status row step one move; the slider is the only other way to move. */
+.review-scrubber{display:flex;align-items:center;height:44px;padding:0 8px}
 .review-new-moves{font-size:10px;color:#efc47b}
 .review-navigation .review-play-actions{display:flex;flex:1;gap:7px;min-width:0;align-items:stretch}
 .review-navigation .review-play-actions[hidden]{display:none}
@@ -517,7 +519,6 @@ body{overflow:hidden}
 @media(max-width:700px){.action-row,.review-panel{padding-top:3px}}
 @media(max-width:360px){
   .review-navigation{gap:4px}
-  .review-navigation>.review-menu{flex-basis:42px;min-width:42px}
   .review-navigation>.review-continue{padding:0 10px;font-size:12px}
   .status-row{gap:4px}
 }
