@@ -1,16 +1,69 @@
-import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, boardHash, handicapOf, komiOf, isJapanese, areaScore, scoringStepOf, agreeDead, confirmDeadSolo, backToDead, rulesOf, RULESETS, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
+import {
+  agreeDead,
+  agreeScore,
+  answerEndProposal,
+  areaScore,
+  backToDead,
+  beginSoloScoring,
+  BLACK,
+  BOARD_SIZES,
+  boardHash,
+  confirmDeadSolo,
+  finalizeSoloScore,
+  handicapOf,
+  isJapanese,
+  komiOf,
+  maxHandicap,
+  newGame,
+  play,
+  proposeEnd,
+  resume,
+  RULESETS,
+  rulesOf,
+  scoringStepOf,
+  setDeadCandidates,
+  sizeOf,
+  toggleDead,
+  WHITE,
+} from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
-import { settleLimit, settleStart, pickSettleMove, settleStep, deadFromPlayout, replayPlayout } from "./settle-playout.mjs";
+import {
+  deadFromPlayout,
+  pickSettleMove,
+  replayPlayout,
+  settleLimit,
+  settleStart,
+  settleStep,
+} from "./settle-playout.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
-import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame, isPeerAction, storageKey, roomUrl, newPeerSignins } from "./p2p-session.mjs";
+import {
+  colorLabel,
+  guestUrl,
+  isPeerAction,
+  newPeerSignins,
+  ownUrl,
+  playerColor,
+  readCheckpoint,
+  reconcileGame,
+  ROOM_PATTERN,
+  roomUrl,
+  saveCheckpoint,
+  selectColor,
+  storageKey,
+} from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
-import { isPaletteChoice, normalizePalette, showsOwnership, countingPalette, paletteGradient, countingGradient, interpolateOwnership, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
-import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss, boardTheme as boardLook } from "./board-theme.mjs";
+import { interpolateOwnership } from "./territory-view.mjs";
+import { createAppearanceSettings } from "./appearance-settings.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
 import { policyHints } from "./ai-assist.mjs";
-import { takebackCut, takeBack, requestTakeback, answerTakeback } from "./takeback.mjs";
+import {
+  answerTakeback,
+  requestTakeback,
+  takeBack,
+  takebackCut,
+} from "./takeback.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
 import { scoreBreakdown, scoreRows, PRISONER_OUTLINE } from "./scoring-regions.mjs";
 import { createBoardZoom } from "./board-zoom.mjs";
@@ -18,20 +71,28 @@ import {inspectProvisionalMove,makeIllegalMovePrompt,ILLEGAL_KO} from "./illegal
 import { freshLocalGame } from "./mode-state.mjs";
 import { GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
-import { shareLabels, shareFrameSize, paintShareFrame, buildGameAnimation, loadShareFonts } from "./share-image.mjs";
+import { createShareImages, downloadBlob } from "./share-images.mjs";
 import { OwnershipStore } from "./ownership-store.mjs";
 import { replayLine, prefetchOrder } from "./ownership-prefetch.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
-import { influence } from "./influence.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
-import { makeRulesPrompt, makePositionPrompt } from "./beginner-prompts.mjs";
-import { activeReviewSnapshot, proposeReviewStone, commitReviewStone, variationForSharing } from "./review-variation.mjs";
+import { createHelpSheet } from "./help-sheet.mjs";
+import {
+  activeReviewSnapshot,
+  commitReviewStone,
+  proposeReviewStone,
+  variationForSharing,
+} from "./review-variation.mjs";
 import { canApproveScoring, canApplyAutomatedReview, deadSignature } from "./scoring-flow.mjs";
 import { TEXT } from "./texts.mjs";
 import { UserError, messageFor } from "./user-error.mjs";
+import { writeClipboard, copyWithFallback } from "./clipboard.mjs";
+import { createRetapConfirm } from "./confirm-retap.mjs";
 const $ = id => document.getElementById(id);
+// 投了 and leaving a friend's match need a second tap on the same button.
+const {confirmByRetap,keepArmedLabel,disarmConfirm:resetArmedButtons}=createRetapConfirm();
 const canvas = $("board");
 let worker = new Worker("/katago-worker.bundle.mjs", { type: "module" });
 let fallbackMode = false;
@@ -108,23 +169,14 @@ function persistOnline(){
 }
 let game = newGame(), candidate = null, illegalCandidate = null, analysis = null, seq = 0, pending = null, lastPosition = null;
 let illegalPromptCopied = false;
-let palette = normalizePalette(localStorage.getItem("miego-palette"));
-// The player's own colours and the opacity curve live in territory-view.
-try{setCustomColours(JSON.parse(localStorage.getItem("miego-custom-colours")||"null"));}catch{}
-setOpacityShape(localStorage.getItem("miego-opacity-shape"));
-const storedBoardTheme = localStorage.getItem("miego-board");
-let boardTheme = isBoardTheme(storedBoardTheme) ? storedBoardTheme : DEFAULT_BOARD_THEME;
 // "石を隠す" is fixed for a whole game: the 新規対戦 choice applies to the
 // next game, which carries it (so a friend's game shows it to both players).
 // A replayed board follows its game; a shared SGF shows its stones.
 let hideStonesChoice = false;
 const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideStones===true;
-// With the stones hidden the colours are all there is, so "表示しない" falls
-// back to the default map, as counting does.
-const shownPalette = () => hidingStones() ? countingPalette(palette) : palette;
-const overlayOn = () => showsOwnership(shownPalette());
-const storedOpacity = Number(localStorage.getItem("miego-opacity"));
-let opacity = Number.isFinite(storedOpacity) && storedOpacity>=0 && storedOpacity<=1 && localStorage.getItem("miego-opacity")!==null ? storedOpacity : .55;
+const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingStones,isCounting,show,draw,
+  onOverlayOn:()=>boardReview?requestReviewOwnership():requestAnalysis()});
+const {shownPalette,overlayOn,updateGradient}=appearance;
 let connected = false;
 let gameMode = room ? "online" : "local";
 let humanColor = BLACK, invasion = 50, reinforcement = 50;
@@ -189,11 +241,11 @@ function showEvictionNotice(){
   evictedGames=0;
 }
 let currentGameId=null,currentRevision=null;
-const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard,getBoardTheme:()=>boardTheme,
+const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard,getBoardTheme:appearance.boardTheme,
   getThumbnailOverlay:record=>{
     if(!overlayOn())return null;
     const ownership=ownershipStore.recall(record.id,record.snapshot.board);
-    return ownership?{ownership,palette:shownPalette(),opacity}:null;
+    return ownership?{ownership,palette:shownPalette(),opacity:appearance.opacity()}:null;
   }});
 const {renderHistoryList,importHistoryFile}=historyPanel;
 // Sheets are aria-modal: keep Tab and taps out of the board behind them.
@@ -299,13 +351,36 @@ function stopAiTurn() {
   pending = ++seq;
   clearTimeout(analysisTimer);
 }
+// One remembered choice per line, in alphabetical order, so that two
+// branches adding different choices touch different lines.
 function rememberSettings() {
   try {
     localStorage.setItem("miego-local-settings", JSON.stringify({
-      mode:gameMode,humanColor,aiSide:aiSideChoice,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap,onlineHandicap,boardSize,
-      hideStones:hideStonesChoice,gameRules
+      aiHandicap,
+      aiHints,
+      aiSide:aiSideChoice,
+      aiStrength,
+      boardSize,
+      gameRules,
+      hideStones:hideStonesChoice,
+      humanColor,
+      invasion,
+      localHandicap,
+      mode:gameMode,
+      onlineHandicap,
+      reinforcement,
     }));
   } catch {}
+}
+// What every new game takes from the 新規対戦 sheet, whatever the mode.
+// A new per-game option is added here only, one per line, alphabetically.
+function nextGameOptions(handicap) {
+  return {
+    handicap,
+    hideStones:hideStonesChoice,
+    rules:gameRules,
+    size:boardSize,
+  };
 }
 // Step sliders name each stop under the bar and show the chosen stop's note below it.
 function syncStepSlider(id) {
@@ -331,9 +406,23 @@ const boardZoom=createBoardZoom({
 });
 const boardRenderer = createBoardRenderer({
   canvas,
-  getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette:shownPalette(),opacity,boardTheme,
-    hideStones:hidingStones(),humanTurn:isHumanTurn(),hints:visibleHints(),
-    settle:settleView(),keptPlayout:keptPlayout()})
+  // One input per line, alphabetically.
+  getView:()=>({
+    boardReview,
+    boardTheme:appearance.boardTheme(),
+    candidate,
+    displayedOwnership,
+    game,
+    hideStones:hidingStones(),
+    hints:visibleHints(),
+    humanTurn:isHumanTurn(),
+    illegalCandidate,
+    keptPlayout:keptPlayout(),
+    lastPosition,
+    opacity:appearance.opacity(),
+    palette:shownPalette(),
+    settle:settleView(),
+  })
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
 // Hints belong to one committed position and are only drawn on the human's turn.
@@ -1009,23 +1098,6 @@ $("cancel").onclick=()=>{
   $("illegalPromptFallbackPanel").hidden=true;
   show();requestAnalysis();
 };
-// Every copy of text meant for an AI chat (or a plain link) uses the async
-// Clipboard API; when the browser refuses, the text is left selected instead.
-const MANUAL_COPY=TEXT.common.manualCopy;
-async function writeClipboard(text) {
-  if(typeof navigator.clipboard?.writeText!=="function")throw Error("Clipboard API unavailable");
-  await navigator.clipboard.writeText(text);
-}
-async function copyWithFallback(text,status,field,copied=TEXT.common.copied) {
-  try{
-    await writeClipboard(text);
-    field.hidden=true;status.textContent=copied;
-  }catch{
-    field.value=text;field.hidden=false;field.focus();field.select();
-    try{field.setSelectionRange(0,text.length);}catch{}
-    status.textContent=MANUAL_COPY;
-  }
-}
 $("copyIllegalPrompt").onclick=async()=>{
   const selected=illegalCandidate;
   if(!selected || selected.source!==game)return;
@@ -1066,46 +1138,6 @@ $("resign").onclick=()=>{
   if(!confirmByRetap($("resign"),null,TEXT.game.resignConfirmAria))return;
   submitMove("resign");
 };
-// Irreversible actions (投了, leaving a friend's match) are confirmed in place:
-// the first tap arms the button itself (danger color and a trailing ？ on its
-// label), optionally explaining below it; only a second tap on it proceeds.
-let armedConfirm=null;
-function confirmByRetap(button,message=null,armedAria=null) {
-  if(armedConfirm?.button===button){disarmConfirm();return true;}
-  disarmConfirm();
-  armedConfirm={button,note:null,label:button.textContent,aria:button.getAttribute("aria-label")};
-  if(message){
-    const note=document.createElement("p");
-    note.id="armedConfirmNote";note.className="armed-note";note.setAttribute("role","status");
-    note.textContent=TEXT.confirm.retap(message);
-    button.setAttribute("aria-describedby",note.id);
-    button.after(note);
-    armedConfirm.note=note;
-  }
-  if(armedAria)button.setAttribute("aria-label",armedAria);
-  button.classList.add("danger-armed");
-  button.textContent=TEXT.confirm.armedLabel(armedConfirm.label);
-  return false;
-}
-// Renderers rewrite these labels; keep the armed ？ on whatever they wrote.
-function keepArmedLabel(button) {
-  if(armedConfirm?.button!==button)return;
-  armedConfirm.label=button.textContent;
-  button.textContent=TEXT.confirm.armedLabel(armedConfirm.label);
-}
-function disarmConfirm() {
-  if(!armedConfirm)return;
-  armedConfirm.button.classList.remove("danger-armed");
-  armedConfirm.button.removeAttribute("aria-describedby");
-  armedConfirm.button.textContent=armedConfirm.label;
-  if(armedConfirm.aria!==null)armedConfirm.button.setAttribute("aria-label",armedConfirm.aria);
-  armedConfirm.note?.remove();
-  armedConfirm=null;
-}
-function resetArmedButtons(){disarmConfirm();}
-document.addEventListener("pointerdown",e=>{
-  if(armedConfirm && !armedConfirm.button.contains(e.target))disarmConfirm();
-});
 // Signals computed for the abandoned line must not survive a rewind.
 function afterTakeback() {
   const last=game.moves.at(-1)?.position;
@@ -1147,7 +1179,7 @@ function freshLocalBoard() {
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
   lastOfferKey=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  game=freshLocalGame(game,localHandicap,boardSize,hideStonesChoice,gameRules);currentGameId=null;currentRevision=null;
+  game=freshLocalGame(game,nextGameOptions(localHandicap));currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
 }
 /** 新規対戦 → 1台で打つ: leaves an AI or friend match (kept in the library). */
@@ -1221,78 +1253,7 @@ $("endDecline").onclick=()=>{
   apply({type:"end_answer",color,accept:false,proposalFrom:game.endProposal.from,
     number:game.moveNumber,before:boardHash(game.board)});
 };
-// Choosing "表示しない" hides the overlay; the next colour map brings it back.
-document.querySelectorAll('input[name="palette"]').forEach(input => {
-  input.onchange = e => {
-    if (!e.target.checked) return;
-    const wasOn=overlayOn();
-    palette=isPaletteChoice(e.target.value)?e.target.value:"mono";
-    try{localStorage.setItem("miego-palette",palette);}catch{}
-    fillColourInputs();updateGradient();show();
-    if(wasOn!==overlayOn()){
-      if(boardReview)requestReviewOwnership();else requestAnalysis();
-    }
-  };
-});
-document.querySelectorAll('input[name="boardTheme"]').forEach(input => {
-  input.onchange = e => {
-    if (!e.target.checked) return;
-    boardTheme=isBoardTheme(e.target.value)?e.target.value:DEFAULT_BOARD_THEME;
-    try{localStorage.setItem("miego-board",boardTheme);}catch{}
-    updateGradient();draw();
-  };
-});
 $("hideStones").onchange=e=>{hideStonesChoice=e.target.checked;rememberSettings();};
-// The colour pickers show the chosen map; editing one turns it into "カスタム".
-function fillColourInputs(){
-  const shown=paletteColours(showsOwnership(palette)?palette:PALETTE_CUSTOM);
-  for(const key of COLOUR_KEYS)$("colour-"+key).value=shown[key];
-}
-for(const key of COLOUR_KEYS)$("colour-"+key).oninput=()=>{
-  const wasOn=overlayOn();
-  const chosen=Object.fromEntries(COLOUR_KEYS.map(k=>[k,$("colour-"+k).value]));
-  if(!setCustomColours(chosen))return;
-  try{localStorage.setItem("miego-custom-colours",JSON.stringify(chosen));}catch{}
-  palette=PALETTE_CUSTOM;
-  try{localStorage.setItem("miego-palette",palette);}catch{}
-  const radio=document.querySelector('input[name="palette"][value="custom"]');
-  if(radio)radio.checked=true;
-  updateGradient();show();
-  if(!wasOn){if(boardReview)requestReviewOwnership();else requestAnalysis();}
-};
-document.querySelectorAll('input[name="opacityShape"]').forEach(input=>{
-  input.onchange=e=>{
-    if(!e.target.checked)return;
-    try{localStorage.setItem("miego-opacity-shape",setOpacityShape(e.target.value));}catch{}
-    updateGradient();draw();
-  };
-});
-$("opacity").oninput=e=>{
-  opacity=Number(e.target.value)/100;
-  localStorage.setItem("miego-opacity",String(opacity));
-  $("opacityValue").textContent=e.target.value+"%";
-  updateGradient();draw();
-};
-$("resetAppearance").onclick=()=>{
-  const wasOn=overlayOn();
-  palette="mono";opacity=.55;boardTheme=DEFAULT_BOARD_THEME;
-  localStorage.setItem("miego-palette",palette);
-  localStorage.setItem("miego-opacity","0.55");
-  localStorage.setItem("miego-board",boardTheme);
-  const selected=document.querySelector('input[name="palette"][value="mono"]');
-  if(selected)selected.checked=true;
-  const selectedBoard=document.querySelector('input[name="boardTheme"][value="'+boardTheme+'"]');
-  if(selectedBoard)selectedBoard.checked=true;
-  $("opacity").value="55";$("opacityValue").textContent="55%";
-  setOpacityShape(DEFAULT_OPACITY_SHAPE);
-  try{localStorage.setItem("miego-opacity-shape",DEFAULT_OPACITY_SHAPE);}catch{}
-  const shapeRadio=document.querySelector('input[name="opacityShape"][value="'+DEFAULT_OPACITY_SHAPE+'"]');
-  if(shapeRadio)shapeRadio.checked=true;
-  fillColourInputs();
-  updateGradient();show();
-  if(!wasOn){if(boardReview)requestReviewOwnership();else requestAnalysis();}
-};
-// The legend, the colour-map swatches and the board frame follow the chosen board.
 // Two aligned rows: stone, name, what is added to the board area, total.
 function renderScoreboard(){
   const rows=scoreRows(game);
@@ -1312,42 +1273,6 @@ function renderScoreboard(){
 function isCounting(){
   return !boardReview && (game.status==="scoring" ||
     game.status==="finished" && !game.result?.endsWith("+R"));
-}
-// Layers for a strip of the chosen board under an optional colour layer.
-function onBoardStrip(colour){
-  const look=boardLook(boardTheme);
-  const grid=dir=>"repeating-linear-gradient("+dir+",transparent 0 9px,"+look.line+" 9px 10.5px,transparent 10.5px 20px)";
-  const fill="linear-gradient(135deg,"+(look.fill.length>1?look.fill.join(","):look.fill[0]+","+look.fill[0])+")";
-  return [colour,grid("90deg"),grid("0deg"),fill].filter(Boolean).join(",");
-}
-function updateGradient(){
-  const surface=surfaceCss(boardTheme);
-  $("gradient").style.backgroundColor=surface;
-  // While counting, the same legend explains the flat area colours instead.
-  const counting=isCounting();
-  $("gradient").style.backgroundImage=counting?countingGradient(palette,opacity,boardTheme):
-    paletteGradient(shownPalette(),opacity,boardTheme);
-  $("legendNeutral").hidden=!counting;
-  $("ownershipLegend").classList.toggle("overlay-off",!counting && !overlayOn() ||
-    game.status==="finished" && !counting);
-  // Colour and strength mean nothing while the overlay is hidden.
-  $("ownershipSettings").classList.toggle("is-off",!showsOwnership(palette));
-  for(const input of document.querySelectorAll(".ownership-tuning input"))input.disabled=!showsOwnership(palette);
-  // The V and U icons rise as high as the slider lets the colour go.
-  const top=17-14*opacity;
-  document.querySelector('input[name="opacityShape"][value="V"]+span path')?.setAttribute("d","M3 "+top+" 20 17 37 "+top);
-  document.querySelector('input[name="opacityShape"][value="U"]+span path')?.setAttribute("d","M3 "+top+"C10 "+top+" 13 17 20 17S30 "+top+" 37 "+top);
-  // The editor's ramp and the colour-map swatches lie on a strip of the
-  // chosen board, grid lines and all, at the chosen strength, so every
-  // colour is seen as it is on the board.
-  $("rampPreview").style.backgroundColor=surface;
-  $("rampPreview").style.backgroundImage=onBoardStrip(paletteGradient(showsOwnership(palette)?palette:PALETTE_CUSTOM,opacity));
-  document.querySelectorAll(".swatch[data-palette]").forEach(swatch=>{
-    const name=swatch.dataset.palette;
-    swatch.style.backgroundColor=surface;
-    swatch.style.backgroundImage=onBoardStrip(showsOwnership(name)?paletteGradient(name,opacity):null);
-  });
-  canvas.closest(".board-frame")?.setAttribute("data-board-theme",boardTheme);
 }
 function save(){
   try {
@@ -1544,7 +1469,7 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;seenPeerSignins=0;linkKey=null;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  game=newGame(true,{handicap:onlineHandicap,size:boardSize,hideStones:hideStonesChoice,rules:gameRules});candidate=null;lastPosition=null;
+  game=newGame(true,nextGameOptions(onlineHandicap));candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
@@ -1918,139 +1843,17 @@ function exportSharedSGF(){
     $("shareNotice").textContent=TEXT.share.sgfSaved;
   }catch(error){$("shareNotice").textContent=TEXT.share.sgfFailed;}
 }
-function downloadBlob(blob,name){
-  const url=URL.createObjectURL(blob);
-  const link=document.createElement("a");
-  link.href=url;link.download=name;
-  document.body.append(link);link.click();link.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-// Shared images end on the board exactly as drawn (board look, ownership
-// colours, marks and labels come from the canvas itself), set in a card
-// naming the moves, the result, where to play and where it is developed.
-// Both kinds are made when the sheet opens so each choice shows its image.
-const SHARE_KINDS=["still","animation"];
-let shareImageKind="still",shareImageJob=0;
-let shareImages={},sharePreviewUrls=[];
-let frameRenderer=null,frameState=null,frameOwnership=null;
-const ANIMATION_SIZE=600;
 // Every frame of a shared animation carries the colours seen while playing.
 function rememberOwnership(board,values){
   try{ownershipStore.remember(currentGameId,board,values);}catch(error){console.warn("Ownership not kept",error);}
 }
-const frameCanvas=(width,height)=>Object.assign(document.createElement("canvas"),{width,height});
-function shareImageDetails(animated){
-  const {snapshot,metadata,step,gameId}=sharedPosition();
-  const total=snapshot.moves.filter(m=>m.position!=="resign").length;
-  const result=metadata?.result || (snapshot.status==="finished" ? snapshot.result : null);
-  // The legend explains colours only when the image carries them: every
-  // animation frame is coloured, a still only what the board now shows.
-  const coloured=overlayOn() && (animated ||
-    (boardReview ? !!boardReview.ownership : game.status==="playing" && !!displayedOwnership));
-  return {snapshot,step,gameId,labels:{...shareLabels({step,total,result,animated,
-      komi:Number.isFinite(Number(metadata?.komi)) ? Number(metadata.komi) : komiOf(snapshot),
-      handicap:handicapOf(snapshot)}),boardSize:sizeOf(snapshot.board),
-    theme:boardTheme,legend:coloured ? {palette:shownPalette(),opacity} : null}};
-}
-// An animation frame: the replayed position with the ownership recorded for
-// it, or the replay view's quick estimate where none was recorded.
-function renderFrameBoard(state,gameId){
-  if(!frameRenderer){
-    const board=frameCanvas(ANIMATION_SIZE,ANIMATION_SIZE);
-    frameRenderer={board,...createBoardRenderer({canvas:board,getView:()=>({game:frameState,
-      boardReview:{display:frameState,ownership:frameOwnership},candidate:null,illegalCandidate:null,
-      lastPosition:null,displayedOwnership:null,palette:shownPalette(),opacity,boardTheme,hints:null})})};
-  }
-  frameState=state;
-  frameOwnership=overlayOn() ? ownershipStore.recall(gameId,state.board) ?? influence(state.board) : null;
-  frameRenderer.draw();
-  return frameRenderer.board;
-}
-async function makeShareImage(kind,job){
-  await loadShareFonts();
-  draw();
-  const animated=kind==="animation";
-  const {snapshot,step,gameId,labels}=shareImageDetails(animated);
-  if(animated){
-    frameRenderer=null;
-    const bytes=await buildGameAnimation({snapshot,step,size:ANIMATION_SIZE,
-      renderBoard:state=>renderFrameBoard(state,gameId),finalBoard:canvas,createCanvas:frameCanvas,labels,
-      onProgress:(i,total)=>{
-        if(job!==shareImageJob)throw Error("Superseded");
-        shareImages.animation={progress:TEXT.share.progress(i,total)};renderShareImages();
-      }});
-    return new File([bytes],"miego-moves"+step+".gif",{type:"image/gif"});
-  }
-  const {width,height}=shareFrameSize(canvas.width);
-  const target=frameCanvas(width,height);
-  paintShareFrame(target,canvas,labels);
-  const blob=await new Promise((resolve,reject)=>
-    target.toBlob(b=>b?resolve(b):reject(Error("Canvas export failed")),"image/png"));
-  return new File([blob],"miego-move"+step+".png",{type:"image/png"});
-}
-const canShareFile=file=>{
-  try{return typeof navigator.share==="function" && !!navigator.canShare?.({files:[file]});}
-  catch{return false;}
-};
-function renderShareImages(){
-  for(const kind of SHARE_KINDS){
-    const entry=shareImages[kind]||{},id=kind==="still"?"Still":"Animation";
-    const preview=$("share"+id+"Preview"),status=$("share"+id+"Status");
-    preview.hidden=!entry.url;
-    if(entry.url && preview.getAttribute("src")!==entry.url)preview.src=entry.url;
-    status.hidden=!!entry.url;
-    status.textContent=entry.failed?TEXT.share.failedShort:TEXT.common.creating+(entry.progress?" "+entry.progress:"");
-  }
-  // Saving always works; sharing appears where the device can take the file.
-  const file=shareImages[shareImageKind]?.file;
-  $("saveImage").disabled=$("shareImage").disabled=!file;
-  $("saveImage").textContent=file ? TEXT.share.saveImage :
-    shareImages[shareImageKind]?.failed ? TEXT.share.imageFailed : TEXT.share.imageCreating;
-  $("shareImage").hidden=!file || !canShareFile(file);
-}
-function clearShareImages(){
-  shareImageJob++;shareImages={};
-  sharePreviewUrls.forEach(url=>URL.revokeObjectURL(url));sharePreviewUrls=[];
-}
-// The images are made before the tap: sharing must start straight from the
-// tap, and a long game's animation takes a moment to encode.
-async function prepareShareImages(){
-  clearShareImages();
-  const job=shareImageJob;
-  renderShareImages();
-  for(const kind of SHARE_KINDS){
-    try{
-      const file=await makeShareImage(kind,job);
-      if(job!==shareImageJob)return;
-      const url=URL.createObjectURL(file);sharePreviewUrls.push(url);
-      shareImages[kind]={file,url};
-    }catch(error){
-      if(job!==shareImageJob)return;
-      shareImages[kind]={failed:true};
-      $("shareNotice").textContent=TEXT.share.imageError;
-    }
-    renderShareImages();
-  }
-}
-function saveImage(){
-  const file=shareImages[shareImageKind]?.file;
-  if(!file)return;
-  downloadBlob(file,file.name);
-  $("shareNotice").textContent=TEXT.share.imageSaved;
-}
-async function shareImage(){
-  const file=shareImages[shareImageKind]?.file;
-  if(!file || !canShareFile(file))return;
-  try{await navigator.share({files:[file]});$("shareNotice").textContent="";}
-  catch(error){
-    if(error?.name!=="AbortError")$("shareNotice").textContent=TEXT.share.imageShareFailed;
-  }
-}
+const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,
+  stillColoured:()=>boardReview ? !!boardReview.ownership : game.status==="playing" && !!displayedOwnership});
 function openSharePanel(){
   openPanel("share");
   $("shareNotice").textContent="";
   $("shareCopyFallback").hidden=true;
-  void prepareShareImages();
+  void shareImages.prepare();
 }
 $("moveLabel").onclick=()=>{
   if(boardReview){leaveBoardReview();return;}
@@ -2075,15 +1878,6 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && $("reviewMenu").open)$("reviewMenu").open=false;
 });
 $("reviewBranch").onclick=forkBoardReview;
-$("saveImage").onclick=saveImage;
-$("shareImage").onclick=()=>void shareImage();
-document.querySelectorAll('input[name="shareImageKind"]').forEach(input=>{
-  input.onchange=e=>{
-    if(!e.target.checked)return;
-    shareImageKind=e.target.value==="animation"?"animation":"still";
-    renderShareImages();
-  };
-});
 $("shareLink").onclick=()=>void copyShareUrl(false);
 $("shareAiLink").onclick=()=>void copyShareUrl(true);
 $("shareSgf").onclick=exportSharedSGF;
@@ -2148,7 +1942,7 @@ function closePanels() {
   $("settingsBackdrop").hidden=true;
   $("settingsPanel").hidden=true;
   $("sharePanel").hidden=true;
-  clearShareImages();
+  shareImages.clear();
   $("modePanel").hidden=true;
   $("helpPanel").hidden=true;
   $("helpToggle").setAttribute("aria-expanded","false");
@@ -2168,87 +1962,8 @@ $("shareToggle").onclick=()=>$("sharePanel").hidden?openSharePanel():closeShare(
 function closeShare(){closePanels();$("shareToggle").focus();}
 $("closeShare").onclick=closeShare;
 $("closeMode").onclick=()=>{closePanels();$("newGameButton").focus();};
-// The full help sheet opens from the header and stacks above any open sheet.
-let helpOwnsBackdrop=false;
-function openHelp() {
-  closeHelpPopover(false);
-  helpOwnsBackdrop=$("settingsBackdrop").hidden;
-  if(helpOwnsBackdrop){setBackgroundInert(true);$("settingsBackdrop").hidden=false;}
-  $("helpPanel").hidden=false;
-  $("helpToggle").setAttribute("aria-expanded","true");
-  for(const item of $("helpPanel").querySelectorAll("details"))item.open=false;
-  $("beginnerPromptStatus").textContent="";$("beginnerPromptFallback").hidden=true;
-  $("helpPanel").scrollTop=0;
-  $("closeHelp").focus();
-}
-function closeHelp() {
-  $("helpPanel").hidden=true;
-  $("helpToggle").setAttribute("aria-expanded","false");
-  if(helpOwnsBackdrop)closePanels();
-  else $("helpToggle").focus();
-}
-// A local ? shows only its own topic, beside the button. The text is copied
-// from the help sheet so each explanation is written once.
-let helpPopoverOpener=null;
-function openHelpPopover(topic,opener) {
-  const source=$("help-"+topic);
-  if(!source)return;
-  const pop=$("helpPopover"),body=$("helpPopoverBody");
-  $("helpPopoverTitle").textContent=source.querySelector("summary").textContent;
-  body.replaceChildren(...[...source.children].filter(node=>node.tagName!=="SUMMARY").map(node=>{
-    const copy=node.cloneNode(true);
-    for(const el of [copy,...copy.querySelectorAll("[id]")])el.removeAttribute("id");
-    return copy;
-  }));
-  helpPopoverOpener=opener;
-  pop.hidden=false;
-  const margin=12,gap=8,r=opener.getBoundingClientRect();
-  const width=pop.offsetWidth,height=pop.offsetHeight;
-  const below=r.bottom+gap,above=r.top-gap-height;
-  pop.style.top=(below+height<=innerHeight-margin||above<margin?
-    Math.max(margin,Math.min(below,innerHeight-margin-height)):above)+"px";
-  pop.style.left=Math.max(margin,Math.min(r.left+r.width/2-width/2,innerWidth-margin-width))+"px";
-  $("closeHelpPopover").focus();
-}
-function closeHelpPopover(restoreFocus=true) {
-  if($("helpPopover").hidden)return;
-  $("helpPopover").hidden=true;
-  if(restoreFocus)helpPopoverOpener?.focus();
-  helpPopoverOpener=null;
-}
-// Beginner questions describe the live game, never the board being replayed.
-async function copyBeginnerPrompt(make) {
-  const status=$("beginnerPromptStatus"),area=$("beginnerPromptFallback");
-  let link=null,question;
-  try{link=makeReviewUrl(location.origin,{snapshot:game},game.moves.length);}catch{}
-  try{question=make(game,link);}
-  catch{status.textContent=TEXT.prompts.failed;return;}
-  await copyWithFallback(question,status,area,TEXT.prompts.copiedForAi);
-}
-$("copyRulesPrompt").onclick=()=>void copyBeginnerPrompt(makeRulesPrompt);
-$("copyPositionPrompt").onclick=()=>void copyBeginnerPrompt(makePositionPrompt);
-$("helpToggle").onclick=()=>$("helpPanel").hidden?openHelp():closeHelp();
-$("closeHelp").onclick=closeHelp;
-$("closeHelpPopover").onclick=()=>closeHelpPopover();
-// Every local ? names its topic in data-help, so one listener serves them all.
-document.addEventListener("click",e=>{
-  const button=e.target.closest?.("[data-help]");
-  if(!button)return;
-  if(helpPopoverOpener===button)closeHelpPopover();
-  else openHelpPopover(button.dataset.help,button);
-});
-// A tap anywhere else, or a layout change, dismisses the popover.
-document.addEventListener("pointerdown",e=>{
-  if(!e.target.closest?.("#helpPopover,[data-help]"))closeHelpPopover(false);
-});
-addEventListener("resize",()=>closeHelpPopover(false));
-$("settingsBackdrop").onclick=()=>$("helpPanel").hidden?closePanels():closeHelp();
-document.addEventListener("keydown",e=>{
-  if(e.key!=="Escape")return;
-  if(!$("helpPopover").hidden){closeHelpPopover();return;}
-  if($("settingsBackdrop").hidden)return;
-  if(!$("helpPanel").hidden)closeHelp();else closePanels();
-});
+// The help sheet stacks above any open sheet; a local ? shows one topic of it.
+const {closeHelpPopover}=createHelpSheet({$,getGame:()=>game,setBackgroundInert,closePanels});
 $("newGameButton").onclick=()=>openPanel(room?"online":gameMode);
 $("settleSkip").onclick=()=>{
   if(settleShow){stopSettleShow();show();}
@@ -2270,7 +1985,7 @@ $("startAi").onclick=()=>{
   catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
   aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
-  game=newGame(true,{handicap:aiHandicap,size:boardSize,hideStones:hideStonesChoice,rules:gameRules});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
+  game=newGame(true,nextGameOptions(aiHandicap));currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   $("aiMatchStatus").textContent=TEXT.ai.started(colorLabel(humanColor));
   save();closePanels();show();requestAnalysis();
@@ -2401,7 +2116,8 @@ else try {
     aiSideChoice=SIDE_CHOICES.includes(settings.aiSide)?settings.aiSide:
       humanColor===WHITE?"white":"black";
     aiStrength=normalizeStrength(settings.aiStrength,DEFAULT_AI_STRENGTH);
-    aiHandicap=toHandicap(settings.aiHandicap);localHandicap=toHandicap(settings.localHandicap);
+    aiHandicap=toHandicap(settings.aiHandicap);
+    localHandicap=toHandicap(settings.localHandicap);
     onlineHandicap=toHandicap(settings.onlineHandicap);
     boardSize=toBoardSize(settings.boardSize);
     gameRules=toRules(settings.gameRules);
@@ -2416,17 +2132,8 @@ else try {
 }catch{}
 syncSideUi();
 updatePersonaUi();syncStrengthUi();syncHandicapUi();
-const selectedPalette=document.querySelector('input[name="palette"][value="'+palette+'"]');
-if(selectedPalette)selectedPalette.checked=true;
-const selectedBoardTheme=document.querySelector('input[name="boardTheme"][value="'+boardTheme+'"]');
-if(selectedBoardTheme)selectedBoardTheme.checked=true;
+appearance.syncControls();
 $("hideStones").checked=hideStonesChoice;
-{const shapeRadio=document.querySelector('input[name="opacityShape"][value="'+opacityShape()+'"]');
-if(shapeRadio)shapeRadio.checked=true;}
-fillColourInputs();
-$("opacity").value=String(Math.round(opacity*100));
-$("opacityValue").textContent=Math.round(opacity*100)+"%";
-updateGradient();
 if(!room && currentGameId===null)save();
 if(!room && params.has("sgf")){
   try{

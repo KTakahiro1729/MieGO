@@ -79,7 +79,7 @@ test("sharing lives in one sheet beside settings, not in the replay menu",()=>{
  // Still image or game animation side by side, then one share-or-save button.
  // Each choice shows the image it would share.
  assert.match(sheet,/class="ai-color-choices share-kind-choices"[\s\S]*value="still" checked><span><img id="shareStillPreview"[\s\S]*静止画<\/span>[\s\S]*value="animation"><span><img id="shareAnimationPreview"[\s\S]*棋譜アニメ（GIF）<\/span>[\s\S]*id="shareImage"/);
- assert.match(app,/for\(const kind of SHARE_KINDS\)\{\s*try\{\s*const file=await makeShareImage\(kind,job\)/);
+ assert.match(source("share-images.mjs"),/for\(const kind of SHARE_KINDS\)\{\s*try\{\s*const file=await makeShareImage\(kind,job\)/);
  // Outside replay the sheet shares the live game as it stands.
  assert.match(app,/if\(boardReview\)return \{\.\.\.variationForSharing\(boardReview,game\)/);
  assert.match(app,/return \{snapshot:game,metadata:null,/);

@@ -5,3 +5,4 @@ node_modules/
 public/models/
 public/tfjs/
 public/katago-worker.bundle.mjs
+public/index.html

@@ -1,7 +1,8 @@
 import { newGame, SIZE } from "./core.mjs";
 
-export function freshLocalGame(previous, handicap = 0, size = SIZE, hideStones = false, rules = "chinese") {
-  return newGame(previous?.assisted !== false, { handicap, size, hideStones, rules });
+// options are those of newGame(): {handicap, hideStones, rules, size}.
+export function freshLocalGame(previous, options = {}) {
+  return newGame(previous?.assisted !== false, options);
 }
 
 export function gameStorageKey(mode) {

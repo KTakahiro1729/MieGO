@@ -5,6 +5,8 @@ import {TEXT} from "../public/texts.mjs";
 const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
 const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
 const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+const retap=readFileSync(new URL("../public/confirm-retap.mjs",import.meta.url),"utf8");
+const appearance=readFileSync(new URL("../public/appearance-settings.mjs",import.meta.url),"utf8");
 test("move counter is above board, not in the endgame strip",()=>{
   assert.ok(html.indexOf('id="moveLabel"')<html.indexOf('id="board"'));
   const strip=html.slice(html.indexOf('id="endgameBar"'),html.indexOf('id="scoreBox"'));
@@ -29,7 +31,7 @@ test("final score is above sticky actions and visible in a compact score area",(
   assert.match(css,/\.game-panel\.is-scoring,\.game-panel\.is-finished\{--board-reserve:337px\}/);
   // The legend stays while counting and explains the counted areas.
   assert.doesNotMatch(css,/\.is-scoring \.ownership-legend[^}]*display:none/);
-  assert.match(app,/\$\("legendNeutral"\)\.hidden=!counting/);
+  assert.match(appearance,/\$\("legendNeutral"\)\.hidden=!counting/);
   assert.match(app,/\$\("scoreBox"\)\.querySelector\("strong"\)\.textContent=/);
   assert.match(app,/\$\("gamePanel"\)\.classList\.toggle\("is-finished",isFinished\)/);
 });
@@ -60,7 +62,7 @@ test("resignation is a visible button with inline two-tap safety",()=>{
   assert.doesNotMatch(app,/confirm\("投了しますか？"\)/);
   assert.match(app,/if\(!confirmByRetap\(\$\("resign"\),null,TEXT\.game\.resignConfirmAria\)\)return;/);
   assert.equal(TEXT.confirm.armedLabel(TEXT.common.resign),"投了？");
-  assert.match(app,/armedConfirm && !armedConfirm\.button\.contains\(e\.target\)/);
+  assert.match(retap,/armedConfirm && !armedConfirm\.button\.contains\(e\.target\)/);
 });
 test("finished view exposes next match and history without hidden menus",()=>{
   assert.match(html,/id="newMatch"/);
@@ -127,12 +129,12 @@ test("a disconnected online bar says why its buttons are disabled",()=>{
 test("leaving a friend's match is confirmed in place, never by a browser dialog",()=>{
   assert.doesNotMatch(app,/[^\w.]confirm\(/);
   assert.doesNotMatch(app,/[^\w.]alert\([^)]/);
-  assert.match(app,/function confirmByRetap\(button,message=null,armedAria=null\)/);
-  assert.match(app,/button\.classList\.add\("danger-armed"\)/);
+  assert.match(retap,/function confirmByRetap\(button,message=null,armedAria=null\)/);
+  assert.match(retap,/button\.classList\.add\("danger-armed"\)/);
 });
 
 test("an armed button itself changes: danger color and a trailing ？ on its label",()=>{
   assert.equal(TEXT.confirm.armedLabel("対局を始める"),"対局を始める？");
-  assert.match(app,/button\.textContent=TEXT\.confirm\.armedLabel/);
+  assert.match(retap,/button\.textContent=TEXT\.confirm\.armedLabel/);
   assert.match(app,/keepArmedLabel\(\$\("copy"\)\)/);
 });
