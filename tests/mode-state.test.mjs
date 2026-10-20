@@ -191,7 +191,7 @@ test("the 時間 tab holds the clock and 観戦's speed, each greyed out where t
   assert.ok(time.indexOf('id="timeControlSetup"')>=0 && time.indexOf('id="timeControlSetup"')<time.indexOf('id="watchSpeedRow"'));
   assert.doesNotMatch(panel("Rules"),/id="mainTime"|id="byoyomi"/);
   assert.doesNotMatch(panel("Side"),/name="watchSpeed"/);
-  assert.match(app,/const untimedRules=kind=>gameRules==="free" \|\| kind==="online" \|\| kind==="ai" && watchChoice;/);
+  assert.match(app,/const untimedRules=kind=>gameRules==="free" \|\| kind==="ai" && watchChoice;/);
   // 観戦 runs without a clock; its tab value is the speed.
   assert.match(app,/startAiGame\(newGame\(true,\{\.\.\.nextGameOptions\(aiHandicap\),\.\.\.\(watchChoice\?\{timeControl:null\}:\{\}\)\}\),watchChoice,aiSideChoice\);/);
   assert.equal(TEXT.newGame.timeValue("","") ,"なし");

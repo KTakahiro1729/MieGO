@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, play, agreeScore, answerEndProposal, proposeEnd, BLACK, WHITE } from "../public/core.mjs";
+import { newGame, play, agreeScore, answerEndProposal, loseOnTime, proposeEnd, BLACK, WHITE } from "../public/core.mjs";
 import { selectColor, playerColor, readCheckpoint, saveCheckpoint, reconcileGame, guestUrl, ownUrl, isPeerAction, isConsistentSnapshot, roomUrl, newPeerSignins } from "../public/p2p-session.mjs";
 
 test("creator's choice fixes color and guest receives opposite color",()=>{
@@ -133,4 +133,23 @@ test("the inviter's 石を隠す reaches a guest who has not received the game y
   assert.equal(adopted.game.hideStones,true);
   assert.equal(reconcileGame(host,0,guest,0,{localIsOwner:true}).kind,"send");
   assert.equal(isConsistentSnapshot(play(host,0)),true);
+});
+test("a friend game's 持ち時間 is the inviter's, and only the player out of time calls it",()=>{
+  const timeControl={main:300,byoyomi:30};
+  const host=newGame(true,{timeControl}), guest=newGame();
+  const adopted=reconcileGame(guest,0,host,0,{localIsOwner:false});
+  assert.equal(adopted.kind,"adopt");
+  assert.deepEqual(adopted.game.timeControl,timeControl);
+  assert.equal(reconcileGame(host,0,guest,0,{localIsOwner:true}).kind,"send");
+  // A loss on time has no move: the side to move ran out.
+  const moved={...play(host,0),clock:{black:290000,white:300000}};
+  const out=loseOnTime(moved,WHITE);
+  assert.equal(isConsistentSnapshot(out),true);
+  assert.equal(isConsistentSnapshot({...out,result:"W+T"}),false);
+  assert.equal(isConsistentSnapshot({...loseOnTime(play(newGame(),0),WHITE)}),false);
+  // White's device calls White's time; Black's device cannot.
+  assert.equal(isPeerAction({type:"time_out",color:WHITE},moved,{peerColor:WHITE}),true);
+  assert.equal(isPeerAction({type:"time_out",color:WHITE},moved,{peerColor:BLACK}),false);
+  assert.equal(reconcileGame(moved,1,out,2,{localColor:WHITE}).kind,"conflict");
+  assert.equal(reconcileGame(moved,1,out,2,{localColor:BLACK}).kind,"adopt");
 });

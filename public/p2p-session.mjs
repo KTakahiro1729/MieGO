@@ -9,6 +9,7 @@ import {
   scoreResult,
   WHITE,
 } from "./core.mjs";
+import { timeControlOf } from "./game-clock.mjs";
 import { parseGameSnapshot } from "./mode-state.mjs";
 import { replaySteps } from "./sgf.mjs";
 import { TEXT } from "./texts.mjs";
@@ -64,7 +65,7 @@ export function saveCheckpoint(storage, room, value) {
 }
 // Actions a peer may only take in its own name, those only the room owner sends,
 // and those of games without a friend.
-const OWN_COLOR_ACTIONS=new Set(["agree","agree_dead","end_offer","end_answer","takeback_request","takeback_answer"]);
+const OWN_COLOR_ACTIONS=new Set(["agree","agree_dead","end_offer","end_answer","takeback_request","takeback_answer","time_out"]);
 const OWNER_ACTIONS=new Set(["dead_auto","dead_unavailable"]);
 const SOLO_ACTIONS=new Set(["solo_scoring","solo_score","solo_dead"]);
 /** A peer plays only on its own turn and offers, answers or agrees only for its own color.
@@ -91,6 +92,9 @@ export function isConsistentSnapshot(game) {
      !Array.isArray(game.dead) || !isOffer(game.endProposal) || !isOffer(game.takebackRequest))
     return false;
   if(replayed.status==="finished")return game.status==="finished" && game.result===replayed.result;
+  // A loss on time ends the game with no move: the side to move ran out.
+  if(game.status==="finished" && /\+T$/.test(game.result||"") && replayed.status==="playing" && timeControlOf(game.timeControl))
+    return game.result===(replayed.next===BLACK?"W+T":"B+T");
   if(game.status==="playing")return true;
   if(!game.dead.every(p=>Number.isInteger(p) && p>=0 && p<game.board.length && game.board[p]!==0))
     return false;
@@ -111,6 +115,8 @@ function claimsLocalPlayer(localGame, incoming, localColor) {
   if(isFree(incoming))return false;
   const added=incoming.moves.slice(commonPrefix(localGame.moves,incoming.moves));
   if(added.some(move=>move?.color===localColor))return true;
+  // Only this device calls its own player's time.
+  if(incoming.result===(localColor===BLACK?"W+T":"B+T") && localGame.result!==incoming.result)return true;
   const key=localColor===BLACK?"black":"white";
   return incoming.agreed?.[key]===true && localGame.agreed?.[key]!==true;
 }
@@ -129,12 +135,13 @@ export function reconcileGame(localGame, localRevision, incomingGame, incomingRe
   if (localRevision > 0 && incomingRevision > localRevision &&
       claimsLocalPlayer(localGame, incoming, localColor)) return {kind:"conflict"};
   // A guest that has not received the match yet holds a default empty board;
-  // before the first move the inviter's board size, handicap, rules, 石を隠す and 禁じ手 decide the game.
+  // before the first move the inviter's board size, handicap, rules, 石を隠す, 禁じ手 and 持ち時間 decide the game.
   if (localRevision === 0 && incomingRevision === 0 && !localGame.moves.length &&
       !incoming.moves.length && (localGame.board.length !== incoming.board.length ||
       handicapOf(localGame) !== handicapOf(incoming) || rulesOf(localGame) !== rulesOf(incoming) ||
       (localGame.hideStones === true) !== (incoming.hideStones === true) ||
-      (localGame.gomokuForbidden === true) !== (incoming.gomokuForbidden === true)))
+      (localGame.gomokuForbidden === true) !== (incoming.gomokuForbidden === true) ||
+      JSON.stringify(timeControlOf(localGame.timeControl)) !== JSON.stringify(timeControlOf(incoming.timeControl))))
     return localIsOwner ? {kind:"send"} : {kind:"adopt",game:incoming,revision:0};
   // An accepted 待った shortens the move list. The side that applied more
   // takebacks and has the newer revision holds the agreed line.

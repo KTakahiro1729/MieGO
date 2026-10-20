@@ -51,6 +51,7 @@ import {
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import {
   BYOYOMI_CHOICES,
+  clockOf,
   clockSeconds,
   clockText,
   createGameClock,
@@ -1261,7 +1262,7 @@ function apply(action, remote=false, isAiMove=false) {
   // without tearing down the live Go DataChannel. Local actions are built from
   // the current position, so only a peer's can be stale.
   if(remote && ["end_offer","end_answer","takeback_request","takeback_answer",
-                 "dead_auto","dead_unavailable"].includes(action?.type)) {
+                 "dead_auto","dead_unavailable","time_out"].includes(action?.type)) {
     if(action.number!==game.moveNumber || action.before!==boardHash(game.board))return;
     if(action.type==="end_answer" && action.proposalFrom!==game.endProposal?.from)return;
     if(action.type==="takeback_answer" && action.proposalFrom!==game.takebackRequest?.from)return;
@@ -1278,8 +1279,10 @@ function apply(action, remote=false, isAiMove=false) {
       if(action.before!==boardHash(game.board)) throw new Error("Board mismatch before the move");
       const offerBefore=game.endProposal;
       // The mover's clock pays for the move; one that ran out first loses instead.
-      const clock=chargeClock();
+      // A friend's move carries their clock, as their own device timed it.
+      const clock=remote?peerClock(action.clock):chargeClock();
       if(clock===false){timeOut(game.next);return;}
+      if(clock && room && !remote)action={...action,clock};
       game=isFree(game)?playFreeStone(game,action.position,action.color):play(game,action.position);
       if(clock)game={...game,clock};
       if(remote && offerBefore?.from===myOnlineColor())
@@ -1332,6 +1335,11 @@ function apply(action, remote=false, isAiMove=false) {
       game=action.type==="solo_dead"?confirmDeadSolo(game):agreeDead(game,action.color);
     }
     else if(action.type==="back_to_dead") game=backToDead(game);
+    else if(action.type==="time_out") {
+      if(action.color!==game.next)return;
+      stopAiTurn();
+      game=loseOnTime(game,action.color);
+    }
     else if(action.type==="resume") game=resume(game);
     // "mode" (the removed per-game overlay switch) from older peers is ignored below.
     else if(action.type==="end_offer") {
@@ -1642,21 +1650,23 @@ $("gomokuForbidden").onchange=e=>{gomokuForbiddenChoice=e.target.checked;remembe
 // A player reads their own result first; a 1台 game or COM同士 has no "you".
 // A resignation or a loss on time ends the game before any count.
 const endedEarly = result => /\+[RT]$/.test(result||"");
-// 持ち時間: only a person's clock runs. COMs, a watched game, a friend game
-// (for now) and a free board play without one.
+// 持ち時間: only a person's clock runs. COMs, a watched game and a free board
+// play without one. In a friend game both devices run the clock of the side
+// to move while connected; a dropped connection gives the turn's time back.
 const gameClock=createGameClock();
-let clockMoves=null;
+let clockMoves=null,clockSide=null;
 function clockedSide() {
-  if(!game.timeControl || game.status!=="playing" || room || isFree(game))return null;
+  if(!game.timeControl || game.status!=="playing" || isFree(game) || room && !connected)return null;
   if(gameMode==="ai" && (watching || game.next!==humanColor))return null;
   return game.next;
 }
 // The clock follows the position: a new move, 待った or another game restarts it.
+// A clock that ran out stays out until the position changes.
 function syncClock() {
   const side=clockedSide();
-  if(!side){if(gameClock.running)gameClock.stop();clockMoves=null;renderClock();return;}
-  if(clockMoves!==game.moves || gameClock.running?.side!==side){
-    clockMoves=game.moves;
+  if(!side){if(gameClock.running)gameClock.stop();clockMoves=null;clockSide=null;renderClock();return;}
+  if(clockMoves!==game.moves || clockSide!==side){
+    clockMoves=game.moves;clockSide=side;
     gameClock.run(game,side);
   }
   renderClock();
@@ -1668,18 +1678,27 @@ function chargeClock() {
   clockMoves=null;
   return spendTime(game,running.side,gameClock.stop()) || false;
 }
+/** A friend's clock after their move: only their own time may go down, never below 0. */
+function peerClock(clock) {
+  const before=clockOf(game);
+  if(!before)return null;
+  const key=game.next===BLACK?"black":"white",other=game.next===BLACK?"white":"black";
+  if(!Number.isFinite(clock?.[key]) || clock[key]<0 || clock[key]>before[key] || clock[other]!==before[other])
+    throw new Error("Clock mismatch");
+  return {...before,[key]:clock[key]};
+}
+// Each device calls only its own player's time; the friend's loss on time comes over the connection.
 function timeOut(side) {
-  clockMoves=null;
   if(clockedSide()!==side)return;
-  stopAiTurn();candidate=null;
-  game=loseOnTime(game,side);
-  save();show();
-  sound.play("end");
+  if(room && side!==myOnlineColor())return;
+  clockMoves=null;
+  candidate=null;
+  apply({type:"time_out",color:side,number:game.moveNumber,before:boardHash(game.board)});
 }
 gameClock.onTimeout(timeOut);
 // Each person's time under their name in the turn row: the side to move counts down.
 // A COM has no clock, so its side keeps its strength or 考え中.
-const clockShown = side => !!game.timeControl && !boardReview && room===null && !isFree(game) &&
+const clockShown = side => !!game.timeControl && !boardReview && !isFree(game) &&
   !(gameMode==="ai" && (isWatching() || side!==humanColor));
 function renderClock() {
   const running=gameClock.reading();
@@ -1687,7 +1706,8 @@ function renderClock() {
     const cell=$(side===BLACK?"clockBlack":"clockWhite");
     cell.hidden=!clockShown(side);
     if(cell.hidden)continue;
-    const reading=running?.side===side?running:readClock(game,side);
+    // A friend's clock that ran out shows 0 until their device calls it.
+    const reading=running?.side===side?running:readClock(game,side,clockedSide()===side?Infinity:0);
     cell.textContent=reading.main>0?clockText(reading.main):
       reading.byoyomi===null?clockText(0):TEXT.game.byoyomi(clockSeconds(reading.byoyomi));
     cell.classList.toggle("is-running",running?.side===side);
@@ -1926,8 +1946,7 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;seenPeerSignins=0;linkKey=null;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  // A friend game has no clock yet: each side's time would have to agree over the connection.
-  game=newGame(true,{...nextGameOptions(onlineHandicap),timeControl:null});lastPosition=null;
+  game=newGame(true,nextGameOptions(onlineHandicap));lastPosition=null;
   currentGameId=null;currentRevision=null;
   resetPositionState();
   history.replaceState(null,"",roomUrl(location.origin,room));
@@ -2000,7 +2019,7 @@ function syncSetupValues() {
   $("setupTabSide").classList.toggle("is-unused",kind==="local" || watch);
   // While watching, the tab still holds each COM's card.
   $("setupTabStrength").classList.toggle("is-unused",kind!=="ai");
-  // 時間 holds the clock and 観戦's speed; a friend game or a free board uses neither.
+  // 時間 holds the clock and 観戦's speed; a free board uses neither.
   $("setupTabTime").classList.toggle("is-unused",!watch && untimedRules(kind));
   $("sideNote").textContent=kind==="local"?TEXT.newGame.sideNotes.local:watch?TEXT.newGame.sideNotes.watch:"";
   syncSetupTabValues();
@@ -2025,8 +2044,8 @@ function timeTabValue() {
   const label=(id,value)=>value?$(id).selectedOptions[0]?.textContent.trim()||"":"";
   return TEXT.newGame.timeValue(label("mainTime",mainTimeChoice),label("byoyomi",byoyomiChoice));
 }
-// A free board has no turns to time, a friend game no clock yet, and 観戦 its speed instead.
-const untimedRules=kind=>gameRules==="free" || kind==="online" || kind==="ai" && watchChoice;
+// A free board has no turns to time, and 観戦 its speed instead.
+const untimedRules=kind=>gameRules==="free" || kind==="ai" && watchChoice;
 // The 新規対戦 sheet shows the same rows in every mode, so its height stays put;
 // a row the chosen mode does not use is greyed out.
 function showNewGameMode(kind) {
