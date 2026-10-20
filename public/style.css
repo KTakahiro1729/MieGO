@@ -397,13 +397,15 @@ body{overflow:hidden}
 .action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;font-size:12px;padding:6px 2px}
 /* The AI question follows the reason text directly. It is drawn about one
    line tall to sit with the 14px text; ::after keeps a 44px tap target. */
-.endgame-bar.has-illegal .end-status{flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The reason wraps onto a second line inside the bar's fixed height (UX policy §3.5). */
+.endgame-bar.has-illegal .end-status{flex:0 1 auto;min-width:0;white-space:normal;overflow:hidden;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
 @media(max-width:360px){
   .endgame-bar.has-illegal .end-status{font-size:13px}
   .endgame-bar .illegal-prompt-action{margin-left:6px;padding:0 8px}
 }
 /* On the narrowest phones the AI question keeps only its copy icon (and its
-   aria-label), so the reason still fits on one line. */
+   aria-label), so the reason still fits in two lines. */
 @media(max-width:340px){
   .endgame-bar .illegal-prompt-action>span{display:none}
 }

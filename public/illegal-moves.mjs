@@ -11,8 +11,8 @@ const reasons = {
   [ILLEGAL_KO]: TEXT.rules.ko,
   ...TEXT.rules.gomoku
 };
-/** What to tell the player about a forbidden point, in the one-line status. */
-export const forbiddenMessage = reason => TEXT.rules.short[reason] ?? TEXT.rules.short.suicide;
+/** What to tell the player about a forbidden point. */
+export const forbiddenMessage = reason => reasons[reason] ?? TEXT.rules.suicide;
 
 export function forbiddenMoveReason(error) {
   if(!(error instanceof Error))return null;

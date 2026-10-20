@@ -160,7 +160,7 @@ test("禁じ手 games forbid Black's shapes, keep White free, and survive replay
   assert.throws(()=>play(game,p13(6,6)),{message:TEXT.rules.gomoku.doubleThree});
   const shown=inspectProvisionalMove(game,p13(6,6));
   assert.equal(shown.forbidden.reason,"doubleThree");
-  assert.equal(forbiddenMessage("doubleThree"),TEXT.rules.short.doubleThree);
+  assert.equal(forbiddenMessage("doubleThree"),TEXT.rules.gomoku.doubleThree);
   // The same point is fine without 禁じ手.
   const free=line(newGame(true,{size:13,rules:"gomoku"}),[[4,6],[0,0],[5,6],[0,2],[6,4],[0,4],[6,5],[12,12]]);
   assert.equal(play(free,p13(6,6)).board[p13(6,6)],BLACK);
@@ -181,11 +181,12 @@ test("禁じ手 games forbid Black's shapes, keep White free, and survive replay
   assert.equal(TEXT.game.ruleLabel(13,"gomoku",0,0,true),"13路 · 五目並べ · 禁じ手あり");
 });
 
-test("forbidden-point statuses stay short enough for one line at 360px",()=>{
-  // The status shares its row with the AI question and the ?; about 14 characters fit.
-  for(const reason of ["ko","suicide","doubleThree","doubleFour","overline"]){
-    const text=forbiddenMessage(reason);
-    assert.ok(text.length<=14,reason+": "+text);
-    assert.match(text,/^別の交点に。/);
-  }
+test("forbidden-point reasons are full sentences that wrap to two lines",async()=>{
+  const {readFileSync}=await import("node:fs");
+  const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+  assert.equal(forbiddenMessage("ko"),TEXT.rules.ko);
+  assert.equal(forbiddenMessage("overline"),TEXT.rules.gomoku.overline);
+  // Two lines inside the fixed-height bar, never cut to one line with an ellipsis.
+  assert.match(css,/\.endgame-bar\.has-illegal \.end-status\{[^}]*white-space:normal[^}]*-webkit-line-clamp:2/);
+  assert.doesNotMatch(css,/\.endgame-bar\.has-illegal \.end-status\{[^}]*text-overflow:ellipsis/);
 });
