@@ -198,6 +198,8 @@ let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNot
 // What a friend's answer did to an end offer, shown once in the bar like takebackNotice.
 let endNotice = null;
 let aiSideChoice = "black";
+// Set while 「ここから打つ」 shows the 新規対戦 sheet: the replayed line and its step.
+let continueFrom = null;
 // COM同士 (aiSide "watch"): the AI plays both colours with a pause between
 // moves, so each one can be followed; the player can pause and resume it.
 let watching = false, watchPaused = false, watchTimer = null, lastWatchMoveAt = 0;
@@ -963,16 +965,9 @@ function show() {
   $("scoreBox").hidden=false;
   const myTurn=isHumanTurn();
   const gomoku=isGomoku(game);
-  // The 五目並べ computer needs no KataGo, so it can start at once.
-  const needsKatago=gameRules!=="gomoku";
-  $("startAi").disabled=needsKatago && (!katagoReady || fallbackMode);
+  syncStartButtons();
   renderInviteButton();
   const spectating=isWatching();
-  $("startAi").textContent=needsKatago && fallbackMode?TEXT.ai.startUnavailable:
-    needsKatago && !katagoReady?TEXT.ai.startLoading:startLabel("ai");
-  keepArmedLabel($("startAi"));
-  $("startLocal").textContent=startLabel("local");
-  keepArmedLabel($("startLocal"));
   $("aiInvasion").disabled=false;
   $("aiReinforcement").disabled=false;
   $("turn").classList.toggle("white-to-play",game.next===WHITE);
@@ -1447,7 +1442,7 @@ function startLocalGame() {
   clearBoardReview();stopAiTurn();gameMode="local";
   freshLocalBoard();closePanels();
 }
-$("startLocal").onclick=startLocalGame;
+$("startLocal").onclick=()=>continueFrom?forkBoardReview("local"):startLocalGame();
 $("newMatch").onclick=()=>{
   if(room){openPanel("online");return;}
   if(gameMode==="ai"){$("startAi").click();return;}
@@ -1768,7 +1763,17 @@ function openPanel(kind) {
   panel.querySelector(".settings-head .icon-button").focus();
 }
 // Every mode's start button reads the same: 設定して再戦 while that mode's game is on the board.
-function startLabel(kind){return !room && gameMode===kind?TEXT.ai.restart:TEXT.newGame.start;}
+function syncStartButtons() {
+  // The 五目並べ computer needs no KataGo, so it can start at once.
+  const needsKatago=continueFrom?!isGomoku(continueFrom.line):gameRules!=="gomoku";
+  $("startAi").disabled=needsKatago && (!katagoReady || fallbackMode);
+  $("startAi").textContent=needsKatago && fallbackMode?TEXT.ai.startUnavailable:
+    needsKatago && !katagoReady?TEXT.ai.startLoading:startLabel("ai");
+  keepArmedLabel($("startAi"));
+  $("startLocal").textContent=startLabel("local");
+  keepArmedLabel($("startLocal"));
+}
+function startLabel(kind){return continueFrom?TEXT.review.continue:!room && gameMode===kind?TEXT.ai.restart:TEXT.newGame.start;}
 // 盤, ルール, 自分の石 and AIの強さ are one row of underlined tabs; the selected
 // tab's choices fill the one panel under it, one per line with a note beside it.
 const SETUP_TABS=["Board","Rules","Side","Strength"];
@@ -1814,8 +1819,7 @@ function showNewGameMode(kind) {
   $("aiSideChoices").disabled=$("aiOptions").disabled=kind!=="ai";
   syncSideUi();syncStrengthUi();updatePersonaUi();
   // 自由に置く has no computer opponent: under 対COM it is greyed out and the default rules apply.
-  $("freeRulesChoice").querySelector("input").disabled=kind==="ai";
-  if(kind==="ai" && gameRules==="free"){gameRules="chinese";rememberSettings();}
+  if(kind==="ai" && gameRules==="free" && !continueFrom){gameRules="chinese";rememberSettings();}
   $("modeHelp").dataset.help=kind;
   syncReturnButton(kind);
   syncHandicapUi();
@@ -2061,39 +2065,67 @@ function clearImportedReviewUrl() {
 // 「ここから打つ」: the shown position starts a new game record. The game it came
 // from is saved as it stands and stays in the saved-game list.
 // 五目並べ's COM is a small line counter and needs no KataGo.
-const canContinueWithAi=()=>!!boardReview && isGomoku(activeReviewSnapshot(boardReview,game)) || katagoReady && !fallbackMode;
-function continueChoice(name){return document.querySelector('input[name="'+name+'"]:checked')?.value;}
-function syncContinueSide(){$("continueSideRow").hidden=continueChoice("continueKind")!=="ai";}
+// A free board has no COM; 五目並べ's COM is a small line counter and needs no KataGo.
+function canContinueWithAi(){
+  const line=continueFrom?.line||(boardReview?activeReviewSnapshot(boardReview,game):game);
+  return !isFree(line) && (isGomoku(line) || katagoReady && !fallbackMode);
+}
+// 「ここから打つ」 opens the 新規対戦 sheet itself, so continuing offers the same
+// choices in the same places. The record fixes the board and rules.
 function openContinuePanel(){
   if(!boardReview)return;
-  // The players default to those of the game being replayed.
   // A 1台 game continues on one board; anything else (AI, friend, SGF, a shared URL) against the AI.
   const live=boardReview.source==="live",record=live?null:boardReview.record;
   const fromLocal=live?!room && gameMode==="local":record?.mode==="local" && record.source==="played";
-  const side=live && !room && gameMode==="ai"?humanColor:record?.mode==="ai"?record.humanColor:BLACK;
-  const ai=canContinueWithAi();
-  document.querySelector('input[name="continueKind"][value="ai"]').disabled=!ai;
-  document.querySelector('input[name="continueKind"][value="'+(ai && !fromLocal?"ai":"local")+'"]').checked=true;
-  document.querySelector('input[name="continueSide"][value="'+(side===WHITE?"white":"black")+'"]').checked=true;
-  syncContinueSide();
-  $("continueTitle").textContent=TEXT.review.continueTitle(boardReview.step);
-  setBackgroundInert(true);
-  $("settingsBackdrop").hidden=false;$("continuePanel").hidden=false;
-  $("closeContinue").focus();
+  continueFrom={step:boardReview.step,line:activeReviewSnapshot(boardReview,game)};
+  openPanel(fromLocal || !canContinueWithAi()?"local":"ai");
 }
-function forkBoardReview(kind="local",side=BLACK) {
+// Greys out what continuing cannot change, or restores the sheet for a new game.
+function syncContinueSheet(){
+  const line=continueFrom?.line;
+  $("modeTitle").textContent=line?TEXT.review.continueTitle(continueFrom.step):TEXT.header.newGame;
+  // A friend game and the saved-game list cannot start from a position.
+  for(const input of document.querySelectorAll('input[name="newGameMode"]'))
+    input.disabled=!!line && (input.value==="online" || input.value==="history" ||
+      input.value==="ai" && !canContinueWithAi());
+  if(line){
+    for(const [name,value] of [["boardSize",sizeOf(line.board)],["gameRules",rulesOf(line)]])
+      for(const input of document.querySelectorAll('input[name="'+name+'"]')){
+        input.disabled=true;input.checked=input.value===String(value);
+      }
+    for(const [row,input] of [["handicapSetup","handicap"],["hideStonesRow","hideStones"],["gomokuForbiddenRow","gomokuForbidden"]]){
+      $(input).disabled=true;$(row).classList.add("is-off");
+    }
+    // Handicap stones are already on the board or not, so every side stays open.
+    for(const input of document.querySelectorAll('input[name="aiSide"]'))input.disabled=false;
+    syncSideUi();
+  }else{
+    for(const input of document.querySelectorAll('input[name="boardSize"],input[name="gameRules"]'))
+      input.disabled=input.value==="free" && newGameModeKind()==="ai";
+  }
+  $("setupTabBoard").classList.toggle("is-unused",!!line);
+  $("setupTabRules").classList.toggle("is-unused",!!line);
+  syncStartButtons();
+}
+function forkBoardReview(kind="local") {
   if(!boardReview)return;
   let fork;
   try{fork=forkReview(activeReviewSnapshot(boardReview,game),boardReview.step);}
   catch{$("reviewNotice").textContent=TEXT.review.branchFailed;closePanels();return;}
-  if(kind==="ai" && !canContinueWithAi())return; // The choice is disabled meanwhile.
-  if(room && connected && !confirmByRetap($("startContinue"),TEXT.confirm.leaveForReview))return;
+  const ai=kind==="ai";
+  if(ai && !canContinueWithAi())return; // The choice is disabled meanwhile.
+  if(room && connected && !confirmByRetap($(ai?"startAi":"startLocal"),TEXT.confirm.leaveForReview))return;
+  let side=BLACK;
+  if(ai && aiSideChoice!=="watch"){
+    try{side=selectColor(aiSideChoice);}catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
+  }
   if(!save())return;
   if(room)leaveOnlineRoom();
   stopAiTurn();gameMode=kind;game=fork;
-  // 観戦 is not offered here yet, so a game continued from a watched one has a player.
-  watching=false;watchPaused=false;intervening=false;
-  if(kind==="ai"){humanColor=side;hints=null;takebackNotice=null;}
+  // 観戦 lets the two COMs set in the sheet play on from the shown position.
+  watching=ai && aiSideChoice==="watch";watchPaused=false;intervening=false;watchReturning=false;
+  if(watching)lastWatchMoveAt=performance.now();
+  if(ai){humanColor=side;hints=null;takebackNotice=null;}
   currentGameId=null;currentRevision=null;
   const last=game.moves.at(-1)?.position;
   lastPosition=Number.isInteger(last)?last:null;
@@ -2193,10 +2225,6 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && boardReview?.preview){discardReviewPreview();return;}
 });
 $("reviewContinue").onclick=()=>canResumeSelectedReview()?resumeSelectedReview():atLiveLatest()?leaveBoardReview():openContinuePanel();
-for(const input of document.querySelectorAll('input[name="continueKind"]'))input.onchange=syncContinueSide;
-$("closeContinue").onclick=closePanels;
-$("startContinue").onclick=()=>forkBoardReview(continueChoice("continueKind")==="ai"?"ai":"local",
-  continueChoice("continueSide")==="white"?WHITE:BLACK);
 $("shareLink").onclick=()=>void copyShareUrl(false);
 $("shareAiLink").onclick=()=>void copyShareUrl(true);
 $("shareSgf").onclick=exportSharedSGF;
@@ -2265,7 +2293,6 @@ function closePanels() {
   $("sharePanel").hidden=true;
   shareImages.clear();
   $("modePanel").hidden=true;
-  $("continuePanel").hidden=true;
   $("helpPanel").hidden=true;
   $("helpToggle").setAttribute("aria-expanded","false");
   closeHelpPopover(false);
@@ -2276,6 +2303,7 @@ function closePanels() {
   $("settingsToggle").setAttribute("aria-expanded","false");
   $("shareToggle").setAttribute("aria-expanded","false");
   $("newGameButton").setAttribute("aria-expanded","false");
+  if(continueFrom){continueFrom=null;syncContinueSheet();}
 }
 function closeSettings(){closePanels();$("settingsToggle").focus();}
 $("settingsToggle").onclick=()=>$("settingsPanel").hidden?openSettings():closeSettings();
@@ -2294,6 +2322,7 @@ $("settleSkip").onclick=()=>{
 $("settleReplay").onclick=replaySettle;
 $("settleExtend").onclick=extendSettle;
 $("startAi").onclick=()=>{
+  if(continueFrom){forkBoardReview("ai");return;}
   // The button is disabled meanwhile, except for 五目並べ, which needs no KataGo.
   if(gameRules!=="gomoku" && (!katagoReady || fallbackMode))return;
   if(room && connected &&
@@ -2377,6 +2406,7 @@ function syncHandicapUi() {
     if(black)black.checked=true;
   }else syncSideUi();
   syncSetupValues();
+  syncContinueSheet();
 }
 {
   $("handicap").onchange=e=>{
