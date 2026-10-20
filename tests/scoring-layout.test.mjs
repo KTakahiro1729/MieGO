@@ -55,8 +55,9 @@ function layout(page){
       topbar:document.querySelector(".topbar").getBoundingClientRect().bottom,
       board:box("boardFrame"),actions:box("actionRow"),stack,buttons,
       // Text cut off with an ellipsis, by its id or class.
-      cut:["turn","scoreInstruction"].map(id=>document.getElementById(id))
-        .concat([...document.querySelectorAll("#scoreBox strong,#scoreText .score-detail")])
+      // The turn sentence is only read out while the row names both players.
+      cut:["turn","scoreInstruction"].map(id=>document.getElementById(id)).filter(e=>!e.closest(".has-players"))
+        .concat([...document.querySelectorAll("#scoreBox strong,#scoreText .score-detail,#players:not([hidden]) .player-name,#players:not([hidden]) .player-detail-text")])
         .filter(e=>e.getClientRects().length && e.scrollWidth>e.clientWidth+0.5)
         .map(e=>(e.id||e.className)+": "+e.textContent),
       scoreCard:(style=>style.borderTopWidth!=="0px" || style.backgroundColor!=="rgba(0, 0, 0, 0)")(

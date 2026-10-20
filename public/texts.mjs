@@ -183,6 +183,14 @@ export const TEXT = {
     aiStopped: "ページを開き直してください",
     aiTurn: "AIの番です",
     yourTurnAi: "あなたの番です",
+    // The turn row's two players. A COM goes by its character name, with its strength under it.
+    you: "あなた",
+    opponent: "相手",
+    black: "黒",
+    white: "白",
+    playersLabel: "対局者",
+    toMove: "打つ番です",
+    comThinking: "考え中",
     watchPause: "一時停止",
     watchResume: "再開",
     // While watching: stepping in lets the viewer place the next stone; × goes back to watching.

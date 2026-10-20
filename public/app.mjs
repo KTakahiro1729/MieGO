@@ -67,6 +67,7 @@ import { interpolateOwnership } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
+import { playerSides } from "./player-row.mjs";
 import { DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
 import {
   CUSTOM_CHARACTER,
@@ -1066,6 +1067,10 @@ function show() {
     gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=TEXT.game.moveLabel(game.moveNumber);
+  // The sentence above stays for the states it explains (scoring, the result, waiting, a stopped AI).
+  renderPlayers(game.status==="playing" && !isFree(game) && !(room && !connected) &&
+    !(spectating && watchReturning && !watchPaused && !intervening) &&
+    !(gameMode==="ai" && !gomoku && fallbackMode));
   // ◁ opens the replay one move back; ▷ only moves within a replay, so it rests disabled here.
   $("stepBack").disabled=!game.moves.length;
   $("stepForward").disabled=true;
@@ -2012,8 +2017,30 @@ function saveReviewVariation(){
     $("reviewNotice").textContent=TEXT.review.variationSaved;
   }catch(error){$("reviewNotice").textContent=messageFor(error,TEXT.review.variationSaveFailed);}
 }
+/** Both players in the turn row: who each colour is, and whether it is to move. */
+function renderPlayers(shown) {
+  $("players").hidden=!shown;
+  $("statusRow").querySelector(".status-main").classList.toggle("has-players",shown);
+  if(!shown)return;
+  const sides=playerSides({mode:room?"online":gameMode,watching:isWatching(),humanColor,aiCom,watchAi,
+    onlineColor:room?myOnlineColor():null});
+  for(const color of [BLACK,WHITE]){
+    const side=sides[color],box=$(color===BLACK?"playerBlack":"playerWhite");
+    const toMove=game.next===color;
+    const thinking=toMove && side.com && !watchPaused && !intervening;
+    box.classList.toggle("is-turn",toMove);
+    box.querySelector(".player-wait").hidden=!thinking;
+    box.querySelector(".player-name").textContent=side.name;
+    // The opponent's line carries the connection; the side to move says so.
+    box.querySelector(".player-detail-text").textContent=
+      room && !side.com && side.name===TEXT.game.opponent?$("netStatus").textContent:
+      thinking?TEXT.game.comThinking:toMove && !side.com?TEXT.game.toMove:side.detail;
+  }
+  $("playersMove").textContent=TEXT.game.moveLabel(game.moveNumber);
+}
 function renderBoardReview() {
   if(!boardReview)return;
+  renderPlayers(false);
   // The live match may advance over WebRTC or AI while the chosen step stays fixed.
   if(boardReview.source==="live")boardReview.snapshot=game;
   const {step,source}=boardReview;
