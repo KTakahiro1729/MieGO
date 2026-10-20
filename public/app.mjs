@@ -182,6 +182,10 @@ let gameMode = room ? "online" : "local";
 let humanColor = BLACK, invasion = 50, reinforcement = 50;
 let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNotice = null;
 let aiSideChoice = "black";
+// COM同士 (aiSide "watch"): the AI plays both colours with a pause between
+// moves, so each one can be followed; the player can pause and resume it.
+let watching = false, watchPaused = false, watchTimer = null, lastWatchMoveAt = 0;
+const WATCH_STEP_MS = 1100;
 let aiHandicap = 0, localHandicap = 0, onlineHandicap = 0;
 // The ruleset for the next new game, shared by every mode like the board size.
 let gameRules = "chinese";
@@ -341,15 +345,29 @@ function updateEndUi() {
   }
 }
 
-const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" && game.next === -humanColor;
+const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" &&
+  (watching || game.next === -humanColor);
 const isHumanTurn = () => room
   ? (connected && (myOnlineColor()!==null && game.next===myOnlineColor()))
-  : (gameMode !== "ai" || (katagoReady && !fallbackMode && game.next === humanColor));
+  : (gameMode !== "ai" || (katagoReady && !fallbackMode && !watching && game.next === humanColor));
+const isWatching = () => !room && gameMode === "ai" && watching;
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
   analysisContext=null;deadEvaluation=null;
   pending = ++seq;
   clearTimeout(analysisTimer);
+  clearTimeout(watchTimer);watchTimer=null;
+}
+/** COM同士 asks for the next move only once the pause after the last one is
+ * over, and not at all while paused; meanwhile the board shows its estimate. */
+function watchDue() {
+  clearTimeout(watchTimer);watchTimer=null;
+  if(!watching)return true;
+  if(watchPaused){$("aiMatchStatus").textContent=TEXT.ai.watchPaused;return false;}
+  const wait=lastWatchMoveAt+WATCH_STEP_MS-performance.now();
+  if(wait<=0)return true;
+  watchTimer=setTimeout(requestAnalysis,wait);
+  return false;
 }
 // One remembered choice per line, in alphabetical order, so that two
 // branches adding different choices touch different lines.
@@ -505,6 +523,7 @@ function requestAnalysis() {
       $("aiMatchStatus").textContent = TEXT.ai.waitingLoad;
       show();return;
     }
+    if (!watchDue()) { requestOwnership(); show(); return; }
     const id = ++seq;
     pending=id;
     aiThinking=true;
@@ -514,6 +533,10 @@ function requestAnalysis() {
     postToWorker({id,kind:"move",state:game});
     show();return;
   }
+  requestOwnership();
+}
+/** The ownership estimate of the shown position, which also feeds the endgame advice. */
+function requestOwnership() {
   pending=++seq;
   if(!overlayOn()) {
     analysis=null;
@@ -666,6 +689,8 @@ function finishAiMove(result) {
     switchToFallback("non-KataGo move response");
     return;
   }
+  // A paused COM同士 stops at once: the move is asked for again on 再開.
+  if(watching && watchPaused){requestAnalysis();return;}
   try {
     // This is an NN evaluation of the committed position, not a preview.
     const valid=Array.isArray(result.ownership) &&
@@ -680,6 +705,7 @@ function finishAiMove(result) {
     });
     $("aiMatchStatus").textContent = TEXT.ai.playingWith(AI_STRENGTHS[aiStrength].label,personaLabel(invasion),
       personaLabel(reinforcement));
+    if(watching)lastWatchMoveAt=performance.now();
     submitMove(next,true);
   } catch(error) {
     switchToFallback(error instanceof Error?error.message:String(error));
@@ -767,7 +793,7 @@ function handleAnalysis(event) {
     result.engine==="katago") {
     endgameStage=endgameAdvisor.observe(game,result.ownership);
     updateEndUi();
-    if(gameMode==="ai" && !room && game.next===humanColor && Array.isArray(result.policy)) {
+    if(gameMode==="ai" && !room && !watching && game.next===humanColor && Array.isArray(result.policy)) {
       hints={number:context.number,hash:context.hash,moves:policyHints(game,result.policy)};
       draw();
     }
@@ -794,8 +820,10 @@ function show() {
   const myTurn=isHumanTurn();
   $("startAi").disabled=!katagoReady || fallbackMode;
   renderInviteButton();
+  const spectating=isWatching();
   $("startAi").textContent=fallbackMode?TEXT.ai.startUnavailable:
-    !katagoReady?TEXT.ai.startLoading:gameMode==="ai"?TEXT.ai.restart:TEXT.ai.start;
+    !katagoReady?TEXT.ai.startLoading:aiSideChoice==="watch"?TEXT.ai.startWatch:
+    gameMode==="ai"?TEXT.ai.restart:TEXT.ai.start;
   keepArmedLabel($("startAi"));
   $("aiInvasion").disabled=false;
   $("aiReinforcement").disabled=false;
@@ -806,9 +834,11 @@ function show() {
     game.status==="scoring"?TEXT.common.scoring:
     room?(connected?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):TEXT.game.waitingOpponent):
     gameMode==="ai"?(fallbackMode?TEXT.game.aiStopped:!katagoReady?TEXT.game.aiPreparing:
+      spectating?(game.next===BLACK?TEXT.game.watchTurnBlack:TEXT.game.watchTurnWhite):
       isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
     (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite);
-  if(!room)$("netStatus").textContent=gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
+  if(!room)$("netStatus").textContent=spectating?TEXT.common.modeWatch:
+    gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=TEXT.game.moveLabel(game.moveNumber);
   $("hint").textContent=illegalCandidate?TEXT.game.hintIllegal:
@@ -816,6 +846,7 @@ function show() {
     game.status==="scoring"?TEXT.game.hintScoring:
     gameMode==="ai" && fallbackMode?TEXT.game.hintAiStopped:
     gameMode==="ai" && !katagoReady?TEXT.game.hintAiLoading:
+    spectating && game.status==="playing"?(watchPaused?TEXT.game.hintWatchPaused:TEXT.game.hintWatching):
     isAiTurn()?TEXT.game.hintAiThinking:"";
   const blocked=!!illegalCandidate;
   $("confirm").disabled=!candidate || !myTurn || blocked;
@@ -872,6 +903,12 @@ function show() {
   $("confirm").hidden=isScoring || isFinished;
   $("copyIllegalPrompt").hidden=isScoring || isFinished || !blocked;
   $("actionRow").classList.toggle("finished-actions",isFinished);
+  // COM同士 has nothing to play: its one button pauses and resumes the game.
+  const watchingPlay=spectating && game.status==="playing";
+  $("watchToggle").hidden=!watchingPlay;
+  if(watchingPlay)for(const id of ["cancel","confirm","pass","resign"])$(id).hidden=true;
+  $("watchToggle").textContent=watchPaused?TEXT.game.watchResume:TEXT.game.watchPause;
+  $("watchToggle").setAttribute("aria-pressed",String(watchPaused));
   $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:
     scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
   const playout=settleView();
@@ -1277,7 +1314,8 @@ function isCounting(){
 function save(){
   try {
     const record=gameLibrary.save({id:currentGameId,mode:room?"online":gameMode,
-      roomId:room||null,snapshot:game,lastPosition,humanColor,aiStrength,invasion,reinforcement,seat},currentRevision);
+      roomId:room||null,snapshot:game,lastPosition,humanColor,aiStrength,invasion,reinforcement,seat,
+      watch:gameMode==="ai" && watching},currentRevision);
     currentGameId=record.id;currentRevision=record.revision;
     if(!room)gameLibrary.setActive(gameMode,record.id);
     if(room)persistOnline();
@@ -1291,6 +1329,7 @@ function savedGame(mode) {
   try{record=gameLibrary.active(mode);}catch(error){storageError(error);}
   currentGameId=record?.id||null;currentRevision=record?.revision||null;
   lastPosition=record?.lastPosition??null;
+  watching=mode==="ai" && record?.watch===true;watchPaused=false;
   if(mode==="ai" && record){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     aiStrength=normalizeStrength(record.aiStrength);
@@ -1904,12 +1943,13 @@ function resumeSelectedReview(){
   gameMode=record.mode;game=JSON.parse(JSON.stringify(record.snapshot));
   currentGameId=record.id;currentRevision=record.revision;
   lastPosition=record.lastPosition;candidate=null;
+  watching=gameMode==="ai" && record.watch===true;watchPaused=false;
   if(gameMode==="ai"){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
     aiStrength=normalizeStrength(record.aiStrength);syncStrengthUi();
     // A random preference stays random; a fixed one follows the resumed game.
-    if(aiSideChoice!=="random")aiSideChoice=humanColor===WHITE?"white":"black";
+    if(aiSideChoice!=="random")aiSideChoice=watching?"watch":humanColor===WHITE?"white":"black";
     syncSideUi();
     updatePersonaUi();
   }
@@ -1979,18 +2019,21 @@ $("startAi").onclick=()=>{
   clearBoardReview();
   stopAiTurn();
   gameMode="ai";
+  watching=aiSideChoice==="watch";watchPaused=false;
+  // The empty board shows for a moment before the first watched move.
+  lastWatchMoveAt=performance.now();
   // Handicap stones always belong to the human, who therefore plays Black.
   // Otherwise: the same choices and the same random draw as a friend invitation.
-  try{humanColor=aiHandicap?BLACK:selectColor(aiSideChoice);}
+  try{humanColor=watching || aiHandicap?BLACK:selectColor(aiSideChoice);}
   catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
   aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
   game=newGame(true,nextGameOptions(aiHandicap));currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
-  $("aiMatchStatus").textContent=TEXT.ai.started(colorLabel(humanColor));
+  $("aiMatchStatus").textContent=watching?TEXT.ai.watchStarted:TEXT.ai.started(colorLabel(humanColor));
   save();closePanels();show();requestAnalysis();
 };
-const SIDE_CHOICES=["random","black","white"];
+const SIDE_CHOICES=["random","black","white","watch"];
 function syncSideUi() {
   const input=document.querySelector('input[name="aiSide"][value="'+aiSideChoice+'"]');
   if(input)input.checked=true;
@@ -1999,9 +2042,16 @@ for (const input of document.querySelectorAll('input[name="aiSide"]')) {
   input.onchange=e=>{
     if(!e.target.checked)return;
     aiSideChoice=SIDE_CHOICES.includes(e.target.value)?e.target.value:"black";
-    rememberSettings();
+    rememberSettings();show();
   };
 }
+$("watchToggle").onclick=()=>{
+  if(!isWatching() || game.status!=="playing")return;
+  watchPaused=!watchPaused;
+  // 再開 plays the next move straight away.
+  if(!watchPaused)lastWatchMoveAt=0;
+  show();requestAnalysis();
+};
 function syncHandicapUi() {
   const sizeChoice=document.querySelector('input[name="boardSize"][value="'+boardSize+'"]');
   if(sizeChoice)sizeChoice.checked=true;
@@ -2017,10 +2067,10 @@ function syncHandicapUi() {
   $("handicapNote").textContent=(ai?TEXT.handicap.noteAi:
     kind==="online"?TEXT.handicap.noteOnline:TEXT.handicap.noteLocal)+
     (gameRules==="japanese"?TEXT.handicap.noteRuleJapanese:TEXT.handicap.noteRule)+(boardSize===9?TEXT.handicap.note9:"");
-  // With handicap the human is Black; the saved side preference returns afterwards.
+  // With handicap the human is Black (or watches); the saved side preference returns afterwards.
   for(const input of document.querySelectorAll('input[name="aiSide"]'))
-    input.disabled=!!aiHandicap && input.value!=="black";
-  if(aiHandicap){
+    input.disabled=!!aiHandicap && !["black","watch"].includes(input.value);
+  if(aiHandicap && aiSideChoice!=="watch"){
     const black=document.querySelector('input[name="aiSide"][value="black"]');
     if(black)black.checked=true;
   }else syncSideUi();

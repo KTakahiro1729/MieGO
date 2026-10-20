@@ -93,7 +93,7 @@ export class GameLibrary {
     return updated;
   }
   save({id=null,mode,snapshot,roomId=null,lastPosition=null,humanColor=1,
-        aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null},expectedRevision=null) {
+        aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null,watch=false},expectedRevision=null) {
     const previous=id===null?null:this.load(id);
     // Nothing that cannot be read back is written.
     if(!MODES.has(mode) || !parseGameSnapshot(JSON.stringify(snapshot)) ||
@@ -116,6 +116,8 @@ export class GameLibrary {
       aiStrength:normalizeStrength(aiStrength),
       invasion:Number.isFinite(invasion)?invasion:50,
       reinforcement:Number.isFinite(reinforcement)?reinforcement:50,
+      // COM同士: the AI plays both colours and the player only watches.
+      watch:mode==="ai" && watch===true,
       seat:mode==="online"?(seat==="guest"?"guest":seat==="host"?"host":null):null,
       source:previous?.source==="sgf" || previous?.source==="variation"?previous.source:
         source==="sgf" || source==="variation"?source:"played",

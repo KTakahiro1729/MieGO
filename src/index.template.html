@@ -85,6 +85,7 @@
           <button id="openHistory" class="secondary" type="button" hidden>{{help.history.summary}}</button>
           <button id="confirm" class="primary" type="button" disabled><span id="confirmStone" class="button-stone" aria-hidden="true"></span>{{common.playHere}}</button>
           <button id="newMatch" class="primary" type="button" hidden>{{game.newMatchLocal}}</button>
+          <button id="watchToggle" class="primary" type="button" aria-pressed="false" hidden>{{game.watchPause}}</button>
         </div>
         <div id="illegalPromptFallbackPanel" class="illegal-prompt-fallback" hidden>
           <label for="illegalPromptFallback">{{common.manualCopy}}</label>
@@ -222,7 +223,7 @@
             <div class="ai-color-choices rules-choices"><label><input type="radio" name="gameRules" value="chinese" checked><span>{{newGame.rulesChoices.chinese}}</span></label><label><input type="radio" name="gameRules" value="japanese"><span>{{newGame.rulesChoices.japanese}}</span></label></div>
           </div>
           <div id="aiSideRow" class="setup-row" hidden><span class="setup-label">{{newGame.mySide}}</span>
-            <div class="ai-color-choices side-choices"><label><input type="radio" name="aiSide" value="random"><span>{{common.random}}</span></label><label><input type="radio" name="aiSide" value="black" checked><span>{{common.sideBlack}}</span></label><label><input type="radio" name="aiSide" value="white"><span>{{common.sideWhite}}</span></label></div>
+            <div class="ai-color-choices side-choices ai-side-choices"><label><input type="radio" name="aiSide" value="random"><span>{{common.random}}</span></label><label><input type="radio" name="aiSide" value="black" checked><span>{{common.sideBlack}}</span></label><label><input type="radio" name="aiSide" value="white"><span>{{common.sideWhite}}</span></label><label><input type="radio" name="aiSide" value="watch"><span>{{newGame.sideWatch}}</span></label></div>
           </div>
           <div id="onlineSideRow" class="setup-row" hidden><span class="setup-label">{{newGame.mySide}}</span>
             <div class="ai-color-choices side-choices"><label><input type="radio" name="onlineSide" value="random" checked><span>{{common.random}}</span></label><label><input type="radio" name="onlineSide" value="black"><span>{{common.sideBlack}}</span></label><label><input type="radio" name="onlineSide" value="white"><span>{{common.sideWhite}}</span></label></div>

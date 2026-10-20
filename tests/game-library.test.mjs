@@ -140,3 +140,10 @@ test("variation snapshots stay independently archived and never become resumable
  assert.equal(lib.load(variation.id).snapshot.moveNumber,2);
  assert.equal(lib.active("local").id,old.id);
 });
+test("a watched COM同士 game is remembered as watched; other games never are",()=>{
+ const {lib}=setup();
+ const watched=lib.save({mode:"ai",snapshot:newGame(),watch:true});
+ assert.equal(lib.load(watched.id).watch,true);
+ assert.equal(lib.save({mode:"ai",snapshot:newGame()}).watch,false);
+ assert.equal(lib.save({mode:"local",snapshot:newGame(),watch:true}).watch,false);
+});
