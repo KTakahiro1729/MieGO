@@ -117,7 +117,7 @@ test("direct game controls replace hidden action menus; new local games start fr
  assert.match(html,/id="startLocal"/);
  assert.doesNotMatch(html,/id="openHistorySettings"|id="openCurrentMode"/);
  assert.match(app,/if \(room \|\| gameMode!=="local"\) return;/);
- assert.match(app,/\$\("startLocal"\)\.onclick=startLocalGame/);
+ assert.match(app,/\$\("startLocal"\)\.onclick=\(\)=>continueFrom\?forkBoardReview\("local"\):startLocalGame\(\);/);
  assert.match(app,/game=freshLocalGame\(game,nextGameOptions\(localHandicap\)\);currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
 });
 test("settings button shows a toothed gear and is labeled",()=>{
