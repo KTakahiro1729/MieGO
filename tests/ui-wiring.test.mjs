@@ -17,7 +17,7 @@ test("every $(id) lookup in UI modules names an element in index.html",()=>{
 test("saved-game import, SGF export and resume controls are wired",()=>{
   assert.match(app,/\$\("historyImportFile"\)\.onchange=/);
   assert.match(app,/\$\("shareSgf"\)\.onclick=exportSharedSGF/);
-  assert.match(app,/\$\("reviewResume"\)\.onclick=resumeSelectedReview/);
+  assert.match(app,/\$\("reviewContinue"\)\.onclick=\(\)=>canResumeSelectedReview\(\)\?resumeSelectedReview\(\):openContinuePanel\(\)/);
 });
 test("sheets make the board and header inert while open",()=>{
   assert.match(app,/function openPanel\(kind\) \{\n  setBackgroundInert\(true\);/);

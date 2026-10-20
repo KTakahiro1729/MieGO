@@ -8,7 +8,7 @@ const html=source("index.html"),app=source("app.mjs"),renderer=source("board-ren
 test("replay and variations share a single action row with a non-scrolling overlay menu",()=>{
  const review=html.slice(html.indexOf('<section id="reviewPanel"'),html.indexOf('<p id="saveStatus"'));
  for(const id of ["reviewPrevious","reviewNext","reviewFirst","reviewLast",
-   "reviewStepRange","reviewResume","reviewBranch"])
+   "reviewStepRange","reviewContinue"])
    assert.match(review,new RegExp('id="'+id+'"'));
  assert.match(review,/class="review-navigation"/);
  assert.match(review,/id="reviewPlayActions"/);
@@ -41,7 +41,7 @@ test("shared URLs open in review and do not replace active local saved positions
   assert.match(app,/if\(!room && params\.has\("sgf"\)\)/);
   assert.match(app,/enterBoardReview\(imported\.snapshot,imported\.step,"url",imported\.metadata\)/);
   assert.match(app,/function clearImportedReviewUrl\(\)/);
-  assert.match(app,/clearImportedReviewUrl\(\);\s*boardReview=null/);
+  assert.match(app,/clearImportedReviewUrl\(\);\s*clearBoardReview\(\)/);
   assert.match(app,/if\(wasUrl\)clearImportedReviewUrl\(\)/);
 });
 test("AI copy is only a description of the link format, not separate SGF or a question prompt",()=>{
@@ -67,7 +67,7 @@ test("sharing lives in one header sheet, not in the replay menu",()=>{
    assert.match(sheet,new RegExp('id="'+id+'"'));
  const review=html.slice(html.indexOf('id="reviewMenu"'),html.indexOf('id="reviewNotice"'));
  assert.doesNotMatch(review,/id="share|SGFを保存|URLをコピー|AI向け|GIF/);
- assert.match(review,/id="reviewResume"/);
+ assert.doesNotMatch(review,/id="reviewContinue"/);
  const settings=html.slice(html.indexOf('<aside id="settingsPanel"'),html.indexOf('<aside id="sharePanel"'));
  assert.doesNotMatch(settings,/GIF/);
  // Only the AI copy needs words: what to do with the copied text.
@@ -101,4 +101,16 @@ test("the move chip steps back one move at once and turns into the way back",()=
   assert.equal(TEXT.review.showing(28),"28手目を表示中");
   assert.equal(TEXT.review.tryHere,"試しに打つ");
   assert.match(html,/id="reviewConfirm"[^>]*><span id="reviewConfirmStone"[^>]*><\/span>試しに打つ/);
+});
+test("one primary slot in the replay row starts a game from the shown position",()=>{
+  const row=html.slice(html.indexOf('class="review-navigation"'),html.indexOf('id="reviewMenu"'));
+  assert.match(row,/id="reviewContinue" class="primary review-continue"[^>]*>ここから打つ</);
+  const sheet=html.slice(html.indexOf('<aside id="continuePanel"'),html.indexOf('<aside id="helpPanel"'));
+  for(const value of ["ai","local"])assert.match(sheet,new RegExp('name="continueKind" value="'+value+'"'));
+  for(const value of ["black","white"])assert.match(sheet,new RegExp('name="continueSide" value="'+value+'"'));
+  assert.equal((sheet.match(/class="primary/g)||[]).length,1);
+  assert.match(app,/forkBoardReview\(continueChoice\("continueKind"\)==="ai"\?"ai":"local"/);
+  assert.match(app,/if\(kind==="ai"\)\{humanColor=side;/);
+  assert.equal(TEXT.review.continueTitle(28),"28手目から打つ");
+  assert.equal(TEXT.review.resume,"続きを打つ");
 });

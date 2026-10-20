@@ -1681,7 +1681,7 @@ function renderBoardReview() {
   const back=variationActive?TEXT.review.backOriginal:source==="live"?TEXT.review.backLatest:TEXT.review.backGame;
   $("moveLabel").textContent=back+" ›";
   $("moveLabel").setAttribute("aria-label",back);$("moveLabel").title=back;
-  $("moveLabel").classList.add("is-returning");
+  $("moveLabel").classList.add("is-returning");$("gamePanel").classList.add("is-reviewing");
   $("moveLabel").disabled=false;
   $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
   $("turn").classList.remove("no-stone");
@@ -1689,7 +1689,9 @@ function renderBoardReview() {
   $("gamePanel").classList.remove("is-scoring","is-finished");
   $("netStatus").textContent=source==="archive"?TEXT.game.savedGames:source==="url"?TEXT.review.sourceUrl:
     gameMode==="ai"?TEXT.common.modeAi:room?TEXT.review.sourceOnline:TEXT.common.modeLocal;
-  $("reviewResume").hidden=!canResumeSelectedReview();
+  // One primary slot: resume the saved game at its end, otherwise start from here.
+  $("reviewContinue").textContent=canResumeSelectedReview()?TEXT.review.resume:TEXT.review.continue;
+  $("reviewContinue").hidden=isPreview;
   $("actionRow").hidden=true;
   $("endgameBar").hidden=true;
   $("scoreBox").hidden=true;
@@ -1805,7 +1807,7 @@ function clearBoardReview() {
   const wasUrl=boardReview.source==="url";
   boardReview=null;reviewSequence++;
   if(wasUrl)clearImportedReviewUrl();
-  $("moveLabel").classList.remove("is-returning");
+  $("moveLabel").classList.remove("is-returning");$("gamePanel").classList.remove("is-reviewing");
   $("moveLabel").setAttribute("aria-label",TEXT.review.play);$("moveLabel").title=TEXT.review.play;
 }
 function leaveBoardReview() {
@@ -1821,15 +1823,39 @@ function clearImportedReviewUrl() {
   url.searchParams.delete("sgf");url.searchParams.delete("move");
   history.replaceState(null,"",url.pathname+url.search+url.hash);
 }
-function forkBoardReview() {
+// 「ここから打つ」: the shown position starts a new game record. The game it came
+// from is saved as it stands and stays in the saved-game list.
+const canContinueWithAi=()=>katagoReady && !fallbackMode;
+function continueChoice(name){return document.querySelector('input[name="'+name+'"]:checked')?.value;}
+function syncContinueSide(){$("continueSideRow").hidden=continueChoice("continueKind")!=="ai";}
+function openContinuePanel(){
+  if(!boardReview)return;
+  // The players default to those of the game being replayed.
+  // A 1台 game continues on one board; anything else (AI, friend, SGF, a shared URL) against the AI.
+  const live=boardReview.source==="live",record=live?null:boardReview.record;
+  const fromLocal=live?!room && gameMode==="local":record?.mode==="local" && record.source==="played";
+  const side=live && !room && gameMode==="ai"?humanColor:record?.mode==="ai"?record.humanColor:BLACK;
+  const ai=canContinueWithAi();
+  document.querySelector('input[name="continueKind"][value="ai"]').disabled=!ai;
+  document.querySelector('input[name="continueKind"][value="'+(ai && !fromLocal?"ai":"local")+'"]').checked=true;
+  document.querySelector('input[name="continueSide"][value="'+(side===WHITE?"white":"black")+'"]').checked=true;
+  syncContinueSide();
+  $("continueTitle").textContent=TEXT.review.continueTitle(boardReview.step);
+  setBackgroundInert(true);
+  $("settingsBackdrop").hidden=false;$("continuePanel").hidden=false;
+  $("closeContinue").focus();
+}
+function forkBoardReview(kind="local",side=BLACK) {
   if(!boardReview)return;
   let fork;
   try{fork=forkReview(activeReviewSnapshot(boardReview,game),boardReview.step);}
-  catch{$("reviewNotice").textContent=TEXT.review.branchFailed;return;}
-  if(room && connected && !confirmByRetap($("reviewBranch"),TEXT.confirm.leaveForReview))return;
+  catch{$("reviewNotice").textContent=TEXT.review.branchFailed;closePanels();return;}
+  if(kind==="ai" && !canContinueWithAi())return; // The choice is disabled meanwhile.
+  if(room && connected && !confirmByRetap($("startContinue"),TEXT.confirm.leaveForReview))return;
   if(!save())return;
   if(room)leaveOnlineRoom();
-  stopAiTurn();gameMode="local";game=fork;
+  stopAiTurn();gameMode=kind;game=fork;
+  if(kind==="ai"){humanColor=side;hints=null;takebackNotice=null;}
   currentGameId=null;currentRevision=null;
   const last=game.moves.at(-1)?.position;
   lastPosition=Number.isInteger(last)?last:null;
@@ -1838,8 +1864,8 @@ function forkBoardReview() {
   lastOfferKey=null;endNotice=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
   clearImportedReviewUrl();
-  boardReview=null;reviewSequence++;
-  save();show();requestAnalysis();
+  clearBoardReview();
+  save();closePanels();show();requestAnalysis();
 }
 // Everything in the share sheet works on the displayed board: the replayed
 // line and step while replaying, otherwise the live game as it stands.
@@ -1926,7 +1952,11 @@ document.addEventListener("keydown",e=>{
   if(e.key==="Escape" && boardReview?.preview){discardReviewPreview();return;}
   if(e.key==="Escape" && $("reviewMenu").open)$("reviewMenu").open=false;
 });
-$("reviewBranch").onclick=forkBoardReview;
+$("reviewContinue").onclick=()=>canResumeSelectedReview()?resumeSelectedReview():openContinuePanel();
+for(const input of document.querySelectorAll('input[name="continueKind"]'))input.onchange=syncContinueSide;
+$("closeContinue").onclick=closePanels;
+$("startContinue").onclick=()=>forkBoardReview(continueChoice("continueKind")==="ai"?"ai":"local",
+  continueChoice("continueSide")==="white"?WHITE:BLACK);
 $("shareLink").onclick=()=>void copyShareUrl(false);
 $("shareAiLink").onclick=()=>void copyShareUrl(true);
 $("shareSgf").onclick=exportSharedSGF;
@@ -1934,7 +1964,7 @@ function resumeSelectedReview(){
   if(!canResumeSelectedReview())return;
   const selected=boardReview.record;
   if(room && connected &&
-    !confirmByRetap($("reviewResume"),TEXT.confirm.leaveForArchive))return;
+    !confirmByRetap($("reviewContinue"),TEXT.confirm.leaveForArchive))return;
   // Reload the record before mutating anything; another tab may have advanced it.
   let record=gameLibrary.load(selected.id);
   if(!record || (record.revision!==selected.revision &&
@@ -1972,7 +2002,6 @@ function resumeSelectedReview(){
   clearBoardReview();rememberSettings();
   closePanels();show();requestAnalysis();
 }
-$("reviewResume").onclick=resumeSelectedReview;
 $("historyImportFile").onchange=e=>void importHistoryFile(e.target.files?.[0]);
 $("openHistory").onclick=openHistoryPanel;
 $("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
@@ -1993,6 +2022,7 @@ function closePanels() {
   $("sharePanel").hidden=true;
   shareImages.clear();
   $("modePanel").hidden=true;
+  $("continuePanel").hidden=true;
   $("helpPanel").hidden=true;
   $("helpToggle").setAttribute("aria-expanded","false");
   closeHelpPopover(false);

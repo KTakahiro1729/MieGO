@@ -268,7 +268,7 @@ body{overflow:hidden}
 .game-panel{height:100%;min-height:0;--board-reserve:292px}
 .board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px);flex-shrink:0}
 .turn-and-move{display:flex;align-items:center;gap:10px;min-width:0}
-.turn-and-move .turn{min-width:0}
+.turn-and-move .turn{min-width:0;white-space:nowrap}
 .turn-and-move .move-label{font-size:11px;font-variant-numeric:tabular-nums;flex-shrink:0}
 .ownership-legend{margin-top:6px}
 .gradient{height:9px}
@@ -431,7 +431,8 @@ body{overflow:hidden}
 .review-navigation{display:flex;align-items:stretch;gap:7px;position:relative}
 .review-navigation>button,.review-navigation>.review-menu>summary{height:var(--action-h);min-height:var(--action-h);
   display:flex;align-items:center;justify-content:center;padding:7px}
-.review-navigation>button:not(.review-step-toggle){flex:0 0 44px}
+.review-navigation>button:not(.review-step-toggle):not(.review-continue){flex:0 0 44px}
+.review-navigation>.review-continue{flex:0 0 auto;padding:0 14px;font-size:13px;white-space:nowrap}
 .review-navigation>.review-step-toggle{flex:1;min-width:0;flex-direction:column;gap:2px;color:#eac981;font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .review-navigation>.review-menu{position:relative;flex:0 0 44px;min-width:44px}
 .review-navigation>.review-menu>summary{cursor:pointer;list-style:none}
@@ -456,9 +457,12 @@ body{overflow:hidden}
 }
 @media(max-width:700px){.action-row,.review-panel{padding-top:3px}}
 @media(max-width:360px){
+  /* The replay names its source in the move chip; the status text would wrap the turn line. */
+  .game-panel.is-reviewing .connection-status{display:none}
   .review-navigation{gap:4px}
   .review-navigation>.review-menu{flex-basis:42px;min-width:42px}
-  .review-navigation>button:not(.review-step-toggle){flex-basis:42px}
+  .review-navigation>button:not(.review-step-toggle):not(.review-continue){flex-basis:42px}
+  .review-navigation>.review-continue{padding:0 10px;font-size:12px}
 }
 @media(max-width:350px){
   .endgame-bar .end-action{font-size:10px;padding:5px 6px}
