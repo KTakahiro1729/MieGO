@@ -315,20 +315,58 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
 
   // 呼吸点の表示 on the board being played or replayed: the provisional
   // board while a stone is placed, otherwise the shown position.
-  const ATARI_MARK="#d95a4e";
-  function paintLiberties(theme,view,display,gap,pad) {
+  const ATARI_MARK="#d95a4e", LOW_MARK="#eea23a";
+  function shownLiberties(view,display) {
     const {game,boardReview,candidate}=view;
-    if(!view.liberties || view.liberties==="off" || isGomoku(game) || isFree(game))return;
-    if(!boardReview && game.status!=="playing" || view.hideStones)return;
+    if(!view.liberties || view.liberties==="off" || isGomoku(game) || isFree(game))return [];
+    if(!boardReview && game.status!=="playing" || view.hideStones)return [];
     const board=boardReview?boardReview.preview?.board||display.board:candidate?.board||game.board;
     const placed=boardReview?boardReview.preview?.board && boardReview.previewPosition:
       candidate?.moves.at(-1)?.position;
+    return libertyMarks(board,view.liberties,placed);
+  }
+  // 危ないときだけ: a band around each group down to two liberties (amber)
+  // or one (red), painted under the stones so it shows only at the edge.
+  function paintDangerBands(marks,gap,pad) {
+    const r=gap*.44+Math.max(3,gap*.09);
+    for(const mark of marks){
+      if(mark.kind!=="danger")continue;
+      const stones=new Set(mark.stones);
+      ctx.save();
+      ctx.fillStyle=mark.count===1?ATARI_MARK:LOW_MARK;
+      ctx.beginPath();
+      for(const i of stones){
+        const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
+        ctx.moveTo(x+r,y);ctx.arc(x,y,r,0,Math.PI*2);
+        if(i%SIZE<SIZE-1 && stones.has(i+1))ctx.rect(x,y-r,gap,2*r);
+        if(stones.has(i+SIZE))ctx.rect(x-r,y,2*r,gap);
+      }
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+  function paintLiberties(theme,marks,gap,pad) {
     const tone={[BLACK]:theme.stones.black.outer,[WHITE]:theme.stones.white.inner};
     const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
-    for(const mark of libertyMarks(board,view.liberties,placed)){
+    for(const mark of marks){
+      if(mark.kind==="danger")continue;
       const [x,y]=xy(mark.position);
       ctx.save();
-      if(mark.kind==="dot"){
+      if(mark.kind==="tube"){
+        // The placed stone's group breathes through this point: a short
+        // tube from each of its stones that touch it, and a dot.
+        const color=mark.atari?ATARI_MARK:tone[mark.color];
+        ctx.strokeStyle=color;ctx.lineWidth=Math.max(2,gap*.1);ctx.lineCap="round";
+        ctx.beginPath();
+        for(const from of mark.from){
+          const [sx,sy]=xy(from);
+          ctx.moveTo(sx+(x-sx)*.42,sy+(y-sy)*.42);ctx.lineTo(x,y);
+        }
+        ctx.stroke();
+        ctx.beginPath();ctx.arc(x,y,gap*.13,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();
+        ctx.strokeStyle=mark.color===WHITE && !mark.atari?tone[BLACK]:"rgba(255,255,255,.75)";
+        ctx.lineWidth=Math.max(1,gap*.025);ctx.stroke();
+      }else if(mark.kind==="dot"){
         const r=gap*.12;
         if(mark.atari || mark.colors.length===1){
           ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
@@ -469,10 +507,12 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const live=!boardReview && game.status==="playing";
     if(!live)fading=[];
     shownAlpha=[];
+    const liberties=shownLiberties(view,display);
+    paintDangerBands(liberties,gap,pad);
     paintStones(theme,view,display,gap,pad);
     noteCaptures(game,live);
     if(fading.length)paintFading(theme,gap,pad);
-    paintLiberties(theme,view,display,gap,pad);
+    paintLiberties(theme,liberties,gap,pad);
     for(const {position,color} of kept)
       paintFillStone(theme,color,pad+(position%SIZE)*gap,pad+Math.floor(position/SIZE)*gap,gap);
     if(scoring)paintPrisonerFill(theme,fill,view.palette,gap,pad);

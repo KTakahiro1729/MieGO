@@ -39,3 +39,17 @@ test("the renderer paints liberties only while playing or replaying",()=>{
   calls.length=0;liberties="off";draw();
   assert.equal(calls.some(c=>c.kind==="arc"&&Math.abs(c.args[2]-6)<1e-9),false);
 });
+
+test("危ないときだけ outlines groups down to two liberties and joins the placed stone to its liberties",()=>{
+  const board=newGame().board;
+  board[at(0,0)]=BLACK;board[at(1,0)]=WHITE;board[at(4,4)]=BLACK;
+  const marks=libertyMarks(board,"danger");
+  assert.deepEqual(marks.filter(m=>m.kind==="danger").map(m=>[m.stones,m.count]),[[[at(0,0)],1],[[at(1,0)],2]]);
+  assert.deepEqual(marks.filter(m=>m.kind==="atari").map(m=>m.position),[at(0,1)]);
+  assert.equal(marks.some(m=>m.kind==="tube"),false,"no tubes without a stone being placed");
+  board[at(4,5)]=BLACK;
+  const tubes=libertyMarks(board,"danger",at(4,5)).filter(m=>m.kind==="tube");
+  assert.equal(tubes.length,6);
+  assert.deepEqual(tubes.find(m=>m.position===at(3,4)).from,[at(4,4)]);
+  assert.ok(tubes.every(m=>m.color===BLACK && !m.atari));
+});
