@@ -510,6 +510,9 @@ body{overflow:hidden}
   padding:4px 2px max(6px,env(safe-area-inset-bottom));position:sticky;bottom:0;z-index:3;
   background:linear-gradient(180deg,#0d101800,#0d1018 12%)}
 .action-row button{white-space:nowrap;min-height:var(--action-h)}
+/* A fused group's 1px edge sits outside its buttons, so they are 2px shorter:
+   the row stays as tall as the replay row and the board keeps its size. */
+.action-row .fused>button,.action-row .fused>label>span{min-height:calc(var(--action-h) - 2px)}
 .action-row .secondary{font-size:14px;padding:9px 10px}
 .action-row .primary{flex:1 1 auto;min-width:0;padding:9px 6px;font-size:14px}
 .action-row .move-controls{flex:0 0 auto}
@@ -561,7 +564,7 @@ body{overflow:hidden}
 @keyframes end-call{0%{box-shadow:0 0 0 0 #f0c77355}100%{box-shadow:0 0 0 9px #f0c77300}}
 
 /* Replay row: replaces the action row at the same height. */
-.review-panel{display:block;flex:none;margin:auto -2px 0;padding:4px 2px max(6px,env(safe-area-inset-bottom));
+.review-panel{display:block;flex:none;margin:4px -2px 0;padding:4px 2px max(6px,env(safe-area-inset-bottom));
   position:sticky;bottom:0;z-index:4;background:linear-gradient(180deg,#0d101800,#0d1018 12%)}
 .review-panel[hidden]{display:none}
 .review-navigation{display:flex;align-items:stretch;gap:7px;position:relative}

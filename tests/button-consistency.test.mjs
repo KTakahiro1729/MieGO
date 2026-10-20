@@ -27,6 +27,10 @@ test("the action, scoring and replay rows share one height token",()=>{
   assert.match(css,/\.review-navigation>button\{height:var\(--action-h\)/);
   assert.match(css,/\.review-play-actions button\{[^}]*height:var\(--action-h\)/);
   assert.match(css,/@media\(max-width:700px\)\{\.action-row,\.review-panel\{padding-top:3px\}\}/);
+  // Same outer height and gap above, so the board keeps its size when replay starts.
+  assert.match(css,/\.action-row \.fused>button,\.action-row \.fused>label>span\{min-height:calc\(var\(--action-h\) - 2px\)\}/);
+  assert.match(css,/\.action-row\{[^}]*margin:4px -2px 0/);
+  assert.match(css,/\.review-panel\{[^}]*margin:4px -2px 0/);
   assert.doesNotMatch(css,/min-height:(3\d|4[0-3])px/);
 });
 
