@@ -6,6 +6,7 @@ import {
   isFree,
   komiOf,
   rulesOf,
+  scoreResult,
   WHITE,
 } from "./core.mjs";
 import { parseGameSnapshot } from "./mode-state.mjs";
@@ -95,8 +96,7 @@ export function isConsistentSnapshot(game) {
     return false;
   if(game.status==="scoring")return true;
   if(game.status!=="finished" || !game.agreed.black || !game.agreed.white)return false;
-  const s=areaScore(game);
-  return game.result===(s.difference>0?"B+":"W+")+Math.abs(s.difference).toFixed(1);
+  return game.result===scoreResult(areaScore(game));
 }
 function commonPrefix(a,b) {
   let i=0;
