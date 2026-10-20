@@ -25,8 +25,10 @@ import {scoringRegions,prisonerFill,prisonersFilled} from "./scoring-regions.mjs
 
 // Stones taken by a move fade out over this long instead of vanishing.
 export const CAPTURE_FADE_MS=200;
-// 呼吸の粒 (α, 9路 only): each step along a line takes this long.
-export const BREATH_STEP_MS=420;
+// 呼吸の粒 (α, 9路 only): each step along a line takes this long; grains set
+// out every BREATH_BEAT steps and fade after BREATH_LIFE steps.
+export const BREATH_STEP_MS=900;
+const BREATH_BEAT=2, BREATH_LIFE=7;
 const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 // ドパガキモード's burst: sparks fly from each taken stone for this long.
 export const BURST_MS=650;
@@ -269,49 +271,47 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
 
   // 呼吸の粒: on every beat, one grain of air sets out from each liberty of
   // every group at once, along the board's line into the stone next to it.
-  // With two liberties or more the air goes on along the lines between the
-  // group's stones until it has reached all of them; a group in atari gets
+  // With two liberties or more it then wanders the lines between the
+  // group's stones, a step at a time, before it fades; a group in atari gets
   // its one grain only as far as the edge of the stone facing the liberty.
-  // Each side's grains take that side's colour on the colour map.
+  // Each side's grains take that side's colour on the colour map. Every grain
+  // follows from the time alone, so the drawing keeps no state between frames.
   function paintBreath(view,board,gap,pad) {
     const palette=countingPalette(view.palette);
     const tone={[BLACK]:paletteAt(1,palette),[WHITE]:paletteAt(-1,palette)};
-    const steps=[];
+    const sources=[], seen=new Set();
     for(let i=0;i<board.length;i++){
-      if(!board[i] || steps.some(g=>g.stones.has(i)))continue;
+      if(!board[i] || seen.has(i))continue;
       const g=group(board,i);
-      // How far each stone is from the nearest stone that touches a liberty.
-      const depth=new Map(), queue=[];
-      for(const s of g.stones)if(neighbors(s,SIZE).some(n=>!board[n])){depth.set(s,0);queue.push(s);}
-      for(let h=0;h<queue.length;h++)for(const n of neighbors(queue[h],SIZE))
-        if(g.stones.has(n) && !depth.has(n)){depth.set(n,depth.get(queue[h])+1);queue.push(n);}
-      const moves=[], atari=g.liberties.size===1;
-      for(const s of queue)for(const n of neighbors(s,SIZE))if(!board[n])
-        moves.push({from:n,to:s,step:0,reach:atari?1-.44:1});
-      // Along every line between two of its stones: outward from the stone
-      // nearer a liberty, or from both ends to meet halfway.
-      if(!atari)for(const s of queue)for(const n of neighbors(s,SIZE)){
-        if(!g.stones.has(n))continue;
-        const ds=depth.get(s),dn=depth.get(n);
-        if(dn===ds+1)moves.push({from:s,to:n,step:ds+1,reach:1});
-        else if(dn===ds)moves.push({from:s,to:n,step:ds+1,reach:.5});
-      }
-      steps.push({stones:g.stones,color:board[i],moves});
+      for(const s of g.stones)seen.add(s);
+      for(const s of g.stones)for(const n of neighbors(s,SIZE))
+        if(!board[n])sources.push({from:n,to:s,stones:g.stones,color:board[i],atari:g.liberties.size===1});
     }
-    const last=Math.max(0,...steps.flatMap(g=>g.moves.map(m=>m.step)));
-    const beat=(last+2)*BREATH_STEP_MS, t=now()%beat/BREATH_STEP_MS;
+    // A repeatable pseudo-random number for a grain's step.
+    const pick=(...keys)=>{const x=Math.sin(keys.reduce((h,k)=>h*31.7+k,7)*12.9898)*43758.5453;return x-Math.floor(x);};
+    const time=now()/BREATH_STEP_MS, first=Math.max(0,Math.floor((time-BREATH_LIFE)/BREATH_BEAT));
     const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
     ctx.save();
-    for(const {color,moves} of steps)for(const {from,to,step,reach} of moves){
-      const u=t-step;
-      if(u<0 || u>1)continue;
-      const [ax,ay]=xy(from),[bx,by]=xy(to), at=u*reach;
-      ctx.globalAlpha=.75*Math.min(1,u*5,(1-u)*5+.4);
-      ctx.beginPath();ctx.arc(ax+(bx-ax)*at,ay+(by-ay)*at,gap*.09,0,Math.PI*2);
-      const [cr,cg,cb]=tone[color], [or,og,ob]=tone[-color];
+    for(let beat=first;beat*BREATH_BEAT<=time;beat++)sources.forEach((source,k)=>{
+      const age=time-beat*BREATH_BEAT, life=source.atari?1:BREATH_LIFE;
+      if(age>life)return;
+      // Where the grain is: the leg it is on, and how far along it.
+      let from=source.from,to=source.to,leg=Math.floor(age);
+      for(let step=1;step<=leg;step++){
+        const onward=neighbors(to,SIZE).filter(n=>source.stones.has(n));
+        const next=onward.filter(n=>n!==from);
+        const choices=next.length?next:onward;
+        // A lone stone has no line to wander: the grain rests in it.
+        [from,to]=choices.length?[to,choices[Math.floor(pick(beat,k,step)*choices.length)]]:[to,to];
+      }
+      const u=(age-leg)*(source.atari?1-.44:1);
+      const [ax,ay]=xy(from),[bx,by]=xy(to);
+      ctx.globalAlpha=.75*Math.min(1,age*4,(life-age)*1.5);
+      ctx.beginPath();ctx.arc(ax+(bx-ax)*u,ay+(by-ay)*u,gap*.09,0,Math.PI*2);
+      const [cr,cg,cb]=tone[source.color], [or,og,ob]=tone[-source.color];
       ctx.fillStyle=`rgb(${cr},${cg},${cb})`;ctx.fill();
       ctx.strokeStyle=`rgb(${or},${og},${ob})`;ctx.lineWidth=Math.max(1.5,gap*.03);ctx.stroke();
-    }
+    });
     ctx.restore();
     if(frame===null)frame=requestFrame(()=>{frame=null;draw();});
   }
