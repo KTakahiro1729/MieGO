@@ -1,10 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
 
 // No TURN credentials are generated. Game positions and moves never enter this Worker.
-const ROOM_RE = /^[a-f0-9]{32}$/;
 const MAX_ROOM_AGE = 7 * 24 * 60 * 60 * 1000;
-const random = () => [...crypto.getRandomValues(new Uint8Array(24))].map(b => b.toString(16).padStart(2, "0")).join("");
-const hash = async value => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))).map(b => b.toString(16).padStart(2, "0")).join("");
+const hex = bytes => Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, "0")).join("");
+const randomHex = length => hex(crypto.getRandomValues(new Uint8Array(length)));
+const random = () => randomHex(24);
+const hash = async value => hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
 const json = (value, status = 200) => new Response(JSON.stringify(value), {
   status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
 });
@@ -65,7 +66,7 @@ export default {
       let payload; try { payload = await body(request); } catch { return inputError(); }
       if (!["black","white"].includes(payload.color)) return inputError();
       if (!await verifyHuman(payload.turnstileToken,request,env)) return json({error:"Human verification failed",code:"verification"},403);
-      const room = [...crypto.getRandomValues(new Uint8Array(16))].map(b=>b.toString(16).padStart(2,"0")).join("");
+      const room = randomHex(16);
       const ownerKey = random(), guestKey = random(), ownerSession = random();
       const setup = await callRoom(roomStub(env,room), "/init", {
         ownerKeyHash:await hash(ownerKey),guestKeyHash:await hash(guestKey),

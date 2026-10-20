@@ -1,43 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { GameLibrary, isQuotaError } from "../public/game-library.mjs";
+import { isQuotaError } from "../public/game-library.mjs";
+import { MemoryStorage, testLibrary } from "./helpers/storage.mjs";
 import { OwnershipStore } from "../public/ownership-store.mjs";
 import { replayLine, prefetchOrder } from "../public/ownership-prefetch.mjs";
 import { boardThumbnailSvg } from "../public/board-thumbnail.mjs";
 import { replaySteps } from "../public/sgf.mjs";
 import { newGame, play, boardHash, at } from "../public/core.mjs";
 
-// localStorage with a size cap, throwing like a browser when it is full.
-class CappedStorage {
-  constructor(limit=Infinity){this.items=new Map();this.limit=limit;}
-  get length(){return this.items.size;}
-  key(i){return [...this.items.keys()][i]??null;}
-  getItem(k){return this.items.has(k)?this.items.get(k):null;}
-  used(){let n=0;for(const [k,v] of this.items)n+=k.length+v.length;return n;}
-  setItem(k,v){
-    v=String(v);
-    const before=this.items.get(k);
-    this.items.set(k,v);
-    if(this.used()>this.limit){
-      if(before===undefined)this.items.delete(k);else this.items.set(k,before);
-      throw Object.assign(new Error("full"),{name:"QuotaExceededError"});
-    }
-  }
-  removeItem(k){this.items.delete(k);}
-}
-function library(limit,options) {
-  const storage=new CappedStorage(limit);
-  let counter=0,clock=0;
-  const lib=new GameLibrary(storage,()=>`game-test-${++counter}`,
-    ()=>new Date(Date.UTC(2026,0,1,0,0,++clock)).toISOString(),options);
-  return {lib,storage};
-}
 let longGame=newGame();
 for(const p of [0,10,20,30,40,50,60,70])longGame=play(longGame,p);
 
 test("a full storage deletes the oldest games that are not favourites", () => {
   const removed=[];
-  const {lib,storage}=library(Infinity,{onRemove:record=>removed.push(record.id)});
+  const {lib,storage}=testLibrary(Infinity,{onRemove:record=>removed.push(record.id)});
   const first=lib.save({mode:"local",snapshot:longGame});
   const second=lib.save({mode:"local",snapshot:longGame});
   const third=lib.save({mode:"local",snapshot:longGame});
@@ -50,7 +26,7 @@ test("a full storage deletes the oldest games that are not favourites", () => {
 });
 
 test("active, kept and favourite games are never deleted; nothing else to delete still fails", () => {
-  const {lib,storage}=library(Infinity,{keep:()=>["game-test-2"]});
+  const {lib,storage}=testLibrary(Infinity,{keep:()=>["game-test-2"]});
   const active=lib.save({mode:"local",snapshot:longGame});
   lib.setActive("local",active.id);
   lib.save({mode:"ai",snapshot:longGame}); // game-test-2, kept by the app
@@ -62,7 +38,7 @@ test("active, kept and favourite games are never deleted; nothing else to delete
 });
 
 test("marking a favourite changes neither the order nor the revision, and saves keep it", () => {
-  const {lib}=library();
+  const {lib}=testLibrary();
   const older=lib.save({mode:"local",snapshot:newGame()});
   const newer=lib.save({mode:"local",snapshot:newGame()});
   const marked=lib.setFavorite(older.id,true);
@@ -74,7 +50,7 @@ test("marking a favourite changes neither the order nor the revision, and saves 
 });
 
 test("deleting a game clears an active pointer to it", () => {
-  const {lib}=library();
+  const {lib}=testLibrary();
   const record=lib.save({mode:"local",snapshot:newGame()});
   lib.setActive("local",record.id);
   assert.equal(lib.remove(record.id),true);
@@ -84,7 +60,7 @@ test("deleting a game clears an active pointer to it", () => {
 
 const values=n=>Array.from({length:n},(_,i)=>((i%9)-4)/4);
 test("other games keep only their final board's estimate; unsaved games keep none", () => {
-  const storage=new CappedStorage();
+  const storage=new MemoryStorage();
   const store=new OwnershipStore(storage);
   const start=newGame(), end=play(start,40);
   store.remember("current-1234",start.board,values(81));
@@ -103,7 +79,7 @@ test("other games keep only their final board's estimate; unsaved games keep non
 });
 
 test("estimates computed while replaying stay in memory, bounded", () => {
-  const storage=new CappedStorage(), store=new OwnershipStore(storage);
+  const storage=new MemoryStorage(), store=new OwnershipStore(storage);
   const board=newGame().board;
   store.keep(board,values(81));
   assert.equal(storage.length,0);

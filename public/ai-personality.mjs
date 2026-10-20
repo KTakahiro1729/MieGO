@@ -1,6 +1,5 @@
 import {play,neighbors,group,sizeOf} from "./core.mjs";
-
-const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+import {clamp} from "./ai-policy-sampling.mjs";
 
 // The style axes a COM carries, each 0..100 with 50 neutral.
 // height: 0 low, 100 high. stance: 0 defends, 100 attacks.

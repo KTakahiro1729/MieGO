@@ -1,4 +1,4 @@
-import { isPaletteChoice, normalizePalette, showsOwnership, countingPalette, paletteGradient, countingGradient, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
+import { DEFAULT_PALETTE, isPaletteChoice, normalizePalette, showsOwnership, countingPalette, paletteGradient, countingGradient, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
 import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss, boardTheme as boardLook } from "./board-theme.mjs";
 
 // The 設定 sheet's 碁盤 and 地合いの表示 groups: the board look, the colour
@@ -6,15 +6,20 @@ import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss, boardTheme as boardLook 
 // swatches that preview them.
 // hidingStones() and isCounting() describe the board on screen; onOverlayOn()
 // asks for an estimate when the colours are switched back on.
+// Saved choices are a convenience: where storage is blocked or full, the
+// sheet still works and starts on the defaults.
+const stored = key => { try { return localStorage.getItem(key); } catch { return null; } };
+const store = (key, value) => { try { localStorage.setItem(key, value); } catch {} };
+const DEFAULT_OPACITY = .55;
 export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounting,show,draw,onOverlayOn}) {
-  let palette = normalizePalette(localStorage.getItem("miego-palette"));
+  let palette = normalizePalette(stored("miego-palette"));
   // The player's own colours and the opacity curve live in territory-view.
-  try{setCustomColours(JSON.parse(localStorage.getItem("miego-custom-colours")||"null"));}catch{}
-  setOpacityShape(localStorage.getItem("miego-opacity-shape"));
-  const storedBoardTheme = localStorage.getItem("miego-board");
+  try{setCustomColours(JSON.parse(stored("miego-custom-colours")||"null"));}catch{}
+  setOpacityShape(stored("miego-opacity-shape"));
+  const storedBoardTheme = stored("miego-board");
   let boardTheme = isBoardTheme(storedBoardTheme) ? storedBoardTheme : DEFAULT_BOARD_THEME;
-  const storedOpacity = Number(localStorage.getItem("miego-opacity"));
-  let opacity = Number.isFinite(storedOpacity) && storedOpacity>=0 && storedOpacity<=1 && localStorage.getItem("miego-opacity")!==null ? storedOpacity : .55;
+  const storedOpacity = stored("miego-opacity")===null ? NaN : Number(stored("miego-opacity"));
+  let opacity = storedOpacity>=0 && storedOpacity<=1 ? storedOpacity : DEFAULT_OPACITY;
   // With the stones hidden the colours are all there is, so "表示しない" falls
   // back to the default map, as counting does.
   const shownPalette = () => hidingStones() ? countingPalette(palette) : palette;
@@ -25,8 +30,8 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     input.onchange = e => {
       if (!e.target.checked) return;
       const wasOn=overlayOn();
-      palette=isPaletteChoice(e.target.value)?e.target.value:"mono";
-      try{localStorage.setItem("miego-palette",palette);}catch{}
+      palette=isPaletteChoice(e.target.value)?e.target.value:DEFAULT_PALETTE;
+      store("miego-palette",palette);
       fillColourInputs();updateGradient();show();
       if(wasOn!==overlayOn())onOverlayOn();
     };
@@ -35,7 +40,7 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     input.onchange = e => {
       if (!e.target.checked) return;
       boardTheme=isBoardTheme(e.target.value)?e.target.value:DEFAULT_BOARD_THEME;
-      try{localStorage.setItem("miego-board",boardTheme);}catch{}
+      store("miego-board",boardTheme);
       updateGradient();draw();
     };
   });
@@ -48,44 +53,34 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     const wasOn=overlayOn();
     const chosen=Object.fromEntries(COLOUR_KEYS.map(k=>[k,$("colour-"+k).value]));
     if(!setCustomColours(chosen))return;
-    try{localStorage.setItem("miego-custom-colours",JSON.stringify(chosen));}catch{}
+    store("miego-custom-colours",JSON.stringify(chosen));
     palette=PALETTE_CUSTOM;
-    try{localStorage.setItem("miego-palette",palette);}catch{}
-    const radio=document.querySelector('input[name="palette"][value="custom"]');
-    if(radio)radio.checked=true;
+    store("miego-palette",palette);
+    check("palette",PALETTE_CUSTOM);
     updateGradient();show();
     if(!wasOn)onOverlayOn();
   };
   document.querySelectorAll('input[name="opacityShape"]').forEach(input=>{
     input.onchange=e=>{
       if(!e.target.checked)return;
-      try{localStorage.setItem("miego-opacity-shape",setOpacityShape(e.target.value));}catch{}
+      store("miego-opacity-shape",setOpacityShape(e.target.value));
       updateGradient();draw();
     };
   });
   $("opacity").oninput=e=>{
     opacity=Number(e.target.value)/100;
-    localStorage.setItem("miego-opacity",String(opacity));
+    store("miego-opacity",String(opacity));
     $("opacityValue").textContent=e.target.value+"%";
     updateGradient();draw();
   };
   $("resetAppearance").onclick=()=>{
     const wasOn=overlayOn();
-    palette="mono";opacity=.55;boardTheme=DEFAULT_BOARD_THEME;
-    localStorage.setItem("miego-palette",palette);
-    localStorage.setItem("miego-opacity","0.55");
-    localStorage.setItem("miego-board",boardTheme);
-    const selected=document.querySelector('input[name="palette"][value="mono"]');
-    if(selected)selected.checked=true;
-    const selectedBoard=document.querySelector('input[name="boardTheme"][value="'+boardTheme+'"]');
-    if(selectedBoard)selectedBoard.checked=true;
-    $("opacity").value="55";$("opacityValue").textContent="55%";
-    setOpacityShape(DEFAULT_OPACITY_SHAPE);
-    try{localStorage.setItem("miego-opacity-shape",DEFAULT_OPACITY_SHAPE);}catch{}
-    const shapeRadio=document.querySelector('input[name="opacityShape"][value="'+DEFAULT_OPACITY_SHAPE+'"]');
-    if(shapeRadio)shapeRadio.checked=true;
-    fillColourInputs();
-    updateGradient();show();
+    palette=DEFAULT_PALETTE;opacity=DEFAULT_OPACITY;boardTheme=DEFAULT_BOARD_THEME;
+    store("miego-palette",palette);
+    store("miego-opacity",String(opacity));
+    store("miego-board",boardTheme);
+    store("miego-opacity-shape",setOpacityShape(DEFAULT_OPACITY_SHAPE));
+    syncControls();show();
     if(!wasOn)onOverlayOn();
   };
   // The legend, the colour-map swatches and the board frame follow the chosen board.
@@ -101,8 +96,8 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     $("gradient").style.backgroundColor=surface;
     // While counting, the same legend explains the flat area colours instead.
     const counting=isCounting();
-    $("gradient").style.backgroundImage=counting?countingGradient(palette,opacity,boardTheme):
-      paletteGradient(shownPalette(),opacity,boardTheme);
+    $("gradient").style.backgroundImage=counting?countingGradient(palette,opacity):
+      paletteGradient(shownPalette(),opacity);
     $("legendNeutral").hidden=!counting;
     $("ownershipLegend").classList.toggle("overlay-off",!counting && !overlayOn() ||
       getGame().status==="finished" && !counting);
@@ -126,13 +121,14 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     canvas.closest(".board-frame")?.setAttribute("data-board-theme",boardTheme);
   }
   // The controls start on the remembered choices.
+  function check(name,value){
+    const radio=document.querySelector('input[name="'+name+'"][value="'+value+'"]');
+    if(radio)radio.checked=true;
+  }
   function syncControls(){
-    const selectedPalette=document.querySelector('input[name="palette"][value="'+palette+'"]');
-    if(selectedPalette)selectedPalette.checked=true;
-    const selectedBoardTheme=document.querySelector('input[name="boardTheme"][value="'+boardTheme+'"]');
-    if(selectedBoardTheme)selectedBoardTheme.checked=true;
-    {const shapeRadio=document.querySelector('input[name="opacityShape"][value="'+opacityShape()+'"]');
-    if(shapeRadio)shapeRadio.checked=true;}
+    check("palette",palette);
+    check("boardTheme",boardTheme);
+    check("opacityShape",opacityShape());
     fillColourInputs();
     $("opacity").value=String(Math.round(opacity*100));
     $("opacityValue").textContent=Math.round(opacity*100)+"%";

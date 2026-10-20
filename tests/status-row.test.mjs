@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {readFileSync} from "node:fs";
+import {source} from "./helpers/source.mjs";
 
-const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
-const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+const html=source("index.html");
+const app=source("app.mjs");
 
 test("every mode stacks header, board, bar with komi, ◁ status ▷, endgame, actions",()=>{
   const panel=html.slice(html.indexOf('<section id="gamePanel"'),html.indexOf('<p id="saveStatus"'));

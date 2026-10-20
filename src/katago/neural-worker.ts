@@ -87,10 +87,13 @@ function encode(state: unknown) {
   const globalFeatures = new Float32Array(19);
   return { size, pos, spatialFeatures, globalFeatures };
 }
-async function evaluate(state: unknown) {
-  if (!model) throw new Error("Model not initialized");
+/**
+ * One pass of the network over `state`. Ownership is converted to MieGO's sign
+ * convention (+1 Black controls, -1 White controls); everything else is raw.
+ */
+async function runNetwork(state: unknown) {
+  if (!model) throw new Error("KataGo model not initialized");
   const { size, pos, spatialFeatures, globalFeatures } = encode(state);
-  const area = size * size;
   fillInputsV7FastForPosition({
     ...pos,
     // KataGo's NN komi input already includes the handicap bonus (selfKomi).
@@ -106,9 +109,9 @@ async function evaluate(state: unknown) {
   let output: ReturnType<KataGoModelV8Tf["forward"]> | undefined;
   try {
     output = model.forward(spatial, global);
-    const [owners, values, scores, rawPolicy] = await Promise.all([
-      output.ownership.data(), output.value.data(), output.scoreValue.data(),
-      output.policy.data()
+    const [rawPolicy, pass, owners, values, scores] = await Promise.all([
+      output.policy.data(), output.policyPass.data(), output.ownership.data(),
+      output.value.data(), output.scoreValue.data()
     ]);
     const evaled = postprocessKataGoV8({
       nextPlayer: pos.currentPlayer, valueLogits: values, scoreValue: scores,
@@ -118,69 +121,44 @@ async function evaluate(state: unknown) {
     const sign = pos.currentPlayer === "black" ? 1 : -1;
     const scale = model.postProcessParams.outputScaleMultiplier;
     const ownership = Array.from(owners, v => Math.tanh(v * scale) * sign);
-    if (ownership.length !== area || ownership.some(v => !Number.isFinite(v))
-      || !Number.isFinite(evaled.blackScoreLead) || !Number.isFinite(evaled.blackWinProb)) {
-      throw new Error("Invalid KataGo neural network output");
-    }
-    // Policy for the player to move; the UI may show it as optional hints.
+    // Policy for the player to move: the first channel of each point.
     const channels = model.policyOutChannels;
-    const policy = rawPolicy.length === area * channels
-      ? Array.from({ length: area }, (_, p) => rawPolicy[p * channels]) : null;
-    let black = 0, white = whiteCompensation(state);
-    for (const v of ownership) { black += (1 + v) / 2; white += (1 - v) / 2; }
-    return {
-      engine: "katago", backend, model: modelName,
-      ownership, black, white, lead: evaled.blackScoreLead,
-      winRate: evaled.blackWinProb,
-      policy: policy && policy.every(Number.isFinite) ? policy : null
-    };
+    const policy = rawPolicy.length === size * size * channels
+      ? Array.from({ length: size * size }, (_, p) => rawPolicy[p * channels]) : null;
+    return { area: size * size, policy, pass, ownership, evaled };
   } finally {
     spatial.dispose();
     global.dispose();
     if (output) for (const t of Object.values(output)) t.dispose();
   }
 }
+async function evaluate(state: unknown) {
+  const { area, policy, ownership, evaled } = await runNetwork(state);
+  if (ownership.length !== area || ownership.some(v => !Number.isFinite(v))
+    || !Number.isFinite(evaled.blackScoreLead) || !Number.isFinite(evaled.blackWinProb)) {
+    throw new Error("Invalid KataGo neural network output");
+  }
+  let black = 0, white = whiteCompensation(state);
+  for (const v of ownership) { black += (1 + v) / 2; white += (1 - v) / 2; }
+  return {
+    engine: "katago", backend, model: modelName,
+    ownership, black, white, lead: evaled.blackScoreLead,
+    winRate: evaled.blackWinProb,
+    // The UI may show the policy as optional hints.
+    policy: policy && policy.every(Number.isFinite) ? policy : null
+  };
+}
 /** Policy for the next move; the settle playout (決着手順) asks the same way. */
 async function evaluateMovePolicy(state: unknown, settle = false) {
-  if (!model) throw new Error("KataGo model not initialized");
-  const { size, pos, spatialFeatures, globalFeatures } = encode(state);
-  const area = size * size;
-  fillInputsV7FastForPosition({
-    ...pos, komi: whiteCompensation(state), rules: rulesOf(state),
-    conservativePassAndIsRoot: true,
-    outSpatial: spatialFeatures, outGlobal: globalFeatures
-  });
-  const spatial = tf.tensor4d(spatialFeatures, [1, size, size, 22]);
-  const global = tf.tensor2d(globalFeatures, [1, 19]);
-  let output: ReturnType<KataGoModelV8Tf["forward"]> | undefined;
-  try {
-    output = model.forward(spatial, global);
-    const [raw, pass, rawOwnership, values, scores] = await Promise.all([
-      output.policy.data(), output.policyPass.data(), output.ownership.data(),
-      output.value.data(), output.scoreValue.data()
-    ]);
-    const channels = model.policyOutChannels;
-    if (raw.length !== area * channels || !pass.length)
-      throw new Error("KataGo returned an unexpected policy shape");
-    const policy = Array.from({ length:area }, (_, p) => raw[p * channels]);
-    if (!policy.every(Number.isFinite) || !Number.isFinite(pass[0]))
-      throw new Error("KataGo policy logits are not finite");
-    // Same sign convention as MieGO: +1 Black controls, -1 White controls.
-    const sign = pos.currentPlayer === "black" ? 1 : -1;
-    const scale = model.postProcessParams.outputScaleMultiplier;
-    const ownership = Array.from(rawOwnership, v => Math.tanh(v * scale) * sign);
-    if (ownership.length !== area || !ownership.every(Number.isFinite))
-      throw new Error("KataGo ownership output is invalid");
-    const evaled = postprocessKataGoV8({
-      nextPlayer: pos.currentPlayer, valueLogits: values, scoreValue: scores,
-      postProcessParams: model.postProcessParams, modelVersion: model.modelVersion
-    });
-    return { kind: settle ? "settle" : "move", engine:"katago", backend, policy, passLogit:pass[0], ownership,
-      winRate: evaled.blackWinProb, lead: evaled.blackScoreLead };
-  } finally {
-    spatial.dispose(); global.dispose();
-    if (output) for (const t of Object.values(output)) t.dispose();
-  }
+  const { area, policy, pass, ownership, evaled } = await runNetwork(state);
+  if (!policy || !pass.length)
+    throw new Error("KataGo returned an unexpected policy shape");
+  if (!policy.every(Number.isFinite) || !Number.isFinite(pass[0]))
+    throw new Error("KataGo policy logits are not finite");
+  if (ownership.length !== area || !ownership.every(Number.isFinite))
+    throw new Error("KataGo ownership output is invalid");
+  return { kind: settle ? "settle" : "move", engine:"katago", backend, policy, passLogit:pass[0], ownership,
+    winRate: evaled.blackWinProb, lead: evaled.blackScoreLead };
 }
 /**
  * 最強's read when it is behind: play the network's favourite legal moves,

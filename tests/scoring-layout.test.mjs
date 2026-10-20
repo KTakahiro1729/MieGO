@@ -30,10 +30,11 @@ const server=createServer(async(request,response)=>{
   const path=new URL(request.url,"http://x").pathname;
   const file=normalize(join(root,path.endsWith("/")?path+"index.html":path));
   if(!file.startsWith(root)){response.writeHead(403).end();return;}
-  try{
-    response.writeHead(200,{"content-type":TYPES[extname(file)]||"application/octet-stream"});
-    response.end(await readFile(file));
-  }catch{response.writeHead(404).end();}
+  // Read first: once the 200 is sent, a missing file can no longer answer 404.
+  let body;
+  try{body=await readFile(file);}catch{response.writeHead(404).end();return;}
+  response.writeHead(200,{"content-type":TYPES[extname(file)]||"application/octet-stream"});
+  response.end(body);
 });
 
 function layout(page){
