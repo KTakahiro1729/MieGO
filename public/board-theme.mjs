@@ -1,6 +1,6 @@
 import { TEXT } from "./texts.mjs";
 // Board looks. Each look fixes its own board, line and stone colours; the
-// ownership colours that sit on top of it are tuned per look in territory-view.
+// ownership colours that sit on top of it are the same on every look.
 // `surface` is the average board colour the overlay is blended against.
 export const BOARD_THEMES = Object.freeze({
   wood: Object.freeze({
