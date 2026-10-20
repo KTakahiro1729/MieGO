@@ -58,24 +58,25 @@ export const prisonersFilled=state=>isJapanese(state) &&
   (scoringStepOf(state)==="count" || state.status==="finished" && !state.result?.endsWith("+R"));
 
 /** The scoreboard rows: board count (area, or territory under Japanese
- * rules), what is added to it, and the total. Once the prisoners fill
- * territory, each side's count is the territory left, plus komi for White;
- * the difference is the same as territory plus prisoners. */
+ * rules), what is added to it, and the total. Under Japanese rules each
+ * side's count is the territory the other side's prisoners leave, plus komi
+ * for White, in both steps: the prisoners already have their own counter, so
+ * the rows never add them again. The difference is the same as territory
+ * plus prisoners. */
 export function scoreRows(state) {
   const score=areaScore(state),komi=komiOf(state),bonus=handicapBonusOf(state);
-  const japanese=isJapanese(state),filled=prisonersFilled(state);
+  const japanese=isJapanese(state);
   const row=(color,total)=>{
-    const prisoners=japanese?score.prisoners[color]:0;
     const extra=color==="white"?komi+bonus:0;
-    if(filled){
+    if(japanese){
       const other=color==="black"?"white":"black";
       const area=score.territory[color]-score.prisoners[other];
       return {area,detail:TEXT.scoring.detail(area,{komi:color==="white"?komi:null,
         bonus:color==="white"?bonus:0}),total:area+extra};
     }
-    const area=total-prisoners-extra;
-    return {area,detail:TEXT.scoring.detail(area,{prisoners:japanese?prisoners:null,
-      komi:color==="white"?komi:null,bonus:color==="white"?bonus:0}),total};
+    const area=total-extra;
+    return {area,detail:TEXT.scoring.detail(area,{komi:color==="white"?komi:null,
+      bonus:color==="white"?bonus:0}),total};
   };
   return {
     black:row("black",score.black),

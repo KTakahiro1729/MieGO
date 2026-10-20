@@ -143,9 +143,8 @@ export const TEXT = {
       "\n白：" + (white.detail ? white.detail + "＝" : "") + white.total,
     breakdownAria: breakdown => breakdown.replace("\n", "、"),
     /** What is added to a board count; empty when nothing is. */
-    detail: (area, { prisoners = null, komi = null, bonus = 0 } = {}) => {
-      const parts = (prisoners !== null ? "＋アゲハマ" + prisoners : "") +
-        (komi !== null ? "＋コミ" + komi : "") + (bonus ? "＋置き石補正" + bonus : "");
+    detail: (area, { komi = null, bonus = 0 } = {}) => {
+      const parts = (komi !== null ? "＋コミ" + komi : "") + (bonus ? "＋置き石補正" + bonus : "");
       return parts ? area + parts : "";
     },
     seki: "セキの地は数えません",

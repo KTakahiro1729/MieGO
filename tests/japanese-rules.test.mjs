@@ -77,10 +77,11 @@ test("scoreboard rows and labels follow territory scoring", () => {
   const board = Array(81).fill(0);
   for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(5, y)] = WHITE; }
   const game = japanese({ board, captures: { black: 2, white: 1 } });
+  // Each side's territory less the other side's prisoners, never plus its own.
   assert.deepEqual(scoreRows(game), {
-    black: { area: 27, detail: "27＋アゲハマ2", total: 29 },
-    white: { area: 27, detail: "27＋アゲハマ1＋コミ6.5", total: 34.5 }, leader: "white" });
-  assert.equal(scoreBreakdown(game), "黒：27＋アゲハマ2＝29\n白：27＋アゲハマ1＋コミ6.5＝34.5");
+    black: { area: 26, detail: "", total: 26 },
+    white: { area: 25, detail: "25＋コミ6.5", total: 31.5 }, leader: "white" });
+  assert.equal(scoreBreakdown(game), "黒：26\n白：25＋コミ6.5＝31.5");
   const labels = scoringRegions(game).regions.map(r => r.count).sort((a, b) => a - b);
   assert.deepEqual(labels, [27, 27]);
 });
