@@ -224,7 +224,7 @@ body.board-zoomed .board-bleed{opacity:1}
 /* 盤 and ルール show the chosen value at the height of the choices that replace it. */
 .setup-fold{min-width:0}
 .setup-fold>[hidden]{display:none}
-.fold-value{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;margin:0;padding:0 12px;
+.fold-value{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:46px;margin:0;padding:0 12px;
   border:1px solid #505766;border-radius:var(--radius);background:#252c38;color:#f1f2f2;font:inherit;font-size:13px;cursor:pointer}
 .fold-chevron{flex:none;color:#9aa1ad}
 .setup-rows .board-size-choices span{min-height:44px}
@@ -316,6 +316,7 @@ body.board-zoomed .board-bleed{opacity:1}
 .history-import-row{margin-top:16px}
 /* 履歴 puts SGF import in the start button's place, so the mode tabs stay put. */
 .history-actions .history-import-row{margin-top:0}
+.history-actions .history-import-label{margin:0;display:flex;align-items:center;justify-content:center;padding:10px 16px;font-size:inherit;font-weight:600}
 .history-import-label{display:block;width:100%;min-height:var(--control-h);padding:11px 14px;font-size:13px;text-align:center;cursor:pointer}
 .history-import-label:focus-within{outline:2px solid #eed183;outline-offset:2px}
 #historyImportFile{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
