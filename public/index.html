@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- Generated from src/index.template.html and public/texts.mjs. Do not edit. -->
 <html lang="ja">
 <head>
   <meta charset="utf-8">
@@ -127,8 +128,8 @@
       </section>
     </main>
     <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
-    <aside id="settingsPanel" class="settings-panel" role="dialog" aria-modal="true" aria-label="表示設定" hidden>
-      <div class="settings-head"><h2>設定</h2><button id="closeSettings" class="icon-button" type="button" aria-label="設定を閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <aside id="settingsPanel" class="settings-panel" role="dialog" aria-modal="true" aria-label="設定" hidden>
+      <div class="settings-head"><h2>設定</h2><button id="resetAppearance" class="reset-button" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span>初期状態に戻す</span></button><button id="closeSettings" class="icon-button" type="button" aria-label="設定を閉じる"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <section class="settings-section">
         <h3>碁盤</h3>
         <fieldset class="palette-choices board-choices" aria-label="碁盤">
@@ -172,12 +173,6 @@
           <div class="range-labels"><span>薄い</span><span>濃い</span></div>
           <span id="opacityValue" class="visually-hidden" aria-live="polite">55%</span>
         </fieldset>
-        <button id="resetAppearance" class="secondary full" type="button">表示を初期状態に戻す</button>
-      </section>
-      <section class="settings-section" aria-label="対局と棋譜の操作">
-        <h3>対局と棋譜</h3>
-        <button id="openHistorySettings" class="secondary full" type="button">保存した棋譜</button>
-        <button id="openCurrentMode" class="secondary full" type="button" hidden>AIの設定・再戦</button>
       </section>
     </aside>
     <aside id="sharePanel" class="settings-panel share-panel" role="dialog" aria-modal="true" aria-label="共有" hidden>
@@ -345,7 +340,8 @@
         </details>
         <details id="help-ownership" class="info-disclosure help-topic" name="helpTopic"><summary>地合いの表示</summary>
           <ul class="help-list">
-            <li>盤上の色は、その場所が黒と白のどちらの地になりそうかの推定です。色は片側2段階です。淡い色は「どちらかに寄っているが、まだ決まっていない場所」、濃い色は「ほぼ決まった場所」で、色がない所はどちらとも言えない場所です。</li><li>盤の空いた所がほとんど濃い色になると、終局（採点）を提案します。</li>
+            <li>盤上の色は、その場所が黒と白のどちらの地になりそうかの推定です。色は片側2段階です。淡い色は「どちらかに寄っているが、まだ決まっていない場所」、濃い色は「ほぼ決まった場所」で、色がない所はどちらとも言えない場所です。</li>
+            <li>盤の空いた所がほとんど濃い色になると、終局（採点）を提案します。</li>
             <li>推定なので、確定した地ではありません。</li>
             <li>配色と濃さは設定（歯車）で変えられます。「緑〜紫」では緑の側が白、紫・ピンクの側が黒です。「カスタム」では4色を自由に選べます。「表示しない」で消せます。</li>
           </ul>
@@ -373,7 +369,7 @@
         <details id="help-online" class="info-disclosure help-topic" name="helpTopic"><summary>対友人</summary>
           <ul class="help-list">
             <li>「招待リンクを準備する」を押し、もう一度押すと招待URLをコピーできます。友人に送って開いてもらえば対局が始まります。</li>
-            <li>対局中に招待URLをもう一度見るときは、設定（歯車）の「招待URLを表示」を開きます。</li>
+            <li>対局中に招待URLをもう一度見るときは、「新規対戦」を開きます。</li>
             <li>新しい対局を作るときなどに、本人確認が出ることがあります。</li>
             <li>アドレスバーのURLには参加用の鍵を残しません。同じブラウザなら開き直すだけで続きから再開できます。別の端末で続けるときは「別の端末で続ける」から自分用の再入室リンクをコピーしてください。</li>
             <li>相手の席に別の端末から参加があると、お知らせが出ます。相手が端末を替えたのでなければ、招待URLがほかの人に渡っていないか確認してください。</li>

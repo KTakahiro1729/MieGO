@@ -1,4 +1,5 @@
 import { BOARD_SIZES, boardHash } from "./core.mjs";
+import { TEXT } from "./texts.mjs";
 
 // The ownership estimate shown for each position of a game, kept so a shared
 // animation can colour every move as it looked while playing. Values are
@@ -8,7 +9,7 @@ const PREFIX = "miego:ownership:v1:";
 
 export function encodeOwnership(values) {
   if(!Array.isArray(values) || !POINTS.has(values.length) ||
-     !values.every(v=>Number.isFinite(v)))throw Error("地合いデータが不正です");
+     !values.every(v=>Number.isFinite(v)))throw Error(TEXT.rules.badOwnership);
   const bytes=values.map(v=>Math.round(Math.max(-1,Math.min(1,v))*127)&255);
   return btoa(String.fromCharCode(...bytes));
 }
@@ -48,7 +49,7 @@ export class OwnershipStore {
   }
   /** Keeps a position for this page only. */
   keep(board,values) {
-    if(values?.length!==board.length)throw Error("地合いデータが盤と合いません");
+    if(values?.length!==board.length)throw Error(TEXT.rules.ownershipMismatch);
     const hash=boardHash(board),encoded=encodeOwnership(values);
     this.memory.delete(hash);this.memory.set(hash,encoded);
     if(this.memory.size>MEMORY_LIMIT)this.memory.delete(this.memory.keys().next().value);

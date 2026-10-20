@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {GameLibrary} from "../public/game-library.mjs";
 import {newGame,play,BLACK} from "../public/core.mjs";
+import {TEXT} from "../public/texts.mjs";
 class MemoryStorage {
   constructor(){this.items=new Map();}
   get length(){return this.items.size;}
@@ -109,9 +110,10 @@ test("SGF import and saved games open on the common board without touching the c
 test("AI resumption distinguishes model initialization, a pending AI move and model failure",async()=>{
  const {readFileSync}=await import("node:fs");
  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
- assert.match(app,/!katagoReady\?"AIを準備中/);
- assert.match(app,/KataGoの準備ができるまで待機中/);
- assert.match(app,/AI対局を停止しました/);
+ assert.match(app,/!katagoReady\?TEXT\.game\.aiPreparing/);
+ assert.match(app,/TEXT\.game\.hintAiLoading/);
+ assert.match(app,/TEXT\.game\.aiStopped/);
+ assert.match(TEXT.game.aiPreparing,/^AIを準備中/);
  assert.match(app,/gameMode=record.mode;game=JSON\.parse\(JSON\.stringify\(record\.snapshot\)\)/);
 });
 
@@ -120,12 +122,12 @@ test("unified history sheet preserves scoring and keyboard-friendly selection",a
  const h=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
  const a=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
  const historyPanel=readFileSync(new URL("../public/history-panel.mjs",import.meta.url),"utf8");
- for(const id of ["historySaveNotice","scoringActions","openCurrentMode","reviewStepRange","shareSgf"])
+ for(const id of ["historySaveNotice","scoringActions","reviewStepRange","shareSgf"])
    assert.match(h,new RegExp('id="'+id+'"'));
- assert.match(a,/\$\("openCurrentMode"\)\.onclick/);
  assert.match(historyPanel,/function showHistory\(\)/);
  assert.match(a,/\$\("newGameButton"\)\.focus\(\)/);
- assert.match(a,/\$\("shareNotice"\)\.textContent="SGFを書き出しました/);
+ assert.match(a,/\$\("shareNotice"\)\.textContent=TEXT\.share\.sgfSaved/);
+ assert.match(TEXT.share.sgfSaved,/^SGFを書き出しました/);
 });
 
 test("variation snapshots stay independently archived and never become resumable active games",()=>{

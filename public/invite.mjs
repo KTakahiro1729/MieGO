@@ -1,15 +1,16 @@
+import { TEXT } from "./texts.mjs";
 /** Browser-only room IDs do not need a network roundtrip. Durable Objects
  * materialize a room when its first participant opens a WebSocket.
  */
 export function createRoomId(cryptoSource = globalThis.crypto) {
   if (!cryptoSource || typeof cryptoSource.getRandomValues !== "function") {
-    throw new Error("安全な乱数を使えるブラウザが必要です");
+    throw new Error(TEXT.online.needsSecureRandom);
   }
   const bytes = cryptoSource.getRandomValues(new Uint8Array(16));
   return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
 }
 export function makeInviteUrl(origin, room) {
-  if (!/^[a-f0-9]{32}$/.test(room)) throw new Error("無効なルームIDです");
+  if (!/^[a-f0-9]{32}$/.test(room)) throw new Error(TEXT.online.badRoom);
   const url = new URL("/", origin);
   url.searchParams.set("room", room);
   return url.toString();
@@ -18,7 +19,7 @@ export function makeInviteUrl(origin, room) {
  * Always leave the read-only URL selected for manual copying on failure.
  */
 export async function copyInviteText(link, { clipboard, input, document: doc }) {
-  if (!input || !doc) throw new Error("招待URLの表示欄が見つかりません");
+  if (!input || !doc) throw new Error(TEXT.online.noInviteField);
   input.value = link;
   if (clipboard && typeof clipboard.writeText === "function") {
     try {

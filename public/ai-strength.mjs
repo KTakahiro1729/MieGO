@@ -1,4 +1,5 @@
 import {neighbors,SIZE,sizeOf} from "./core.mjs";
+import { TEXT } from "./texts.mjs";
 
 // Beginner-friendly strength levels. "strong" keeps the original
 // temperature-sampled KataGo policy. The weaker levels follow KaTrain's
@@ -10,10 +11,10 @@ import {neighbors,SIZE,sizeOf} from "./core.mjs";
 // Formula adapted from KaTrain (MIT License, Copyright (c) 2020 Sander Land),
 // katrain/core/ai.py RankStrategy.
 export const AI_STRENGTHS = Object.freeze({
-  beginner:{label:"はじめて",kyu:30},
-  easy:{label:"やさしい",kyu:20},
-  normal:{label:"ふつう",kyu:12},
-  strong:{label:"つよい",kyu:null}
+  beginner:{label:TEXT.ai.strengths.beginner,kyu:30},
+  easy:{label:TEXT.ai.strengths.easy,kyu:20},
+  normal:{label:TEXT.ai.strengths.normal,kyu:12},
+  strong:{label:TEXT.ai.strengths.strong,kyu:null}
 });
 export const DEFAULT_AI_STRENGTH = "easy";
 // Saved games from before strength levels existed used the full policy.

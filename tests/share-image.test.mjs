@@ -4,6 +4,7 @@ import {readFileSync} from "node:fs";
 import {at,newGame,play,boardHash} from "../public/core.mjs";
 import {resultLabel,shareLabels,shareFrameSize,buildGameAnimation,paintShareFrame,SHARE_LINKS} from "../public/share-image.mjs";
 import {OwnershipStore,encodeOwnership,decodeOwnership} from "../public/ownership-store.mjs";
+import {TEXT} from "../public/texts.mjs";
 
 test("results read the same plain way everywhere",()=>{
   assert.equal(resultLabel("B+3.5"),"黒が3.5目差で勝利");
@@ -19,7 +20,7 @@ test("results read the same plain way everywhere",()=>{
   const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
   const history=readFileSync(new URL("../public/history-navigation.mjs",import.meta.url),"utf8");
   assert.match(app,/querySelector\("strong"\)\.textContent=resultLabel\(result\)/);
-  assert.match(history,/resultLabel\(record\.snapshot\.result\)\|\|"終局済み"/);
+  assert.match(history,/resultLabel\(record\.snapshot\.result\)\|\|TEXT\.history\.statusFinished/);
   assert.doesNotMatch(app,/投了勝ち|目勝ち/);
 });
 

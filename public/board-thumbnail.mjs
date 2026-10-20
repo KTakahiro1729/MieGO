@@ -1,5 +1,6 @@
 import {BLACK, WHITE, isBoardSize, starPoints} from "./core.mjs";
 import {boardTheme} from "./board-theme.mjs";
+import { TEXT } from "./texts.mjs";
 import {ownershipPixel} from "./territory-view.mjs";
 
 const PAD = 5, SPAN = 80, END = PAD+SPAN;
@@ -13,7 +14,7 @@ const num = v => +v.toFixed(2);
  */
 export function boardThumbnailSvg(board, lastPosition=null, themeName, overlay=null) {
   const size=Math.sqrt(board?.length);
-  if(!Array.isArray(board) || !isBoardSize(size))throw Error("盤面データが不正です");
+  if(!Array.isArray(board) || !isBoardSize(size))throw Error(TEXT.rules.badBoard);
   const theme=boardTheme(themeName);
   const gap=SPAN/(size-1), k=gap/10;
   const point=i=>[num(PAD+(i%size)*gap), num(PAD+Math.floor(i/size)*gap)];

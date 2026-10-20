@@ -1,11 +1,12 @@
+import { TEXT } from "./texts.mjs";
 // Stateless P2P network policy; the WebRTC lifecycle remains in p2p-transport.mjs.
 export async function postP2PJson(path,data,fetchRequest=globalThis.fetch) {
   const response=await fetchRequest(path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(data)});
   let result;
   try {result=await response.json();}
-  catch {throw Error("サーバーの応答が不正です");}
+  catch {throw Error(TEXT.online.badResponse);}
   if(!response.ok) {
-    const error=Error(result?.error||"通信に失敗しました");
+    const error=Error(result?.error||TEXT.online.requestFailed);
     error.status=response.status;
     throw error;
   }
