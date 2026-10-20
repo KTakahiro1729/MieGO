@@ -207,7 +207,7 @@ const shownSize = () => sizeOf((boardReview?.display||game).board);
 let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
 let endgameStage = "playing", endExpanded = false, analysisContext = null;
-let lastOfferKey = null, endHintSuppressedUntil = -1;
+let lastOfferKey = null;
 let deadEvaluation=null, deadReview="idle", deadReviewTouched=false;
 // 決着手順: KataGo's playout shown on the board while it settles the dead
 // stones (settle), and the last playout kept for 再生 (settlePlayout).
@@ -317,9 +317,7 @@ function updateEndUi() {
   const localPrompt=playing && !room && endExpanded && !offer;
   const waiting=!!(offer && !incoming);
   const offline=!!room && (!connected || color===null);
-  const hint=endgameHint(game,endgameAdvisor,{
-    unavailable:fallbackMode,suppressedUntil:endHintSuppressedUntil
-  });
+  const hint=endgameHint(game,endgameAdvisor,{unavailable:fallbackMode});
   const passed=playing && !offer && !localPrompt && !offline ? passNotice() : null;
   $("endStatus").textContent=!playing?"":offline?TEXT.endgame.offline:
     incoming?TEXT.endgame.proposed:
@@ -1104,7 +1102,7 @@ function apply(action, remote=false, isAiMove=false) {
     } else if(action.type==="end_answer") {
       const offerFrom=game.endProposal?.from;
       game=answerEndProposal(game,action.color,Boolean(action.accept));
-      if(!action.accept)endHintSuppressedUntil=game.moveNumber+4;
+      if(!action.accept)endgameAdvisor.hold();
       if(remote && !action.accept)endNotice={number:game.moveNumber,hash:boardHash(game.board),
         text:action.color===offerFrom?TEXT.endgame.withdrawnByPeer:TEXT.endgame.declinedByPeer};
       endExpanded=false;
@@ -1260,7 +1258,7 @@ function afterTakeback() {
   if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
   transitionFrame=null;analysis=null;displayedOwnership=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
-  lastOfferKey=null;endNotice=null;endHintSuppressedUntil=-1;
+  lastOfferKey=null;endNotice=null;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
   takebackNotice={number:game.moveNumber,hash:boardHash(game.board),
     text:TEXT.takeback.done(game.moveNumber)};
@@ -1291,7 +1289,7 @@ function freshLocalBoard() {
   candidate=null;lastPosition=null;
   // New endgame/dead-stone signals must not survive a local board reset.
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
-  lastOfferKey=null;endNotice=null;endHintSuppressedUntil=-1;
+  lastOfferKey=null;endNotice=null;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
   game=freshLocalGame(game,nextGameOptions(localHandicap));currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
@@ -1357,8 +1355,8 @@ $("endDecline").onclick=()=>{
   if(game.status!=="playing")return;
   if(game.takebackRequest){answerTakebackRequest(false);return;}
   if(!room && endExpanded && !game.endProposal){
-    // As with a friend's answer, the strongest advice waits a few moves.
-    endHintSuppressedUntil=game.moveNumber+4;
+    // As with a friend's answer, the strongest advice waits for the board to settle again.
+    endgameAdvisor.hold();
     endExpanded=false;updateEndUi();
     if(isAiTurn())requestAnalysis();
     return;
@@ -1905,7 +1903,7 @@ function forkBoardReview() {
   lastPosition=Number.isInteger(last)?last:null;
   candidate=null;analysis=null;displayedOwnership=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
-  lastOfferKey=null;endNotice=null;endHintSuppressedUntil=-1;
+  lastOfferKey=null;endNotice=null;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
   clearImportedReviewUrl();
   boardReview=null;reviewSequence++;

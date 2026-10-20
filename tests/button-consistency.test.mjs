@@ -50,3 +50,17 @@ test("each control row keeps continue-left, advance-right with at most one gold 
   const menu=html.slice(html.indexOf('class="review-menu-popover"'),html.indexOf('id="reviewNotice"'));
   assert.doesNotMatch(menu,/primary/);
 });
+test("related buttons fuse into one group; the primary stays apart (UX policy §3.6)",()=>{
+  const group=cls=>{const at=html.indexOf('class="fused '+cls+'"');assert.ok(at>=0,cls);return html.slice(at,html.indexOf("</div>",at));};
+  const moves=group("move-controls");
+  for(const id of ["cancel","resign","pass"])assert.match(moves,new RegExp('id="'+id+'"'));
+  assert.doesNotMatch(moves,/id="confirm"|class="primary/);
+  const steps=group("review-steps");
+  for(const id of ["reviewPrevious","reviewStepToggle","reviewNext"])assert.match(steps,new RegExp('id="'+id+'"'));
+  assert.doesNotMatch(steps,/review-back|reviewConfirm/);
+  for(const cls of ["new-game-modes","ai-color-choices board-size-choices","ai-color-choices rules-choices"])group(cls);
+  assert.doesNotMatch(html,/class="fused[^"]*"[^>]*>\s*<button[^>]*class="[^"]*primary/);
+  // Hidden members leave no stray divider; an all-hidden group disappears.
+  assert.match(css,/\.fused\{display:flex;gap:1px;/);
+  assert.match(css,/\.fused:not\(:has\(>:not\(\[hidden\]\)\)\)\{display:none\}/);
+});
