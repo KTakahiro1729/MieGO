@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BLACK, WHITE, at, newGame, beginSoloScoring } from "../public/core.mjs";
-import { settleLimit, settleStart, pickSettleMove, settleStep, deadFromPlayout, replayPlayout } from "../public/settle-playout.mjs";
+import { damePoints, settleLimit, settleStart, pickSettleMove, settleStep, deadFromPlayout, replayPlayout } from "../public/settle-playout.mjs";
 
 // Black walls off the left, White the right; one white stone sits dead inside Black's area.
 function position() {
@@ -78,4 +78,26 @@ test("a received playout is replayed only if every move is legal", () => {
   assert.equal(replayPlayout(game, "x"), null);
   assert.equal(replayPlayout(game, Array(40).fill(null)), null);
   assert.equal(replayPlayout(game, [at(0, 1)])[1].board[at(0, 1)], BLACK);
+});
+
+test("before passing, the mover fills the dame between the two sides", () => {
+  const board = Array(81).fill(0);
+  for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(5, y)] = WHITE; }
+  const start = settleStart(beginSoloScoring({ ...newGame(), board, history: [board.map(n => n + 1).join("")] }));
+  // KataGo would pass; column 4 touches both walls, so it is dame.
+  const move = pickSettleMove(start, logits([at(4, 6), at(0, 0)]), 20, Array(81).fill(0));
+  assert.equal(move, at(4, 6));
+  assert.equal(damePoints(start).size, 9);
+  // Points inside one side's area are never dame.
+  assert.ok(!damePoints(start).has(at(0, 0)));
+});
+
+test("a dame fill that would put the mover's own group in atari is left open", () => {
+  // Black (0,0)-(1,0) and White (0,1)-(1,1)... a shared liberty at (2,0) and (2,1) in a corner seki-like shape.
+  const board = Array(81).fill(0);
+  board[at(0, 0)] = BLACK; board[at(1, 0)] = BLACK; board[at(0, 1)] = WHITE; board[at(1, 1)] = WHITE;
+  board[at(3, 0)] = WHITE; board[at(2, 1)] = WHITE; board[at(2, 2)] = BLACK; board[at(1, 2)] = BLACK; board[at(0, 2)] = BLACK;
+  const start = settleStart(beginSoloScoring({ ...newGame(), board, history: [board.map(n => n + 1).join("")] }));
+  // Black's corner pair has one liberty left at (2,0); filling it would be its last.
+  assert.ok(!damePoints(start).has(at(2, 0)));
 });

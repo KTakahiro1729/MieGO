@@ -9,6 +9,11 @@ import { BLACK, WHITE, group, neighbors, play, resume, sizeOf } from "./core.mjs
 
 /** At most this many playout moves: a third of the board (27, 56 or 120). */
 export const settleLimit = size => Math.round(size * size / 3);
+/** 「AIに続きを打たせる」 adds another limit's worth of moves, up to this many in all. */
+export const settleMax = size => settleLimit(size) * 4;
+/** The pause between shown playout moves: 360ms on 9x9, shorter on bigger
+ * boards so a full-length playout takes about ten seconds (at most 15 on 19x19). */
+export const settleStepMs = size => Math.min(360, Math.max(120, Math.round(9000 / settleLimit(size))));
 
 /** A scratch position to play out from: the scoring position, playable again. */
 export function settleStart(game) {
@@ -41,11 +46,38 @@ export function captureTargets(state, ownership) {
 }
 
 /**
+ * 駄目: empty points next to stones of both colours, in an empty area that
+ * touches both (so nobody's territory). The mover fills one only where its
+ * own group keeps two liberties: a fill that puts it in atari (seki's shared
+ * liberties among them) is left open.
+ */
+export function damePoints(state) {
+  const board = state.board, size = sizeOf(board), me = state.next, points = new Set(), seen = new Set();
+  for (let i = 0; i < board.length; i++) {
+    if (board[i] || seen.has(i)) continue;
+    const area = [i], border = new Set(); seen.add(i);
+    for (let head = 0; head < area.length; head++) for (const n of neighbors(area[head], size)) {
+      if (board[n]) border.add(board[n]);
+      else if (!seen.has(n)) { seen.add(n); area.push(n); }
+    }
+    if (border.size < 2) continue;
+    for (const p of area) {
+      const around = neighbors(p, size).map(n => board[n]);
+      if (!around.includes(BLACK) || !around.includes(WHITE)) continue;
+      const next = [...board]; next[p] = me;
+      if (group(next, p).liberties.size >= 2) points.add(p);
+    }
+  }
+  return points;
+}
+
+/**
  * KataGo's top legal move for the player to move, or null to pass. Eye-filling
  * moves are never chosen (they could only kill one's own group). A pass wins
  * when its logit is at least the best remaining move's, except that the mover
  * first fills the liberties of opponent stones its ownership calls dead, so
- * the playout really removes them.
+ * the playout really removes them, and then fills the dame, so the count
+ * leaves no point open between the two sides.
  */
 export function pickSettleMove(state, policy, passLogit, ownership = null) {
   if (state.status !== "playing" || !Array.isArray(policy) || policy.length !== state.board.length) return null;
@@ -60,6 +92,8 @@ export function pickSettleMove(state, policy, passLogit, ownership = null) {
   }
   // Rather than pass, take the best-rated point that closes in on dead stones.
   for (const [, p] of order) if (targets.has(p) && legal(p)) return p;
+  const dame = damePoints(state);
+  for (const [, p] of order) if (dame.has(p) && legal(p)) return p;
   return null;
 }
 
@@ -94,7 +128,7 @@ export function deadFromPlayout(original, settledBoard, ownership) {
 /** A received playout (from the friend who ran it) replayed and checked; null if it is not legal. */
 export function replayPlayout(game, positions) {
   const size = sizeOf(game.board);
-  if (!Array.isArray(positions) || positions.length > settleLimit(size) + 2) return null;
+  if (!Array.isArray(positions) || positions.length > settleMax(size)) return null;
   let state = settleStart(game);
   const frames = [state];
   try {

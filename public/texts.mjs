@@ -50,6 +50,12 @@ export const TEXT = {
     occupied: "空いている交点を選んでください。",
     suicide: "別の交点を選んでください。自殺手で打てません。",
     ko: "別の交点を選んでください。コウで打てません。",
+    // 五目並べ with 禁じ手: Black's forbidden shapes.
+    gomoku: {
+      doubleThree: "別の交点を選んでください。黒の三三で打てません。",
+      doubleFour: "別の交点を選んでください。黒の四四で打てません。",
+      overline: "別の交点を選んでください。黒の長連で打てません。",
+    },
   },
 
   takeback: {
@@ -79,6 +85,7 @@ export const TEXT = {
     near: "そろそろ終局です",
     ready: "終局をご検討ください",
     unavailable: "終局は自分で判断してください。目安を出せません",
+    gomoku: "縦・横・斜めに5つ並べたら勝ち",
     checking: "終局の目安を確認中",
     updating: "終局の目安を更新中",
     offline: "相手を待っています",
@@ -94,6 +101,15 @@ export const TEXT = {
     detailWaiting: "相手の返答待ちです。提案は取り下げられます。",
     detailOnline: "終局はいつでも提案できます。提案はパスと異なります。",
     detailOffline: "採点はいつでも始められます。パスとは別の操作です。",
+    // After one pass: the next pass starts scoring without another question.
+    // What to do comes first (UX方針 3.5); each fits the bar beside its button at 360px.
+    passedAi: "パスで採点へ。AIはパス済み",
+    passedOpponent: "パスで採点へ。相手はパス済み",
+    passedSelf: "相手もパスすると採点へ",
+    passedLocal: c => "パスで採点へ。" + color(c) + "はパス済み",
+    declinedByPeer: "相手が終局を見送りました",
+    withdrawnByPeer: "相手が提案を取り下げました",
+    cancelledByMove: "相手の着手で提案は消えました",
   },
 
   scoring: {
@@ -108,10 +124,14 @@ export const TEXT = {
     backToDead: "死石判定に戻る",
     countStep: "アゲハマを相手の地に埋めました。数字は残った地です",
     agreedWaiting: "確認済み · 相手待ち",
+    peerAgreed: "確認して同意してください。相手は同意済み",
+    peerAgreedDead: "死石を確認して同意してください。相手は同意済み",
     waitingDead: "死石判定を待っています",
     finishedResign: "対局終了",
     finishedScore: "中国式で採点確定",
     finishedScoreJapanese: "日本式で採点確定",
+    finishedGomoku: "5つ並びました",
+    finishedGomokuDraw: "盤が埋まったので引き分けです",
     reviewPending: "死石を自動判定中…",
     reviewLoading: "KataGoを準備中。石の手動指定もできます",
     reviewAwaiting: "相手側で死石を判定中…",
@@ -123,10 +143,13 @@ export const TEXT = {
     reviewModifiedJapanese: "数字は地。点数を確認してください",
     reviewUnavailable: "死石をタップして指定してください。自動判定できません",
     reviewChecking: "死石を確認しています…",
-    settling: moves => "AIが最善手で決着をつけています（" + moves + "手）",
+    settling: moves => "石をタップで修正。AIが決着をつけています（" + moves + "手）",
+    settleCut: moves => "上限の" + moves + "手で止めた盤面。取られた石を死石にします",
     settleDone: moves => moves ? "決着後の盤面（" + moves + "手）。取られた石を死石にします" : "打つ手がなく、そのまま判定します",
     settleSkip: "スキップ",
     settleReplay: "決着手順を再生",
+    settleExtend: "AIに続きを打たせる",
+    settleExtendHint: moves => "続きを打たせて地を決めてください。" + moves + "手で停止",
     // Each row: { area, detail, total } from scoreRows.
     breakdown: (black, white) => "黒：" + (black.detail ? black.detail + "＝" : "") + black.total +
       "\n白：" + (white.detail ? white.detail + "＝" : "") + white.total,
@@ -155,9 +178,15 @@ export const TEXT = {
     moveLabel: move => move + "手目 ‹ ›",
     localPractice: "ローカル練習",
     boardLabel: size => size + "路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。",
-    ruleSummary: (size, komi, handicap, japanese = false) => size + "路盤 · " +
+    ruleSummary: (size, komi, handicap, japanese = false, forbidden = false) => japanese === "gomoku" ?
+      size + "路盤 · 五目並べ" + (forbidden ? "（禁じ手あり：黒は三三・四四・長連を打てず、ちょうど5つで勝ち。白は5つ以上で勝ち）" :
+        "（禁じ手なし：5つ以上並べたら勝ち）") : size + "路盤 · " +
       (japanese ? "日本式ルール · " : "中国式ルール · ") + (handicap ?
       "置き石" + handicap + "子 · コミ" + komi + (japanese ? "目" : "＋置き石補正" + handicap + "目") : "コミ" + komi),
+    // The short form of ruleSummary, shown in the turn row above the board.
+    ruleLabel: (size, rules, komi, handicap, forbidden = false) => size + "路 · " +
+      (rules === "gomoku" ? "五目並べ" + (forbidden ? " · 禁じ手あり" : "") : (rules === "japanese" ? "日本式" : "中国式") +
+        (handicap ? " · 置き石" + handicap : " · コミ" + komi)),
     capturesLabel: "アゲハマ",
     captures: (black, white) => "アゲハマ　黒 " + black + "　白 " + white,
     capturesAria: (black, white) => "アゲハマ：黒が取った石" + black + "、白が取った石" + white,
@@ -239,6 +268,7 @@ export const TEXT = {
     thinking: "KataGoが着手を計算中…",
     playingWith: (strength, invasion, reinforcement) => "強さ「" + strength + "」・侵入度「" + invasion +
       "」・補強度「" + reinforcement + "」で対局中（探索なし）",
+    playingGomoku: "五目並べのCOMは、並びの長さを数える簡単な読みで打ちます（強さの設定は使いません）。",
     ready: "KataGo準備完了。AI対局を開始できます。",
     startUnavailable: "AIを使えません",
     startLoading: "KataGo準備中…",
@@ -441,11 +471,12 @@ export const TEXT = {
     tooLarge: "512KB以下のSGFファイルを選んでください。",
     tooLong: "手数や分岐の少ない棋譜を選んでください。",
     multipleGames: "対局が1つだけ入ったファイルを選んでください。",
-    notGo: "囲碁の棋譜ファイルを選んでください。",
+    notGo: "囲碁か五目並べの棋譜ファイルを選んでください。",
     sizes: sizes => sizes + "路盤の棋譜を選んでください。",
     format: "FF[4]形式のSGFファイルを選んでください。",
     setupMidGame: "途中で石を置き直していない棋譜を選んでください。",
     setupWhite: "白石を最初に置いていない棋譜を選んでください。",
+    setupGomoku: "最初に石を置いていない五目並べの棋譜を選んでください。",
     handicap: max => "置き石が星への2〜" + max + "子の棋譜を選んでください。",
     player: "黒から（置き碁は白から）打ち始める棋譜を選んでください。",
     illegalMove: move => "別の棋譜を選んでください。" + move + "手目がMieGOのルールでは打てません。",
@@ -487,8 +518,9 @@ export const TEXT = {
     illegalTitle: size => "MieGO・" + size + "路盤の着手確認",
     illegalTurn: color => "手番：" + color + "、選択した空点は図中の◇です。",
     illegalReason: reason => "禁止理由：" + reason,
-    illegalReasons: { suicide: "自殺手", ko: "コウ" },
+    illegalReasons: { suicide: "自殺手", ko: "コウ", doubleThree: "黒の三三（禁じ手）", doubleFour: "黒の四四（禁じ手）", overline: "黒の長連（禁じ手）" },
     illegalAsk: "なぜこの手が打てないのか、盤面と囲碁のルールに沿って説明してください。",
+    illegalAskGomoku: "なぜこの手が打てないのか、盤面と五目並べの禁じ手（連珠のルール）に沿って説明してください。",
     handoffIntro: "MieGOの棋譜URL（9・13・19路盤）です。以下のURL仕様に従って解釈・生成できます。",
     handoffBoard: step => "選択している局面（" + step + "手目）の盤面",
     handoffSpec: [
@@ -550,9 +582,11 @@ export const TEXT = {
     comBlack: "● 黒のCOM",
     comWhite: "○ 白のCOM",
     rules: "ルール",
-    rulesChoices: { chinese: "中国式", japanese: "日本式" },
+    rulesChoices: { chinese: "中国式", japanese: "日本式", gomoku: "五目並べ" },
     advanced: "詳細設定",
     hideStones: "石を隠す（地合いだけ表示）",
+    gomokuForbidden: "禁じ手あり（五目並べ）",
+    gomokuForbiddenNote: "黒だけ三三・四四・長連を打てなくなります。先手の黒が強すぎるのを抑える連珠のルールです。",
     hideStonesNote: "石を描かず、地合いの色だけで盤面を読みます。この対局の間は変えられず、対友人では相手の画面も同じになります。整地になると石が現れます。",
     start: "対局を始める",
   },
@@ -591,7 +625,7 @@ export const TEXT = {
     endgameTopic: {
       summary: "終局と採点",
       items: [
-        "終局は「パス」ではなく、盤下の終局のボタンで始めます。",
+        "終局は盤下の終局のボタンで始めます。続けて2回パスしても、確認なしで採点に進みます。",
         "1台・対COM：「採点を始める」→「採点へ進む」。AIの同意は要りません。",
         "対友人：「終局を提案」し、相手が「受け入れる」と採点に進みます。",
         "採点中でも「対局を再開」で打ち続けられます。",
@@ -600,7 +634,9 @@ export const TEXT = {
     scoring: {
       summary: "死石の確認",
       items: [
-        "死石の候補は自動で選ばれます。違っていたら石をタップして直します。",
+        "採点に入ると、AIが両者パスまで打ち進めて（決着手順）、取られた石を死石の候補にします。AIが境目に置いた石は小さな石で残り、地を数えるときの境目になります。対局の棋譜は変わりません。",
+        "決着手順の途中で「スキップ」を押すと、すぐ結果に進みます。石を押すと、結果に進んでからその石の死石の指定を切り替えます。「決着手順を再生」でもう一度見られます。手数の上限で止まったときは「AIに続きを打たせる」で、止まった所から続けられます。",
+        "死石の候補が違っていたら、石をタップして直します。",
         "数字は石と地の合計です。",
         "色は対局中の地合いと同じ配色で、確定した地を示します。小さな輪は、どちらの地でもない「中立」の点です。",
         "納得したら「この計算に同意」で確定します。対友人は2人とも同意すると確定します。",
@@ -618,7 +654,7 @@ export const TEXT = {
       summary: "地合いの表示",
       items: [
         "盤上の色は、その場所が黒と白のどちらの地になりそうかの推定です。色は片側2段階です。淡い色は「どちらかに寄っているが、まだ決まっていない場所」、濃い色は「ほぼ決まった場所」で、色がない所はどちらとも言えない場所です。",
-        "盤の空いた所がほとんど濃い色になると、終局（採点）を提案します。",
+        "数手打っても地合いの色がほとんど動かなくなる（1手で1目ほどしか変わらない）と、終局（採点）をすすめます。",
         "推定なので、確定した地ではありません。",
         "配色と濃さは設定（歯車）で変えられます。「緑〜紫」では緑の側が白、紫・ピンクの側が黒です。「カスタム」では4色を自由に選べます。「表示しない」で消せます。",
       ],
@@ -629,6 +665,8 @@ export const TEXT = {
         "新規対戦でルールを選べます。中国ルール（既定）は、盤上の自分の石と地の合計で勝敗を決めます。互先のコミは7.5目です。",
         "日本ルールは、地（囲んだ空き点）とアゲハマ（対局中に取った石と、終局時に取り除いた死石）の合計で勝敗を決めます。互先のコミは6.5目です。セキの中の空き点は地に数えません。アゲハマは地合いのバーの下に表示されます。採点中は、アゲハマを元の持ち主の地に小さな石で埋めて示します。まとまりの外枠の色は、アゲハマ表示の枠の色と同じです。",
         "置き碁は新規対戦の「詳細設定」で選べます。白が先に打ち、コミは0.5目です。中国ルールでは白に置き石の数だけ加点します（日本ルールでは加点しません）。",
+        "五目並べは同じ盤と石で遊ぶ別のゲームです。黒から交互に打ち、縦・横・斜めのどれかに自分の石を5つ以上続けて並べた方が勝ちです。石を取ること、パス、採点はありません。盤が埋まったら引き分けです。置き石は使えません。",
+        "五目並べの「禁じ手」は詳細設定で選べます。ありにすると連珠と同じく、黒だけ三三（活三を2つ同時に作る手）・四四（四を2つ同時に作る手）・長連（6つ以上）を打てず、ちょうど5つで勝ちになります。5つが同時にできる手は打てます。白に禁じ手はなく、長連でも勝ちです。",
       ],
       current: "現在の対局：",
     },

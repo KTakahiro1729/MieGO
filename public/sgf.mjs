@@ -1,4 +1,4 @@
-import { BLACK, rulesOf, WHITE, BOARD_SIZES, isBoardSize, sizeOf, handicapPoints, maxHandicap, newGame, initialGame, handicapOf, komiOf, play, resume, boardHash } from "./core.mjs";
+import { BLACK, hasGomokuForbidden, isGomoku, rulesOf, WHITE, BOARD_SIZES, isBoardSize, sizeOf, handicapPoints, maxHandicap, newGame, initialGame, handicapOf, komiOf, play, resume, boardHash } from "./core.mjs";
 import { TEXT } from "./texts.mjs";
 import { UserError } from "./user-error.mjs";
 
@@ -74,7 +74,9 @@ export function parseSGF(text) {
   let tree=parseTree(text);const nodes=[];
   while(tree){nodes.push(...tree.nodes);tree=tree.children[0]||null;}
   const root=nodes[0];
-  if(first(root,"GM")!==null && first(root,"GM")!=="1")throw new UserError(TEXT.sgf.notGo);
+  // GM[4] is Gomoku/Renju, replayed as MieGO's free-style 五目並べ.
+  const gomoku=first(root,"GM")==="4";
+  if(first(root,"GM")!==null && first(root,"GM")!=="1" && !gomoku)throw new UserError(TEXT.sgf.notGo);
   const size=Number(first(root,"SZ"));
   if(!/^\d+$/.test(first(root,"SZ")??"") || !isBoardSize(size))
     throw new UserError(TEXT.sgf.sizes(BOARD_SIZES.join("・")));
@@ -86,6 +88,7 @@ export function parseSGF(text) {
   if(["AW","AE"].some(prop=>prop in root))throw new UserError(TEXT.sgf.setupWhite);
   const placed=(root.AB||[]).map(value=>decodeMove(value,size));
   const handicap=placed.length;
+  if(gomoku && handicap)throw new UserError(TEXT.sgf.setupGomoku);
   if(handicap===1 || handicap>maxHandicap(size) ||
      (first(root,"HA")!==null && Number(first(root,"HA"))!==handicap) ||
      placed.some(p=>!handicapPoints(size,handicap).includes(p)) ||
@@ -94,8 +97,11 @@ export function parseSGF(text) {
   if(first(root,"PL")!==null && first(root,"PL")!==(handicap?"W":"B"))
     throw new UserError(TEXT.sgf.player);
   // Japanese (and Korean) territory rules are replayed as Japanese; anything else as Chinese.
-  const rules=/^\s*(japanese|korean|jp|ja|kr)\b/i.test(first(root,"RU")??"")?"japanese":"chinese";
-  let state=newGame(true,{handicap,size,rules}),seen=0;
+  const rules=gomoku?"gomoku":
+    /^\s*(japanese|korean|jp|ja|kr)\b/i.test(first(root,"RU")??"")?"japanese":"chinese";
+  // RU[Renju] on a GM[4] record is 五目並べ with Black's forbidden moves.
+  const gomokuForbidden=gomoku && /^\s*renju\b/i.test(first(root,"RU")??"");
+  let state=newGame(true,{gomokuForbidden,handicap,size,rules}),seen=0;
   for(const node of nodes){
     if(("B" in node)&&("W" in node))throw broken();
     const key="B" in node?"B":"W" in node?"W":null;
@@ -111,7 +117,7 @@ export function parseSGF(text) {
   const result=first(root,"RE");
   const metadata={
     komi:first(root,"KM")??String(komiOf(state)),
-    rules:first(root,"RU")??(rules==="japanese"?"Japanese":"Chinese"),
+    rules:first(root,"RU")??(gomoku?"Gomoku":rules==="japanese"?"Japanese":"Chinese"),
     result:result||null,
     blackName:first(root,"PB")||null,
     whiteName:first(root,"PW")||null
@@ -164,7 +170,10 @@ export function exportSGF(record) {
   const handicap=handicapOf(snapshot);
   const setup=handicap?"HA["+handicap+"]AB"+handicapPoints(size,handicap)
     .map(p=>"["+coord(p,size)+"]").join(""):"";
-  return "(;GM[1]FF[4]CA[UTF-8]SZ["+size+"]KM["+esc(meta.komi??komiOf(snapshot))+"]RU["+
-    esc(meta.rules??(rulesOf(snapshot)==="japanese"?"Japanese":"Chinese"))+"]"+setup+label("PB",meta.blackName)+
+  // SGF game type 4 is Gomoku/Renju, which has no komi or Go ruleset.
+  const head=isGomoku(snapshot)?"(;GM[4]FF[4]CA[UTF-8]SZ["+size+"]"+(hasGomokuForbidden(snapshot)?"RU[Renju]":""):
+    "(;GM[1]FF[4]CA[UTF-8]SZ["+size+"]KM["+esc(meta.komi??komiOf(snapshot))+"]RU["+
+    esc(meta.rules??(rulesOf(snapshot)==="japanese"?"Japanese":"Chinese"))+"]";
+  return head+setup+label("PB",meta.blackName)+
     label("PW",meta.whiteName)+label("RE",result)+moves+")";
 }

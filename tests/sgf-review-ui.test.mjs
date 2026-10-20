@@ -59,9 +59,8 @@ test("replay entry does not make the existing game header taller",()=>{
  assert.match(style,/\.move-history-toggle::before\{[^}]*inset:-9px 0/);
 });
 
-test("sharing lives in one sheet beside settings, not in the replay menu",()=>{
+test("sharing lives in one header sheet, not in the replay menu",()=>{
  const header=html.slice(html.indexOf('class="header-actions"'),html.indexOf('</header>'));
- assert.ok(header.indexOf('id="settingsToggle"')<header.indexOf('id="shareToggle"'),"share sits right of settings");
  assert.match(header,/id="shareToggle"[^>]*aria-label="共有を開く"[^>]*aria-controls="sharePanel"/);
  const sheet=html.slice(html.indexOf('<aside id="sharePanel"'),html.indexOf('<aside id="modePanel"'));
  for(const id of ["saveImage","shareImage","shareLink","shareAiLink","shareSgf","shareNotice","shareCopyFallback"])

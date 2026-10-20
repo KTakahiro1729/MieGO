@@ -6,10 +6,12 @@ const html=get("index.html"),app=get("app.mjs"),css=get("style.css"),help=get("h
 const sheet=html.slice(html.indexOf('<aside id="helpPanel"'),html.indexOf('</aside>',html.indexOf('<aside id="helpPanel"')));
 const topics=new Set([...sheet.matchAll(/<details id="help-([\w-]+)"/g)].map(m=>m[1]));
 
-test("the header offers help between 新規対戦 and the settings gear",()=>{
+test("the header reads 新規対戦, share, help, then the settings gear at the end",()=>{
   const header=html.slice(html.indexOf('class="header-actions"'),html.indexOf('</header>'));
-  assert.ok(header.indexOf('id="newGameButton"')<header.indexOf('id="helpToggle"'));
-  assert.ok(header.indexOf('id="helpToggle"')<header.indexOf('id="settingsToggle"'));
+  const order=["newGameButton","shareToggle","helpToggle","settingsToggle"].map(id=>header.indexOf('id="'+id+'"'));
+  assert.ok(order.every((at,i)=>at>=0&&(i===0||order[i-1]<at)),order.join());
+  for(const label of ["共有を開く","ヘルプを開く","設定を開く"])
+    assert.match(header,new RegExp('aria-label="'+label+'" title="'+label+'"'),"icon buttons name themselves on hover too");
   assert.match(header,/id="helpToggle" class="icon-button"[^>]*aria-label="ヘルプを開く"[^>]*aria-controls="helpPanel"/);
   assert.match(help,/\$\("helpToggle"\)\.onclick=/);
 });
@@ -33,7 +35,11 @@ test("every local help button names an existing topic",()=>{
   // Context-dependent buttons only ever switch between topics that exist.
   assert.match(app,/\$\("modeHelp"\)\.dataset\.help=kind;/);
   for(const kind of ["local","ai","online","history"])assert.ok(topics.has(kind),kind);
-  assert.match(app,/\$\("endHelp"\)\.dataset\.help=playing && illegalCandidate\?"illegal":"endgame";/);
+  assert.match(app,/\$\("endHelp"\)\.dataset\.help=isGomoku\(game\)\?"rules":playing && illegalCandidate\?"illegal":"endgame";/);
+  assert.match(app,/dataset\.help=gomoku\?"rules":"scoring";/);
+  for(const topic of ["rules","scoring"])assert.ok(topics.has(topic),topic);
+  // The rules shown above the board are plain text with the usual ? beside them.
+  assert.match(html,/<span id="ruleLabel" class="rule-label">[^<]+<\/span><button class="help-button" type="button" data-help="rules"/);
 });
 
 test("help stacks above the open sheet and Escape closes it first",()=>{
