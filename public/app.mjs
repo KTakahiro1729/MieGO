@@ -73,7 +73,7 @@ import {
   storageKey,
 } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
-import { interpolateOwnership } from "./territory-view.mjs";
+import { interpolateOwnership, prisonerOutline } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
@@ -95,7 +95,7 @@ import {
   takebackCut,
 } from "./takeback.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
-import { scoreBreakdown, scoreRows, PRISONER_OUTLINE } from "./scoring-regions.mjs";
+import { scoreBreakdown, scoreRows } from "./scoring-regions.mjs";
 import { createBoardZoom } from "./board-zoom.mjs";
 import {forbiddenLines,inspectProvisionalMove,makeIllegalMovePrompt} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
@@ -1138,12 +1138,13 @@ function show() {
   const counted=game.status==="scoring" || game.status==="finished" && !game.result?.endsWith("+R");
   const prisoners=japanese && counted?
     areaScore(game).prisoners:{black:game.captures?.black||0,white:game.captures?.white||0};
-  // Black's prisoners are White stones: that pill shows White stones, in the
-  // outline colour of the White stones filled into White's territory.
+  // Black's prisoners are White stones: that pill shows White stones, in
+  // Black's area colour, as the White stones filled into White's territory are.
   $("whitePrisoners").textContent=String(prisoners.black);
   $("blackPrisoners").textContent=String(prisoners.white);
-  $("whitePrisonerPill").style.borderColor=PRISONER_OUTLINE.white;
-  $("blackPrisonerPill").style.borderColor=PRISONER_OUTLINE.black;
+  const outline=prisonerOutline(shownPalette());
+  $("whitePrisonerPill").style.borderColor=outline.white;
+  $("blackPrisonerPill").style.borderColor=outline.black;
   $("captureCounts").setAttribute("aria-label",TEXT.game.capturesAria(prisoners.black,prisoners.white));
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
   $("gamePanel").classList.toggle("is-scoring",isScoring);

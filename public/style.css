@@ -66,6 +66,7 @@ button:hover:not(:disabled){border-color:#748094}
 .rule-line .help-button svg{width:16px;height:16px}
 .board-frame{width:min(100%,675px);min-width:0;align-self:center;aspect-ratio:1;padding:5px;background:linear-gradient(135deg,#b28751,#e4c587 35%,#956c43 100%);border:1px solid #d3b078;border-radius:14px;box-shadow:0 2px 1px #ffffff13 inset,0 15px 40px #0008,0 0 0 1px #f2d69422;position:relative;isolation:isolate;transition:box-shadow .3s,border-color .3s}
 /* Board looks (board-theme.mjs): the frame matches the canvas. */
+.board-frame[data-board-theme="custom"]{background:linear-gradient(135deg,#ffffff26,#0000 35%,#00000040),var(--board-colour);border-color:#ffffff30}
 .board-frame[data-board-theme="light"]{background:#a9aeb6;border-color:#c9cdd3;box-shadow:0 15px 40px #0008}
 .board-frame[data-board-theme="dark"]{background:linear-gradient(135deg,#ffffff30,#ffffff08 40%,#ffffff18);border-color:#ffffff40;box-shadow:0 1px 0 #ffffff30 inset,0 15px 40px #000a,0 0 0 1px #9fc4e022;backdrop-filter:blur(6px)}
 .board-viewport{width:100%;height:100%;overflow:hidden;border-radius:8px}
@@ -170,7 +171,20 @@ body.board-zoomed .board-bleed{opacity:1}
 .palette-choice:has(input:focus-visible){outline:3px solid #f2c875;outline-offset:2px}
 .swatch{width:100%;height:45px;border-radius:8px;box-shadow:0 1px 4px #0005;border:1px solid #9a9a9a55}
 .palette-choices:not(.board-choices){grid-template-columns:repeat(2,minmax(0,1fr))}
-.board-choices{margin-bottom:16px}
+.board-choices{margin-bottom:16px;grid-template-columns:repeat(4,minmax(0,1fr))}
+/* The custom board's swatch takes its colours from the pickers. */
+.board-swatch.custom{background-color:var(--sw-board)}
+/* カスタム's colours: a row of swatches per colour, then "＋" for any other.
+   Only "＋" opens the device's colour picker. */
+#customBoardColours[hidden]{display:none}
+.colour-row{display:flex;align-items:center;gap:7px;margin:0 0 9px}
+.colour-row-label{width:34px;flex:none;font-size:12px;color:#ccd0da}
+.colour-chip{width:26px;height:26px;min-width:0;min-height:0;flex:none;padding:0;border:1px solid #ffffff3a;border-radius:50%;cursor:pointer;position:relative}
+.colour-chip[aria-checked="true"],.colour-other.is-chosen{box-shadow:0 0 0 2px #181e2a,0 0 0 4px #edc77c}
+.colour-chip:focus-visible,.colour-other:focus-within{outline:3px solid #f2c875;outline-offset:3px}
+.settings-section .colour-other{display:grid;place-items:center;margin:0;border:1px dashed #9aa1ae;background:none}
+.colour-other:not(.is-chosen)::before{content:"+";color:#b0b6c2;font-size:17px;line-height:1}
+.colour-other input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
 /* Swatch colours follow the chosen board and are set from territory-view. */
 .swatch{background-color:#e5c58c}
 .board-swatch{width:100%;height:45px;border-radius:8px;box-shadow:0 1px 4px #0005;border:1px solid #9a9a9a55;
@@ -183,11 +197,13 @@ body.board-zoomed .board-bleed{opacity:1}
 .ownership-legend.overlay-off :is(.bar-line,.legend-area),.ownership-legend.no-territory :is(.bar-line,.legend-area){visibility:hidden}
 .ownership-legend.is-preparing .bar-line{opacity:.4;transition:opacity .4s}
 /* Japanese rules: prisoners under the ownership bar. Each pill holds the stones
-   filled into territory on the board and wears the same outline colour. */
+   filled into territory on the board and wears the same outline colour: the
+   area colour of the side that took them. A faint outer edge keeps a dark
+   area colour visible on the page. */
 .capture-counts{display:flex;align-items:center;justify-content:center;gap:10px;width:88%;max-width:490px;margin:6px auto 0;color:#aab0bc;font-size:12px;font-variant-numeric:tabular-nums}
 /* The prisoner row keeps its place in every game, so 日本式 does not shrink the board. */
 .capture-counts[hidden]{display:flex!important;visibility:hidden}
-.prisoner-pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border:2px solid;border-radius:999px}
+.prisoner-pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border:2px solid;border-radius:999px;box-shadow:0 0 0 1px #ffffff40}
 .prisoner-pill span[id]{min-width:1.2em;text-align:center;font-weight:600}
 .capture-stone{width:11px;height:11px;border-radius:50%;display:inline-block;opacity:.7}
 .capture-stone.black{background:#111;box-shadow:inset 0 0 0 1px #8a8f99}

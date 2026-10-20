@@ -101,7 +101,9 @@ function paintLegend(ctx,u,center,y,{palette,opacity,theme},muted) {
  */
 export function paintShareFrame(target,board,{moves,rules="",result,winner=null,theme,legend=null,boardSize=9}) {
   const {width,height}=shareFrameSize(target.width),u=width/800;
-  const look=boardTheme(theme),[ink,muted]=INK[theme]||INK.wood;
+  const look=boardTheme(theme);
+  // The custom board takes the dark board's ink when its colour is dark.
+  const [r,g,b]=look.surface,[ink,muted]=INK[theme]||(.2126*r+.7152*g+.0722*b<110?INK.dark:INK.wood);
   const ctx=target.getContext("2d");
   const bx=BOARD_X*u,by=BOARD_Y*u,bs=BOARD*u,center=width/2;
   // The board's own fill, laid out exactly as on the board and continued
