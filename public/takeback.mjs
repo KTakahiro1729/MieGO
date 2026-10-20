@@ -22,6 +22,8 @@ export function takeBackTo(state, keep) {
   let game=replaySteps(state,keep);
   // Two passes followed by 対局を再開 must come back as a playable position.
   if(game.status==="scoring")game=resume(game);
+  // Time spent stays spent: 待った does not give the clock back.
+  if(state.clock)game={...game,clock:state.clock};
   // The counter lets reconnecting peers tell a rewound line from a stale one.
   return {...game,takebacks:(state.takebacks||0)+1};
 }

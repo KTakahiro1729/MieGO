@@ -1,19 +1,25 @@
-import { BLACK, WHITE, group, neighbors, play, resume, sizeOf } from "./core.mjs";
+import { BLACK, WHITE, boardHash, group, neighbors, play, resume, sizeOf } from "./core.mjs";
+import { OWNERSHIP_BANDS } from "./territory-view.mjs";
 
 /**
- * 決着手順: before the dead stones are marked, KataGo plays the position out
- * with its best (policy) moves until both sides pass, so that dead stones are
- * actually captured on a scratch copy. The match itself never changes; the
- * playout only proposes which stones are dead and is shown as an animation.
+ * 決着手順: before the count, KataGo plays the position out on a scratch copy
+ * until both sides pass. It is there for two things: to reach a board where
+ * best play from here on would no longer change the result, and to leave
+ * that board in the shape that is easiest to count (dead stones captured,
+ * borders closed, dame filled). So it only plays where the outcome is still
+ * open: never inside an area KataGo already calls settled (that would only be
+ * a ko threat or a wasted move there), except to close its own border, take
+ * dead stones or fill dame. The match itself never changes.
  */
 
-/** At most this many playout moves: a third of the board (27, 56 or 120). */
-export const settleLimit = size => Math.round(size * size / 3);
-/** 「AIに続きを打たせる」 adds another limit's worth of moves, up to this many in all. */
-export const settleMax = size => settleLimit(size) * 4;
-/** The pause between shown playout moves: 360ms on 9x9, shorter on bigger
- * boards so a full-length playout takes about ten seconds (at most 15 on 19x19). */
-export const settleStepMs = size => Math.min(360, Math.max(120, Math.round(9000 / settleLimit(size))));
+/** A guard against a playout that never ends (simple ko only stops direct
+ * recaptures, so a triple ko could cycle): four thirds of the board (108,
+ * 225 or 481 moves). Real playouts end with two passes long before it. */
+export const settleMax = size => Math.round(size * size * 4 / 3);
+/** The pause between shown playout moves: 333ms on 9x9, shorter on bigger
+ * boards, so a playout over a third of the board takes about ten seconds
+ * (at most 15 on 19x19). */
+export const settleStepMs = size => Math.min(360, Math.max(120, Math.round(9000 / Math.round(size * size / 3))));
 
 /** A scratch position to play out from: the scoring position, playable again. */
 export function settleStart(game) {
@@ -73,27 +79,39 @@ export function damePoints(state) {
 
 /**
  * KataGo's top legal move for the player to move, or null to pass. Eye-filling
- * moves are never chosen (they could only kill one's own group). A pass wins
- * when its logit is at least the best remaining move's, except that the mover
- * first fills the liberties of opponent stones its ownership calls dead, so
- * the playout really removes them, and then fills the dame, so the count
- * leaves no point open between the two sides.
+ * moves are never chosen (they could only kill one's own group), nor are
+ * points KataGo calls settled for either side: inside the opponent's area a
+ * move is a ko threat or an invasion the estimate already rules out, inside
+ * one's own it changes nothing. The one settled point still played is one's
+ * own next to an opponent stone, which closes a border. A pass wins when its
+ * logit is at least the best remaining move's, except that the mover first
+ * fills the liberties of opponent stones its ownership calls dead, so the
+ * playout really removes them, and then fills the dame that are not the
+ * opponent's, so the count leaves no point open between the two sides.
  */
 export function pickSettleMove(state, policy, passLogit, ownership = null) {
   if (state.status !== "playing" || !Array.isArray(policy) || policy.length !== state.board.length) return null;
+  const board = state.board, me = state.next, size = sizeOf(board);
+  const known = Array.isArray(ownership) && ownership.length === board.length;
+  const mine = p => known ? me * ownership[p] : 0;
+  const open = p => Math.abs(mine(p)) < OWNERSHIP_BANDS.SETTLED ||
+    mine(p) >= OWNERSHIP_BANDS.SETTLED && neighbors(p, size).some(n => board[n] === -me);
   const order = policy.map((logit, p) => [logit, p])
-    .filter(([logit, p]) => Number.isFinite(logit) && !state.board[p] && !ownEye(state.board, p, state.next))
+    .filter(([logit, p]) => Number.isFinite(logit) && !board[p] && !ownEye(board, p, me))
     .sort((a, b) => b[0] - a[0]);
-  const legal = p => { try { play(state, p); return true; } catch { return false; } };
+  // No move brings back a board seen before (positional superko), so captures
+  // and recaptures cannot cycle, with single passes between them, for ever.
+  const seen = new Set(state.history || []);
+  const legal = p => { try { return !seen.has(boardHash(play(state, p).board)); } catch { return false; } };
   const targets = captureTargets(state, ownership);
   for (const [logit, p] of order) {
     if (Number.isFinite(passLogit) && passLogit >= logit) break;
-    if (legal(p)) return p;
+    if (open(p) && legal(p)) return p;
   }
   // Rather than pass, take the best-rated point that closes in on dead stones.
   for (const [, p] of order) if (targets.has(p) && legal(p)) return p;
   const dame = damePoints(state);
-  for (const [, p] of order) if (dame.has(p) && legal(p)) return p;
+  for (const [, p] of order) if (dame.has(p) && mine(p) > -OWNERSHIP_BANDS.SETTLED && legal(p)) return p;
   return null;
 }
 

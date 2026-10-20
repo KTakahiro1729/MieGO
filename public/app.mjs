@@ -18,6 +18,7 @@ import {
   isGomoku,
   isJapanese,
   komiOf,
+  loseOnTime,
   maxHandicap,
   newGame,
   play,
@@ -39,13 +40,21 @@ import {
   deadFromPlayout,
   pickSettleMove,
   replayPlayout,
-  settleLimit,
   settleMax,
   settleStart,
   settleStep,
   settleStepMs,
 } from "./settle-playout.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
+import {
+  BYOYOMI_CHOICES,
+  clockSeconds,
+  clockText,
+  createGameClock,
+  MAIN_TIME_CHOICES,
+  readClock,
+  spendTime,
+} from "./game-clock.mjs";
 import { copyInviteText } from "./invite.mjs";
 import {
   colorLabel,
@@ -203,6 +212,9 @@ let hideStonesChoice = false;
 let freeColor = BLACK;
 // 五目並べ's 禁じ手 (renju's forbidden moves for Black), for the next game.
 let gomokuForbiddenChoice = false;
+// The next game's 持ち時間 and 秒読み in seconds (0: none); both 0 plays without a clock.
+let mainTimeChoice = 0, byoyomiChoice = 0;
+const toSeconds = (value, choices) => choices.includes(Number(value)) ? Number(value) : 0;
 const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideStones===true;
 const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingStones,isCounting,show,draw,
   onOverlayOn:()=>boardReview?requestReviewOwnership():requestAnalysis()});
@@ -379,10 +391,13 @@ function updateEndUi() {
   const hint=!katagoReady && !fallbackMode && !endgameAdvisor.previous ? "" :
     endgameHint(game,endgameAdvisor,{unavailable:fallbackMode});
   const passed=playing && !offer && !localPrompt && !offline ? passNotice() : null;
+  // Scoring an unsettled board leaves the rest to the playout's first-instinct moves,
+  // which can swing the result: the same question then keeps the advice above it.
+  const unsettled=localPrompt && hint===TEXT.endgame.playing;
   $("endStatus").textContent=!playing?"":offline?TEXT.endgame.offline:
     incoming?TEXT.endgame.proposed:
     waiting?TEXT.endgame.waiting:
-    localPrompt?TEXT.endgame.askLocal:
+    localPrompt?(unsettled?hint+"\n"+TEXT.endgame.askLocal:TEXT.endgame.askLocal):
     passed?passed.text:hint;
   $("endPropose").hidden=!playing||!!offer||localPrompt||isGomoku(game);
   $("endAccept").hidden=!playing||!(incoming||localPrompt);
@@ -398,8 +413,9 @@ function updateEndUi() {
   // Answering an opponent's offer is a negotiation: neither choice is emphasized.
   $("endAccept").classList.toggle("primary",!room);
   $("actionRow").classList.toggle("end-prompt-open",localPrompt);
+  $("endgameBar").classList.toggle("is-asking",localPrompt);
   $("endDetail").textContent=incoming?TEXT.endgame.detailIncoming:
-    localPrompt?(gameMode==="ai"?TEXT.endgame.detailLocalAi:
+    localPrompt?(unsettled?TEXT.endgame.detailUnsettled:gameMode==="ai"?TEXT.endgame.detailLocalAi:
       TEXT.endgame.detailLocal):
     waiting?TEXT.endgame.detailWaiting:
     room?TEXT.endgame.detailOnline:
@@ -479,8 +495,10 @@ function onStrongMessage(net, event) {
   const result=event.data;
   if(result?.kind==="progress") {
     net.progress=result.total>0?Math.floor(100*result.loaded/result.total):0;
-    if(net===strongNet() && isAiTurn() && !aiThinking && comToMove().strength==="strongest")
+    if(net===strongNet() && isAiTurn() && !aiThinking && comToMove().strength==="strongest"){
       $("aiMatchStatus").textContent=TEXT.ai.strongestLoading(net.progress);
+      show();
+    }
     return;
   }
   if(result?.kind==="availability") {
@@ -490,13 +508,30 @@ function onStrongMessage(net, event) {
     return;
   }
   if(result?.kind==="reading") {
-    if(aiJob?.id===result.id)$("aiMatchStatus").textContent=TEXT.ai.strongestReading;
+    if(aiJob?.id!==result.id)return;
+    aiJob.read={depth:result.depth,done:result.done,total:result.total,
+      remainingMs:Math.max(0,result.total-result.done)*(Number(result.evalMs)||0)};
+    $("aiMatchStatus").textContent=TEXT.ai.strongestReading;
+    show();
     return;
   }
   if(result?.kind==="move") {
     if(result.error){strongFailed(net,result.error);return;}
     finishAiMove(result);
   }
+}
+/** While 最強 is to move: what it is doing, with how far along it is;
+ * null for any other move. */
+function strongWait() {
+  if(!isAiTurn() || isGomoku(game) || comToMove().strength!=="strongest")return null;
+  const net=strongNet();
+  if(net.state==="loading")return net.progress<100?TEXT.game.thinkDownloading(net.progress):TEXT.game.thinkPreparing;
+  if(net.state!=="ready")return null;
+  const read=aiJob?.strong && aiJob.read;
+  // The time left needs one timed evaluation of this read first.
+  if(read?.total>0)return TEXT.game.thinkReading(read.depth,Math.floor(100*read.done/read.total),
+    read.done>0 && Math.max(1,Math.round(read.remainingMs/1000)));
+  return TEXT.game.thinkMove;
 }
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
@@ -525,12 +560,14 @@ function rememberSettings() {
       aiCom,
       aiSide:aiSideChoice,
       boardSize,
+      byoyomi:byoyomiChoice,
       freeColor:freeColor===WHITE?"white":"black",
       gameRules,
       gomokuForbidden:gomokuForbiddenChoice,
       hideStones:hideStonesChoice,
       humanColor,
       localHandicap,
+      mainTime:mainTimeChoice,
       mode:gameMode,
       onlineHandicap,
       watch:watchChoice,
@@ -548,6 +585,7 @@ function nextGameOptions(handicap) {
     hideStones:hideStonesChoice,
     rules:gameRules,
     size:boardSize,
+    timeControl:{main:mainTimeChoice,byoyomi:byoyomiChoice},
   };
 }
 // The sheet's choices set the COM opponent. In 観戦, the COMのキャラ tab holds a
@@ -759,33 +797,11 @@ function scoringJobCurrent(job) {
     boardHash(game.board)===job.hash && deadSignature(game.dead)===job.dead &&
     !deadReviewTouched && !game.agreed.black && !game.agreed.white;
 }
-function startSettle(id, from=null) {
+function startSettle(id) {
   stopSettleShow();
-  const positions=from?[...from.positions]:[];
-  settle={id,state:from?from.state:settleStart(game),positions,ownership:null,
-    initialOwnership:from?.initialOwnership??null,shownAt:0,timer:null,
-    limit:Math.min(settleMax(sizeOf(game.board)),positions.length+settleLimit(sizeOf(game.board)))};
+  settle={id,state:settleStart(game),positions:[],ownership:null,initialOwnership:null,shownAt:0,timer:null,
+    limit:settleMax(sizeOf(game.board))};
   postToWorker({id,kind:"settle",state:settle.state});
-}
-/** The kept playout stopped at its move limit and can be carried on from where it stopped. */
-function extendablePlayout() {
-  const playout=currentPlayout();
-  if(!playout || settle || settleShow || deadReviewTouched || game.agreed.black || game.agreed.white)return null;
-  if((room && (p2pRole!=="owner" || !connected)) || fallbackMode || !katagoReady)return null;
-  if(playout.positions.length>=settleMax(sizeOf(game.board)))return null;
-  const frames=replayPlayout(game,playout.positions);
-  return frames && frames.at(-1).status==="playing" ? {...playout,state:frames.at(-1)} : null;
-}
-/** 「AIに続きを打たせる」: another limit's worth of playout moves, then the dead stones again. */
-function extendSettle() {
-  const from=extendablePlayout();
-  if(!from)return;
-  pending=++seq;
-  const id=pending;
-  deadReview="pending";
-  deadEvaluation={id,number:game.moveNumber,hash:boardHash(game.board),dead:deadSignature(game.dead)};
-  startSettle(id,from);
-  show();
 }
 function cancelSettle() {
   if(settle?.timer)clearTimeout(settle.timer);
@@ -1029,6 +1045,8 @@ function handleAnalysis(event) {
 }
 worker.onmessage=onWorkerMessage;
 function show() {
+  // A replay leaves the game's clock running.
+  syncClock();
   if(boardReview){renderBoardReview();return;}
   // The forbidden stone is a provisional UI selection, never part of game state.
   if(illegalCandidate && (illegalCandidate.source!==game || game.status!=="playing")) {
@@ -1048,7 +1066,11 @@ function show() {
   // Nobody is to move while scoring or after the game, so no turn stone.
   $("turn").classList.toggle("no-stone",game.status!=="playing" ||
     isWatching() && watchReturning && !watchPaused && !intervening);
-  $("turn").textContent=game.status==="finished"?finishedTitle():
+  // 最強 can take a while: the turn says it is thinking, its stone pulses, and
+  // the line under it says what it is doing and how far along.
+  const waiting=strongWait();
+  $("turn").classList.toggle("is-waiting",!!waiting);
+  $("turn").textContent=waiting?TEXT.game.aiThinking:game.status==="finished"?finishedTitle():
     // The scoring step names itself here, so the score box keeps its one line for the instruction.
     game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
     room && !connected?TEXT.game.waitingOpponent:
@@ -1061,8 +1083,8 @@ function show() {
       fallbackMode?TEXT.game.aiStopped:
       isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
     (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite);
-  if(!room)$("netStatus").textContent=spectating?TEXT.common.modeWatch:
-    gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
+  if(!room)$("netStatus").textContent=waiting || (spectating?TEXT.common.modeWatch:
+    gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal);
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=TEXT.game.moveLabel(game.moveNumber);
   // ◁ opens the replay one move back; ▷ only moves within a replay, so it rests disabled here.
@@ -1162,17 +1184,14 @@ function show() {
     scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
   const playout=settleView();
   $("settleSkip").hidden=!playout;
-  // A cut playout asks for one thing first: carrying it on. Its replay comes back once it is settled.
-  // While counting, the action row holds 死石の確認に戻る instead of either.
+  // While counting, the action row holds 死石の確認に戻る instead.
   const counting=scoringStepOf(game)==="count";
-  const extendable=!playout && isScoring && !counting && !!extendablePlayout();
-  $("settleExtend").hidden=!extendable;
-  $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout() || extendable || counting;
+  $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout() || counting;
   $("scoreInstruction").textContent=playout?
     (playout.finished?(playout.cut?TEXT.scoring.settleCut(playout.moves):TEXT.scoring.settleDone(playout.moves)):
       TEXT.scoring.settling(playout.moves)):
     isFinished?
-    (game.result?.endsWith("+R")?TEXT.scoring.finishedResign:
+    (endedEarly(game.result)?TEXT.scoring.finishedResign:
       gomoku?(game.result==="0"?TEXT.scoring.finishedGomokuDraw:TEXT.scoring.finishedGomoku):
       japanese?TEXT.scoring.finishedScoreJapanese:TEXT.scoring.finishedScore):
     peerAgreed()?(scoringStepOf(game)==="dead"?TEXT.scoring.peerAgreedDead:TEXT.scoring.peerAgreed):
@@ -1180,7 +1199,6 @@ function show() {
     deadReview==="loading"?TEXT.scoring.reviewLoading:
     deadReview==="awaiting"?TEXT.scoring.reviewAwaiting:
     scoringStepOf(game)==="count"?TEXT.scoring.countStep:
-    extendable?TEXT.scoring.settleExtendHint(currentPlayout().positions.length):
     deadReview==="complete"?(japanese?TEXT.scoring.reviewCompleteJapanese:TEXT.scoring.reviewComplete):
     deadReview==="none"?(japanese?TEXT.scoring.reviewNoneJapanese:TEXT.scoring.reviewNone):
     deadReview==="modified"?(japanese?TEXT.scoring.reviewModifiedJapanese:TEXT.scoring.reviewModified):
@@ -1209,7 +1227,7 @@ function show() {
     $("scoreBox").querySelector("strong").textContent=resultLabel(result)||TEXT.scoring.ended;
     const winner=resultWinner(result);
     if(winner)$("scoreStone").classList.add(winner==="B"?"black":"white");
-    if(result?.endsWith("+R") || gomoku) {
+    if(endedEarly(result) || gomoku) {
       $("scoreText").hidden=true;
     } else {
       renderScoreboard();
@@ -1238,7 +1256,11 @@ function apply(action, remote=false, isAiMove=false) {
       if(action.number!==game.moveNumber+1) throw new Error("Move number mismatch");
       if(action.before!==boardHash(game.board)) throw new Error("Board mismatch before the move");
       const offerBefore=game.endProposal;
+      // The mover's clock pays for the move; one that ran out first loses instead.
+      const clock=chargeClock();
+      if(clock===false){timeOut(game.next);return;}
       game=isFree(game)?playFreeStone(game,action.position,action.color):play(game,action.position);
+      if(clock)game={...game,clock};
       if(remote && offerBefore?.from===myOnlineColor())
         endNotice={number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.cancelledByMove};
       if(action.after!==boardHash(game.board)) throw new Error("Board mismatch after the move");
@@ -1586,8 +1608,62 @@ $("endDecline").onclick=()=>{
     number:game.moveNumber,before:boardHash(game.board)});
 };
 $("hideStones").onchange=e=>{hideStonesChoice=e.target.checked;rememberSettings();};
+$("mainTime").onchange=e=>{mainTimeChoice=toSeconds(e.target.value,MAIN_TIME_CHOICES);rememberSettings();};
+$("byoyomi").onchange=e=>{byoyomiChoice=toSeconds(e.target.value,BYOYOMI_CHOICES);rememberSettings();};
 $("gomokuForbidden").onchange=e=>{gomokuForbiddenChoice=e.target.checked;rememberSettings();renderInviteButton();};
 // A player reads their own result first; a 1台 game or COM同士 has no "you".
+// A resignation or a loss on time ends the game before any count.
+const endedEarly = result => /\+[RT]$/.test(result||"");
+// 持ち時間: only a person's clock runs. COMs, a watched game, a friend game
+// (for now) and a free board play without one.
+const gameClock=createGameClock();
+let clockMoves=null;
+function clockedSide() {
+  if(!game.timeControl || game.status!=="playing" || room || isFree(game))return null;
+  if(gameMode==="ai" && (watching || game.next!==humanColor))return null;
+  return game.next;
+}
+// The clock follows the position: a new move, 待った or another game restarts it.
+function syncClock() {
+  const side=clockedSide();
+  if(!side){if(gameClock.running)gameClock.stop();clockMoves=null;renderClock();return;}
+  if(clockMoves!==game.moves || gameClock.running?.side!==side){
+    clockMoves=game.moves;
+    gameClock.run(game,side);
+  }
+  renderClock();
+}
+/** The clock after the side to move's move, null with no clock, false when its time ran out. */
+function chargeClock() {
+  const running=gameClock.running;
+  if(!running || clockMoves!==game.moves || running.side!==game.next)return null;
+  clockMoves=null;
+  return spendTime(game,running.side,gameClock.stop()) || false;
+}
+function timeOut(side) {
+  clockMoves=null;
+  if(clockedSide()!==side)return;
+  stopAiTurn();candidate=null;
+  game=loseOnTime(game,side);
+  save();show();
+}
+gameClock.onTimeout(timeOut);
+// Each side's time beside the move count: the side to move counts down.
+function renderClock() {
+  const box=$("gameClock");
+  box.hidden=!game.timeControl || !!boardReview || room!==null || isFree(game);
+  if(box.hidden)return;
+  const running=gameClock.reading();
+  for(const side of [BLACK,WHITE]){
+    const reading=running?.side===side?running:readClock(game,side);
+    const cell=$(side===BLACK?"clockBlack":"clockWhite");
+    cell.textContent=reading.main>0?clockText(reading.main):
+      reading.byoyomi===null?clockText(0):TEXT.game.byoyomi(clockSeconds(reading.byoyomi));
+    cell.classList.toggle("is-running",running?.side===side);
+    cell.classList.toggle("is-low",running?.side===side && reading.left<=10000);
+  }
+}
+gameClock.subscribe(renderClock);
 function finishedTitle(){
   const mine=room?myOnlineColor():gameMode==="ai" && !isWatching()?humanColor:null;
   const winner=resultWinner(game.result);
@@ -1810,7 +1886,8 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;seenPeerSignins=0;linkKey=null;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  game=newGame(true,nextGameOptions(onlineHandicap));candidate=null;lastPosition=null;
+  // A friend game has no clock yet: each side's time would have to agree over the connection.
+  game=newGame(true,{...nextGameOptions(onlineHandicap),timeControl:null});candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;endNotice=null;
@@ -2247,7 +2324,8 @@ function syncContinueSheet(){
       for(const input of document.querySelectorAll('input[name="'+name+'"]')){
         input.disabled=true;input.checked=input.value===String(value);
       }
-    for(const [row,input] of [["handicapSetup","handicap"],["hideStonesRow","hideStones"],["gomokuForbiddenRow","gomokuForbidden"]]){
+    for(const [row,input] of [["handicapSetup","handicap"],["hideStonesRow","hideStones"],["gomokuForbiddenRow","gomokuForbidden"],
+      ["timeControlSetup","mainTime"],["timeControlSetup","byoyomi"]]){
       $(input).disabled=true;$(row).classList.add("is-off");
     }
     // Handicap stones are already on the board or not, so every side stays open.
@@ -2483,7 +2561,6 @@ $("settleSkip").onclick=()=>{
   else skipSettle();
 };
 $("settleReplay").onclick=replaySettle;
-$("settleExtend").onclick=extendSettle;
 $("startAi").onclick=()=>{
   if(continueFrom){forkBoardReview("ai");return;}
   // The button is disabled meanwhile, except for 五目並べ, which needs no KataGo.
@@ -2564,6 +2641,10 @@ function syncHandicapUi() {
     ["hideStonesRow","hideStones",gameRules==="free"],["gomokuForbiddenRow","gomokuForbidden",gameRules!=="gomoku"]]){
     $(input).disabled=off;$(row).classList.toggle("is-off",off);
   }
+  // A free board has no turns to time, and a friend game no clock yet.
+  const untimed=gameRules==="free" || kind==="online";
+  for(const input of ["mainTime","byoyomi"])$(input).disabled=untimed;
+  $("timeControlSetup").classList.toggle("is-off",untimed);
   $("handicap").value=String(shown);
   // The note only appears when stones are placed, so an even game shows no extra text.
   $("handicapNote").hidden=!shown || gameRules==="gomoku" || gameRules==="free";
@@ -2702,6 +2783,8 @@ else try {
     boardSize=toBoardSize(settings.boardSize);
     gameRules=toRules(settings.gameRules);
     gomokuForbiddenChoice=settings.gomokuForbidden===true;
+    mainTimeChoice=toSeconds(settings.mainTime,MAIN_TIME_CHOICES);
+    byoyomiChoice=toSeconds(settings.byoyomi,BYOYOMI_CHOICES);
     freeColor=settings.freeColor==="white"?WHITE:BLACK;
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
@@ -2718,6 +2801,8 @@ updatePersonaUi();syncStrengthUi();syncHandicapUi();
 appearance.syncControls();
 $("hideStones").checked=hideStonesChoice;
 $("gomokuForbidden").checked=gomokuForbiddenChoice;
+$("mainTime").value=String(mainTimeChoice);
+$("byoyomi").value=String(byoyomiChoice);
 if(!room && currentGameId===null)save();
 if(!room && params.has("sgf")){
   try{

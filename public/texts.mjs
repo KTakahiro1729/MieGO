@@ -83,7 +83,7 @@ export const TEXT = {
   },
 
   endgame: {
-    playing: "終局まではまだまだです",
+    playing: "終局はまだまだです",
     near: "そろそろ終局です",
     ready: "終局をご検討ください",
     unavailable: "終局は自分で判断してください。目安を出せません",
@@ -101,6 +101,7 @@ export const TEXT = {
     detailIncoming: "受け入れると採点に進みます。打ち続けることもできます。",
     detailLocalAi: "あなたの判断で採点へ進みます。AIが終局を承認するわけではありません。",
     detailLocal: "採点に進み、死石を確認します。対局の再開もできます。",
+    detailUnsettled: "採点するとAIが残りを打ち切るので、結果が大きく動くことがあります。打ち続けることもできます。",
     detailWaiting: "相手の返答待ちです。提案は取り下げられます。",
     detailOnline: "終局はいつでも提案できます。提案はパスと異なります。",
     detailOffline: "採点はいつでも始められます。パスとは別の操作です。",
@@ -156,8 +157,6 @@ export const TEXT = {
     settleDone: moves => moves ? "決着後（" + moves + "手）。取られた石を死石にします" : "打つ手がなく、そのまま判定します",
     settleSkip: "スキップ",
     settleReplay: "決着手順を再生",
-    settleExtend: "AIに続きを打たせる",
-    settleExtendHint: moves => "続きを打たせて地を決めてください。" + moves + "手で停止",
     // Each row: { area, detail, total } from scoreRows.
     breakdown: (black, white) => "黒：" + (black.detail ? black.detail + "＝" : "") + black.total +
       "\n白：" + (white.detail ? white.detail + "＝" : "") + white.total,
@@ -182,6 +181,13 @@ export const TEXT = {
     waitingOpponent: "対局相手を待っています",
     aiStopped: "ページを開き直してください",
     aiTurn: "AIの番です",
+    // While 最強 thinks: the turn label, and what it is doing on the line under it.
+    aiThinking: "AIが思考中です",
+    // The line is about 165px wide on a 320px phone, so these stay short.
+    thinkDownloading: percent => "AIをダウンロード中 " + percent + "%",
+    thinkPreparing: "AIを準備中",
+    thinkMove: "次の一手を計算中",
+    thinkReading: (depth, percent, seconds) => depth + "手先を読み中 " + percent + "%" + (seconds ? "・約" + seconds + "秒" : ""),
     yourTurnAi: "あなたの番です",
     watchPause: "一時停止",
     watchResume: "再開",
@@ -189,6 +195,9 @@ export const TEXT = {
     watchIntervene: "介入する",
     watchBack: "観戦に戻る",
     moveLabel: move => move + "手目",
+    // Each side's 持ち時間 beside the move count; 秒読み counts each move's seconds.
+    clockLabel: "持ち時間",
+    byoyomi: seconds => "秒読み" + seconds,
     localPractice: "ローカル練習",
     boardLabel: size => size + "路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。",
     ruleSummary: (size, komi, handicap, japanese = false, forbidden = false) => japanese === "free" ?
@@ -648,6 +657,11 @@ export const TEXT = {
       local: "1台で打つでは、黒と白を交互に打ちます。",
     },
     hideStones: "石を隠す（地合いだけ表示）",
+    // 持ち時間 and 秒読み on one row at 320px; both なし plays without a clock.
+    mainTime: "持ち時間",
+    mainTimes: { 0: "なし", 60: "1分", 300: "5分", 600: "10分", 1200: "20分", 1800: "30分" },
+    byoyomi: "秒読み",
+    byoyomis: { 0: "なし", 10: "10秒", 30: "30秒", 60: "60秒" },
     gomokuForbidden: "禁じ手あり（五目並べ）",
     gomokuForbiddenNote: "黒だけ三三・四四・長連を打てなくなります。先手の黒が強すぎるのを抑える連珠のルールです。",
     hideStonesNote: "石を描かず、地合いの色だけで盤面を読みます。この対局の間は変えられず、対友人では相手の画面も同じになります。整地になると石が現れます。",
@@ -689,7 +703,7 @@ export const TEXT = {
       summary: "終局と採点",
       items: [
         "終局は盤下の終局のボタンで始めます。続けて2回パスしても、確認なしで採点に進みます。",
-        "1台・対COM：「採点を始める」→「採点へ進む」。AIの同意は要りません。",
+        "1台・対COM：「採点を始める」→「採点へ進む」。AIの同意は要りません。終局の目安が「まだまだ」のうちは、確認にもそう出ます。採点ではAIが残りを打ち切るので、結果が大きく動くことがあります。",
         "対友人：「終局を提案」し、相手が「受け入れる」と採点に進みます。",
         "採点中でも「対局を再開」で打ち続けられます。",
       ],
@@ -697,8 +711,8 @@ export const TEXT = {
     scoring: {
       summary: "死石の確認",
       items: [
-        "採点に入ると、AIが両者パスまで打ち進めて（決着手順）、取られた石を死石の候補にします。AIが境目に置いた石は小さな石で残り、地を数えるときの境目になります。対局の棋譜は変わりません。",
-        "決着手順の途中で「スキップ」を押すと、すぐ結果に進みます。石を押すと、結果に進んでからその石の死石の指定を切り替えます。「決着手順を再生」でもう一度見られます。手数の上限で止まったときは「AIに続きを打たせる」で、止まった所から続けられます。",
+        "採点に入ると、AIがこの先どう打っても勝敗が変わらないところまで打ち進めます（決着手順）。打つのは、まだ決まっていない所と、境目・駄目・死石を取る手だけで、もう決まった地の中には打ちません。取られた石は死石の候補になり、AIが境目に置いた石は小さな石で残って、地を数えるときの境目になります。対局の棋譜は変わりません。",
+        "決着手順の途中で「スキップ」を押すと、すぐ結果に進みます。石を押すと、結果に進んでからその石の死石の指定を切り替えます。「決着手順を再生」でもう一度見られます。",
         "死石の候補が違っていたら、石をタップして直します。",
         "数字は石と地の合計です。",
         "色は対局中の地合いと同じ配色で、確定した地を示します。小さな輪は、どちらの地でもない「中立」の点です。",

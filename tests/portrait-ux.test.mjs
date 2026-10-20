@@ -95,7 +95,7 @@ test("confirm button uses the original shared gold-and-opacity disabled appearan
   assert.match(app,/\$\("confirm"\)\.disabled=!candidate \|\| !myTurn/);
 });
 test("solo endgame prompt names AI only in AI games",()=>{
-  assert.match(app,/localPrompt\?\(gameMode==="ai"\?TEXT\.endgame\.detailLocalAi:\s*TEXT\.endgame\.detailLocal\)/);
+  assert.match(app,/localPrompt\?\(unsettled\?TEXT\.endgame\.detailUnsettled:gameMode==="ai"\?TEXT\.endgame\.detailLocalAi:\s*TEXT\.endgame\.detailLocal\)/);
   assert.match(TEXT.endgame.detailLocalAi,/AIが終局を承認するわけではありません/);
   assert.doesNotMatch(TEXT.endgame.detailLocal,/AI/);
 });
