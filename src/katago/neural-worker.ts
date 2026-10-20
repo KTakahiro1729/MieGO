@@ -54,7 +54,7 @@ async function prepare() {
     // The model is most of the download; fetch it while the backend starts.
     const download = strong ? downloadStrongModel() : fetchBytes("/models/katago-small.bin.gz");
     download.catch(() => {}); // Reported below, after the backend.
-    setWasmPaths("/tfjs/");
+    setWasmPaths(new URL("./", import.meta.url).href); // The WASM files sit next to this bundle.
     setThreadsCount(1); // Works without COOP/COEP and avoids heavy memory use on phones.
     let chosen = false;
     for (const name of ["webgpu", "wasm", "cpu"]) {
