@@ -81,15 +81,15 @@ export function scoreGraphSvg(raw, {width=300, height=48, step=0, marks=[], minS
   if(black)parts.push(`<path class="score-graph-black" d="${black}"/>`,`<path class="score-graph-white" d="${white}"/>`);
   parts.push(`<line class="score-graph-axis" x1="0" y1="${mid}" x2="${width}" y2="${mid}"/>`);
   if(d)parts.push(`<path class="score-graph-line" d="${d}" fill="none"/>`);
+  const at=Math.max(0,Math.min(last,Math.trunc(Number(step)||0)));
   for(const s of marks){
     const v=series[s];
     if(!Number.isInteger(s) || v===null || v===undefined)continue;
-    parts.push(`<circle class="score-graph-mark" cx="${x(s)}" cy="${y(v)}" r="3.5"/>`);
+    parts.push(`<circle class="score-graph-mark${s===at?" is-current":""}" cx="${x(s)}" cy="${y(v)}" r="3.5"/>`);
   }
   // The ends of the step axis, so the graph reads as the game from its start.
   parts.push(`<text class="score-graph-label" x="3" y="11">0</text>`,
     `<text class="score-graph-label" x="${width-3}" y="11" text-anchor="end">${escape(stepLabel(series.length-1))}</text>`);
-  const at=Math.max(0,Math.min(last,Math.trunc(Number(step)||0)));
   const stepX=Math.max(1,Math.min(width-1,x(at))); // Kept whole at either edge.
   parts.push(`<line class="score-graph-step" x1="${stepX}" y1="0" x2="${stepX}" y2="${height}"/>`);
   // A knob like a slider's shows the step line can be dragged. It rides the
