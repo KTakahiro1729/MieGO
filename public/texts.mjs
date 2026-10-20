@@ -586,12 +586,13 @@ export const TEXT = {
     comBlack: "● 黒のCOM",
     comWhite: "○ 白のCOM",
     rules: "ルール",
-    // Under the rules row, one per choice. Komi is left out when a handicap note says it.
+    // Under the rules row, one per choice, two lines at most at 320px (about 44 characters).
+    // Komi is left out when a handicap note says it.
     rulesNotes: {
-      chinese: komi => "盤上の自分の石と、囲んだ空き点（地）の合計で数えます。" +
-        (komi ? "先に打つ黒が有利なので、白にコミ" + komi + "目を足します。" : ""),
-      japanese: komi => "囲んだ空き点（地）と、取った石（アゲハマ）の合計で数えます。勝敗は中国式とふつう同じです。" +
-        (komi ? "先に打つ黒が有利なので、白にコミ" + komi + "目を足します。" : ""),
+      chinese: komi => "石と地（囲んだ空き点）の合計で数えます。" +
+        (komi ? "先手の黒が有利なので白にコミ" + komi + "目。" : ""),
+      japanese: komi => "地とアゲハマの合計で数え、勝敗は中国式とほぼ同じ。" +
+        (komi ? "先手の黒が有利なので白にコミ" + komi + "目。" : ""),
       gomoku: "黒から交互に打ち、縦・横・斜めに自分の石を5つ並べたら勝ちです。",
       free: "ルールのない盤です。好きな色の石を置いたり、取り除いたりできます。",
     },
