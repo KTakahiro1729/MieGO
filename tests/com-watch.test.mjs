@@ -49,11 +49,13 @@ test("each COM of a watched game plays with its own strength and personality",()
   // The move is chosen with the settings of the colour to play.
   assert.match(body("finishAiMove"),/const com=watching\?watchAi\[game\.next===BLACK\?"black":"white"\]/);
   assert.match(body("finishAiMove"),/invasion:com\.invasion,reinforcement:com\.reinforcement,strength:com\.strength/);
-  // Both COMs' sliders show at once while watching; nothing toggles which one they set.
+  // 「AIの強さ」 stays one bar; each COM's own sliders are in 詳細設定, shown only for two COMs.
+  const advanced=between('id="newGameAdvanced"','</details>');
   for(const id of ["aiStrength","aiInvasion","aiReinforcement"])
-    assert.match(html,new RegExp('id="'+id+'White"'));
-  assert.doesNotMatch(html,/name="comTarget"/);
-  assert.match(app,/\$\("aiInvasionWhiteRow"\)\.hidden=\$\("aiReinforcementWhiteRow"\)\.hidden=!two;/);
+    for(const side of ["Black","White"])
+      assert.match(advanced,new RegExp('id="'+id+side+'"'));
+  assert.doesNotMatch(between('id="aiStrengthRow"','id="newGameAdvanced"'),/White|Black/);
+  assert.match(app,/\$\("watchAiOptions"\)\.hidden=!two;/);
   // The COM left playing after a take-over keeps its own settings.
   assert.match(body("takeOverWatchedGame"),/=watchAi\[color===BLACK\?"white":"black"\]/);
 });
