@@ -240,7 +240,7 @@ export const TEXT = {
     // ここに打つ, while it cannot be pressed, says why. About 140px wide on a 320px phone.
     confirmPick: "打つ場所をタップ",
     confirmBlocked: "ここには打てません",
-    confirmPreparing: "AIを準備中",
+    confirmPreparing: "COMを準備中",
     confirmWait: "相手の番です",
     hintScoring: "盤上の石をタップすると死石を指定できます",
     hintAiStopped: "ページを開き直してください。KataGoを読み込めず、AIと対局できません",
