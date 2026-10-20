@@ -1,4 +1,10 @@
-import { BLACK, isGomoku, play, sizeOf } from "./core.mjs";
+import {
+  BLACK,
+  boardFromHash,
+  isGomoku,
+  play,
+  sizeOf,
+} from "./core.mjs";
 import { formatBoardForAi, formatBoardSection } from "./board-text.mjs";
 import { shareableReviewUrl } from "./sgf-link.mjs";
 import { TEXT } from "./texts.mjs";
@@ -55,11 +61,8 @@ export function makeIllegalMovePrompt(game,forbidden,reviewUrl) {
   const url=shareableReviewUrl(reviewUrl);
   let before="";
   if(forbidden.reason===ILLEGAL_KO && game.history?.length>=2) {
-    const hash=game.history.at(-2);
-    if(typeof hash==="string" && hash.length===game.board.length && /^[012]+$/.test(hash)) {
-      const previous=[...hash].map(n=>Number(n)-1);
-      before=TEXT.prompts.illegalBefore+formatBoardForAi(previous);
-    }
+    const previous=boardFromHash(game.history.at(-2),game.board.length);
+    if(previous)before=TEXT.prompts.illegalBefore+formatBoardForAi(previous);
   }
   return [
     TEXT.prompts.illegalTitle(sizeOf(game.board)),

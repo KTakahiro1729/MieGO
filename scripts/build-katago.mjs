@@ -7,6 +7,23 @@ import { STRONG_NETWORKS } from "../public/strong-networks.mjs";
 const MODEL_SHA = "7c87d9e1f4499b892974e78cac53dbf2ca84b84e";
 const MODEL_URL = "https://raw.githubusercontent.com/Sir-Teo/web-katrain/8dd813aeb565cbdad5215dc75204fc40fd519c50/public/models/katago-small.bin.gz";
 const modelPath = resolve("public/models/katago-small.bin.gz");
+/** A pinned file, fetched up to three times until `check` (which throws on a mismatch) accepts it. */
+async function downloadPinned(url, { timeout, label, failure, check }) {
+  let error;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(timeout) });
+      if (!response.ok) throw new Error("Model HTTP " + response.status);
+      const data = Buffer.from(await response.arrayBuffer());
+      check(data);
+      return data;
+    } catch (e) {
+      error = e;
+      console.warn(label + " download attempt", attempt + 1, e.message);
+    }
+  }
+  throw new Error(failure + ": " + error?.message);
+}
 function gitBlobSha(bytes) {
   return createHash("sha1").update("blob " + bytes.byteLength + "\0").update(bytes).digest("hex");
 }
@@ -19,22 +36,12 @@ async function ensureModel() {
       return;
     }
   } catch {}
-  let error;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const response = await fetch(MODEL_URL, { redirect: "follow", signal: AbortSignal.timeout(45000) });
-      if (!response.ok) throw new Error("Model HTTP " + response.status);
-      const data = Buffer.from(await response.arrayBuffer());
-      if (gitBlobSha(data) !== MODEL_SHA) throw new Error("Model SHA-1 differs from pinned Git blob");
-      await writeFile(modelPath, data);
-      console.log("KataGo model downloaded and verified:", data.length, "bytes");
-      return;
-    } catch (e) {
-      error = e;
-      console.warn("KataGo model download attempt", attempt + 1, e.message);
-    }
-  }
-  throw new Error("Unable to download pinned KataGo test model: " + error?.message);
+  const data = await downloadPinned(MODEL_URL, {
+    timeout: 45000, label: "KataGo model", failure: "Unable to download pinned KataGo test model",
+    check: data => { if (gitBlobSha(data) !== MODEL_SHA) throw new Error("Model SHA-1 differs from pinned Git blob"); }
+  });
+  await writeFile(modelPath, data);
+  console.log("KataGo model downloaded and verified:", data.length, "bytes");
 }
 await ensureModel();
 
@@ -54,30 +61,20 @@ async function ensureStrongModel(key, { name, url, sha256: pinned }) {
       return;
     }
   } catch {}
-  let error;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const response = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(300000) });
-      if (!response.ok) throw new Error("Model HTTP " + response.status);
-      const data = Buffer.from(await response.arrayBuffer());
-      if (sha256(data) !== pinned) throw new Error("Model SHA-256 differs from the pinned file");
-      const parts = [];
-      for (let start = 0; start < data.length; start += STRONG_PART_BYTES) {
-        const path = "part-" + parts.length + ".bin";
-        const chunk = data.subarray(start, start + STRONG_PART_BYTES);
-        await writeFile(join(dir, path), chunk);
-        parts.push({ path, bytes: chunk.length });
-      }
-      await writeFile(join(dir, "parts.json"),
-        JSON.stringify({ name, sha256: pinned, bytes: data.length, parts }) + "\n");
-      console.log("KataGo " + name + " downloaded and verified:", data.length, "bytes in", parts.length, "parts");
-      return;
-    } catch (e) {
-      error = e;
-      console.warn("KataGo " + name + " download attempt", attempt + 1, e.message);
-    }
+  const data = await downloadPinned(url, {
+    timeout: 300000, label: "KataGo " + name, failure: "Unable to download pinned KataGo " + name,
+    check: data => { if (sha256(data) !== pinned) throw new Error("Model SHA-256 differs from the pinned file"); }
+  });
+  const parts = [];
+  for (let start = 0; start < data.length; start += STRONG_PART_BYTES) {
+    const path = "part-" + parts.length + ".bin";
+    const chunk = data.subarray(start, start + STRONG_PART_BYTES);
+    await writeFile(join(dir, path), chunk);
+    parts.push({ path, bytes: chunk.length });
   }
-  throw new Error("Unable to download pinned KataGo " + name + ": " + error?.message);
+  await writeFile(join(dir, "parts.json"),
+    JSON.stringify({ name, sha256: pinned, bytes: data.length, parts }) + "\n");
+  console.log("KataGo " + name + " downloaded and verified:", data.length, "bytes in", parts.length, "parts");
 }
 for (const [key, network] of Object.entries(STRONG_NETWORKS)) await ensureStrongModel(key, network);
 await mkdir(resolve("public/tfjs"), { recursive: true });

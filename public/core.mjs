@@ -54,6 +54,9 @@ export function group(board, index) {
   return { stones, liberties };
 }
 export const boardHash = board => board.map(n => n + 1).join("");
+/** The board a history hash stands for, or null when `hash` is not one of `length` points. */
+export const boardFromHash = (hash, length) =>
+  typeof hash === "string" && hash.length === length && /^[012]+$/.test(hash) ? Array.from(hash, n => Number(n) - 1) : null;
 export const maxHandicap = size => size === 9 ? 5 : 9;
 /**
  * Fixed handicap on the star points in the usual order: top-right and

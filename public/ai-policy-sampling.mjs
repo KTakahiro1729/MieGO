@@ -1,6 +1,6 @@
 // Stable temperature-weighted selection shared across AI policy callers.
 // Candidate ordering and the injected random source are significant.
-const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+export const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 
 export function samplePolicyCandidate(candidates, options={}) {
   if(!candidates.length)return null;
