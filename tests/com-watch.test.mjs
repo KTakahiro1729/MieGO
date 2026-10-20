@@ -10,17 +10,22 @@ const body=name=>app.slice(app.indexOf("function "+name+"("),app.indexOf("\n}\n"
 const between=(from,to)=>html.slice(html.indexOf(from),html.indexOf(to,html.indexOf(from)));
 
 test("対COM's 自分の石 is 対友人's choices plus 観戦",()=>{
-  // UX policy: the same ランダム／● 黒／○ 白 in both, and 対COM adds 観戦 at the end.
+  // UX policy: the same ● 黒／ランダム／○ 白 in both, and 対COM adds 観戦 at the end.
   assert.deepEqual(choices("aiSide"),[...choices("onlineSide"),"watch"]);
-  assert.match(app,/const SIDE_CHOICES=\["random","black","white","watch"\];/);
+  assert.deepEqual(choices("onlineSide"),["black","random","white"]);
+  assert.match(app,/const SIDE_CHOICES=\["black","random","white","watch"\];/);
 });
 
-test("a running AI game can switch to watching from the 対COM sheet",()=>{
-  const ai=between('id="aiSetup"','</section>');
-  assert.match(ai,/id="watchCurrent" class="secondary full" type="button" hidden/);
-  assert.match(body("watchCurrentGame"),/watching=true;[\s\S]*save\(\);[\s\S]*requestAnalysis\(\);/);
-  // Only an AI game still being played, and not already watched, offers it.
-  assert.match(app,/\$\("watchCurrent"\)\.hidden=kind!=="ai" \|\| !!room \|\| gameMode!=="ai" \|\| watching \|\|/);
+test("観戦 has one way in: its own button beside the colours, not a wide button",()=>{
+  assert.doesNotMatch(html,/id="watchCurrent"/);
+  const row=between('id="aiSideRow"','</fieldset>');
+  // 黒・ランダム・白, then 観戦 set a little apart, each with its note beside it.
+  assert.match(row,/value="white">[^]*?<label class="choice-row watch-choice"><input type="radio" name="aiSide" value="watch"><span class="choice">観戦<\/span><small class="choice-note">/);
+  // 対友人 shows the same row with 観戦 greyed out.
+  assert.match(between('id="onlineSideRow"','</fieldset>'),/value="watch" disabled>/);
+  // With two COMs, 「AIの強さ」 is greyed out and each COM's strength is set in 詳細設定.
+  assert.match(body("syncStrengthUi"),/\$\("aiStrengthChoices"\)\.disabled=off;/);
+  assert.match(body("syncStrengthUi"),/TEXT\.ai\.strengthInAdvanced/);
 });
 
 test("while watching, the row holds 一時停止 alone; stepping in brings back × and ここに打つ",()=>{
@@ -57,7 +62,7 @@ test("each COM of a watched game plays with its own strength and personality",()
   // The move is chosen with the settings of the colour to play.
   assert.match(body("finishAiMove"),/const com=watching\?watchAi\[game\.next===BLACK\?"black":"white"\]/);
   assert.match(body("finishAiMove"),/invasion:com\.invasion,reinforcement:com\.reinforcement,strength:com\.strength/);
-  // 「AIの強さ」 stays one bar; 詳細設定 holds one card per COM, shown only for two COMs.
+  // 詳細設定 holds one card per COM, shown only for two COMs.
   const advanced=between('id="newGameAdvanced"','</details>');
   const cards=[...advanced.matchAll(/<fieldset class="com-card">([\s\S]*?)<\/fieldset>/g)].map(m=>m[1]);
   assert.equal(cards.length,2);

@@ -5,18 +5,21 @@ import {TEXT} from "../public/texts.mjs";
 
 const source=name=>readFileSync(new URL("../public/"+name,import.meta.url),"utf8");
 const html=source("index.html"),app=source("app.mjs"),renderer=source("board-renderer.mjs"),style=source("style.css");
-test("replay and variations share a single action row with a non-scrolling overlay menu",()=>{
+test("replay keeps one action row; its other tools sit above the turn, with no menu",()=>{
  const review=html.slice(html.indexOf('<section id="reviewPanel"'),html.indexOf('<p id="saveStatus"'));
- for(const id of ["reviewBack","reviewFirst","reviewLast",
+ const tools=html.slice(html.indexOf('id="reviewTools"'),html.indexOf('id="statusRow"'));
+ for(const id of ["reviewBack",
    "reviewStepRange","reviewContinue"])
-   assert.match(review,new RegExp('id="'+id+'"'));
+   assert.match(review+tools,new RegExp('id="'+id+'"'));
  assert.match(review,/class="review-navigation"/);
  assert.match(review,/id="reviewPlayActions"/);
- assert.match(review,/class="review-menu-popover"/);
- assert.match(review,/<details id="reviewMenu"/);
+ assert.match(tools,/class="review-scrubber"/);
+ // ◁▷ step one move; no second pair of arrows repeats them.
+ assert.doesNotMatch(html,/id="reviewFirst"|id="reviewLast"/);
+ assert.doesNotMatch(html,/id="reviewMenu"|review-menu-popover/);
  assert.match(app,/\$\("actionRow"\)\.hidden=true/);
  assert.match(app,/\$\("reviewPanel"\)\.hidden=true/);
- assert.match(style,/\.review-navigation>\.review-menu \.review-menu-popover\{position:absolute/);
+ assert.match(app,/\$\("reviewPanel"\)\.hidden=false;\$\("reviewTools"\)\.hidden=false;/);
  assert.match(style,/\.review-panel\{[^}]*position:sticky/);
 });
 test("replay does not write moves to an active live or P2P session",()=>{
@@ -59,13 +62,13 @@ test("the status row keeps its height whatever it says",()=>{
  assert.match(style,/\.turn\{[^}]*white-space:nowrap;overflow:hidden;text-overflow:ellipsis/);
 });
 
-test("sharing lives in one header sheet, not in the replay menu",()=>{
+test("sharing lives in one header sheet, not in the replay tools",()=>{
  const header=html.slice(html.indexOf('class="header-actions"'),html.indexOf('</header>'));
  assert.match(header,/id="shareToggle"[^>]*aria-label="共有を開く"[^>]*aria-controls="sharePanel"/);
  const sheet=html.slice(html.indexOf('<aside id="sharePanel"'),html.indexOf('<aside id="modePanel"'));
  for(const id of ["saveImage","shareImage","shareLink","shareAiLink","shareSgf","shareNotice","shareCopyFallback"])
    assert.match(sheet,new RegExp('id="'+id+'"'));
- const review=html.slice(html.indexOf('id="reviewMenu"'),html.indexOf('id="reviewNotice"'));
+ const review=html.slice(html.indexOf('id="reviewTools"'),html.indexOf('id="reviewNotice"'));
  assert.doesNotMatch(review,/id="share|SGFを保存|URLをコピー|AI向け|GIF/);
  assert.doesNotMatch(review,/id="reviewContinue"/);
  const settings=html.slice(html.indexOf('<aside id="settingsPanel"'),html.indexOf('<aside id="sharePanel"'));
@@ -84,7 +87,7 @@ test("sharing lives in one header sheet, not in the replay menu",()=>{
  assert.match(app,/return \{snapshot:game,metadata:null,/);
  // Inviting a friend stays in the match setup, not in sharing.
  assert.doesNotMatch(sheet,/shareInvite|招待/);
- assert.match(style,/\.review-menu-popover>button\{min-height:44px/);
+ assert.match(style,/\.review-extras>button\{min-height:44px/);
  assert.doesNotMatch(html,/id="historyShareMenu"|id="historyExport"/);
 });
 
@@ -105,12 +108,19 @@ test("◁ steps back one move at once; the replay row holds the way back",()=>{
 test("one primary slot in the replay row starts a game from the shown position",()=>{
   const row=html.slice(html.indexOf('class="review-navigation"'),html.indexOf('id="reviewMenu"'));
   assert.match(row,/id="reviewContinue" class="primary review-continue"[^>]*>ここから打つ</);
-  const sheet=html.slice(html.indexOf('<aside id="continuePanel"'),html.indexOf('<aside id="helpPanel"'));
-  for(const value of ["ai","local"])assert.match(sheet,new RegExp('name="continueKind" value="'+value+'"'));
-  for(const value of ["black","white"])assert.match(sheet,new RegExp('name="continueSide" value="'+value+'"'));
-  assert.equal((sheet.match(/class="primary/g)||[]).length,1);
-  assert.match(app,/forkBoardReview\(continueChoice\("continueKind"\)==="ai"\?"ai":"local"/);
-  assert.match(app,/if\(kind==="ai"\)\{humanColor=side;/);
+  // It opens the 新規対戦 sheet itself: same modes, same 自分の石 (観戦 included).
+  assert.doesNotMatch(html,/id="continuePanel"|name="continueKind"/);
+  assert.match(app,/openPanel\(fromLocal \|\| !canContinueWithAi\(\)\?"local":"ai"\)/);
+  assert.match(app,/if\(continueFrom\)\{forkBoardReview\("ai"\);return;\}/);
+  assert.match(app,/watching=ai && aiSideChoice==="watch";/);
+  // The record fixes the board and rules; a friend game and 履歴 cannot start from a position.
+  assert.match(app,/input\.value==="online" \|\| input\.value==="history"/);
+  assert.match(app,/\["boardSize",sizeOf\(line\.board\)\],\["gameRules",rulesOf\(line\)\]/);
   assert.equal(TEXT.review.continueTitle(28),"28手目から打つ");
   assert.equal(TEXT.review.resume,"続きを打つ");
+});
+test("stepping to the live game's latest move stays in replay until the player leaves",()=>{
+ const step=app.slice(app.indexOf("function setBoardReviewStep("),app.indexOf("function clearBoardReview("));
+ assert.doesNotMatch(step,/leaveBoardReview/);
+ assert.match(app,/review\.step===game\.moves\.length/);
 });

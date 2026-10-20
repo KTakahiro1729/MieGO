@@ -13,8 +13,11 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   for(const size of [9,13,19])assert.match(sheet,new RegExp('name="boardSize" value="'+size+'"'));
   const handicap=sheet.slice(sheet.indexOf('<select id="handicap"'),sheet.indexOf('</select>',sheet.indexOf('<select id="handicap"')));
   for(const stones of [0,2,3,4,5,6,7,8,9])assert.match(handicap,new RegExp('<option value="'+stones+'"'));
-  // The three modes and 履歴 form one row of icon tabs in one sheet.
+  // The three modes and 履歴 form one row of icon tabs in one sheet: [対COM|対友人] [1台で打つ] [履歴].
   assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,4);
+  const modes=sheet.slice(sheet.indexOf('<div class="new-game-modes">'),sheet.indexOf('<div id="newGameSetup">'));
+  assert.deepEqual(modes.split('<div class="fused">').slice(1).map(group=>[...group.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1])),
+    [["ai","online"],["local"],["history"]]);
   assert.match(sheet,/id="openHistoryFromNew" type="radio" name="newGameMode" value="history"/);
   // 対COM first, 履歴 last; 対COM is the first-visit default.
   assert.deepEqual([...sheet.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1]),["ai","online","local","history"]);
@@ -23,17 +26,21 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   for(const id of ["historySetup","historyList","historyImportFile"])assert.match(sheet,new RegExp('id="'+id+'"'));
   assert.doesNotMatch(html,/id="historyPanel"|id="closeHistory"/);
   assert.match(app,/function openHistoryPanel\(\)\{openPanel\("history"\);\}/);
-  assert.equal((sheet.match(/name="boardSize"[^>]*><span><svg class="size-icon"/g)||[]).length,3);
+  assert.equal((sheet.match(/name="boardSize"[^>]*><span class="choice"><svg class="size-icon"/g)||[]).length,3);
   // Handicap and the AI's style live under 詳細設定; the sampling-variance setting is gone.
   const advanced=sheet.slice(sheet.indexOf('<details id="newGameAdvanced"'),sheet.indexOf('</details>',sheet.indexOf('<details id="newGameAdvanced"')));
   for(const id of ["handicap","aiInvasion","aiReinforcement","aiHints"])assert.match(advanced,new RegExp('id="'+id+'"'));
-  // Strength stays outside 詳細設定 as a four-stop bar; the style sliders have three stops.
-  assert.doesNotMatch(advanced,/id="aiStrength"/);
-  assert.match(sheet,/id="aiStrength" type="range" min="0" max="3" step="1"/);
+  // Strength stays outside 詳細設定 as four choices under its own tab, each with its note; the style sliders have three stops.
+  assert.doesNotMatch(advanced,/name="aiStrength"/);
+  assert.deepEqual([...sheet.matchAll(/name="aiStrength" value="(\w+)"/g)].map(m=>m[1]),["beginner","easy","normal","strong"]);
+  assert.equal((sheet.slice(sheet.indexOf('id="aiStrengthChoices"'),sheet.indexOf('</fieldset>',sheet.indexOf('id="aiStrengthChoices"'))).match(/<small class="choice-note">/g)||[]).length,4);
+  // 盤・ルール・自分の石・AIの強さ are one row of tabs over one panel of choices.
+  assert.deepEqual([...sheet.matchAll(/id="setupTab(\w+)"[^>]*role="tab"/g)].map(m=>m[1]),["Board","Rules","Side","Strength"]);
+  for(const key of ["Board","Rules","Side","Strength"])assert.match(sheet,new RegExp('id="setupPanel'+key+'" class="setup-panel" role="tabpanel"'));
   for(const id of ["aiInvasion","aiReinforcement"])
     assert.match(advanced,new RegExp('id="'+id+'" type="range" min="0" max="100" step="50"'));
-  for(const id of ["aiStrength","aiInvasion","aiReinforcement"])
-    assert.equal((sheet.slice(sheet.indexOf('id="'+id+'Row"')).split('</div>')[0].match(/data-note=/g)||[]).length,id==="aiStrength"?4:3);
+  for(const id of ["aiInvasion","aiReinforcement"])
+    assert.equal((sheet.slice(sheet.indexOf('id="'+id+'Row"')).split('</div>')[0].match(/data-note=/g)||[]).length,3);
   assert.doesNotMatch(html+app,/aiLevel/);
   for(const id of ["startLocal","startAi","copy","openHistoryFromNew"])assert.match(sheet,new RegExp('id="'+id+'"'));
   // The way back tops the sheet, then the start button, then the mode tabs and options.
@@ -110,7 +117,7 @@ test("direct game controls replace hidden action menus; new local games start fr
  assert.match(html,/id="startLocal"/);
  assert.doesNotMatch(html,/id="openHistorySettings"|id="openCurrentMode"/);
  assert.match(app,/if \(room \|\| gameMode!=="local"\) return;/);
- assert.match(app,/\$\("startLocal"\)\.onclick=startLocalGame/);
+ assert.match(app,/\$\("startLocal"\)\.onclick=\(\)=>continueFrom\?forkBoardReview\("local"\):startLocalGame\(\);/);
  assert.match(app,/game=freshLocalGame\(game,nextGameOptions\(localHandicap\)\);currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
 });
 test("settings button shows a toothed gear and is labeled",()=>{
@@ -130,13 +137,15 @@ test("reset discards endgame and dead-stone hints",()=>{
 });
 test("the 新規対戦 sheet offers a way back to the current or an unfinished saved game",()=>{
   const sheet=html.slice(html.indexOf('<aside id="modePanel"'),html.indexOf('</aside>',html.indexOf('<aside id="modePanel"')));
-  assert.match(sheet,/id="returnToGame"[^>]*hidden>現在の対局に戻る<\/button>/);
-  assert.match(app,/return \{mode:null,label:TEXT\.history\.returnCurrent\};/);
+  assert.match(sheet,/id="returnToGame"[^>]*>現在の対局に戻る<\/button>/);
+  // The way back stays in every mode, so the sheet keeps its layout when the mode changes.
+  assert.doesNotMatch(sheet,/id="returnToGame"[^>]*hidden/);
+  assert.match(app,/const current=\{mode:null,label:TEXT\.history\.returnCurrent\};/);
   assert.equal(TEXT.history.returnCurrent,"現在の対局に戻る");
   assert.doesNotMatch(app,/label:[^\n]*手目/);
-  // Finished games and friend rooms are not resumed from here.
-  assert.match(app,/if\(kind==="online"\)return null;/);
-  assert.match(app,/record\.snapshot\.status==="finished"\)return null;/);
+  // Finished games and friend rooms are not resumed from here: the button returns to the board instead.
+  assert.match(app,/kind==="online" \|\| kind===\(room\?"online":gameMode\)\)return current;/);
+  assert.match(app,/record\.snapshot\.status==="finished"\)return current;/);
   assert.match(app,/if\(target\.mode\)\{resumeModeGame\(target\.mode\);return;\}/);
 });
 test("every new game takes its options from nextGameOptions, so a new option is added in one place",()=>{

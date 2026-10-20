@@ -11,17 +11,18 @@ test("a direct board tap previews only the review candidate, not the live game",
  assert.match(app,/boardReview\.preview=null;boardReview\.previewPosition=null/);
 });
 test("preview buttons replace navigation without increasing the number of permanent rows",()=>{
- const start=html.indexOf('id="reviewPanel"'),end=html.indexOf('id="saveStatus"',start);
+ const start=html.indexOf('id="reviewTools"'),end=html.indexOf('id="saveStatus"',start);
  const controls=html.slice(start,end);
  assert.match(controls,/id="reviewPlayActions"/);
  assert.match(controls,/id="reviewCancel"/);
  assert.match(controls,/id="reviewConfirm"/);
- assert.match(controls,/id="reviewOriginal"/);
+ // The back button is the only way to the original line; no second button repeats it.
+ assert.doesNotMatch(controls,/id="reviewOriginal"/);
  assert.match(controls,/id="reviewVariation"/);
  assert.match(controls,/id="reviewPass"/);
  assert.match(controls,/id="reviewSaveVariation"/);
  assert.match(css,/\.review-navigation \.review-play-actions\[hidden\]\{display:none\}/);
- assert.match(css,/\.review-navigation>\.review-menu \.review-menu-popover\{position:absolute/);
+ assert.match(css,/\.review-tools\[hidden\]\{display:none\}/);
  assert.match(css,/\.review-panel\[hidden\]\{display:none\}/);
 });
 test("review move handler never calls real apply, save, or P2P transport",()=>{
