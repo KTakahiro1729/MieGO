@@ -119,6 +119,14 @@ export function countingGradient(palette = DEFAULT_PALETTE, opacity = 1) {
     "linear-gradient(90deg,"+fill(white)+" 0 33%,transparent 33% 67%,"+fill(black)+" 67% 100%)";
 }
 export const NEUTRAL_MARK = "rgba(96,92,84,.85)";
+// 日本式: prisoners filled into territory and the アゲハマ counter wear the
+// colour of the side that took them, so each block reads as that side's
+// points and shows against the area it sits in. `white` outlines White stones
+// (Black's prisoners), so it is Black's colour, and the other way round.
+export function prisonerOutline(palette = DEFAULT_PALETTE) {
+  const {white,black} = coloursFor(countingPalette(palette));
+  return {white:hex(black.rgb),black:hex(white.rgb)};
+}
 export function interpolateOwnership(from,to,progress) {
   const t=clamp(progress,0,1);
   if (!Array.isArray(to) || ![81,169,361].includes(to.length)) throw new Error("Invalid ownership map");

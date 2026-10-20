@@ -1,5 +1,5 @@
 import {BLACK, WHITE, starPoints} from "./core.mjs";
-import {boardTheme} from "./board-theme.mjs";
+import {BOARD_CUSTOM, boardTheme} from "./board-theme.mjs";
 import {ownershipPixel} from "./territory-view.mjs";
 
 const PAD = 5, SPAN = 80, END = PAD+SPAN;
@@ -14,6 +14,10 @@ const num = v => +v.toFixed(2);
 export function boardThumbnailSvg(board, lastPosition=null, themeName, overlay=null) {
   const size=Math.sqrt(board.length);
   const theme=boardTheme(themeName);
+  // The custom board's own stone colours; the fixed looks keep their tuned ones.
+  const stoneFill=themeName===BOARD_CUSTOM ?
+    {black:theme.stones.black.outer,white:theme.stones.white.inner,whiteRim:theme.stones.white.rim} :
+    {black:"#1c2427",white:"#f8f6ee",whiteRim:"#8e8a80"};
   const gap=SPAN/(size-1), k=gap/10;
   const point=i=>[num(PAD+(i%size)*gap), num(PAD+Math.floor(i/size)*gap)];
   const parts=[`<rect width="${END+PAD}" height="${END+PAD}" rx="4" fill="rgb(${theme.surface.join(",")})"/>`];
@@ -43,8 +47,8 @@ export function boardThumbnailSvg(board, lastPosition=null, themeName, overlay=n
     if(color!==BLACK && color!==WHITE)continue;
     const [cx,cy]=point(i);
     parts.push(color===BLACK ?
-      `<circle cx="${cx}" cy="${cy}" r="${num(4.6*k)}" fill="#1c2427" stroke="${theme.stones.black.rim}" stroke-width="${num(.6*k)}"/>` :
-      `<circle cx="${cx}" cy="${cy}" r="${num(4.4*k)}" fill="#f8f6ee" stroke="#8e8a80" stroke-width="${num(.6*k)}"/>`);
+      `<circle cx="${cx}" cy="${cy}" r="${num(4.6*k)}" fill="${stoneFill.black}" stroke="${theme.stones.black.rim}" stroke-width="${num(.6*k)}"/>` :
+      `<circle cx="${cx}" cy="${cy}" r="${num(4.4*k)}" fill="${stoneFill.white}" stroke="${stoneFill.whiteRim}" stroke-width="${num(.6*k)}"/>`);
   }
   if(Number.isInteger(lastPosition) && lastPosition>=0 && lastPosition<board.length &&
      board[lastPosition]!==0) {
