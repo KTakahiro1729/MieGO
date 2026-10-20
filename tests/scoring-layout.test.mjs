@@ -15,8 +15,9 @@ const TYPES={".html":"text/html",".mjs":"text/javascript",".js":"text/javascript
 const VIEWPORTS=[[320,568],[375,667],[390,844],[430,932],[768,1024],[1280,720]];
 // UX policy §2: the board's size comes first on a portrait screen, so from
 // 375×667 up the score box has to fit without shrinking the board. Smaller
-// phones and landscape desktops may shrink it rather than hide the score.
-const keepsBoard=([w,h])=>h>w && w>=375 && h>=667;
+// phones and landscape desktops may shrink it rather than hide the score, and
+// so may Japanese rules, whose prisoner pills sit above the score box.
+const keepsBoard=([w,h],rules)=>rules==="chinese" && h>w && w>=375 && h>=667;
 
 let chromium;
 try{({chromium}=await import("playwright"));}catch{}
@@ -47,22 +48,32 @@ function layout(page){
     const buttons=[...document.querySelectorAll("#gamePanel button")].filter(button=>
       button.getClientRects().length && !button.closest("[hidden],.hidden,.visually-hidden,details:not([open]) .review-menu-popover"))
       .map(button=>({id:button.id||button.textContent.trim(),className:button.className,...button.getBoundingClientRect().toJSON()}));
+    // Everything stacked under the board, top to bottom, that is on screen now.
+    const stack=["boardFrame","ownershipLegend","captureCounts","endgameBar","scoreBox","actionRow"]
+      .map(id=>({id,...box(id)})).filter(part=>part.top!==undefined);
     return {height:innerHeight,width:innerWidth,scrolled:document.querySelector(".game-layout").scrollTop,
-      topbar:box("boardFrame")&&document.querySelector(".topbar").getBoundingClientRect().bottom,
-      board:box("boardFrame"),score:box("scoreBox"),actions:box("actionRow"),buttons};
+      topbar:document.querySelector(".topbar").getBoundingClientRect().bottom,
+      board:box("boardFrame"),actions:box("actionRow"),stack,buttons,
+      scoreCard:(style=>style.borderTopWidth!=="0px" || style.backgroundColor!=="rgba(0, 0, 0, 0)")(
+        getComputedStyle(document.getElementById("scoreBox")))};
   });
 }
 
-function assertFits(view,phase,size){
-  const at=`${size.join("×")} ${phase}`;
+function assertFits(view,phase,where){
+  const at=`${where} ${phase}`;
   assert.equal(view.scrolled,0,`${at}: the game panel scrolled`);
   assert.ok(view.board.top>=view.topbar-0.5,`${at}: the board is under the header`);
   assert.ok(view.actions.bottom<=view.height+0.5,`${at}: the action row runs off the screen`);
-  if(view.score){
-    assert.ok(view.score.top>=view.board.bottom,`${at}: the score box overlaps the board`);
-    assert.ok(view.score.bottom<=view.actions.top+0.5,
-      `${at}: the score box (bottom ${view.score.bottom}) slides under the action row (top ${view.actions.top})`);
-  }
+  // UX policy §1: the score box is not a card, so its frame never adds lines
+  // next to the prisoner pills or the action row.
+  assert.equal(view.scoreCard,false,`${at}: the score box is drawn as a card`);
+  // Nothing under the board runs into the next part: the score box sliding
+  // under the action row, or the prisoner pills touching the score box.
+  view.stack.slice(1).forEach((part,i)=>{
+    const above=view.stack[i];
+    assert.ok(part.top>=above.bottom-0.5,
+      `${at}: ${part.id} (top ${part.top}) overlaps ${above.id} (bottom ${above.bottom})`);
+  });
   for(const button of view.buttons){
     assert.ok(button.top>=0 && button.bottom<=view.height+0.5 && button.left>=0 && button.right<=view.width+0.5,
       `${at}: button "${button.id}" is off the screen`);
@@ -73,49 +84,60 @@ function assertFits(view,phase,size){
 }
 
 // Names the screen and what the page shows when a step never happens.
-async function step(page,size,label,action){
+async function step(page,at,label,action){
   try{return await action();}catch(error){
     const state=await page.evaluate(()=>["gamePanel","turn","moveLabel","endStatus","scoreInstruction"]
       .map(id=>id+"="+JSON.stringify(id==="gamePanel"?document.getElementById(id).className:
         document.getElementById(id).textContent)).join(" ")).catch(()=>"(page gone)");
-    throw Error(`${size.join("×")} ${label}: ${error.message.split("\n")[0]} | ${state}`);
+    throw Error(`${at} ${label}: ${error.message.split("\n")[0]} | ${state}`);
   }
 }
 
-test("scoring and the result fit above the action row on every screen",{skip,timeout:240000},async t=>{
+test("scoring and the result fit above the action row on every screen",{skip,timeout:480000},async t=>{
   if(!browser)throw launchError||Error("Playwright is not installed");
   await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
   t.after(async()=>{await browser.close();server.close();});
   const origin=`http://127.0.0.1:${server.address().port}/`;
-  for(const size of VIEWPORTS){
+  // Japanese rules add the prisoner pills above the score box.
+  for(const {rules,board} of [{rules:"chinese",board:"9"},{rules:"japanese",board:"19"}])for(const size of VIEWPORTS){
+    const at=`${size.join("×")} ${rules} ${board}路`;
     const page=await browser.newPage({viewport:{width:size[0],height:size[1]}});
     await page.goto(origin);
     // The button is in the HTML before app.mjs has wired it up.
-    await step(page,size,"app start",()=>page.waitForFunction(()=>typeof document.getElementById("pass").onclick==="function"));
+    await step(page,at,"app start",()=>page.waitForFunction(()=>typeof document.getElementById("pass").onclick==="function"));
     // Two people on one device, so two passes go straight to scoring.
     await page.locator("#newGameButton").click();
     await page.locator('input[name="newGameMode"][value="local"]').check({force:true});
+    await page.locator(`input[name="boardSize"][value="${board}"]`).check({force:true});
+    await page.locator(`input[name="gameRules"][value="${rules}"]`).check({force:true});
     await page.locator("#startLocal").click();
-    await step(page,size,"local game",()=>page.locator("#modePanel").waitFor({state:"hidden"}));
+    await step(page,at,"local game",()=>page.locator("#modePanel").waitFor({state:"hidden"}));
     const playing=await layout(page);
-    assertFits(playing,"playing",size);
+    assertFits(playing,"playing",at);
     for(const pass of ["first pass","second pass"]){
       const move=await page.locator("#moveLabel").textContent();
       await page.locator("#pass").click();
-      await step(page,size,pass,()=>page.waitForFunction(text=>document.getElementById("moveLabel").textContent!==text,move));
+      await step(page,at,pass,()=>page.waitForFunction(text=>document.getElementById("moveLabel").textContent!==text,move));
     }
-    await step(page,size,"scoring",()=>page.locator("#gamePanel.is-scoring").waitFor());
+    await step(page,at,"scoring",()=>page.locator("#gamePanel.is-scoring").waitFor());
     const phases=[["決着手順",await layout(page)]];
     if(await page.locator("#settleSkip").isVisible())await page.locator("#settleSkip").click();
-    await step(page,size,"dead-stone check",()=>page.waitForFunction(()=>!document.getElementById("agree").disabled,null,{timeout:60000}));
+    await step(page,at,"dead-stone check",()=>page.waitForFunction(()=>!document.getElementById("agree").disabled,null,{timeout:60000}));
     phases.push(["死石の確認",await layout(page)]);
     await page.locator("#agree").click();
-    await step(page,size,"result",()=>page.locator("#gamePanel.is-finished").waitFor());
+    // Japanese rules then fill territory with the prisoners and ask again.
+    if(rules==="japanese"){
+      await step(page,at,"counting",()=>page.waitForFunction(()=>!document.getElementById("backToDead").hidden &&
+        !document.getElementById("agree").disabled));
+      phases.push(["地の計算",await layout(page)]);
+      await page.locator("#agree").click();
+    }
+    await step(page,at,"result",()=>page.locator("#gamePanel.is-finished").waitFor());
     phases.push(["対局終了",await layout(page)]);
     for(const [phase,view] of phases){
-      assertFits(view,phase,size);
-      if(keepsBoard(size))assert.ok(view.board.width>=playing.board.width-0.5,
-        `${size.join("×")} ${phase}: the board shrank from ${playing.board.width}px to ${view.board.width}px`);
+      assertFits(view,phase,at);
+      if(keepsBoard(size,rules))assert.ok(view.board.width>=playing.board.width-0.5,
+        `${at} ${phase}: the board shrank from ${playing.board.width}px to ${view.board.width}px`);
     }
     await page.close();
   }
