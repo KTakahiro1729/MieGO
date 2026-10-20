@@ -4,7 +4,7 @@ import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
 import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame, isPeerAction, storageKey, roomUrl, newPeerSignins } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
-import { isPaletteChoice, normalizePalette, showsOwnership, paletteGradient, countingGradient, interpolateOwnership, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
+import { isPaletteChoice, normalizePalette, showsOwnership, countingPalette, paletteGradient, countingGradient, interpolateOwnership, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
 import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss, boardTheme as boardLook } from "./board-theme.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
@@ -111,7 +111,15 @@ try{setCustomColours(JSON.parse(localStorage.getItem("miego-custom-colours")||"n
 setOpacityShape(localStorage.getItem("miego-opacity-shape"));
 const storedBoardTheme = localStorage.getItem("miego-board");
 let boardTheme = isBoardTheme(storedBoardTheme) ? storedBoardTheme : DEFAULT_BOARD_THEME;
-const overlayOn = () => showsOwnership(palette);
+// "石を隠す" is fixed for a whole game: the 新規対戦 choice applies to the
+// next game, which carries it (so a friend's game shows it to both players).
+// A replayed board follows its game; a shared SGF shows its stones.
+let hideStonesChoice = false;
+const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideStones===true;
+// With the stones hidden the colours are all there is, so "表示しない" falls
+// back to the default map, as counting does.
+const shownPalette = () => hidingStones() ? countingPalette(palette) : palette;
+const overlayOn = () => showsOwnership(shownPalette());
 const storedOpacity = Number(localStorage.getItem("miego-opacity"));
 let opacity = Number.isFinite(storedOpacity) && storedOpacity>=0 && storedOpacity<=1 && localStorage.getItem("miego-opacity")!==null ? storedOpacity : .55;
 let connected = false;
@@ -174,7 +182,7 @@ const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openS
   getThumbnailOverlay:record=>{
     if(!overlayOn())return null;
     const ownership=ownershipStore.recall(record.id,record.snapshot.board);
-    return ownership?{ownership,palette,opacity}:null;
+    return ownership?{ownership,palette:shownPalette(),opacity}:null;
   }});
 const {renderHistoryList,importHistoryFile}=historyPanel;
 // Sheets are aria-modal: keep Tab and taps out of the board behind them.
@@ -283,7 +291,8 @@ function stopAiTurn() {
 function rememberSettings() {
   try {
     localStorage.setItem("miego-local-settings", JSON.stringify({
-      mode:gameMode,humanColor,aiSide:aiSideChoice,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap,onlineHandicap,boardSize
+      mode:gameMode,humanColor,aiSide:aiSideChoice,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap,onlineHandicap,boardSize,
+      hideStones:hideStonesChoice
     }));
   } catch {}
 }
@@ -311,8 +320,8 @@ const boardZoom=createBoardZoom({
 });
 const boardRenderer = createBoardRenderer({
   canvas,
-  getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette,opacity,boardTheme,
-    humanTurn:isHumanTurn(),hints:visibleHints()})
+  getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette:shownPalette(),opacity,boardTheme,
+    hideStones:hidingStones(),humanTurn:isHumanTurn(),hints:visibleHints()})
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
 // Hints belong to one committed position and are only drawn on the human's turn.
@@ -930,7 +939,7 @@ function freshLocalBoard() {
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
   lastOfferKey=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  game=freshLocalGame(game,localHandicap,boardSize);currentGameId=null;currentRevision=null;
+  game=freshLocalGame(game,localHandicap,boardSize,hideStonesChoice);currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
 }
 /** 新規対戦 → 1台で打つ: leaves an AI or friend match (kept in the library). */
@@ -1023,6 +1032,7 @@ document.querySelectorAll('input[name="boardTheme"]').forEach(input => {
     updateGradient();draw();
   };
 });
+$("hideStones").onchange=e=>{hideStonesChoice=e.target.checked;rememberSettings();};
 // The colour pickers show the chosen map; editing one turns it into "カスタム".
 function fillColourInputs(){
   const shown=paletteColours(showsOwnership(palette)?palette:PALETTE_CUSTOM);
@@ -1106,7 +1116,7 @@ function updateGradient(){
   // While counting, the same legend explains the flat area colours instead.
   const counting=isCounting();
   $("gradient").style.backgroundImage=counting?countingGradient(palette,opacity,boardTheme):
-    paletteGradient(palette,opacity,boardTheme);
+    paletteGradient(shownPalette(),opacity,boardTheme);
   $("legendNeutral").hidden=!counting;
   $("ownershipLegend").classList.toggle("overlay-off",!counting && !overlayOn() ||
     game.status==="finished" && !counting);
@@ -1325,7 +1335,7 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;seenPeerSignins=0;linkKey=null;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  game=newGame(true,{handicap:onlineHandicap,size:boardSize});candidate=null;lastPosition=null;
+  game=newGame(true,{handicap:onlineHandicap,size:boardSize,hideStones:hideStonesChoice});candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
@@ -1724,7 +1734,7 @@ function shareImageDetails(animated){
   return {snapshot,step,gameId,labels:{...shareLabels({step,total,result,animated,
       komi:Number.isFinite(Number(metadata?.komi)) ? Number(metadata.komi) : komiOf(snapshot),
       handicap:handicapOf(snapshot)}),boardSize:sizeOf(snapshot.board),
-    theme:boardTheme,legend:coloured ? {palette,opacity} : null}};
+    theme:boardTheme,legend:coloured ? {palette:shownPalette(),opacity} : null}};
 }
 // An animation frame: the replayed position with the ownership recorded for
 // it, or the replay view's quick estimate where none was recorded.
@@ -1733,7 +1743,7 @@ function renderFrameBoard(state,gameId){
     const board=frameCanvas(ANIMATION_SIZE,ANIMATION_SIZE);
     frameRenderer={board,...createBoardRenderer({canvas:board,getView:()=>({game:frameState,
       boardReview:{display:frameState,ownership:frameOwnership},candidate:null,illegalCandidate:null,
-      lastPosition:null,displayedOwnership:null,palette,opacity,boardTheme,hints:null})})};
+      lastPosition:null,displayedOwnership:null,palette:shownPalette(),opacity,boardTheme,hints:null})})};
   }
   frameState=state;
   frameOwnership=overlayOn() ? ownershipStore.recall(gameId,state.board) ?? influence(state.board) : null;
@@ -2039,7 +2049,7 @@ $("startAi").onclick=()=>{
   catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
   aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
-  game=newGame(true,{handicap:aiHandicap,size:boardSize});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
+  game=newGame(true,{handicap:aiHandicap,size:boardSize,hideStones:hideStonesChoice});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   $("aiMatchStatus").textContent=TEXT.ai.started(colorLabel(humanColor));
   save();closePanels();show();requestAnalysis();
@@ -2125,6 +2135,9 @@ $("nativeShare").onclick=async()=>{
   catch(error){if(error.name!=="AbortError")$("inviteStatus").textContent=TEXT.online.shareFailed;}
 };
 for(const input of document.querySelectorAll('input[name="onlineSide"]'))input.onchange=renderInviteButton;
+// The next game's "石を隠す" is read even in a room, where the other
+// remembered choices are not, so leaving the room does not forget it.
+try{hideStonesChoice=JSON.parse(localStorage.getItem("miego-local-settings")||"null")?.hideStones===true;}catch{}
 if(room){
   const stored=readCheckpoint(localStorage,room);
   const linkRole=inviteFragment.get("role");
@@ -2183,6 +2196,7 @@ const selectedPalette=document.querySelector('input[name="palette"][value="'+pal
 if(selectedPalette)selectedPalette.checked=true;
 const selectedBoardTheme=document.querySelector('input[name="boardTheme"][value="'+boardTheme+'"]');
 if(selectedBoardTheme)selectedBoardTheme.checked=true;
+$("hideStones").checked=hideStonesChoice;
 {const shapeRadio=document.querySelector('input[name="opacityShape"][value="'+opacityShape()+'"]');
 if(shapeRadio)shapeRadio.checked=true;}
 fillColourInputs();
