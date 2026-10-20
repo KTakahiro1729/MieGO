@@ -265,7 +265,7 @@ function updateEndUi() {
   $("endHelp").dataset.help=playing && illegalCandidate?"illegal":"endgame";
   if(playing && illegalCandidate){
     $("endStatus").textContent=illegalCandidate.reason===ILLEGAL_KO?
-      TEXT.endgame.koIllegal:TEXT.endgame.suicideIllegal;
+      TEXT.rules.ko:TEXT.rules.suicide;
   }
 }
 

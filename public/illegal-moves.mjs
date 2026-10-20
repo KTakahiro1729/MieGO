@@ -58,7 +58,7 @@ export function makeIllegalMovePrompt(game,forbidden,reviewUrl) {
   return [
     TEXT.prompts.illegalTitle(sizeOf(game.board)),
     TEXT.prompts.illegalTurn(color),
-    TEXT.prompts.illegalReason(reasons[forbidden.reason]),
+    TEXT.prompts.illegalReason(TEXT.prompts.illegalReasons[forbidden.reason]),
     TEXT.prompts.illegalAsk,
     TEXT.prompts.reviewUrl(url.href),
     "",

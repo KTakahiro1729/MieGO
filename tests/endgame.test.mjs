@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { newGame, play, proposeEnd, answerEndProposal, beginSoloScoring, finalizeSoloScore, agreeScore, BLACK, WHITE, at } from "../public/core.mjs";
 import { EndgameAdvisor, endgameHint } from "../public/endgame.mjs";
+import { TEXT } from "../public/texts.mjs";
 
 test("end offer consumes no turn, move number or passes", () => {
   const start=newGame();
@@ -86,7 +87,7 @@ test("solo score uses same rules and points as two-player score acceptance",()=>
 test("advice with no valid NN estimate is not reported as 'not near endgame'",()=>{
   const g=newGame(),advisor=new EndgameAdvisor();
   assert.equal(endgameHint(g,advisor),"終局の目安を確認中");
-  assert.equal(endgameHint(g,advisor,{unavailable:true}),"終局の目安を判定できません");
+  assert.equal(endgameHint(g,advisor,{unavailable:true}),TEXT.endgame.unavailable);
   advisor.observe(g,Array(81).fill(0));
   assert.equal(endgameHint(g,advisor),"終局まではまだまだです");
   assert.equal(endgameHint({...g,moveNumber:5},advisor),"終局の目安を更新中");

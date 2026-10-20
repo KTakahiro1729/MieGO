@@ -65,7 +65,7 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},g
   async function importHistoryFile(file) {
     if(!file)return;
     try {
-      if(file.size>512*1024)throw Error(TEXT.history.sgfTooLarge);
+      if(file.size>512*1024)throw Error(TEXT.sgf.tooLarge);
       const parsed=parseSGF(await file.text());
       const record=gameLibrary.save({mode:"local",snapshot:parsed.snapshot,source:"sgf",
         sgfMeta:parsed.metadata,lastPosition:parsed.snapshot.moves.at(-1)?.position??null});

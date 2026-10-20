@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {postP2PJson,reconnectDelay,isTerminalTicketFailure,signalingUrl} from "../public/p2p-network.mjs";
+import { TEXT } from "../public/texts.mjs";
 
 test("P2P JSON API sends unchanged POST envelopes and handles server errors",async()=>{
   const requests=[];
@@ -16,9 +17,9 @@ test("P2P JSON API sends unchanged POST envelopes and handles server errors",asy
   await assert.rejects(()=>postP2PJson("/bad",{},async()=>({ok:false,status:403,json:async()=>({error:"forbidden"})})),
     error=>error.message==="forbidden"&&error.status===403);
   await assert.rejects(()=>postP2PJson("/bad",{},async()=>({ok:false,status:500,json:async()=>({})})),
-    error=>error.message==="通信に失敗しました"&&error.status===500);
+    error=>error.message===TEXT.online.requestFailed&&error.status===500);
   await assert.rejects(()=>postP2PJson("/bad",{},async()=>({ok:false,json:async()=>{throw Error("unparseable");}})),
-    /通信に失敗しました/);
+    error=>error.message===TEXT.online.requestFailed);
 });
 
 test("retry policy maintains exponential delay, cap and terminal HTTP statuses",()=>{
