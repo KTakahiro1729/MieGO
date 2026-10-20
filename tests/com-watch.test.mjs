@@ -8,13 +8,18 @@ const html=await renderIndex();
 const choices=name=>[...html.matchAll(new RegExp('name="'+name+'" value="([a-z]+)"',"g"))].map(m=>m[1]);
 const between=(from,to)=>html.slice(html.indexOf(from),html.indexOf(to,html.indexOf(from)));
 
-test("COM同士 is its own 対局者 row, so 自分の石 stays the same as with a friend",()=>{
-  // UX policy: 対COM and 対友人 offer the same ランダム／● 黒／○ 白.
-  assert.deepEqual(choices("aiSide"),choices("onlineSide"));
-  assert.deepEqual(choices("aiPlayers"),["human","watch"]);
-  assert.ok(html.indexOf('id="aiPlayersRow"')<html.indexOf('id="aiSideRow"'));
-  // The row shows with the other 対COM rows only.
-  assert.match(app,/\$\("aiSideRow"\)\.hidden=\$\("aiPlayersRow"\)\.hidden=/);
+test("対COM's 自分の石 is 対友人's choices plus 観戦",()=>{
+  // UX policy: the same ランダム／● 黒／○ 白 in both, and 対COM adds 観戦 at the end.
+  assert.deepEqual(choices("aiSide"),[...choices("onlineSide"),"watch"]);
+  assert.match(app,/const SIDE_CHOICES=\["random","black","white","watch"\];/);
+});
+
+test("a running AI game can switch to watching from the 対COM sheet",()=>{
+  const ai=between('id="aiSetup"','</section>');
+  assert.match(ai,/id="watchCurrent" class="secondary full" type="button" hidden/);
+  assert.match(app,/function watchCurrentGame\(\) \{[^}]*watching=true;[^}]*save\(\);[^}]*requestAnalysis\(\);/);
+  // Only an AI game still being played, and not already watched, offers it.
+  assert.match(app,/\$\("watchCurrent"\)\.hidden=kind!=="ai" \|\| !!room \|\| gameMode!=="ai" \|\| watching \|\|/);
 });
 
 test("a watched game swaps the playing controls for take-over and pause in the same row",()=>{
@@ -34,10 +39,7 @@ test("the human never plays, and the AI plays both colours, while watching",()=>
   assert.match(app,/function takeOverWatchedGame\(color\) \{[^}]*stopAiTurn\(\);[^}]*watching=false;[^}]*humanColor=color;[^}]*save\(\);/);
 });
 
-test("the 対局者 choice is remembered with the other settings, alphabetically",()=>{
-  const remembered=app.slice(app.indexOf("function rememberSettings"),app.indexOf("}));",app.indexOf("function rememberSettings")));
-  const keys=[...remembered.matchAll(/^\s+([a-zA-Z]+)[:,]/gm)].map(m=>m[1]);
-  assert.ok(keys.includes("aiWatch"));
-  assert.deepEqual(keys,[...keys].sort());
-  assert.match(app,/aiWatchChoice=settings\.aiWatch===true;/);
+test("a watched game is saved and resumed as watched",()=>{
+  assert.match(app,/watch:gameMode==="ai" && watching\}/);
+  assert.match(app,/watching=mode==="ai" && record\?\.watch===true;/);
 });

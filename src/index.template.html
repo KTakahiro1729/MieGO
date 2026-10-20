@@ -224,11 +224,8 @@
           <div id="rulesRow" class="setup-row"><span class="setup-label">{{newGame.rules}}</span>
             <div class="ai-color-choices rules-choices"><label><input type="radio" name="gameRules" value="chinese" checked><span>{{newGame.rulesChoices.chinese}}</span></label><label><input type="radio" name="gameRules" value="japanese"><span>{{newGame.rulesChoices.japanese}}</span></label></div>
           </div>
-          <div id="aiPlayersRow" class="setup-row" hidden><span class="setup-label">{{newGame.players}}</span>
-            <div class="ai-color-choices"><label><input type="radio" name="aiPlayers" value="human" checked><span>{{newGame.playersChoices.human}}</span></label><label><input type="radio" name="aiPlayers" value="watch"><span>{{newGame.playersChoices.watch}}</span></label></div>
-          </div>
           <div id="aiSideRow" class="setup-row" hidden><span class="setup-label">{{newGame.mySide}}</span>
-            <div class="ai-color-choices side-choices"><label><input type="radio" name="aiSide" value="random"><span>{{common.random}}</span></label><label><input type="radio" name="aiSide" value="black" checked><span>{{common.sideBlack}}</span></label><label><input type="radio" name="aiSide" value="white"><span>{{common.sideWhite}}</span></label></div>
+            <div class="ai-color-choices side-choices ai-side-choices"><label><input type="radio" name="aiSide" value="random"><span>{{common.random}}</span></label><label><input type="radio" name="aiSide" value="black" checked><span>{{common.sideBlack}}</span></label><label><input type="radio" name="aiSide" value="white"><span>{{common.sideWhite}}</span></label><label><input type="radio" name="aiSide" value="watch"><span>{{newGame.sideWatch}}</span></label></div>
           </div>
           <div id="onlineSideRow" class="setup-row" hidden><span class="setup-label">{{newGame.mySide}}</span>
             <div class="ai-color-choices side-choices"><label><input type="radio" name="onlineSide" value="random" checked><span>{{common.random}}</span></label><label><input type="radio" name="onlineSide" value="black"><span>{{common.sideBlack}}</span></label><label><input type="radio" name="onlineSide" value="white"><span>{{common.sideWhite}}</span></label></div>
@@ -289,6 +286,7 @@
       </section>
       <section id="aiSetup" class="settings-section" hidden>
         <button id="startAi" class="primary full" type="button" disabled>{{ai.preparing}}</button>
+        <button id="watchCurrent" class="secondary full" type="button" hidden>{{ai.watchCurrent}}</button>
         <p id="aiMatchStatus" class="visually-hidden" role="status" aria-live="polite">{{ai.preparingMatch}}</p>
       </section>
       <section id="historySetup" class="settings-section history-setup" hidden>

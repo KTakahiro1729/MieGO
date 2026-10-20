@@ -181,8 +181,8 @@ let connected = false;
 let gameMode = room ? "online" : "local";
 let humanColor = BLACK, invasion = 50, reinforcement = 50;
 let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNotice = null;
-let aiSideChoice = "black", aiWatchChoice = false;
-// COM同士 (対局者 "watch"): the AI plays both colours with a pause between
+let aiSideChoice = "black";
+// COM同士 (aiSide "watch"): the AI plays both colours with a pause between
 // moves, so each one can be followed; the player can pause and resume it.
 let watching = false, watchPaused = false, watchTimer = null, lastWatchMoveAt = 0;
 const WATCH_STEP_MS = 1100;
@@ -378,7 +378,6 @@ function rememberSettings() {
       aiHints,
       aiSide:aiSideChoice,
       aiStrength,
-      aiWatch:aiWatchChoice,
       boardSize,
       gameRules,
       hideStones:hideStonesChoice,
@@ -823,7 +822,7 @@ function show() {
   renderInviteButton();
   const spectating=isWatching();
   $("startAi").textContent=fallbackMode?TEXT.ai.startUnavailable:
-    !katagoReady?TEXT.ai.startLoading:aiWatchChoice?TEXT.ai.startWatch:
+    !katagoReady?TEXT.ai.startLoading:aiSideChoice==="watch"?TEXT.ai.startWatch:
     gameMode==="ai"?TEXT.ai.restart:TEXT.ai.start;
   keepArmedLabel($("startAi"));
   $("aiInvasion").disabled=false;
@@ -1560,7 +1559,11 @@ function showNewGameMode(kind) {
   $("newGameSetup").hidden=kind==="history";
   $("modePanel").scrollTop=0;
   if(kind==="history")historyPanel.showHistory();
-  $("aiSideRow").hidden=$("aiPlayersRow").hidden=$("aiStrengthRow").hidden=$("aiOptions").hidden=kind!=="ai";
+  $("aiSideRow").hidden=$("aiStrengthRow").hidden=$("aiOptions").hidden=kind!=="ai";
+  // A running AI game can be handed to the COM whichever side the player took.
+  $("watchCurrent").hidden=kind!=="ai" || !!room || gameMode!=="ai" || watching ||
+    game.status!=="playing" || !!boardReview;
+  $("watchCurrent").disabled=fallbackMode;
   $("onlineSideRow").hidden=kind!=="online";
   $("modeHelp").dataset.help=kind;
   syncReturnButton(kind);
@@ -1952,8 +1955,7 @@ function resumeSelectedReview(){
     invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
     aiStrength=normalizeStrength(record.aiStrength);syncStrengthUi();
     // A random preference stays random; a fixed one follows the resumed game.
-    if(aiSideChoice!=="random" && !watching)aiSideChoice=humanColor===WHITE?"white":"black";
-    aiWatchChoice=watching;
+    if(aiSideChoice!=="random")aiSideChoice=watching?"watch":humanColor===WHITE?"white":"black";
     syncSideUi();
     updatePersonaUi();
   }
@@ -2023,7 +2025,7 @@ $("startAi").onclick=()=>{
   clearBoardReview();
   stopAiTurn();
   gameMode="ai";
-  watching=aiWatchChoice;watchPaused=false;
+  watching=aiSideChoice==="watch";watchPaused=false;
   // The empty board shows for a moment before the first watched move.
   lastWatchMoveAt=performance.now();
   // Handicap stones always belong to the human, who therefore plays Black.
@@ -2037,27 +2039,28 @@ $("startAi").onclick=()=>{
   $("aiMatchStatus").textContent=watching?TEXT.ai.watchStarted:TEXT.ai.started(colorLabel(humanColor));
   save();closePanels();show();requestAnalysis();
 };
-const SIDE_CHOICES=["random","black","white"];
+const SIDE_CHOICES=["random","black","white","watch"];
 function syncSideUi() {
   const input=document.querySelector('input[name="aiSide"][value="'+aiSideChoice+'"]');
   if(input)input.checked=true;
-  const players=document.querySelector('input[name="aiPlayers"][value="'+(aiWatchChoice?"watch":"human")+'"]');
-  if(players)players.checked=true;
 }
 for (const input of document.querySelectorAll('input[name="aiSide"]')) {
   input.onchange=e=>{
     if(!e.target.checked)return;
     aiSideChoice=SIDE_CHOICES.includes(e.target.value)?e.target.value:"black";
-    rememberSettings();
+    rememberSettings();show();
   };
 }
-for (const input of document.querySelectorAll('input[name="aiPlayers"]')) {
-  input.onchange=e=>{
-    if(!e.target.checked)return;
-    aiWatchChoice=e.target.value==="watch";
-    rememberSettings();syncHandicapUi();show();
-  };
+// この対局を観戦する: a running AI game hands the player's colour to the COM too.
+function watchCurrentGame() {
+  if(room || gameMode!=="ai" || watching || game.status!=="playing" || boardReview)return;
+  watching=true;watchPaused=false;hints=null;
+  candidate=null;illegalCandidate=null;endExpanded=false;
+  lastWatchMoveAt=performance.now();
+  $("aiMatchStatus").textContent=TEXT.ai.watchStarted;
+  save();closePanels();show();requestAnalysis();
 }
+$("watchCurrent").onclick=watchCurrentGame;
 // 黒で打つ / 白で打つ: the viewer takes one colour over mid-game; the COM keeps the other.
 function takeOverWatchedGame(color) {
   if(!isWatching() || game.status!=="playing")return;
@@ -2090,11 +2093,10 @@ function syncHandicapUi() {
   $("handicapNote").textContent=(ai?TEXT.handicap.noteAi:
     kind==="online"?TEXT.handicap.noteOnline:TEXT.handicap.noteLocal)+
     (gameRules==="japanese"?TEXT.handicap.noteRuleJapanese:TEXT.handicap.noteRule)+(boardSize===9?TEXT.handicap.note9:"");
-  // With handicap the human is Black; the saved side preference returns afterwards.
-  // COM同士 has no side of the player's to choose.
+  // With handicap the human is Black (or watches); the saved side preference returns afterwards.
   for(const input of document.querySelectorAll('input[name="aiSide"]'))
-    input.disabled=aiWatchChoice || !!aiHandicap && input.value!=="black";
-  if(aiHandicap){
+    input.disabled=!!aiHandicap && !["black","watch"].includes(input.value);
+  if(aiHandicap && aiSideChoice!=="watch"){
     const black=document.querySelector('input[name="aiSide"][value="black"]');
     if(black)black.checked=true;
   }else syncSideUi();
@@ -2189,7 +2191,6 @@ else try {
     // Older settings stored only the resolved color.
     aiSideChoice=SIDE_CHOICES.includes(settings.aiSide)?settings.aiSide:
       humanColor===WHITE?"white":"black";
-    aiWatchChoice=settings.aiWatch===true;
     aiStrength=normalizeStrength(settings.aiStrength,DEFAULT_AI_STRENGTH);
     aiHandicap=toHandicap(settings.aiHandicap);
     localHandicap=toHandicap(settings.localHandicap);
