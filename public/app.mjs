@@ -674,6 +674,7 @@ const boardRenderer = createBoardRenderer({
     lastPosition,
     opacity:appearance.opacity(),
     palette:shownPalette(),
+    sampleStones:appearance.editingBoard(),
     settle:settleView(),
   })
 });

@@ -65,6 +65,7 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
   let editing=null;
   const editGroups={board:"customBoardColours",palette:"customPaletteColours"};
   function setEditing(which){
+    const boardChanged=(editing==="board")!==(which==="board");
     editing=which;
     $("settingsPanel").classList.toggle("is-editing",!!which);
     for(const [name,id] of Object.entries(editGroups)){
@@ -74,6 +75,8 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     document.body?.classList.toggle("colour-editing",!!which);
     $("editBoardColours").hidden=!!which || boardTheme!==BOARD_CUSTOM;
     $("editPaletteColours").hidden=!!which || palette!==PALETTE_CUSTOM;
+    // An empty board gets sample stones while its colours are edited.
+    if(boardChanged)draw();
   }
   // Tapped into or out of: the sheet shrinks to the swatches (or grows back)
   // as one shape, so it reads as the same sheet. Still where motion is reduced.
@@ -236,5 +239,6 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     updateGradient();
   }
   return {palette:()=>palette,opacity:()=>opacity,boardTheme:()=>boardTheme,
+    editingBoard:()=>editing==="board",
     shownPalette,overlayOn,updateGradient,syncControls};
 }
