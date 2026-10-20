@@ -6,7 +6,6 @@ import {
   backToDead,
   beginSoloScoring,
   BLACK,
-  BOARD_SIZES,
   boardHash,
   colorOf,
   confirmDeadSolo,
@@ -28,7 +27,6 @@ import {
   proposeEnd,
   resume,
   RULES_KOMI,
-  RULESETS,
   rulesOf,
   scoringStepOf,
   setDeadCandidates,
@@ -107,6 +105,15 @@ import { scoreBreakdown, scoreRows } from "./scoring-regions.mjs";
 import { createBoardZoom } from "./board-zoom.mjs";
 import {forbiddenLines,inspectProvisionalMove,makeIllegalMovePrompt} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
+import {
+  capHandicaps,
+  readSettings,
+  toBoardSize,
+  toHandicap,
+  toRules,
+  toSeconds,
+  writeSettings,
+} from "./next-game-settings.mjs";
 import { cleanWatchAi, GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { createShareImages, downloadBlob } from "./share-images.mjs";
@@ -233,7 +240,6 @@ let freeColor = BLACK;
 let gomokuForbiddenChoice = false;
 // The next game's 持ち時間 and 秒読み in seconds (0: none); both 0 plays without a clock.
 let mainTimeChoice = 0, byoyomiChoice = 0;
-const toSeconds = (value, choices) => choices.includes(Number(value)) ? Number(value) : 0;
 const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideStones===true;
 const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingStones,isCounting,show,draw,
   onOverlayOn:()=>boardReview?requestReviewOwnership():requestAnalysis()});
@@ -283,12 +289,8 @@ function setWatching(on) {
 let aiHandicap = 0, localHandicap = 0, onlineHandicap = 0;
 // The ruleset for the next new game, shared by every mode like the board size.
 let gameRules = "chinese";
-const toRules = value => RULESETS.includes(value) ? value : "chinese";
-// Up to nine stones; newGame() caps the count for the chosen board (9x9: five).
-const toHandicap = value => handicapOf({handicap:Number(value)},19);
 // The board size for the next new game in any mode; a running game keeps its own.
 let boardSize = 9;
-const toBoardSize = value => BOARD_SIZES.includes(Number(value)) ? Number(value) : 9;
 const shownSize = () => sizeOf((boardReview?.display||game).board);
 let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
@@ -582,27 +584,25 @@ function watchDue() {
 // One remembered choice per line, in alphabetical order, so that two
 // branches adding different choices touch different lines.
 function rememberSettings() {
-  try {
-    localStorage.setItem("miego-local-settings", JSON.stringify({
-      aiHandicap,
-      aiCom,
-      aiSide:aiSideChoice,
-      boardSize,
-      byoyomi:byoyomiChoice,
-      freeColor:sideKey(freeColor),
-      gameRules,
-      gomokuForbidden:gomokuForbiddenChoice,
-      hideStones:hideStonesChoice,
-      humanColor,
-      localHandicap,
-      mainTime:mainTimeChoice,
-      mode:gameMode,
-      onlineHandicap,
-      watch:watchChoice,
-      watchAi,
-      watchSpeed,
-    }));
-  } catch {}
+  writeSettings(localStorage, {
+    aiHandicap,
+    aiCom,
+    aiSide:aiSideChoice,
+    boardSize,
+    byoyomi:byoyomiChoice,
+    freeColor:sideKey(freeColor),
+    gameRules,
+    gomokuForbidden:gomokuForbiddenChoice,
+    hideStones:hideStonesChoice,
+    humanColor,
+    localHandicap,
+    mainTime:mainTimeChoice,
+    mode:gameMode,
+    onlineHandicap,
+    watch:watchChoice,
+    watchAi,
+    watchSpeed,
+  });
 }
 // What every new game takes from the 新規対戦 sheet, whatever the mode.
 // A new per-game option is added here only, one per line, alphabetically.
@@ -2080,10 +2080,7 @@ for(const input of document.querySelectorAll('input[name="boardSize"]')) {
   input.onchange=e=>{
     if(!e.target.checked)return;
     boardSize=toBoardSize(e.target.value);
-    // 9x9 has five star points, so a larger handicap is reduced to five.
-    localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
-    aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
-    onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
+    ({aiHandicap,localHandicap,onlineHandicap}=capHandicaps({aiHandicap,localHandicap,onlineHandicap},boardSize));
     syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
@@ -2800,7 +2797,7 @@ $("nativeShare").onclick=async()=>{
 for(const input of document.querySelectorAll('input[name="onlineSide"]'))input.onchange=()=>{renderInviteButton();syncSetupValues();};
 // The next game's "石を隠す" is read even in a room, where the other
 // remembered choices are not, so leaving the room does not forget it.
-try{hideStonesChoice=JSON.parse(localStorage.getItem("miego-local-settings")||"null")?.hideStones===true;}catch{}
+try{hideStonesChoice=readSettings(localStorage)?.hideStones===true;}catch{}
 if(room){
   const stored=readCheckpoint(localStorage,room);
   const linkRole=inviteFragment.get("role");
@@ -2833,7 +2830,7 @@ if(room){
   void joinRoom();
 }
 else try {
-  const settings=JSON.parse(localStorage.getItem("miego-local-settings")||"null");
+  const settings=readSettings(localStorage);
   if(settings){
     gameMode=settings.mode==="ai"?"ai":"local";
     humanColor=settings.humanColor===WHITE?WHITE:BLACK;
@@ -2852,9 +2849,7 @@ else try {
     mainTimeChoice=toSeconds(settings.mainTime,MAIN_TIME_CHOICES);
     byoyomiChoice=toSeconds(settings.byoyomi,BYOYOMI_CHOICES);
     freeColor=colorOf(settings.freeColor);
-    aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
-    localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
-    onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
+    ({aiHandicap,localHandicap,onlineHandicap}=capHandicaps({aiHandicap,localHandicap,onlineHandicap},boardSize));
     // Settings from before characters kept strength, 侵入度 and 補強度 on their own.
     aiCom=newCom(settings.aiCom ?? {strength:settings.aiStrength,invasion:settings.invasion,
       reinforcement:settings.reinforcement});
