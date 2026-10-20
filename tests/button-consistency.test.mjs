@@ -22,11 +22,14 @@ test("an armed button is marked by a class, not by its aria-label text",()=>{
 
 test("the action, scoring and replay rows share one height token",()=>{
   assert.match(css,/--action-h:55px/);
-  assert.match(css,/@media\(max-width:700px\)\{:root\{--action-h:54px\}\}/);
-  assert.match(css,/\.action-row button\{white-space:nowrap;min-height:var\(--action-h\)\}/);
+    assert.match(css,/\.action-row button\{white-space:nowrap;min-height:var\(--action-h\)\}/);
   assert.match(css,/\.review-navigation>button\{height:var\(--action-h\)/);
   assert.match(css,/\.review-play-actions button\{[^}]*height:var\(--action-h\)/);
-  assert.match(css,/@media\(max-width:700px\)\{\.action-row,\.review-panel\{padding-top:3px\}\}/);
+  assert.match(css,/@media\(max-width:700px\)\{:root\{--action-h:54px;--action-pad-top:3px\}\}/);
+  // Same outer height and gap above, so the board keeps its size when replay starts.
+  assert.match(css,/\.action-row \.fused>button,\.action-row \.fused>label>span\{min-height:calc\(var\(--action-h\) - 2px\)\}/);
+  assert.match(css,/\.action-row\{[^}]*margin:4px -2px 0/);
+  assert.match(css,/\.review-panel\{[^}]*margin:4px -2px 0/);
   assert.doesNotMatch(css,/min-height:(3\d|4[0-3])px/);
 });
 
@@ -60,4 +63,13 @@ test("related buttons fuse into one group; the primary stays apart (UX policy §
   // Hidden members leave no stray divider; an all-hidden group disappears.
   assert.match(css,/\.fused\{display:flex;gap:1px;/);
   assert.match(css,/\.fused:not\(:has\(>:not\(\[hidden\]\)\)\)\{display:none\}/);
+});
+
+test("every row under the board has a fixed height, so the board never changes size",()=>{
+  // The board takes the height these rows leave; content must not change them.
+  assert.match(css,/\.ownership-legend\{box-sizing:border-box;height:32px\}/);
+  assert.match(css,/\.capture-counts\[hidden\]\{display:flex!important;visibility:hidden\}/);
+  assert.match(css,/\.info-panel\{box-sizing:border-box;height:114px\}/);
+  assert.match(css,/\.action-row,\.review-panel\{box-sizing:border-box;\s*height:calc\(var\(--action-h\) \+ var\(--action-pad-top\) \+ max\(6px,env\(safe-area-inset-bottom\)\)\)\}/);
+  assert.match(css,/\.endgame-bar\{height:48px/);
 });

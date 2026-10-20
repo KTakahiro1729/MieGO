@@ -14,7 +14,10 @@ export const AI_STRENGTHS = Object.freeze({
   beginner:{label:TEXT.ai.strengths.beginner,kyu:30},
   easy:{label:TEXT.ai.strengths.easy,kyu:20},
   normal:{label:TEXT.ai.strengths.normal,kyu:12},
-  strong:{label:TEXT.ai.strengths.strong,kyu:null}
+  strong:{label:TEXT.ai.strengths.strong,kyu:null},
+  // Plays the top policy move of a full-size KataGo network (strong-networks.mjs),
+  // which the page downloads only once a game against it starts.
+  strongest:{label:TEXT.ai.strengths.strongest,kyu:null}
 });
 export const DEFAULT_AI_STRENGTH = "beginner";
 // Saved games from before strength levels existed used the full policy.

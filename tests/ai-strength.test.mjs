@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {newGame,play,at,boardHash} from "../public/core.mjs";
 import {choosePolicyMove} from "../public/ai-opponent.mjs";
 import {AI_STRENGTHS,pickCount,pickWeakenedMove,fillsOwnEye,normalizeStrength} from "../public/ai-strength.mjs";
+import {STRONG_NETWORKS,strongNetworkFor} from "../public/strong-networks.mjs";
 import {policyHints} from "../public/ai-assist.mjs";
 
 // A deterministic generator so sampling tests do not flake.
@@ -78,4 +79,31 @@ test("policy hints list the top legal points for the player to move",()=>{
   assert.deepEqual(hints.map(h=>h.position),[at(2,2),at(6,6),at(2,6)]);
   assert.ok(hints[0].share>hints[1].share);
   assert.deepEqual(policyHints(g,null),[]);
+});
+
+test("最強 plays the network's top move whatever the personality, and passes only when allowed",()=>{
+  const state=newGame(),logits=flatPolicy(at(2,6));
+  for(const invasion of [0,100])
+    assert.equal(choosePolicyMove(state,logits,-50,{strength:"strongest",invasion,reinforcement:100-invasion,
+      random:seeded(3)}),at(2,6));
+  assert.equal(choosePolicyMove(state,logits,5,{strength:"strongest",endgameStage:"ready"}),null);
+  assert.equal(choosePolicyMove(state,logits,5,{strength:"strongest",endgameStage:"playing"}),at(2,6));
+});
+
+test("最強 plays the move its read found best, unless that move is not a legal candidate",()=>{
+  const state=newGame(),logits=flatPolicy(at(2,6));
+  assert.equal(choosePolicyMove(state,logits,-50,{strength:"strongest",readMove:at(6,6)}),at(6,6));
+  const taken=play(state,at(6,6));
+  assert.equal(choosePolicyMove(taken,logits,-50,{strength:"strongest",readMove:at(6,6)}),at(2,6));
+});
+
+test("最強 plays 9路 with the 9x9 network and larger boards with the b18 network",()=>{
+  assert.equal(normalizeStrength("strongest"),"strongest");
+  assert.equal(strongNetworkFor(9),"kata9x9");
+  assert.equal(strongNetworkFor(13),"b18");
+  assert.equal(strongNetworkFor(19),"b18");
+  for(const network of Object.values(STRONG_NETWORKS)){
+    assert.match(network.url,/^https:\/\/.+\.bin\.gz$/);
+    assert.match(network.sha256,/^[0-9a-f]{64}$/);
+  }
 });

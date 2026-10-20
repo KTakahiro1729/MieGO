@@ -8,7 +8,7 @@
   --btn-bg:#1c202b;--btn-edge:#343a47;--btn-text:#f1f2f2;
   --accent-edge:#8a704c;--accent-text:#f2d9a5;
   --danger-bg:#58392f;--danger-edge:#bb795b;--danger-text:#ffe0c5;
-  --control-h:44px;--action-h:55px;--radius:13px;--radius-sm:10px;
+  --control-h:44px;--action-h:55px;--action-pad-top:4px;--radius:13px;--radius-sm:10px;
 }
 *{box-sizing:border-box}
 html{min-height:100%;background:#0d1018}
@@ -31,11 +31,10 @@ button:hover:not(:disabled){border-color:#748094}
 
 /* Under the board nothing is boxed in: no panel or card around the turn and the
    endgame, so blank space alone groups things. Buttons keep a soft edge, since a
-   dark fill alone sinks into the page; fused groups keep it outside and a dark
-   seam between members. Gold edges stay where they mean something. */
+   dark fill alone sinks into the page; fused groups draw the same line outside
+   and between members. Gold edges stay where they mean something. */
 .topbar{--btn-edge:transparent}
-.game-panel{--btn-edge:#5a6273;--fused-edge:#0d1018}
-.game-panel .fused:not(.ai-color-choices){border-color:var(--btn-edge)}
+.game-panel{--btn-edge:#5a6273}
 .game-panel .gradient{border-color:transparent}
 .info-panel{flex:none;margin-top:auto;display:flex;flex-direction:column;gap:6px;padding:10px 0 6px}
 .info-panel>.endgame-bar,.info-panel>.score-box{margin-top:0!important}
@@ -179,7 +178,8 @@ body.board-zoomed .board-bleed{opacity:1}
 /* Japanese rules: prisoners under the ownership bar. Each pill holds the stones
    filled into territory on the board and wears the same outline colour. */
 .capture-counts{display:flex;align-items:center;justify-content:center;gap:10px;width:88%;max-width:490px;margin:6px auto 0;color:#aab0bc;font-size:12px;font-variant-numeric:tabular-nums}
-.capture-counts[hidden]{display:none}
+/* The prisoner row keeps its place in every game, so 日本式 does not shrink the board. */
+.capture-counts[hidden]{display:flex!important;visibility:hidden}
 .prisoner-pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border:2px solid;border-radius:999px}
 .prisoner-pill span[id]{min-width:1.2em;text-align:center;font-weight:600}
 .capture-stone{width:11px;height:11px;border-radius:50%;display:inline-block;opacity:.7}
@@ -313,6 +313,8 @@ body.board-zoomed .board-bleed{opacity:1}
 .com-label{font-size:13px;color:#d6dae3;white-space:nowrap}
 .com-choices{grid-auto-flow:column;grid-auto-columns:1fr;grid-template-columns:none}
 .com-choices span{padding:8px 0;font-size:12px;white-space:nowrap}
+/* Five strengths only fit a phone's width on a row of their own, under their label. */
+.com-card>.com-label:first-of-type,.com-card>.com-choices:first-of-type{grid-column:1/-1}
 @media(max-width:700px){.header-actions{gap:6px}.new-game-button{padding:8px 12px;font-size:12px}}
 
 /* One existing status row; optional expanded content never overlays the board. */
@@ -501,13 +503,16 @@ body{overflow:hidden}
 /* Choices in the sheets keep their raised tile colours. */
 .ai-color-choices.fused,.new-game-modes .fused,.shape-choices .fused{--fused-bg:#252c38;--fused-edge:#505766;gap:1px}
 .armed-note{margin:6px 0 0;color:var(--danger-text);font-size:12px;line-height:1.5}
-@media(max-width:700px){:root{--action-h:54px}}
+@media(max-width:700px){:root{--action-h:54px;--action-pad-top:3px}}
 
 /* Bottom action row: undo, confirm, pass, resign — or scoring, or the finished pair. */
 .action-row{display:flex;gap:8px;align-items:center;flex:none;margin:4px -2px 0;
-  padding:4px 2px max(6px,env(safe-area-inset-bottom));position:sticky;bottom:0;z-index:3;
+  padding:var(--action-pad-top) 2px max(6px,env(safe-area-inset-bottom));position:sticky;bottom:0;z-index:3;
   background:linear-gradient(180deg,#0d101800,#0d1018 12%)}
 .action-row button{white-space:nowrap;min-height:var(--action-h)}
+/* A fused group's 1px edge sits outside its buttons, so they are 2px shorter:
+   the row stays as tall as the replay row and the board keeps its size. */
+.action-row .fused>button,.action-row .fused>label>span{min-height:calc(var(--action-h) - 2px)}
 .action-row .secondary{font-size:14px;padding:9px 10px}
 .action-row .primary{flex:1 1 auto;min-width:0;padding:9px 6px;font-size:14px}
 .action-row .move-controls{flex:0 0 auto}
@@ -559,7 +564,7 @@ body{overflow:hidden}
 @keyframes end-call{0%{box-shadow:0 0 0 0 #f0c77355}100%{box-shadow:0 0 0 9px #f0c77300}}
 
 /* Replay row: replaces the action row at the same height. */
-.review-panel{display:block;flex:none;margin:auto -2px 0;padding:4px 2px max(6px,env(safe-area-inset-bottom));
+.review-panel{display:block;flex:none;margin:4px -2px 0;padding:var(--action-pad-top) 2px max(6px,env(safe-area-inset-bottom));
   position:sticky;bottom:0;z-index:4;background:linear-gradient(180deg,#0d101800,#0d1018 12%)}
 .review-panel[hidden]{display:none}
 .review-navigation{display:flex;align-items:stretch;gap:7px;position:relative}
@@ -591,7 +596,6 @@ body{overflow:hidden}
   .action-row .undo-button,.review-play-actions .review-cancel{flex-basis:44px;width:44px;min-width:44px}
   .action-row #pass{flex-basis:51px;width:51px;min-width:51px;font-size:12px}
 }
-@media(max-width:700px){.action-row,.review-panel{padding-top:3px}}
 @media(max-width:360px){
   .review-navigation{gap:4px}
   .review-navigation>.review-continue{padding:0 10px;font-size:12px}
@@ -710,3 +714,11 @@ body{overflow:hidden}
 /* On narrow phones the stone alone names the side, so the breakdown keeps one line. */
 @media(max-width:360px){.score-table .score-name{display:none}}
 .score-row .score-detail{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:15px}
+
+/* 盤の下の段は中身によらず高さを固定する。盤は残りの高さで決まるので、対局・
+   さかのぼり・採点・終局やルールの違いで盤の大きさが変わらない。段を足すときも
+   ここに高さを書く。 */
+.ownership-legend{box-sizing:border-box;height:32px}
+.info-panel{box-sizing:border-box;height:114px}
+.action-row,.review-panel{box-sizing:border-box;
+  height:calc(var(--action-h) + var(--action-pad-top) + max(6px,env(safe-area-inset-bottom)))}
