@@ -54,6 +54,16 @@ export function group(board, index) {
   }
   return { stones, liberties };
 }
+/** Every group of stones on the board once, in board order, with its colour. */
+export function* groups(board) {
+  const seen = new Set();
+  for (let i = 0; i < board.length; i++) {
+    if (!board[i] || seen.has(i)) continue;
+    const { stones, liberties } = group(board, i);
+    for (const s of stones) seen.add(s);
+    yield { color: board[i], stones, liberties };
+  }
+}
 export const boardHash = board => board.map(n => n + 1).join("");
 /** The board a history hash stands for, or null when `hash` is not one of `length` points. */
 export const boardFromHash = (hash, length) =>
@@ -332,7 +342,7 @@ function chineseAreaScore(state) {
   return { black, white, difference: black - white, owned };
 }
 /** Empty regions (after removing dead stones) with the colour that alone borders each. */
-function emptyRegions(board) {
+export function emptyRegions(board) {
   const size = sizeOf(board), visited = new Set(), regions = [];
   for (let i = 0; i < board.length; i++) {
     if (board[i] || visited.has(i)) continue;
