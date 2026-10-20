@@ -1,8 +1,15 @@
 import {SIZE as DEFAULT_SIZE, BLACK, WHITE, isGomoku, sizeOf, starPoints} from "./core.mjs";
-import {ownershipPixel,showsOwnership,countingPalette,countingOpacity,NEUTRAL_MARK} from "./territory-view.mjs";
+import {
+  countingOpacity,
+  countingPalette,
+  NEUTRAL_MARK,
+  ownershipPixel,
+  prisonerOutline,
+  showsOwnership,
+} from "./territory-view.mjs";
 import {boardTheme} from "./board-theme.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
-import {scoringRegions,prisonerFill,prisonersFilled,PRISONER_OUTLINE} from "./scoring-regions.mjs";
+import {scoringRegions,prisonerFill,prisonersFilled} from "./scoring-regions.mjs";
 
 /**
  * Draws the current board without modifying the match. Each draw reads one
@@ -110,14 +117,15 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   /** 日本式: prisoners filled into territory, each block outlined in its counter colour. */
-  function paintPrisonerFill(theme,fill,gap,pad) {
+  function paintPrisonerFill(theme,fill,palette,gap,pad) {
+    const outline=prisonerOutline(palette);
     for(const [key,color] of [["white",WHITE],["black",BLACK]]){
       const points=new Set(fill[key]);
       if(!points.size)continue;
       for(const i of points)paintFillStone(theme,color,pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap,gap);
       // The block's outer edge: every cell side that does not touch another filled cell.
       ctx.save();
-      ctx.strokeStyle=PRISONER_OUTLINE[key];ctx.lineWidth=Math.max(2,gap*.05);ctx.lineCap="round";
+      ctx.strokeStyle=outline[key];ctx.lineWidth=Math.max(2,gap*.05);ctx.lineCap="round";
       ctx.beginPath();
       const h=gap/2;
       for(const i of points){
@@ -214,14 +222,27 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     }
   }
 
-  function paintLastMove(view,display,gap,pad) {
+  // The last move: a ring inside the stone in the opposite tone, so it shows
+  // on either colour and on every board size. With the stones hidden it is
+  // drawn in the mover's own colour instead.
+  function paintMoveMark(theme,color,stoneShown,x,y,gap) {
+    const black=color===BLACK;
+    const tone=black===stoneShown?theme.stones.white.inner:theme.stones.black.outer;
+    ctx.save();
+    ctx.strokeStyle=tone;
+    ctx.lineWidth=Math.max(2.5,gap*.07);
+    ctx.beginPath();
+    ctx.arc(x,y,gap*.2,0,Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function paintLastMove(theme,view,display,gap,pad) {
     const {game,boardReview,candidate,illegalCandidate,lastPosition} = view;
     const marker=boardReview?display.moves.at(-1)?.position:lastPosition;
-    if(Number.isInteger(marker) && (boardReview||(!candidate && !illegalCandidate && game.status==="playing"))) {
-      const x=pad+(marker%SIZE)*gap;
-      const y=pad+Math.floor(marker/SIZE)*gap;
-      ctx.fillStyle="#d0b25c";
-      ctx.fillRect(x-4,y-4,8,8);
+    if(Number.isInteger(marker) && display.board[marker] && (boardReview||(!candidate && !illegalCandidate && game.status==="playing"))) {
+      const hidden=!!view.hideStones && (!!boardReview || game.status==="playing");
+      paintMoveMark(theme,display.board[marker],!hidden,pad+(marker%SIZE)*gap,pad+Math.floor(marker/SIZE)*gap,gap);
     }
   }
 
@@ -249,10 +270,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         ctx.moveTo(x+r*.4,y-r*.4);ctx.lineTo(x-r*.4,y+r*.4);ctx.stroke();ctx.restore();
       }
     }
-    if(Number.isInteger(last)){
-      const x=pad+(last%SIZE)*gap,y=pad+Math.floor(last/SIZE)*gap;
-      ctx.fillStyle="#d0b25c";ctx.fillRect(x-4,y-4,8,8);
-    }
+    if(Number.isInteger(last) && board[last])
+      paintMoveMark(theme,board[last],true,pad+(last%SIZE)*gap,pad+Math.floor(last/SIZE)*gap,gap);
   }
 
   function draw() {
@@ -285,9 +304,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     paintStones(theme,view,display,gap,pad);
     for(const {position,color} of kept)
       paintFillStone(theme,color,pad+(position%SIZE)*gap,pad+Math.floor(position/SIZE)*gap,gap);
-    if(scoring)paintPrisonerFill(theme,fill,gap,pad);
+    if(scoring)paintPrisonerFill(theme,fill,view.palette,gap,pad);
     if(scoring)paintRegionLabels(scoring.regions,gap,pad);
-    paintLastMove(view,display,gap,pad);
+    paintLastMove(theme,view,display,gap,pad);
   }
   return {draw};
 }

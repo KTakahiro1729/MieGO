@@ -176,11 +176,13 @@ body.board-zoomed .board-bleed{opacity:1}
 .ownership-legend.overlay-off :is(.bar-line,.legend-area),.ownership-legend.no-territory :is(.bar-line,.legend-area){visibility:hidden}
 .ownership-legend.is-preparing .bar-line{opacity:.4;transition:opacity .4s}
 /* Japanese rules: prisoners under the ownership bar. Each pill holds the stones
-   filled into territory on the board and wears the same outline colour. */
+   filled into territory on the board and wears the same outline colour: the
+   area colour of the side that took them. A faint outer edge keeps a dark
+   area colour visible on the page. */
 .capture-counts{display:flex;align-items:center;justify-content:center;gap:10px;width:88%;max-width:490px;margin:6px auto 0;color:#aab0bc;font-size:12px;font-variant-numeric:tabular-nums}
 /* The prisoner row keeps its place in every game, so 日本式 does not shrink the board. */
 .capture-counts[hidden]{display:flex!important;visibility:hidden}
-.prisoner-pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border:2px solid;border-radius:999px}
+.prisoner-pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border:2px solid;border-radius:999px;box-shadow:0 0 0 1px #ffffff40}
 .prisoner-pill span[id]{min-width:1.2em;text-align:center;font-weight:600}
 .capture-stone{width:11px;height:11px;border-radius:50%;display:inline-block;opacity:.7}
 .capture-stone.black{background:#111;box-shadow:inset 0 0 0 1px #8a8f99}

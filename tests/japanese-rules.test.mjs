@@ -110,7 +110,8 @@ test("rule texts describe the Japanese choice", () => {
 });
 
 test("prisoners fill the territory of the side they came from, as one outlined block", async () => {
-  const { prisonerFill, PRISONER_OUTLINE } = await import("../public/scoring-regions.mjs");
+  const { prisonerFill } = await import("../public/scoring-regions.mjs");
+  const { prisonerOutline } = await import("../public/territory-view.mjs");
   const { neighbors } = await import("../public/core.mjs");
   const board = Array(81).fill(0);
   for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(5, y)] = WHITE; }
@@ -134,7 +135,10 @@ test("prisoners fill the territory of the side they came from, as one outlined b
     while (queue.length) for (const n of neighbors(queue.pop(), 9)) if (set.has(n) && !seen.has(n)) { seen.add(n); queue.push(n); }
     assert.equal(seen.size, points.length);
   }
-  assert.notEqual(PRISONER_OUTLINE.black, PRISONER_OUTLINE.white);
+  // Each block wears the area colour of the side that took it.
+  assert.deepEqual(prisonerOutline("mono"), { white: "#161a22", black: "#f6f9ff" });
+  assert.deepEqual(prisonerOutline("none"), prisonerOutline("mono"));
+  assert.deepEqual(prisonerOutline("greenPurple"), { white: "#ca69c8", black: "#00b373" });
   // Chinese games and resignations fill nothing.
   assert.deepEqual(prisonerFill({ ...game, rules: "chinese" }), { black: [], white: [] });
   assert.deepEqual(prisonerFill({ ...game, status: "finished", result: "B+R" }), { black: [], white: [] });
