@@ -242,7 +242,7 @@ const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingSto
 const {shownPalette,overlayOn,updateGradient}=appearance;
 // 効果音: off until the 設定 sheet turns them on. ドパガキモード swaps in louder voices.
 const sound = createSoundEffects({$,voices:()=>dopa.level()==="off"?CALM_VOICES:DOPA_VOICES});
-const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),
+const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),graph:$("reviewGraph"),
   score:()=>$("scoreBox").querySelector("strong")});
 // Whom ドパガキモード cheers for a win: the player's own colour, or either side
 // when watching the COMs or sharing one board.
@@ -1595,6 +1595,7 @@ const clockShown = side => !!game.timeControl && !boardReview && !isFree(game) &
   !(gameMode==="ai" && (isWatching() || side!==humanColor));
 function renderClock() {
   const running=gameClock.reading();
+  const hurry=dopa.countdown(running && clockShown(running.side) ? running : null);
   for(const side of [BLACK,WHITE]){
     const cell=$(side===BLACK?"clockBlack":"clockWhite");
     cell.hidden=!clockShown(side);
@@ -1605,6 +1606,7 @@ function renderClock() {
       reading.byoyomi===null?clockText(0):TEXT.game.byoyomi(clockSeconds(reading.byoyomi));
     cell.classList.toggle("is-running",running?.side===side);
     cell.classList.toggle("is-low",running?.side===side && reading.left<=10000);
+    cell.classList.toggle("dopa-hurry",running?.side===side && hurry);
   }
 }
 gameClock.subscribe(renderClock);
@@ -2251,10 +2253,12 @@ function setBoardReviewStep(step) {
   if(!Number.isInteger(step)||step<0||step>snapshot.moves.length)return;
   try{
     const display=replaySteps(snapshot,step);
+    const moved=step!==boardReview.step;
     boardReview.display=display;boardReview.step=step;
     boardReview.preview=null;boardReview.previewPosition=null;
     reviewFeedback("");$("reviewNotice").textContent="";
     show();requestReviewOwnership();
+    if(moved && scoreGraphShown() && scoreGraph?.marks.includes(step)){dopa.don();sound.play("don");}
   }catch(error){$("reviewNotice").textContent=TEXT.history.replayFailed;}
 }
 function clearBoardReview() {

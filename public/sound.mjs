@@ -108,7 +108,8 @@ export const CALM_VOICES = {
 const SCALE = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
 /**
  * ドパガキモード's louder sounds: each stone adds a bright chime, a capture
- * rings one rising note per stone taken (at least three, up to 8), a win plays a fanfare.
+ * rings one rising note per stone taken (at least three, up to 8), a win plays a fanfare,
+ * 秒読み beeps twice as hard and a turning point of the replay lands with a low ドン.
  */
 export const DOPA_VOICES = {
   ...CALM_VOICES,
@@ -117,6 +118,18 @@ export const DOPA_VOICES = {
     const notes = Math.max(3, Math.min(SCALE.length, count + 2));
     for (let i = 0; i < notes; i++)
       tone(ctx, out, at + .04 + i * .05, { frequency: SCALE[i], gain: .14, length: .2 });
+  },
+  countdown(ctx, out, at) {
+    CALM_VOICES.countdown(ctx, out, at);
+    tone(ctx, out, at + .1, { frequency: 880, gain: .12, length: .09 });
+  },
+  countdownLast(ctx, out, at) {
+    CALM_VOICES.countdownLast(ctx, out, at);
+    tone(ctx, out, at + .1, { frequency: 1760, gain: .14, length: .12 });
+  },
+  don(ctx, out, at) {
+    knock(ctx, out, at, { frequency: 120, gain: .3, length: .35 });
+    tone(ctx, out, at, { frequency: 98, gain: .22, length: .5 });
   },
   move(ctx, out, at) {
     CALM_VOICES.move(ctx, out, at);

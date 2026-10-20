@@ -6,11 +6,15 @@ import { TEXT } from "./texts.mjs";
 // top of what happened. Every stone lands with a shockwave, taken stones burst
 // into rainbow sparks under a big "+N" (both drawn by the board renderer) while
 // the board shakes, harder the more were taken, and a win rains confetti over
-// the board under 勝利！ or 圧勝！ while its points count up. It never changes
-// the game, never shows anything before a move is played, and has no random
-// prizes or streaks: it cheers what the player did, nothing more.
-// It starts off. Under prefers-reduced-motion nothing moves; the louder sounds
-// still follow the 効果音 switch. Nothing flashes the whole board.
+// the board under 勝利！ or 圧勝！ while its points count up. Stepping through a
+// replay onto a marked turning point of the 形勢グラフ bounces its mark under
+// ドン！, and in 秒読み the running clock grows from 10 seconds left and the
+// board's edge pulses red, once a second, from 5. It never changes the game,
+// never shows anything before a move is played, and has no random prizes or
+// streaks: it cheers what the player did, nothing more.
+// It starts off. Under prefers-reduced-motion nothing moves (ドン！ and the
+// bigger clock still show, standing still); the louder sounds still follow the
+// 効果音 switch. Nothing flashes the whole board.
 const DOPA_KEY = "miego-dopa";
 const stillMotion = () => !!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 const stored = key => { try { return localStorage.getItem(key); } catch { return null; } };
@@ -20,6 +24,10 @@ const QUAKE_FROM = 4;
 const SHAKE_MS = 420;
 const CONFETTI_MS = 2400;
 const COUNT_UP_MS = 1100;
+const DON_MS = 900;
+// The clock grows from this many ms left, and the board's edge pulses from PULSE_FROM.
+const HURRY_FROM = 10000;
+const PULSE_FROM = 5000;
 const CONFETTI_COLOURS = ["#f0c773", "#e5675c", "#6cc4a1", "#6aa6e8", "#c08ee8", "#f4f1ea", "#ff8fd1"];
 
 /** A stored level: "on" (the old オン and ULTRA included) or "off". */
@@ -54,7 +62,7 @@ export function countedLabel(label, value) {
   return label.replace(/\d+(\.\d+)?/, number => value.toFixed(number.includes(".") ? number.split(".")[1].length : 0));
 }
 
-export function createDopaMode({ $, stage, frame, score, reducedMotion = stillMotion,
+export function createDopaMode({ $, stage, frame, graph, score, reducedMotion = stillMotion,
   random = Math.random, schedule = setTimeout, requestFrame = globalThis.requestAnimationFrame?.bind(globalThis),
   now = () => performance.now() }) {
   let level = dopaLevel(stored(DOPA_KEY));
@@ -124,5 +132,30 @@ export function createDopaMode({ $, stage, frame, score, reducedMotion = stillMo
       if (event.points !== null) countUp(event.points);
     }
   }
-  return { celebrate, level: () => level };
+  /** ドン！ for the replay landing on a marked turning point of the 形勢グラフ. */
+  function don() {
+    if (level === "off") return;
+    const shout = stage.ownerDocument.createElement("strong");
+    shout.className = "dopa-shout dopa-don";
+    shout.textContent = TEXT.dopa.don;
+    stage.append(shout);
+    schedule(() => shout.remove(), DON_MS);
+    if (reducedMotion()) return;
+    shake("dopa-shake");
+    graph.classList.remove("dopa-bounce");
+    void graph.offsetWidth;
+    graph.classList.add("dopa-bounce");
+    schedule(() => graph.classList.remove("dopa-bounce"), DON_MS);
+  }
+  /**
+   * Follows the shown running clock (a game-clock reading, or null when none
+   * shows): pulses the board's edge near the end, and says whether the clock
+   * itself should grow.
+   */
+  function countdown(reading) {
+    const left = level === "off" || !reading ? Infinity : reading.left;
+    frame.classList.toggle("dopa-pulse", left <= PULSE_FROM && !reducedMotion());
+    return left <= HURRY_FROM;
+  }
+  return { celebrate, countdown, don, level: () => level };
 }
