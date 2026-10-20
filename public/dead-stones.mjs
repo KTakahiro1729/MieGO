@@ -1,15 +1,13 @@
 import { group, BLACK, WHITE } from "./core.mjs";
-import { TEXT } from "./texts.mjs";
 
 /** Conservatively propose dead *groups* from KataGo NN ownership.
  * These are not proven dead stones, and are never accepted as final without
  * the players' scoring confirmation. Positive ownership means Black.
  */
 export function suggestDeadStones(state, ownership) {
-  if(state.status!=="scoring" || !Array.isArray(state.board) ||
-      !Array.isArray(ownership) || ownership.length!==state.board.length ||
+  if(!Array.isArray(ownership) || ownership.length!==state.board.length ||
       ownership.some(v=>!Number.isFinite(v) || Math.abs(v)>1.001)) {
-    throw new Error(TEXT.rules.badDeadInput);
+    throw new Error("Invalid KataGo ownership");
   }
   const result=new Set(),visited=new Set();
   for(let i=0;i<state.board.length;i++) {

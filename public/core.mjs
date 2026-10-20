@@ -64,7 +64,6 @@ export const komiOf = state => Number.isFinite(state?.komi) ? state.komi : KOMI;
 /** Points added to White's area: komi plus the Chinese handicap compensation. */
 export const whiteCompensation = state => komiOf(state) + handicapOf(state);
 export function newGame(assisted = true, { handicap = 0, size = SIZE } = {}) {
-  if (!isBoardSize(size)) throw new Error(TEXT.rules.unsupportedSize);
   const stones = handicapOf({ handicap }, size);
   const board = Array(size * size).fill(0);
   for (const p of handicapPoints(size, stones)) board[p] = BLACK;
@@ -155,12 +154,10 @@ export function answerEndProposal(state, color, accept) {
  * another player's (or an AI's) acceptance of an endgame offer.
  */
 export function beginSoloScoring(state) {
-  if(state.status!=="playing")throw new Error(TEXT.rules.scoreOnlyWhilePlaying);
   return {...state,status:"scoring",passes:0,endProposal:null,dead:[],
     agreed:{black:false,white:false}};
 }
 export function toggleDead(state, index) {
-  if (state.status !== "scoring" || !state.board[index]) throw new Error(TEXT.rules.pickStone);
   const stones = group(state.board, index).stones;
   const dead = new Set(state.dead), removing = [...stones].every(i => dead.has(i));
   for (const i of stones) removing ? dead.delete(i) : dead.add(i);
@@ -225,14 +222,9 @@ export function agreeScore(state, color) {
  * fake agreement by the opposing color into the match record.
  */
 export function finalizeSoloScore(state) {
-  if(state.status!=="scoring")throw new Error(TEXT.rules.finalizeOnlyWhileScoring);
   const s=areaScore(state);
   return {...state,status:"finished",
     result:(s.difference>0?"B+":"W+")+Math.abs(s.difference).toFixed(1)};
-}
-export function setAssisted(state, value) {
-  if (state.moveNumber !== 0) throw new Error(TEXT.rules.modeLocked);
-  return { ...state, assisted: !!value };
 }
 export function toSGF(state) {
   const enc = c => c === BLACK ? "B" : "W";

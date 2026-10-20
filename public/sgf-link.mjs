@@ -54,7 +54,6 @@ export function makeAiHandoff(reviewUrl) {
   const url=shareableReviewUrl(reviewUrl);
   const guide=new URL("/ai.md",url.origin);
   const review=readReviewUrl(url.href);
-  if(review.kind!=="review")throw Error(TEXT.link.notReview);
   const shown=replaySteps(review.snapshot,review.step);
   return [
     TEXT.prompts.handoffIntro,

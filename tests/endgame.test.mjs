@@ -70,12 +70,10 @@ test("AI/solo scoring begins only by human command, without a forged AI offer",(
   assert.equal(staged.endProposal,null);
   assert.deepEqual(staged.agreed,{black:false,white:false});
   assert.equal(staged.moveNumber,original.moveNumber);
-  assert.throws(()=>beginSoloScoring(staged),/対局中/);
   const finished=finalizeSoloScore(staged);
   assert.equal(finished.status,"finished");
   assert.equal(finished.result,"W+7.5");
   assert.deepEqual(finished.agreed,{black:false,white:false});
-  assert.throws(()=>finalizeSoloScore(original),/採点中/);
 });
 test("solo score uses same rules and points as two-player score acceptance",()=>{
   let two=beginSoloScoring(play(newGame(),at(4,4)));

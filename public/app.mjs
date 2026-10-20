@@ -289,7 +289,7 @@ function syncStepSlider(id) {
 }
 // Invasion and reinforcement have three stops; older saves with any 0-100 value snap to the nearest.
 const personaStep=value=>Math.round(Math.max(0,Math.min(100,Number(value??50)||0))/50)*50;
-const personaLabel=value=>value<50?TEXT.ai.persona.low:value>50?TEXT.ai.persona.high:TEXT.ai.strengths.normal;
+const personaLabel=value=>value<50?TEXT.ai.persona.low:value>50?TEXT.ai.persona.high:TEXT.ai.persona.mid;
 function updatePersonaUi() {
   $("aiInvasion").value=String(invasion);
   $("aiReinforcement").value=String(reinforcement);
@@ -650,7 +650,8 @@ function show() {
 }
 function apply(action, remote=false, isAiMove=false) {
   // End-offer messages can race with an actual stone. Ignore stale metadata
-  // without tearing down the live Go DataChannel.
+  // without tearing down the live Go DataChannel. Local actions are built from
+  // the current position, so only a peer's can be stale.
   if(remote && ["end_offer","end_answer","takeback_request","takeback_answer",
                  "dead_auto","dead_unavailable"].includes(action?.type)) {
     if(action.number!==game.moveNumber || action.before!==boardHash(game.board))return;
@@ -670,15 +671,10 @@ function apply(action, remote=false, isAiMove=false) {
       if(action.after!==boardHash(game.board)) throw new Error(TEXT.game.verifyFailed);
       lastPosition=Number.isInteger(action.position)?action.position:null;
     } else if(action.type==="solo_scoring") {
-      if(room || remote || action.number!==game.moveNumber ||
-         action.before!==boardHash(game.board))
-        throw new Error(TEXT.game.cannotScore);
       stopAiTurn(); // Invalidate pending AI workers on the old position.
       game=beginSoloScoring(game);
       endExpanded=false;
     } else if(action.type==="solo_score") {
-      if(room || remote || !canApproveScoring(game,deadReview,room,connected))
-        throw new Error(TEXT.game.cannotFinalize);
       game=finalizeSoloScore(game);
     } else if(action.type==="dead") {
       if(game.status!=="scoring")return;
@@ -698,36 +694,23 @@ function apply(action, remote=false, isAiMove=false) {
         action.positions.length?"complete":"none";
     }
     else if(action.type==="agree") {
-      // UI disables this while analysis is pending; retain an action guard.
-      if(!canApproveScoring(game,deadReview,room,connected)) {
-        if(!remote)throw new Error(TEXT.game.finalizeAfterReview);
-        return;
-      }
+      // The button checks this too; a peer may agree before our review ends.
+      if(!canApproveScoring(game,deadReview,room,connected))return;
       game=agreeScore(game,action.color);
     }
     else if(action.type==="resume") game=resume(game);
     // "mode" (the removed per-game overlay switch) from older peers is ignored below.
     else if(action.type==="end_offer") {
-      if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
-        throw new Error(TEXT.game.endProposalMismatch);
       game=proposeEnd(game,action.color);
       if(remote)endExpanded=false;
     } else if(action.type==="end_answer") {
-      if(action.number!==game.moveNumber || action.before!==boardHash(game.board) ||
-         action.proposalFrom!==game.endProposal?.from)
-        throw new Error(TEXT.game.endAnswerMismatch);
       game=answerEndProposal(game,action.color,Boolean(action.accept));
       if(!action.accept)endHintSuppressedUntil=game.moveNumber+4;
       endExpanded=false;
     } else if(action.type==="takeback_request") {
-      if(action.number!==game.moveNumber || action.before!==boardHash(game.board))
-        throw new Error(TEXT.game.takebackRequestMismatch);
       game=requestTakeback(game,action.color);
       endExpanded=false;
     } else if(action.type==="takeback_answer") {
-      if(action.number!==game.moveNumber || action.before!==boardHash(game.board) ||
-         action.proposalFrom!==game.takebackRequest?.from)
-        throw new Error(TEXT.game.takebackAnswerMismatch);
       rewound=Boolean(action.accept);
       game=answerTakeback(game,action.color,rewound);
       if(rewound)afterTakeback();
