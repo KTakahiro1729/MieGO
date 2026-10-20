@@ -22,8 +22,9 @@ let chromium;
 try{({chromium}=await import("playwright"));}catch{}
 let browser,launchError;
 if(chromium)try{browser=await chromium.launch();}catch(error){launchError=error;}
-// CI must run this; a laptop without a downloaded browser skips it.
-const skip=!browser && !process.env.CI?"Chromium is not available (npx playwright install chromium)":false;
+// The GitHub pull request check installs Chromium and must run this. Other
+// places without a downloaded browser (a laptop, the Cloudflare build) skip it.
+const skip=!browser && !process.env.GITHUB_ACTIONS?"Chromium is not available (npx playwright install chromium)":false;
 
 const server=createServer(async(request,response)=>{
   const path=new URL(request.url,"http://x").pathname;
