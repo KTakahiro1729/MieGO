@@ -146,7 +146,8 @@ test("settings button shows a toothed gear and is labeled",()=>{
 test("replacing the game discards every signal of the previous position",()=>{
   const reset=app.slice(app.indexOf("function resetPositionState()"),app.indexOf("function afterTakeback()"));
   for(const signal of [/pending=\+\+seq;analysisContext=null/,/cancelAnimationFrame\(transitionFrame\)/,
-    /displayedOwnership=null/,/clearProvisional\(\)/,/endgameAdvisor\.reset\(\)/,
+    // The endgame advice starts again from the new game's own kept estimates.
+    /displayedOwnership=null/,/clearProvisional\(\)/,/restoreEndgameAdvice\(\)/,
     /endNotice=null;takebackNotice=null/,/deadEvaluation=null/])
     assert.match(reset,signal);
   // A resumed scoring game keeps the dead stones already marked.

@@ -113,6 +113,9 @@ export const TEXT = {
     passedLocal: c => "パスで採点へ。" + color(c) + "はパス済み",
     // While watching, nobody is asked to pass: the line only says what happened.
     passedWatch: c => color(c) + "がパス。次もパスなら採点へ",
+    // The AI's pass opens the same question as 採点を始める; 採点へ進む is the player's pass.
+    askAiPassed: "AIがパスしました\n採点を始めますか？",
+    detailAiPassed: "採点へ進むと、あなたもパスして死石の確認に入ります。打ち続けることもできます。",
     declinedByPeer: "相手が終局を見送りました",
     withdrawnByPeer: "相手が提案を取り下げました",
     cancelledByMove: "相手の着手で提案は消えました",

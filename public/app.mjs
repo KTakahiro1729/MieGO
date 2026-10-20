@@ -250,6 +250,9 @@ let aiCom = readCom({character:DEFAULT_AI_CHARACTER});
 let takebackNotice = null;
 // What a friend's answer did to an end offer, shown once in the bar like takebackNotice.
 let endNotice = null;
+// 打ち続ける over the COM's pass: the position where the player said so.
+let keptPlayingAt = null;
+const keptPlaying = () => keptPlayingAt?.number===game.moveNumber && keptPlayingAt.hash===boardHash(game.board);
 let aiSideChoice = "black";
 // Set while 「ここから打つ」 shows the 新規対戦 sheet: the replayed line and its step.
 let continueFrom = null;
@@ -418,9 +421,11 @@ function updateEndUi() {
   // Scoring an unsettled board leaves the rest to the playout's first-instinct moves,
   // which can swing the result: the same question then keeps the advice above it.
   const unsettled=localPrompt && hint===TEXT.endgame.playing;
+  const aiPassed=localPrompt && aiPassAsks();
   $("endStatus").textContent=!playing?"":offline?TEXT.endgame.offline:
     incoming?TEXT.endgame.proposed:
     waiting?TEXT.endgame.waiting:
+    aiPassed?TEXT.endgame.askAiPassed:
     localPrompt?(unsettled?hint+"\n"+TEXT.endgame.askLocal:TEXT.endgame.askLocal):
     passed?passed.text:hint;
   $("endPropose").hidden=!playing||!!offer||localPrompt||isGomoku(game);
@@ -439,6 +444,7 @@ function updateEndUi() {
   $("actionRow").classList.toggle("end-prompt-open",localPrompt);
   $("endgameBar").classList.toggle("is-asking",localPrompt);
   $("endDetail").textContent=incoming?TEXT.endgame.detailIncoming:
+    aiPassed?TEXT.endgame.detailAiPassed:
     localPrompt?(unsettled?TEXT.endgame.detailUnsettled:gameMode==="ai"?TEXT.endgame.detailLocalAi:
       TEXT.endgame.detailLocal):
     waiting?TEXT.endgame.detailWaiting:
@@ -452,7 +458,7 @@ function updateEndUi() {
     $("endStatus").textContent=notice.text;
   // A decision is asked of this player: an offer, the other side's pass, or the advice to end.
   $("endgameBar").classList.toggle("is-calling",playing && !offline &&
-    (incoming || !!passed?.second || $("endStatus").textContent===TEXT.endgame.ready));
+    (incoming || (!!passed?.second && !keptPlaying()) || $("endStatus").textContent===TEXT.endgame.ready));
   // The stable left-hand status slot doubles as a rule explanation for illegal previews.
   // 五目並べ's forbidden moves are explained with its rules, not with ko and suicide.
   $("endHelp").dataset.help=isGomoku(game)?"rules":playing && illegalCandidate?"illegal":"endgame";
@@ -477,6 +483,11 @@ function passNotice() {
   if(by===me)return {text:TEXT.endgame.passedSelf,second:false};
   return {text:room?TEXT.endgame.passedOpponent:TEXT.endgame.passedAi,second:true};
 }
+/** Against a COM, its pass is its way of suggesting the end: the player is asked
+ * 採点を始めますか？ at once, and 採点へ進む is the player's own pass. */
+const aiPassAsks = () => !room && gameMode === "ai" && !watching && game.status === "playing" &&
+  !game.endProposal && game.passes === 1 && game.moves.at(-1)?.position === null &&
+  game.moves.at(-1).color === -humanColor;
 const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" &&
   (watching ? !intervening : game.next === -humanColor);
 const isHumanTurn = () => room
@@ -1290,6 +1301,10 @@ function apply(action, remote=false, isAiMove=false) {
       if(action.after!==boardHash(game.board)) throw new Error("Board mismatch after the move");
       lastPosition=Number.isInteger(action.position)?action.position:null;
       if(!remote && !isAiMove)personMovedAt=performance.now();
+      if(isAiMove && aiPassAsks()){
+        candidate=null;illegalCandidate=null;illegalPromptCopied=false;
+        $("illegalPromptFallbackPanel").hidden=true;
+      }
     } else if(action.type==="solo_scoring") {
       stopAiTurn(); // Invalidate pending AI workers on the old position.
       game=beginSoloScoring(game);
@@ -1361,7 +1376,8 @@ function apply(action, remote=false, isAiMove=false) {
       if(rewound)afterTakeback();
     }
     else return;
-    if(action.type==="move")endExpanded=false;
+    // The COM's pass asks at once; any other move closes the question.
+    if(action.type==="move")endExpanded=isAiMove && aiPassAsks();
     if(!wasScoring && game.status==="scoring") {
       deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
     }
@@ -1530,7 +1546,7 @@ function resetPositionState() {
   if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
   transitionFrame=null;displayedOwnership=null;
   clearProvisional();
-  endgameAdvisor.reset();endExpanded=!!game.endProposal;
+  restoreEndgameAdvice();endExpanded=!!game.endProposal || aiPassAsks();
   endNotice=null;takebackNotice=null;
   deadReview=game.status==="scoring" &&
     (game.dead.length || game.agreed.black || game.agreed.white)?"modified":"idle";
@@ -1618,6 +1634,9 @@ $("endAccept").onclick=()=>{
   if(game.status!=="playing")return;
   if(game.takebackRequest){answerTakebackRequest(true);return;}
   const color=myColorForEnd();
+  if(!room && endExpanded && aiPassAsks()){
+    endExpanded=false;submitMove(null);return;
+  }
   if(!room && endExpanded && !game.endProposal){
     // One human decision, not a fabricated AI response.
     apply({type:"solo_scoring",number:game.moveNumber,before:boardHash(game.board)});
@@ -1632,6 +1651,7 @@ $("endDecline").onclick=()=>{
   if(game.takebackRequest){answerTakebackRequest(false);return;}
   if(!room && endExpanded && !game.endProposal){
     // As with a friend's answer, the strongest advice waits for the board to settle again.
+    if(aiPassAsks())keptPlayingAt={number:game.moveNumber,hash:boardHash(game.board)};
     endgameAdvisor.hold();
     endExpanded=false;updateEndUi();
     if(isAiTurn())requestAnalysis();
@@ -2515,6 +2535,14 @@ function exportSharedSGF(){
     $("shareNotice").textContent=TEXT.share.sgfSaved;
   }catch(error){$("shareNotice").textContent=TEXT.share.sgfFailed;}
 }
+/** A restored game carries on the endgame advice from the estimates kept while it was played. */
+function restoreEndgameAdvice(){
+  endgameAdvisor.reset();
+  if(game.status!=="playing" || isFree(game) || isGomoku(game))return;
+  let states=[];
+  try{states=replayLine(game);}catch{return;}
+  endgameAdvisor.restore(states,state=>ownershipStore.recall(currentGameId,state.board));
+}
 // Every frame of a shared animation carries the colours seen while playing.
 function rememberOwnership(board,values){
   try{ownershipStore.remember(currentGameId,board,values);}catch(error){console.warn("Ownership not kept",error);}
@@ -2591,6 +2619,8 @@ function resumeSelectedReview(){
     syncSideUi();
     updatePersonaUi();
   }
+  // Who passed is known only once the resumed game's sides are back.
+  endExpanded=!!game.endProposal || aiPassAsks();
   try{gameLibrary.setActive(gameMode,currentGameId);}
   catch(error){storageError(error);return;}
   clearBoardReview();rememberSettings();
@@ -2879,7 +2909,7 @@ else try {
       reinforcement:settings.reinforcement});
     watchAi=readWatchAi(settings.watchAi,aiCom);
   }
-  game=savedGame(gameMode);endExpanded=!!game.endProposal;
+  game=savedGame(gameMode);restoreEndgameAdvice();endExpanded=!!game.endProposal || aiPassAsks();
 }catch{}
 syncSideUi();
 updatePersonaUi();syncStrengthUi();syncHandicapUi();
