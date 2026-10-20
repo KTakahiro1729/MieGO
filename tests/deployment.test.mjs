@@ -21,6 +21,12 @@ test("Workers deployment configuration and static assets are present", () => {
   assert.ok(config.previews, "Workers Preview requires a previews configuration");
   assert.deepEqual(config.previews.durable_objects.bindings, config.durable_objects.bindings,
     "Preview must bind ROOMS to its own isolated GameRoom namespace");
+  // Each Preview with a Durable Object class gets its own namespace, and the Free plan allows
+  // 100 per account, so branch previews deploy from a copy without GameRoom.
+  const preview = JSON.parse(readFileSync(resolve(root, "wrangler.preview.jsonc"), "utf8"));
+  const { durable_objects, migrations, previews, vars, ...shared } = config;
+  assert.deepEqual({ ...preview, previews: undefined }, { ...shared, previews: undefined });
+  assert.deepEqual(preview.previews, { vars: previews.vars });
   for (const p of [config.main, "public/index.html", "public/app.mjs",
       "public/core.mjs", "public/analysis-worker.mjs", "public/style.css"]) {
     assert.ok(existsSync(resolve(root, p)), "Missing required file: " + p);
@@ -77,4 +83,14 @@ test("the page may not be framed, and its policy admits every third party the pa
   assert.ok(directives["script-src"].includes(turnstile) && directives["frame-src"].includes(turnstile));
   assert.ok(directives["style-src"].includes(origin("public/share-image.mjs", /href:"([^"]+)"/)));
   assert.ok(directives["script-src"].includes("'wasm-unsafe-eval'"));
+});
+test("the KataGo worker's build is kept by browsers, and only under a content-hashed path", () => {
+  const headers = readFileSync(resolve(root, "public/_headers"), "utf8");
+  assert.match(headers, /^\/katago\/\*\n  Cache-Control: public, max-age=31536000, immutable$/m);
+  // The entry the page loads stays outside /katago/, so a new build is found on the next visit.
+  const entry = readFileSync(resolve(root, "public/katago-worker.bundle.mjs"), "utf8");
+  const path = entry.match(/^import "\/(katago\/[0-9a-f]{16})\/worker\.mjs";$/m)?.[1];
+  assert.ok(path, "The worker entry must import a hashed build");
+  for (const file of ["worker.mjs", "tfjs-backend-wasm.wasm", "tfjs-backend-wasm-simd.wasm"])
+    assert.ok(existsSync(resolve(root, "public", path, file)), "Missing " + path + "/" + file);
 });

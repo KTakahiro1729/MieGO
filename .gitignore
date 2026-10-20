@@ -3,7 +3,7 @@ node_modules/
 .dev.vars
 .DS_Store
 public/models/
-public/tfjs/
+public/katago/
 public/katago-worker.bundle.mjs
 public/index.html
 public/licenses.txt

@@ -4,6 +4,10 @@
   X-Frame-Options: DENY
   Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' wss:; frame-src https://challenges.cloudflare.com; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
 
+# Built under a content hash, so a URL never changes what it serves.
+/katago/*
+  Cache-Control: public, max-age=31536000, immutable
+
 /licenses.txt
   Content-Type: text/plain; charset=utf-8
 
