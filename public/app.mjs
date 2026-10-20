@@ -2013,7 +2013,7 @@ function renderScoreGraph() {
     .forEach((lead,step)=>{if(step<series.length)series[step]=lead;});
   scoreGraph.marks=swingSteps(series,line.moves,{minSwing:Math.max(3,line.board.length/27)});
   const width=Math.max(1,Math.round(box.clientWidth)),height=Math.max(1,Math.round(box.clientHeight));
-  $("reviewGraphPlot").innerHTML=scoreGraphSvg(series,{width,height,step:boardReview.step,marks:scoreGraph.marks});
+  $("reviewGraphPlot").innerHTML=scoreGraphSvg(series,{width,height,step:boardReview.step,marks:scoreGraph.marks,stepLabel:TEXT.review.graphEnd});
 }
 // A tap near a marked turning point lands on it; otherwise on the nearest step.
 function pickGraphStep(event) {

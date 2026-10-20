@@ -73,6 +73,15 @@ test("black fills up from the bottom and white down from the top, per run",()=>{
   assert.doesNotMatch(scoreGraphSvg([null,null]),/score-graph-black/,"nothing estimated, nothing filled");
 });
 
+test("a knob on the step line rides the estimate and the axis ends are labelled",()=>{
+  const svg=scoreGraphSvg([0,10,null,-10],{width:300,height:48,step:1,stepLabel:n=>n+"手"});
+  assert.match(svg,/class="score-graph-knob" cx="100" cy="9" r="8"/,"kept inside the graph's height");
+  assert.match(scoreGraphSvg([0,null],{width:300,height:48,step:1}),/class="score-graph-knob" cx="300" cy="24"/,"no estimate, on the axis");
+  assert.match(svg,/>0<\/text>/);
+  assert.match(svg,/text-anchor="end">3手<\/text>/);
+  assert.doesNotMatch(scoreGraphSvg([0,1],{stepLabel:()=>"<b>"}),/<b>/);
+});
+
 test("the step line stays whole at the last step",()=>{
   assert.match(scoreGraphSvg([0,1,2],{width:300,height:48,step:2}),/class="score-graph-step" x1="299"/);
 });

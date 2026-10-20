@@ -6,6 +6,7 @@ import {BLACK, whiteCompensation} from "./core.mjs";
 // only marks where the estimate swung most against the player who moved.
 
 const num = v => +v.toFixed(1);
+const escape = text => String(text).replace(/[&<>"]/g,c=>"&#"+c.charCodeAt(0)+";");
 
 /** Black's lead (points, komi included) from an ownership map, or null. */
 export function leadFromOwnership(state, ownership) {
@@ -50,11 +51,11 @@ export function stepAt(x, width, last) {
 }
 
 /**
- * SVG markup of the graph, built only from numbers, so it is safe to assign as
- * innerHTML. Black's lead is up: the black area grows as Black leads. The vertical scale is symmetric and at least
+ * SVG markup of the graph, built from numbers and the escaped step label, so it
+ * is safe to assign as innerHTML. Black's lead is up: the black area grows as Black leads. The vertical scale is symmetric and at least
  * ±minScale points so a close game stays flat. Colours come from CSS classes.
  */
-export function scoreGraphSvg(raw, {width=300, height=48, step=0, marks=[], minScale=10}={}) {
+export function scoreGraphSvg(raw, {width=300, height=48, step=0, marks=[], minScale=10, stepLabel=String}={}) {
   const series=raw.map(v=>Number.isFinite(v)?v:null);
   const last=Math.max(1,series.length-1);
   const known=series.filter(v=>v!==null);
@@ -85,8 +86,16 @@ export function scoreGraphSvg(raw, {width=300, height=48, step=0, marks=[], minS
     if(!Number.isInteger(s) || v===null || v===undefined)continue;
     parts.push(`<circle class="score-graph-mark" cx="${x(s)}" cy="${y(v)}" r="3.5"/>`);
   }
+  // The ends of the step axis, so the graph reads as the game from its start.
+  parts.push(`<text class="score-graph-label" x="3" y="11">0</text>`,
+    `<text class="score-graph-label" x="${width-3}" y="11" text-anchor="end">${escape(stepLabel(series.length-1))}</text>`);
   const at=Math.max(0,Math.min(last,Math.trunc(Number(step)||0)));
   const stepX=Math.max(1,Math.min(width-1,x(at))); // Kept whole at either edge.
   parts.push(`<line class="score-graph-step" x1="${stepX}" y1="0" x2="${stepX}" y2="${height}"/>`);
+  // A knob like a slider's shows the step line can be dragged. It rides the
+  // line where the step is estimated and stays inside the graph's height.
+  const r=8, v=series[at];
+  const knobY=Math.max(r+1,Math.min(height-r-1,v===null||v===undefined?mid:y(v)));
+  parts.push(`<circle class="score-graph-knob" cx="${x(at)}" cy="${num(knobY)}" r="${r}"/>`);
   return `<svg viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">${parts.join("")}</svg>`;
 }
