@@ -53,6 +53,11 @@ function layout(page){
     return {height:innerHeight,width:innerWidth,scrolled:document.querySelector(".game-layout").scrollTop,
       topbar:document.querySelector(".topbar").getBoundingClientRect().bottom,
       board:box("boardFrame"),actions:box("actionRow"),stack,buttons,
+      // Text cut off with an ellipsis, by its id or class.
+      cut:["turn","scoreInstruction"].map(id=>document.getElementById(id))
+        .concat([...document.querySelectorAll("#scoreBox strong,#scoreText .score-detail")])
+        .filter(e=>e.getClientRects().length && e.scrollWidth>e.clientWidth+0.5)
+        .map(e=>(e.id||e.className)+": "+e.textContent),
       scoreCard:(style=>style.borderTopWidth!=="0px" || style.backgroundColor!=="rgba(0, 0, 0, 0)")(
         getComputedStyle(document.getElementById("scoreBox")))};
   });
@@ -66,6 +71,8 @@ function assertFits(view,phase,where){
   // UX policy §1: the score box is not a card, so its frame never adds lines
   // next to the prisoner pills or the action row.
   assert.equal(view.scoreCard,false,`${at}: the score box is drawn as a card`);
+  // UX policy §3.5: text fits its slot; nothing hides behind an ellipsis.
+  assert.deepEqual(view.cut,[],`${at}: text is cut off`);
   // Nothing under the board runs into the next part: the score box sliding
   // under the action row, or the prisoner pills touching the score box.
   view.stack.slice(1).forEach((part,i)=>{

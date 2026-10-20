@@ -569,6 +569,10 @@ body{overflow:hidden}
 .score-box{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;align-items:baseline;
   padding:2px 4px 0;margin-bottom:0;background:none;border:0;border-radius:0}
 .score-head{grid-column:1;min-width:0}
+/* While scoring the step title sits in the turn label; only the result keeps its title here. */
+.game-panel.is-scoring .score-head strong{display:none}
+/* After the game the rule line under the turn label already says how it was counted. */
+.game-panel.is-finished .score-box>p{display:none}
 .score-box>p{grid-column:2;grid-row:1;min-width:0;margin:0}
 .score-table{grid-column:1/-1;grid-template-columns:1fr 1fr;column-gap:10px;margin-top:2px;padding-top:0;border-top:0}
 .score-table .score-row{gap:4px}

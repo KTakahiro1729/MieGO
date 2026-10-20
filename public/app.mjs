@@ -888,7 +888,8 @@ function show() {
   // Nobody is to move while scoring or after the game, so no turn stone.
   $("turn").classList.toggle("no-stone",game.status!=="playing");
   $("turn").textContent=game.status==="finished"?TEXT.scoring.finishedResign:
-    game.status==="scoring"?TEXT.common.scoring:
+    // The scoring step names itself here, so the score box keeps its one line for the instruction.
+    game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
     room?(connected?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):TEXT.game.waitingOpponent):
     gameMode==="ai"?(gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
       fallbackMode?TEXT.game.aiStopped:!katagoReady?TEXT.game.aiPreparing:
