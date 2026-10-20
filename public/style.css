@@ -9,6 +9,9 @@
   --accent-edge:var(--gold-56);--accent-text:var(--gold-91);
   --danger-bg:var(--ember-38);--danger-edge:var(--ember-64);--danger-text:var(--sand-93);
   --control-h:44px;--action-h:55px;--action-pad-top:4px;
+  /* The page's side margin on a phone: the logo, the board, the text under it
+     and the buttons all start this far from the edge. */
+  --gutter:12px;
   /* Type: five sizes only. 11px is the smallest anything is drawn at (Apple's
      iOS minimum); body text and every action-row label is 14px. */
   --font-caption:11px;--font-small:12px;--font-body:14px;--font-title:17px;--font-display:22px;
@@ -252,9 +255,9 @@ select:disabled{opacity:.45}
 .invite-status{min-height:14px;font-size:var(--font-small);color:var(--gold-87)}
 
 @media(max-width:700px){
- .topbar{height:62px;padding:8px 14px}
+ .topbar{height:62px;padding:8px var(--gutter)}
  .brand{font-size:var(--font-display)}
- .game-layout{padding:0 10px}
+ .game-layout{padding:0 var(--gutter)}
  .turn{font-size:var(--font-title)}
  .board-frame{padding:4px;border-radius:var(--radius-sm)}
  #board{border-radius:var(--radius-inner)}
@@ -583,8 +586,8 @@ body{overflow:hidden}
 
 @media(max-width:700px){
   .app-shell{--topbar-height:62px}
-  .game-layout{padding:0 10px 6px}
-  .board-frame{max-height:min(675px,calc(100vw - 20px))}
+  .game-layout{padding:0 var(--gutter) 6px}
+  .board-frame{max-height:min(675px,calc(100vw - 2 * var(--gutter)))}
   .ownership-legend{margin-top:5px}
 }
 
