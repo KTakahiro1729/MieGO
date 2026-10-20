@@ -2,11 +2,16 @@ import {postP2PJson,reconnectDelay,isTerminalTicketFailure,signalingUrl} from ".
 import { TEXT } from "./texts.mjs";
 import { UserError } from "./user-error.mjs";
 
+// How long a disconnected direct link may take to come back before it is rebuilt.
+const STALL_MS=10000;
+
 // Signaling and WebRTC transport. Game rules and UI belong to app.mjs.
 // onSignins({owner,guest}) reports how often each seat moved to another device.
+// onDisconnected(message,retrying): retrying is true while the transport reconnects by itself,
+// false while the other player is away, and left out while the peers compare boards.
 export function createP2PTransport({verify,onSession,onSync,onAction,onConnected,onDisconnected,onError,getSnapshot,onSignins=()=>{}}) {
   let current=null, socket=null, peer=null, channel=null, timer=null, generation=0, attempt=0;
-  let pendingIce=[],ready=false;
+  let pendingIce=[],ready=false,stall=null,relinks=0;
   const post=postP2PJson;
   function signal(type,payload){
     if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type,payload}));
@@ -18,9 +23,18 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
   function sendSync(){return send({type:"sync",...getSnapshot()});}
   function closeRTC(){
     const old=channel;channel=null;ready=false;pendingIce=[];
+    clearTimeout(stall);stall=null;
     try{old?.close();}catch{}
     try{peer?.close();}catch{}
     peer=null;
+  }
+  // Only the direct link failed while signaling may still be up. Rejoining signaling makes
+  // the server send a new roster, which has the owner offer a fresh connection.
+  function relink(epoch){
+    if(epoch!==generation||!current)return;
+    closeRTC();relinks++;
+    const old=socket;socket=null;try{old?.close();}catch{}
+    onDisconnected(TEXT.online.statusOffline,true);schedule(epoch);
   }
   async function startRTC(epoch) {
     // ICE can arrive before an offer. Preserve candidates for the first guest offer.
@@ -30,11 +44,18 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
     const rtc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.cloudflare.com:3478"}]});
     peer=rtc;
     rtc.onicecandidate=e=>{if(epoch===generation&&e.candidate)signal("ice",e.candidate.toJSON());};
+    let lost=false;
     rtc.onconnectionstatechange=()=>{
       if(epoch!==generation||peer!==rtc)return;
-      if(["failed","disconnected","closed"].includes(rtc.connectionState)){
-        ready=false;onDisconnected(TEXT.online.waitingConnection);
-      }
+      const state=rtc.connectionState;
+      clearTimeout(stall);stall=null;
+      // disconnected may pass: the open channel keeps its order, so the game resumes without a new sync.
+      if(state==="disconnected"){
+        lost=true;onDisconnected(TEXT.online.statusOffline,true);
+        stall=setTimeout(()=>{stall=null;relink(epoch);},STALL_MS);
+      }else if(state==="connected"&&lost){
+        lost=false;if(ready)onConnected();
+      }else if(state==="failed"||state==="closed")relink(epoch);
     };
     rtc.ondatachannel=e=>setupChannel(e.channel,epoch);
     if(current.role==="owner"){
@@ -52,13 +73,13 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
     };
     c.onclose=()=>{
       if(epoch!==generation||channel!==c)return;
-      ready=false;onDisconnected(TEXT.online.waitingConnection);
+      relink(epoch);
     };
     c.onmessage=e=>{
       if(epoch!==generation||channel!==c||!current)return;
       let msg;try{msg=JSON.parse(e.data);}catch{return;}
       if(msg?.type==="sync"){
-        try{ready=onSync(msg)!==false;if(ready)onConnected();}
+        try{ready=onSync(msg)!==false;if(ready){relinks=0;onConnected();}}
         catch(error){ready=false;onError(error);}
       }else if(msg?.type==="action"&&ready)onAction(msg.action);
     };
@@ -77,17 +98,21 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
       catch(error){error.stage="ticket";throw error;}
       if(epoch!==generation)return;
       closeRTC();
+      const prev=socket;socket=null;try{prev?.close();}catch{}
       const s=new WebSocket(signalingUrl(location,room,ticket.ticket));
       socket=s;
-      s.onopen=()=>{if(epoch===generation)attempt=0;};
+      // A direct link that keeps failing backs off like signaling does.
+      s.onopen=()=>{if(epoch===generation)attempt=relinks;};
       s.onmessage=async event=>{
         if(epoch!==generation||socket!==s)return;
         let msg;try{msg=JSON.parse(event.data);}catch{return;}
         try{
           if((msg.type==="joined"||msg.type==="signin") && msg.signins)onSignins(msg.signins);
+          if(msg.type==="roster"&&msg.count<2){closeRTC();onDisconnected(TEXT.online.waitingConnection,false);}
           if(msg.type==="roster"&&msg.count===2&&role==="owner"&&!ready)await startRTC(epoch);
           if(msg.type==="offer"&&role==="guest"){
-            if(!peer)await startRTC(epoch);
+            // An offer after an earlier one comes from the owner's fresh connection.
+            if(!peer||peer.remoteDescription)await startRTC(epoch);
             if(epoch!==generation)return;
             await peer.setRemoteDescription(msg.payload);
             for(const ice of pendingIce.splice(0))await peer.addIceCandidate(ice);
@@ -102,16 +127,17 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
             if(!peer?.remoteDescription)pendingIce.push(msg.payload);
             else await peer.addIceCandidate(msg.payload);
           }
-        }catch(error){onError(error);}
+        }catch(error){console.warn("P2P signaling",error);relink(epoch);}
       };
       s.onclose=()=>{
         if(epoch!==generation||socket!==s)return;
-        ready=false;closeRTC();onDisconnected(TEXT.online.waitingConnection);schedule(epoch);
+        closeRTC();onDisconnected(TEXT.online.statusOffline,true);schedule(epoch);
       };
     }catch(error){
       if(epoch!==generation)return;
+      error.retrying=!isTerminalTicketFailure(error.status);
       onError(error);
-      if(!isTerminalTicketFailure(error.status))schedule(epoch);
+      if(error.retrying)schedule(epoch);
     }
   }
   async function join({room,role,session,inviteKey}){
@@ -129,7 +155,7 @@ export function createP2PTransport({verify,onSession,onSync,onAction,onConnected
     if(epoch===generation)await connect(epoch);
   }
   function leave(){
-    generation++;clearTimeout(timer);timer=null;attempt=0;
+    generation++;clearTimeout(timer);timer=null;attempt=0;relinks=0;
     current=null;closeRTC();const old=socket;socket=null;try{old?.close();}catch{}
   }
   function refresh(){

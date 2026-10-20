@@ -258,6 +258,8 @@ const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),graph:
 let positionPolicy=null;
 const dopaViewer = () => isWatching() || (gameMode!=="ai" && !room) ? null : room ? myOnlineColor() : humanColor;
 let connected = false;
+// The friend game dropped and the transport is getting it back by itself.
+let reconnecting = false;
 // A first visit starts against the COM; later visits restore the saved mode.
 let gameMode = room ? "online" : "ai";
 let humanColor = BLACK;
@@ -987,7 +989,7 @@ function show() {
   $("turn").textContent=waiting?TEXT.game.aiThinking:game.status==="finished"?finishedTitle():
     // The scoring step names itself here, so the score box keeps its one line for the instruction.
     game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
-    room && !connected?TEXT.game.waitingOpponent:
+    room && !connected?(reconnecting?TEXT.game.reconnecting:TEXT.game.waitingOpponent):
     isFree(game)?(freeColor===BLACK?TEXT.game.freeBlack:TEXT.game.freeWhite):
     room?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):
     // COM同士 shows whose move it is; 「COM同士」 under it says who plays.
@@ -1699,7 +1701,7 @@ function leaveOnlineRoom() {
   save();
   p2pTransport?.leave();
   const oldUrl=new URL(location.href);oldUrl.searchParams.delete("room");oldUrl.hash="";
-  room=null;seat="host";connected=false;ownerColor=null;onlineSession=null;
+  room=null;seat="host";connected=false;reconnecting=false;ownerColor=null;onlineSession=null;
   inviteKey=null;guestInviteKey=null;issuedSide=null;onlineRevision=0;p2pRole="owner";
   linkKey=null;seenPeerSignins=null;
   history.replaceState(null,"",oldUrl.pathname+oldUrl.search);
@@ -1769,7 +1771,7 @@ function onPeerSync(message){
   const result=reconcileGame(game,onlineRevision,message.game,message.revision,
     {localIsOwner:p2pRole==="owner",localColor:myOnlineColor()});
   if(result.kind==="conflict"||result.kind==="invalid"){
-    connected=false;$("netStatus").textContent=TEXT.online.statusStopped;
+    connected=false;reconnecting=false;$("netStatus").textContent=TEXT.online.statusStopped;
     showSeatNotice(TEXT.online.mismatch);
     show();return false;
   }
@@ -1804,14 +1806,18 @@ p2pTransport=createP2PTransport({
   onSync:onPeerSync,
   onAction:action=>apply(action,true),
   onConnected:()=>{
-    connected=true;$("netStatus").textContent=TEXT.online.connected;
+    connected=true;reconnecting=false;$("netStatus").textContent=TEXT.online.connected;
     // A failed retry left 電波やWi-Fiを確認して…, which no longer applies once the peers meet again.
-    if($("saveStatus").textContent===TEXT.online.requestFailed)$("saveStatus").hidden=true;
+    if($("saveStatus").textContent===TEXT.online.retrying)$("saveStatus").hidden=true;
     show();
   },
-  onDisconnected:message=>{connected=false;$("netStatus").textContent=message;show();},
+  onDisconnected:(message,retrying)=>{
+    connected=false;if(retrying!==undefined)reconnecting=retrying;
+    $("netStatus").textContent=message;show();
+  },
   onError:error=>{
     console.warn("P2P",error);
+    reconnecting=!!error.retrying;
     if(error.stage==="ticket" && error.status===403){
       // An opened seat link takes the seat back once; otherwise another device holds it.
       if(linkKey){inviteKey=linkKey;linkKey=null;onlineSession=null;persistOnline();void joinRoom();return;}
@@ -1821,8 +1827,9 @@ p2pTransport=createP2PTransport({
       $("netStatus").textContent=TEXT.online.statusCannotJoin;
       showSeatNotice(TEXT.online.roomGone);
     }else{
+      // The transport tries again by itself, so the notice asks only to check the network.
       $("netStatus").textContent=TEXT.online.statusOffline;
-      showNotice(messageFor(error,TEXT.online.requestFailed));
+      showNotice(error.retrying?TEXT.online.retrying:messageFor(error,TEXT.online.requestFailed));
     }
     show();
   },
@@ -1834,7 +1841,7 @@ async function joinRoom(){
   if(!ROOM_PATTERN.test(room)){
     $("netStatus").textContent=TEXT.online.statusCannotJoin;showSeatNotice(TEXT.online.badInvite);return;
   }
-  const targetRoom=room;
+  const targetRoom=room;reconnecting=false;
   // show() names the mode only outside a room, so the previous mode's name would stay here.
   $("netStatus").textContent=TEXT.online.waitingConnection;
   try{
@@ -2095,9 +2102,8 @@ function renderPlayers(shown, waiting=null) {
     box.querySelector(".player-wait").hidden=!thinking;
     // A person's 持ち時間 takes the place of their line.
     box.querySelector(".player-name").textContent=side.name;
-    // The opponent's line carries the connection; the side to move says so.
+    // The connection stays in the line under the turn, which takes this row's place when it drops.
     box.querySelector(".player-detail-text").textContent=
-      room && !side.com && side.name===TEXT.game.opponent?$("netStatus").textContent:
       thinking?(waiting?.short || TEXT.game.comThinking):clockShown(color)?"":toMove && !side.com?TEXT.game.toMove:side.detail;
   }
   $("playersMove").textContent=TEXT.game.moveLabel(game.moveNumber);
