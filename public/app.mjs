@@ -485,7 +485,8 @@ function onStrongMessage(net, event) {
   }
   if(result?.kind==="reading") {
     if(aiJob?.id!==result.id)return;
-    aiJob.remainingMs=Math.max(0,result.total-result.done)*(Number(result.evalMs)||0);
+    aiJob.read={depth:result.depth,done:result.done,total:result.total,
+      remainingMs:Math.max(0,result.total-result.done)*(Number(result.evalMs)||0)};
     $("aiMatchStatus").textContent=TEXT.ai.strongestReading;
     show();
     return;
@@ -495,15 +496,18 @@ function onStrongMessage(net, event) {
     finishAiMove(result);
   }
 }
-/** While 最強 is to move: true, or the note after the turn label (download
- * percent, or seconds left when it reads); null for any other move. */
+/** While 最強 is to move: what it is doing, with how far along it is;
+ * null for any other move. */
 function strongWait() {
   if(!isAiTurn() || isGomoku(game) || comToMove().strength!=="strongest")return null;
   const net=strongNet();
-  if(net.state==="loading")return net.progress<100?TEXT.game.waitPercent(net.progress):true;
+  if(net.state==="loading")return net.progress<100?TEXT.game.thinkDownloading(net.progress):TEXT.game.thinkPreparing;
   if(net.state!=="ready")return null;
-  if(aiJob?.strong && aiJob.remainingMs>0)return TEXT.game.waitSeconds(Math.max(1,Math.round(aiJob.remainingMs/1000)));
-  return true;
+  const read=aiJob?.strong && aiJob.read;
+  // The time left needs one timed evaluation of this read first.
+  if(read?.total>0)return TEXT.game.thinkReading(read.depth,Math.floor(100*read.done/read.total),
+    read.done>0 && Math.max(1,Math.round(read.remainingMs/1000)));
+  return TEXT.game.thinkMove;
 }
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
@@ -1052,10 +1056,11 @@ function show() {
   // Nobody is to move while scoring or after the game, so no turn stone.
   $("turn").classList.toggle("no-stone",game.status!=="playing" ||
     isWatching() && watchReturning && !watchPaused && !intervening);
-  // 最強 can take a while: its turn stone pulses, with the download or the read's time left.
+  // 最強 can take a while: the turn says it is thinking, its stone pulses, and
+  // the line under it says what it is doing and how far along.
   const waiting=strongWait();
   $("turn").classList.toggle("is-waiting",!!waiting);
-  $("turn").textContent=(typeof waiting==="string"?TEXT.game.withWait:(label=>label))(game.status==="finished"?finishedTitle():
+  $("turn").textContent=waiting?TEXT.game.aiThinking:game.status==="finished"?finishedTitle():
     // The scoring step names itself here, so the score box keeps its one line for the instruction.
     game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
     room && !connected?TEXT.game.waitingOpponent:
@@ -1067,9 +1072,9 @@ function show() {
       gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
       fallbackMode?TEXT.game.aiStopped:
       isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
-    (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite),waiting);
-  if(!room)$("netStatus").textContent=spectating?TEXT.common.modeWatch:
-    gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
+    (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite);
+  if(!room)$("netStatus").textContent=waiting || (spectating?TEXT.common.modeWatch:
+    gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal);
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=TEXT.game.moveLabel(game.moveNumber);
   // ◁ opens the replay one move back; ▷ only moves within a replay, so it rests disabled here.
