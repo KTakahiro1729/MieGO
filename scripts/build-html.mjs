@@ -29,8 +29,31 @@ export function renderTemplate(template) {
     });
 }
 
+// Every module app.mjs reaches through static imports, in the order first met.
+export async function moduleGraph(entry = "app.mjs") {
+  const found = [], queue = [entry];
+  while (queue.length) {
+    const name = queue.shift();
+    if (found.includes(name)) continue;
+    found.push(name);
+    const source = await readFile(resolve("public", name), "utf8");
+    for (const [, path] of source.matchAll(/^\s*(?:import|export)\b[^;"']*?["']\.\/([\w-]+\.mjs)["']/gm)) queue.push(path);
+  }
+  return found;
+}
+
+// Without these the browser finds the modules one import level at a time,
+// a round trip per level before the board can be played.
+async function modulePreloads(indent) {
+  return (await moduleGraph()).slice(1).map(name => indent + '<link rel="modulepreload" href="/' + name + '">').join("\n");
+}
+
 export async function renderIndex() {
-  const html = renderTemplate(await readFile(TEMPLATE, "utf8"));
+  let html = renderTemplate(await readFile(TEMPLATE, "utf8"));
+  const marker = /^([ \t]*)<!-- module preloads -->$/m;
+  if (!marker.test(html)) throw Error("The template lacks the module preloads marker");
+  const indent = html.match(marker)[1];
+  html = html.replace(marker, await modulePreloads(indent));
   return html.replace("<!doctype html>\n", "<!doctype html>\n" + NOTICE);
 }
 

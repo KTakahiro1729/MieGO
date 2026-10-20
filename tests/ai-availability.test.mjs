@@ -10,3 +10,12 @@ test("AI games are strictly KataGo-only",()=>{
  assert.doesNotMatch(app,/chooseFallbackMove/);
  assert.match(worker,/kind: "availability", available: true/);
 });
+test("the player can move while KataGo is still loading",async()=>{
+ const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+ const humanTurn=app.match(/const isHumanTurn = [^;]+;/s)[0];
+ assert.doesNotMatch(humanTurn,/katagoReady/);
+ // The AI answers once the model reports it is ready.
+ assert.match(app,/katagoReady=true;[\s\S]{0,200}if\(isAiTurn\(\)/);
+ // Loading is brief, so the turn label and status read as usual meanwhile.
+ assert.doesNotMatch(app,/TEXT\.game\.aiPreparing|preparingNotice/);
+});

@@ -343,7 +343,9 @@ function updateEndUi() {
   const localPrompt=playing && !room && endExpanded && !offer;
   const waiting=!!(offer && !incoming);
   const offline=!!room && (!connected || color===null);
-  const hint=endgameHint(game,endgameAdvisor,{unavailable:fallbackMode});
+  // While KataGo loads there is no estimate yet; the slot stays quiet rather than saying so.
+  const hint=!katagoReady && !fallbackMode && !endgameAdvisor.previous ? "" :
+    endgameHint(game,endgameAdvisor,{unavailable:fallbackMode});
   const passed=playing && !offer && !localPrompt && !offline ? passNotice() : null;
   $("endStatus").textContent=!playing?"":offline?TEXT.endgame.offline:
     incoming?TEXT.endgame.proposed:
@@ -405,7 +407,8 @@ const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" &
   (watching ? !intervening : game.next === -humanColor);
 const isHumanTurn = () => room
   ? (connected && (myOnlineColor()!==null && (isFree(game) || game.next===myOnlineColor())))
-  : (gameMode !== "ai" || ((isGomoku(game) || katagoReady && !fallbackMode) &&
+  // The player moves while KataGo is still loading, and the AI answers once it is ready.
+  : (gameMode !== "ai" || ((isGomoku(game) || !fallbackMode) &&
     (watching ? intervening : game.next === humanColor)));
 const isWatching = () => !room && gameMode === "ai" && watching;
 function stopAiTurn() {
@@ -980,7 +983,7 @@ function show() {
     room?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):
     gameMode==="ai"?(spectating?(game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite):
       gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
-      fallbackMode?TEXT.game.aiStopped:!katagoReady?TEXT.game.aiPreparing:
+      fallbackMode?TEXT.game.aiStopped:
       isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
     (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite);
   if(!room)$("netStatus").textContent=spectating?TEXT.common.modeWatch:
@@ -992,7 +995,6 @@ function show() {
     candidate?TEXT.game.hintCandidate:
     game.status==="scoring"?TEXT.game.hintScoring:
     gameMode==="ai" && !gomoku && fallbackMode?TEXT.game.hintAiStopped:
-    gameMode==="ai" && !gomoku && !katagoReady?TEXT.game.hintAiLoading:
     spectating && game.status==="playing"?(watchPaused?TEXT.game.hintWatchPaused:TEXT.game.hintWatching):
     isAiTurn()?TEXT.game.hintAiThinking:"";
   const blocked=!!illegalCandidate;
@@ -1017,6 +1019,8 @@ function show() {
   updateGradient();
   // 五目並べ has no territory, so no ownership bar.
   $("ownershipLegend").hidden=gomoku;
+  // No colours are on the board yet, so the legend stays in place but faint.
+  $("ownershipLegend").classList.toggle("is-preparing",!katagoReady && !fallbackMode && !gomoku);
   const handicap=handicapOf(game),size=sizeOf(game.board);
   canvas.setAttribute("aria-label",TEXT.game.boardLabel(shownSize()));
   const japanese=isJapanese(game);

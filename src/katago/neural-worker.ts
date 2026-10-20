@@ -21,6 +21,12 @@ let busy = false;
 async function prepare() {
   if (boot) return boot;
   boot = (async () => {
+    // The model is most of the download; fetch it while the backend starts.
+    const download = fetch("/models/katago-small.bin.gz", { cache: "force-cache" }).then(response => {
+      if (!response.ok) throw new Error("KataGo model HTTP " + response.status);
+      return response.arrayBuffer();
+    });
+    download.catch(() => {}); // Reported below, after the backend.
     setWasmPaths("/tfjs/");
     setThreadsCount(1); // Works without COOP/COEP and avoids heavy memory use on phones.
     let chosen = false;
@@ -37,9 +43,7 @@ async function prepare() {
       }
     }
     if (!chosen) throw new Error("No compatible TensorFlow.js backend");
-    const response = await fetch("/models/katago-small.bin.gz", { cache: "force-cache" });
-    if (!response.ok) throw new Error("KataGo model HTTP " + response.status);
-    const bytes = new Uint8Array(await response.arrayBuffer());
+    const bytes = new Uint8Array(await download);
     const parsed = parseKataGoModelV8(ungzip(bytes));
     if (parsed.metaEncoderVersion !== 0) throw new Error("A human-SL metadata model is not supported");
     model = new KataGoModelV8Tf(parsed);
