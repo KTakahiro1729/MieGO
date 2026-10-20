@@ -9,6 +9,7 @@ import {
   BOARD_SIZES,
   boardHash,
   confirmDeadSolo,
+  fillStones,
   finalizeSoloScore,
   handicapOf,
   isJapanese,
@@ -25,6 +26,7 @@ import {
   sizeOf,
   toggleDead,
   WHITE,
+  withPlayoutFill,
 } from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
 import {
@@ -32,6 +34,7 @@ import {
   pickSettleMove,
   replayPlayout,
   settleLimit,
+  settleMax,
   settleStart,
   settleStep,
   settleStepMs,
@@ -562,10 +565,33 @@ function scoringJobCurrent(job) {
     boardHash(game.board)===job.hash && deadSignature(game.dead)===job.dead &&
     !deadReviewTouched && !game.agreed.black && !game.agreed.white;
 }
-function startSettle(id) {
+function startSettle(id, from=null) {
   stopSettleShow();
-  settle={id,state:settleStart(game),positions:[],ownership:null,initialOwnership:null,shownAt:0,timer:null};
+  const positions=from?[...from.positions]:[];
+  settle={id,state:from?from.state:settleStart(game),positions,ownership:null,
+    initialOwnership:from?.initialOwnership??null,shownAt:0,timer:null,
+    limit:Math.min(settleMax(sizeOf(game.board)),positions.length+settleLimit(sizeOf(game.board)))};
   postToWorker({id,kind:"settle",state:settle.state});
+}
+/** The kept playout stopped at its move limit and can be carried on from where it stopped. */
+function extendablePlayout() {
+  const playout=currentPlayout();
+  if(!playout || settle || settleShow || deadReviewTouched || game.agreed.black || game.agreed.white)return null;
+  if((room && (p2pRole!=="owner" || !connected)) || fallbackMode || !katagoReady)return null;
+  if(playout.positions.length>=settleMax(sizeOf(game.board)))return null;
+  const frames=replayPlayout(game,playout.positions);
+  return frames && frames.at(-1).status==="playing" ? {...playout,state:frames.at(-1)} : null;
+}
+/** 「AIに続きを打たせる」: another limit's worth of playout moves, then the dead stones again. */
+function extendSettle() {
+  const from=extendablePlayout();
+  if(!from)return;
+  pending=++seq;
+  const id=pending;
+  deadReview="pending";
+  deadEvaluation={id,number:game.moveNumber,hash:boardHash(game.board),dead:deadSignature(game.dead)};
+  startSettle(id,from);
+  show();
 }
 function cancelSettle() {
   if(settle?.timer)clearTimeout(settle.timer);
@@ -583,8 +609,7 @@ function continueSettle(result) {
   }
   settle.ownership=result.ownership;
   settle.initialOwnership??=result.ownership;
-  const limit=settleLimit(sizeOf(game.board));
-  if(settle.state.status!=="playing" || settle.positions.length>=limit)return finishSettle();
+  if(settle.state.status!=="playing" || settle.positions.length>=settle.limit)return finishSettle();
   const position=pickSettleMove(settle.state,result.policy,result.passLogit,result.ownership);
   const step=settle.skip || reducedMotion()?0:settleStepMs(sizeOf(game.board));
   const wait=Math.max(0,settle.shownAt+step-performance.now());
@@ -621,7 +646,7 @@ function commitSettle(run) {
   settle=null;deadEvaluation=null;
   if(!scoringJobCurrent(job)){show();return;}
   settlePlayout={number:game.moveNumber,hash:boardHash(game.board),positions:run.positions,
-    board:run.state.board};
+    board:run.state.board,initialOwnership:run.initialOwnership};
   apply(scoringReviewAction("dead_auto",{positions:run.dead,playout:run.positions}));
   // Stones tapped during the playout are corrections to its result, applied on top of it.
   for(const position of run.taps||[])
@@ -665,15 +690,11 @@ function stopSettleShow() {
 const currentPlayout=()=>settlePlayout && game.status==="scoring" &&
   settlePlayout.number===game.moveNumber && settlePlayout.hash===boardHash(game.board) &&
   settlePlayout.positions.length ? settlePlayout : null;
-/** The stones the playout placed stay on the board, as fill stones, until the count is over. */
+/** The playout's border stones stay on the board, as fill stones, and count. */
 function keptPlayout() {
-  // Once the dead stones are edited by hand, the playout's stones no longer match them.
-  if(boardReview || settle || settleShow || !settlePlayout?.board || deadReviewTouched)return null;
+  if(boardReview || settle || settleShow)return null;
   const counted=game.status==="scoring" || game.status==="finished" && !game.result?.endsWith("+R");
-  if(!counted || settlePlayout.number!==game.moveNumber || settlePlayout.hash!==boardHash(game.board))return null;
-  const kept=[];
-  settlePlayout.board.forEach((color,i)=>{if(color && !game.board[i])kept.push({position:i,color});});
-  return kept;
+  return counted?fillStones(game):null;
 }
 /** What the board shows during a playout: its position over the real stones. */
 function settleView() {
@@ -908,7 +929,10 @@ function show() {
     scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
   const playout=settleView();
   $("settleSkip").hidden=!playout;
-  $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout();
+  // A cut playout asks for one thing first: carrying it on. Its replay comes back once it is settled.
+  const extendable=!playout && isScoring && !!extendablePlayout();
+  $("settleExtend").hidden=!extendable;
+  $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout() || extendable;
   $("scoreInstruction").textContent=playout?
     (playout.finished?(playout.cut?TEXT.scoring.settleCut(playout.moves):TEXT.scoring.settleDone(playout.moves)):
       TEXT.scoring.settling(playout.moves)):
@@ -920,6 +944,7 @@ function show() {
     deadReview==="loading"?TEXT.scoring.reviewLoading:
     deadReview==="awaiting"?TEXT.scoring.reviewAwaiting:
     scoringStepOf(game)==="count"?TEXT.scoring.countStep:
+    extendable?TEXT.scoring.settleExtendHint(currentPlayout().positions.length):
     deadReview==="complete"?(japanese?TEXT.scoring.reviewCompleteJapanese:TEXT.scoring.reviewComplete):
     deadReview==="none"?(japanese?TEXT.scoring.reviewNoneJapanese:TEXT.scoring.reviewNone):
     deadReview==="modified"?(japanese?TEXT.scoring.reviewModifiedJapanese:TEXT.scoring.reviewModified):
@@ -1002,10 +1027,13 @@ function apply(action, remote=false, isAiMove=false) {
       if(!canApplyAutomatedReview(game,deadReviewTouched,action))return;
       if(action.type==="dead_auto")game=setDeadCandidates(game,action.positions);
       // The friend who ran the playout sends it along, so both boards can replay it.
-      if(action.type==="dead_auto" && Array.isArray(action.playout) && replayPlayout(game,action.playout)) {
-        const frames=replayPlayout(game,action.playout);
+      // Its stones on the empty points close the borders for the count.
+      const frames=action.type==="dead_auto" && Array.isArray(action.playout) ?
+        replayPlayout(game,action.playout) : null;
+      game=withPlayoutFill(game,frames?.at(-1).board);
+      if(frames) {
         settlePlayout={number:game.moveNumber,hash:boardHash(game.board),positions:[...action.playout],
-          board:frames.at(-1).board};
+          board:frames.at(-1).board,initialOwnership:settlePlayout?.initialOwnership};
         if(remote)setTimeout(replaySettle,0);
       }
       deadReview=action.type==="dead_unavailable"?"unavailable":
@@ -2013,6 +2041,7 @@ $("settleSkip").onclick=()=>{
   else skipSettle();
 };
 $("settleReplay").onclick=replaySettle;
+$("settleExtend").onclick=extendSettle;
 $("startAi").onclick=()=>{
   if(!katagoReady || fallbackMode)return; // The button is disabled meanwhile.
   if(room && connected &&
