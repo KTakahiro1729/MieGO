@@ -20,6 +20,7 @@ import {
   maxHandicap,
   newGame,
   play,
+  playFreeStone,
   proposeEnd,
   resume,
   RULESETS,
@@ -181,6 +182,8 @@ let illegalPromptCopied = false;
 // next game, which carries it (so a friend's game shows it to both players).
 // A replayed board follows its game; a shared SGF shows its stones.
 let hideStonesChoice = false;
+// The colour a tap places on a free board (自由に置く), remembered for this player.
+let freeColor = BLACK;
 // 五目並べ's 禁じ手 (renju's forbidden moves for Black), for the next game.
 let gomokuForbiddenChoice = false;
 const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideStones===true;
@@ -208,7 +211,7 @@ const shownSize = () => sizeOf((boardReview?.display||game).board);
 let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
 let endgameStage = "playing", endExpanded = false, analysisContext = null;
-let lastOfferKey = null, endHintSuppressedUntil = -1;
+let lastOfferKey = null;
 let deadEvaluation=null, deadReview="idle", deadReviewTouched=false;
 // 決着手順: KataGo's playout shown on the board while it settles the dead
 // stones (settle), and the last playout kept for 再生 (settlePlayout).
@@ -295,15 +298,6 @@ function myColorForEnd() {
 }
 function updateEndUi() {
   const playing=game.status==="playing";
-  // 自由に置く has no end: the bar only says how the board works.
-  if(isFree(game)){
-    $("endStatus").textContent=TEXT.endgame.free;
-    for(const id of ["endPropose","endAccept","endDecline"])$(id).hidden=true;
-    $("endgameBar").classList.remove("is-calling","has-illegal");
-    $("actionRow").classList.remove("end-prompt-open");
-    $("endHelp").dataset.help="rules";
-    return;
-  }
   const offer=playing?game.endProposal:null;
   const color=myColorForEnd();
   // A friend's 待った request borrows the same in-bar answer buttons as an end offer.
@@ -323,13 +317,20 @@ function updateEndUi() {
     $("endgameBar").classList.toggle("is-calling",asked);
     return;
   }
+  // 自由に置く has no end: the bar only says how the board works.
+  if(isFree(game)){
+    $("endStatus").textContent=room && (!connected || color===null)?TEXT.endgame.offline:TEXT.endgame.free;
+    for(const id of ["endPropose","endAccept","endDecline"])$(id).hidden=true;
+    $("endgameBar").classList.remove("is-calling","has-illegal");
+    $("actionRow").classList.remove("end-prompt-open");
+    $("endHelp").dataset.help="rules";
+    return;
+  }
   const incoming=!!(offer && room && color!==null && offer.from!==color);
   const localPrompt=playing && !room && endExpanded && !offer;
   const waiting=!!(offer && !incoming);
   const offline=!!room && (!connected || color===null);
-  const hint=endgameHint(game,endgameAdvisor,{
-    unavailable:fallbackMode,suppressedUntil:endHintSuppressedUntil
-  });
+  const hint=endgameHint(game,endgameAdvisor,{unavailable:fallbackMode});
   const passed=playing && !offer && !localPrompt && !offline ? passNotice() : null;
   $("endStatus").textContent=!playing?"":offline?TEXT.endgame.offline:
     incoming?TEXT.endgame.proposed:
@@ -389,7 +390,7 @@ function passNotice() {
 }
 const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" && game.next === -humanColor;
 const isHumanTurn = () => room
-  ? (connected && (myOnlineColor()!==null && game.next===myOnlineColor()))
+  ? (connected && (myOnlineColor()!==null && (isFree(game) || game.next===myOnlineColor())))
   : (gameMode !== "ai" || (game.next === humanColor && (isGomoku(game) || katagoReady && !fallbackMode)));
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
@@ -407,6 +408,7 @@ function rememberSettings() {
       aiSide:aiSideChoice,
       aiStrength,
       boardSize,
+      freeColor:freeColor===WHITE?"white":"black",
       gameRules,
       gomokuForbidden:gomokuForbiddenChoice,
       hideStones:hideStonesChoice,
@@ -898,12 +900,14 @@ function show() {
   // Nobody is to move while scoring or after the game, so no turn stone.
   $("turn").classList.toggle("no-stone",game.status!=="playing");
   $("turn").textContent=game.status==="finished"?TEXT.scoring.finishedResign:
-    game.status==="scoring"?TEXT.common.scoring:
-    room?(connected?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):TEXT.game.waitingOpponent):
+    // The scoring step names itself here, so the score box keeps its one line for the instruction.
+    game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
+    room && !connected?TEXT.game.waitingOpponent:
+    isFree(game)?(freeColor===BLACK?TEXT.game.freeBlack:TEXT.game.freeWhite):
+    room?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):
     gameMode==="ai"?(gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
       fallbackMode?TEXT.game.aiStopped:!katagoReady?TEXT.game.aiPreparing:
       isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
-    isFree(game)?(game.next===BLACK?TEXT.game.freeBlack:TEXT.game.freeWhite):
     (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite);
   if(!room)$("netStatus").textContent=gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
   $("netStatus").classList.toggle("online",connected);
@@ -982,7 +986,7 @@ function show() {
   if(free){
     for(const id of ["resign","pass","confirm"])$(id).hidden=true;
     for(const input of document.querySelectorAll('input[name="freeColor"]'))
-      input.checked=input.value===(game.next===WHITE?"white":"black");
+      input.checked=input.value===(freeColor===WHITE?"white":"black");
   }
   $("actionRow").classList.toggle("finished-actions",isFinished);
   $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:
@@ -990,9 +994,11 @@ function show() {
   const playout=settleView();
   $("settleSkip").hidden=!playout;
   // A cut playout asks for one thing first: carrying it on. Its replay comes back once it is settled.
-  const extendable=!playout && isScoring && !!extendablePlayout();
+  // While counting, the action row holds 死石の確認に戻る instead of either.
+  const counting=scoringStepOf(game)==="count";
+  const extendable=!playout && isScoring && !counting && !!extendablePlayout();
   $("settleExtend").hidden=!extendable;
-  $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout() || extendable;
+  $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout() || extendable || counting;
   $("scoreInstruction").textContent=playout?
     (playout.finished?(playout.cut?TEXT.scoring.settleCut(playout.moves):TEXT.scoring.settleDone(playout.moves)):
       TEXT.scoring.settling(playout.moves)):
@@ -1063,7 +1069,7 @@ function apply(action, remote=false, isAiMove=false) {
       if(action.number!==game.moveNumber+1) throw new Error("Move number mismatch");
       if(action.before!==boardHash(game.board)) throw new Error("Board mismatch before the move");
       const offerBefore=game.endProposal;
-      game=play(game,action.position);
+      game=isFree(game)?playFreeStone(game,action.position,action.color):play(game,action.position);
       if(remote && offerBefore?.from===myOnlineColor())
         endNotice={number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.cancelledByMove};
       if(action.after!==boardHash(game.board)) throw new Error("Board mismatch after the move");
@@ -1121,7 +1127,7 @@ function apply(action, remote=false, isAiMove=false) {
     } else if(action.type==="end_answer") {
       const offerFrom=game.endProposal?.from;
       game=answerEndProposal(game,action.color,Boolean(action.accept));
-      if(!action.accept)endHintSuppressedUntil=game.moveNumber+4;
+      if(!action.accept)endgameAdvisor.hold();
       if(remote && !action.accept)endNotice={number:game.moveNumber,hash:boardHash(game.board),
         text:action.color===offerFrom?TEXT.endgame.withdrawnByPeer:TEXT.endgame.declinedByPeer};
       endExpanded=false;
@@ -1164,9 +1170,12 @@ function submitMove(position,fromAi=false){
   if(!fromAi && !isHumanTurn())return;
   if(fromAi && !isAiTurn())return;
   const before=boardHash(game.board);
+  // A free board's move carries the colour this player chose.
+  const free=isFree(game)?{color:freeColor}:{};
   let next;
-  try{next=play(game,position);}catch(error){showNotice(messageFor(error,TEXT.common.retry));return;}
-  apply({type:"move",position,number:game.moveNumber+1,before,after:boardHash(next.board)},false,fromAi);
+  try{next=free.color?playFreeStone(game,position,free.color):play(game,position);}
+  catch(error){showNotice(messageFor(error,TEXT.common.retry));return;}
+  apply({type:"move",position,...free,number:game.moveNumber+1,before,after:boardHash(next.board)},false,fromAi);
 }
 canvas.addEventListener("click",e=>{
   const SIZE=shownSize();
@@ -1263,12 +1272,12 @@ $("closeIllegalPromptFallback").onclick=()=>{
   $("illegalPromptFallbackPanel").hidden=true;
   $("copyIllegalPrompt").focus();
 };
-// The chosen colour belongs to the free board, so it is saved and restored with it.
+// Each player picks the colour to place on a free board; it is remembered, not shared.
 for(const input of document.querySelectorAll('input[name="freeColor"]'))
   input.onchange=e=>{
-    if(!e.target.checked || !isFree(game) || game.status!=="playing")return;
-    game={...game,next:e.target.value==="white"?WHITE:BLACK};
-    save();show();requestAnalysis();
+    if(!e.target.checked)return;
+    freeColor=e.target.value==="white"?WHITE:BLACK;
+    rememberSettings();show();
   };
 // A mistaken pass is undone with 待った, so every mode passes on one tap.
 $("pass").onclick=()=>submitMove(null);
@@ -1286,7 +1295,7 @@ function afterTakeback() {
   if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
   transitionFrame=null;analysis=null;displayedOwnership=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
-  lastOfferKey=null;endNotice=null;endHintSuppressedUntil=-1;
+  lastOfferKey=null;endNotice=null;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
   takebackNotice={number:game.moveNumber,hash:boardHash(game.board),
     text:TEXT.takeback.done(game.moveNumber)};
@@ -1317,7 +1326,7 @@ function freshLocalBoard() {
   candidate=null;lastPosition=null;
   // New endgame/dead-stone signals must not survive a local board reset.
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
-  lastOfferKey=null;endNotice=null;endHintSuppressedUntil=-1;
+  lastOfferKey=null;endNotice=null;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
   game=freshLocalGame(game,nextGameOptions(localHandicap));currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
@@ -1383,8 +1392,8 @@ $("endDecline").onclick=()=>{
   if(game.status!=="playing")return;
   if(game.takebackRequest){answerTakebackRequest(false);return;}
   if(!room && endExpanded && !game.endProposal){
-    // As with a friend's answer, the strongest advice waits a few moves.
-    endHintSuppressedUntil=game.moveNumber+4;
+    // As with a friend's answer, the strongest advice waits for the board to settle again.
+    endgameAdvisor.hold();
     endExpanded=false;updateEndUi();
     if(isAiTurn())requestAnalysis();
     return;
@@ -1663,9 +1672,9 @@ function showNewGameMode(kind) {
   if(kind==="history")historyPanel.showHistory();
   $("aiSideRow").hidden=$("aiStrengthRow").hidden=$("aiOptions").hidden=kind!=="ai";
   $("onlineSideRow").hidden=kind!=="online";
-  // 自由に置く is a board for one device; the other modes fall back to the default rules.
-  $("freeRulesChoice").hidden=kind!=="local";
-  if(kind!=="local" && kind!=="history" && gameRules==="free"){gameRules="chinese";rememberSettings();}
+  // 自由に置く has no computer opponent: under 対COM it is greyed out and the default rules apply.
+  $("freeRulesChoice").querySelector("input").disabled=kind==="ai";
+  if(kind==="ai" && gameRules==="free"){gameRules="chinese";rememberSettings();}
   $("modeHelp").dataset.help=kind;
   syncReturnButton(kind);
   syncHandicapUi();
@@ -1934,7 +1943,7 @@ function forkBoardReview() {
   lastPosition=Number.isInteger(last)?last:null;
   candidate=null;analysis=null;displayedOwnership=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
-  lastOfferKey=null;endNotice=null;endHintSuppressedUntil=-1;
+  lastOfferKey=null;endNotice=null;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
   clearImportedReviewUrl();
   boardReview=null;reviewSequence++;
@@ -2275,6 +2284,7 @@ else try {
     boardSize=toBoardSize(settings.boardSize);
     gameRules=toRules(settings.gameRules);
     gomokuForbiddenChoice=settings.gomokuForbidden===true;
+    freeColor=settings.freeColor==="white"?WHITE:BLACK;
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
     onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));

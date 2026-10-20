@@ -21,7 +21,9 @@ test("a friend's answer to an end offer is shown to the one who offered",()=>{
   assert.match(app,/peerAgreed\(\)\?\(scoringStepOf\(game\)==="dead"\?TEXT\.scoring\.peerAgreedDead:TEXT\.scoring\.peerAgreed\)/);
 });
 test("keeping on playing holds back the strongest advice in every mode",()=>{
-  assert.match(app,/endHintSuppressedUntil=game\.moveNumber\+4;\n    endExpanded=false;updateEndUi\(\);/);
+  assert.match(app,/endgameAdvisor\.hold\(\);\n    endExpanded=false;updateEndUi\(\);/);
+  assert.match(app,/if\(!action\.accept\)endgameAdvisor\.hold\(\);/);
+  assert.doesNotMatch(app,/endHintSuppressedUntil/);
 });
 test("the bar draws attention when a decision is asked, and honours reduced motion",()=>{
   assert.match(app,/classList\.toggle\("is-calling"/);
@@ -33,7 +35,7 @@ test("a stone tapped during the playout is corrected on top of its result",()=>{
   assert.match(app,/for\(const position of run\.taps\|\|\[\]\)\n\s*apply\(\{type:"dead",position,selected:!game\.dead\.includes\(position\)\}\);/);
 });
 test("a playout stopped at its move limit is not described as settled",()=>{
-  assert.match(TEXT.scoring.settleCut(27),/^上限の27手で止めた盤面/);
+  assert.match(TEXT.scoring.settleCut(27),/^上限の27手で停止/);
   assert.match(app,/run\.cut=run\.state\.status==="playing";/);
 });
 test("a playout stopped at its move limit can be carried on by the AI",()=>{

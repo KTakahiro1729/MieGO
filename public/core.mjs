@@ -176,8 +176,9 @@ function playGomoku(state, position, color) {
     ...(won || full ? { status: "finished", result: won ? (color === BLACK ? "B+" : "W+") : "0" } : {})
   };
 }
-/** 自由に置く: an empty point takes a stone of the chosen colour (state.next),
- * a stone is taken off. Nothing is captured, and the chosen colour stays. */
+/** 自由に置く: an empty point takes a stone of colour state.next, a stone is
+ * taken off. Nothing is captured. The colour to place is chosen by each player
+ * outside the game (playFreeStone), so next only follows the latest edit. */
 function playFree(state, position, color) {
   if (!Number.isInteger(position) || position < 0 || position >= state.board.length ||
       ![BLACK, WHITE].includes(color)) throw new Error("Only stones on points on a free board");
@@ -187,6 +188,8 @@ function playFree(state, position, color) {
     history: [...state.history, boardHash(board)], moves: [...state.moves, { color, position }]
   };
 }
+/** Places or takes off a stone on a free board in the colour the player chose. */
+export const playFreeStone = (state, position, color) => play({ ...state, next: color }, position);
 /** Replays one recorded move. On a free board the move's colour is chosen, not alternated. */
 export const replayMove = (state, { color, position }) =>
   play(isFree(state) ? { ...state, next: color } : state, position);

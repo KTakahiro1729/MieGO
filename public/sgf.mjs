@@ -163,10 +163,9 @@ function parseFreePosition(root,size){
       state=replayMove(state,{color,position});
     }
   if(state.moves.length>MAX_STEPS)throw new UserError(TEXT.sgf.tooLong);
-  const next=first(root,"PL")==="W"?WHITE:BLACK;
   const metadata={komi:first(root,"KM")??"0",rules:first(root,"RU")??"Free",result:null,
     blackName:first(root,"PB")||null,whiteName:first(root,"PW")||null};
-  return {snapshot:{...state,next},metadata,variationsIgnored:false,steps:state.moves.length};
+  return {snapshot:state,metadata,variationsIgnored:false,steps:state.moves.length};
 }
 function hasVariations(tree){
   if(tree.children.length>1)return true;
@@ -223,6 +222,5 @@ function exportFreePosition(snapshot,meta){
   const size=sizeOf(snapshot.board);
   const stones=color=>snapshot.board.flatMap((v,p)=>v===color?["["+coord(p,size)+"]"]:[]).join("");
   const black=stones(BLACK),white=stones(WHITE);
-  return "(;GM[1]FF[4]CA[UTF-8]SZ["+size+"]RU[Free]"+(black?"AB"+black:"")+(white?"AW"+white:"")+
-    "PL["+(snapshot.next===WHITE?"W":"B")+"])";
+  return "(;GM[1]FF[4]CA[UTF-8]SZ["+size+"]RU[Free]"+(black?"AB"+black:"")+(white?"AW"+white:"")+")";
 }

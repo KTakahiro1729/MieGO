@@ -12,13 +12,13 @@ export const ENDGAME_HINTS = Object.freeze({
   ready:TEXT.endgame.ready
 });
 /** No KataGo evaluation is not the same thing as 'far from endgame'. */
-export function endgameHint(state,advisor,{unavailable=false,suppressedUntil=-1}={}) {
+export function endgameHint(state,advisor,{unavailable=false}={}) {
   if(unavailable)return TEXT.endgame.unavailable;
   if(!advisor.previous)return TEXT.endgame.checking;
   if(state.moveNumber-advisor.previous.move>3)return TEXT.endgame.updating;
-  // Three steps. After the player chose to keep playing, the strongest one
-  // waits for the next move and the milder one stands in for it.
-  if(advisor.stage==="ready" && state.moveNumber>suppressedUntil)return ENDGAME_HINTS.ready;
+  // Three steps. After the player chose to keep playing, the milder one
+  // stands in for the strongest until the board has settled again.
+  if(advisor.stage==="ready" && !advisor.held)return ENDGAME_HINTS.ready;
   if(advisor.stage==="ready" || advisor.stage==="near")return ENDGAME_HINTS.near;
   return ENDGAME_HINTS.playing;
 }
@@ -36,6 +36,15 @@ export class EndgameAdvisor {
     this.previous = null;
     this.swings = [];
     this.stage = "playing";
+    this.held = false;
+    this.fresh = 0;
+  }
+  /** 打ち続ける: the player sees something left to play. The strongest advice
+   * comes back once it has been played and the board reads settled again,
+   * a full window of new readings after this call. */
+  hold() {
+    this.held = true;
+    this.fresh = 0;
   }
   observe(state, ownership) {
     if (state.status !== "playing") { this.reset(); return this.stage; }
@@ -66,6 +75,11 @@ export class EndgameAdvisor {
     const swing = full ? Math.max(...this.swings) : Infinity;
     this.stage = swing <= ENDGAME_SWING.ready && !fight ? "ready"
       : swing <= ENDGAME_SWING.near ? "near" : "playing";
+    if (this.held) {
+      const last = this.previous ? this.swings.at(-1) : Infinity;
+      this.fresh = last <= ENDGAME_SWING.ready && !fight ? this.fresh + 1 : 0;
+      if (this.fresh >= ENDGAME_SWING.window) this.held = false;
+    }
     this.previous={move:state.moveNumber,ownership:[...ownership]};
     return this.stage;
   }

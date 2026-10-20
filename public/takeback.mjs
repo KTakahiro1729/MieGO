@@ -10,7 +10,8 @@ import { replaySteps } from "./sgf.mjs";
  */
 export function takebackCut(state, {color=null, scope="own"}={}) {
   if(state?.status!=="playing" || !Array.isArray(state.moves))return -1;
-  if(scope==="ply")return state.moves.length-1;
+  // A free board's edits belong to nobody: 待った takes back the latest one.
+  if(scope==="ply" || isFree(state))return state.moves.length-1;
   for(let i=state.moves.length-1;i>=0;i--)
     if(state.moves[i].color===color)return i;
   return -1;
@@ -21,8 +22,6 @@ export function takeBackTo(state, keep) {
   let game=replaySteps(state,keep);
   // Two passes followed by 対局を再開 must come back as a playable position.
   if(game.status==="scoring")game=resume(game);
-  // On a free board the colour chosen to place stays chosen.
-  if(isFree(state))game={...game,next:state.next};
   // The counter lets reconnecting peers tell a rewound line from a stale one.
   return {...game,takebacks:(state.takebacks||0)+1};
 }

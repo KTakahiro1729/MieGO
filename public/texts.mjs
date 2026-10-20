@@ -116,13 +116,13 @@ export const TEXT = {
     title: "死石を確認",
     resultTitle: "対局結果",
     ended: "終局",
-    instruction: "死石をタップして指定し、双方で結果を確認してください。",
+    instruction: "死石をタップで指定し、結果を確認してください",
     resume: "対局を再開",
     agree: "この計算に同意",
     agreeDead: "死石判定に同意",
     countTitle: "地の計算を確認",
     backToDead: "死石判定に戻る",
-    countStep: "アゲハマを相手の地に埋めました。数字は残った地です",
+    countStep: "アゲハマを相手の地に埋めた。数字は残りの地",
     agreedWaiting: "確認済み · 相手待ち",
     peerAgreed: "確認して同意してください。相手は同意済み",
     peerAgreedDead: "死石を確認して同意してください。相手は同意済み",
@@ -141,11 +141,11 @@ export const TEXT = {
     reviewCompleteJapanese: "数字は地。死石はタップで修正",
     reviewNoneJapanese: "数字は地。必要なら石をタップ",
     reviewModifiedJapanese: "数字は地。点数を確認してください",
-    reviewUnavailable: "死石をタップして指定してください。自動判定できません",
+    reviewUnavailable: "死石をタップで指定してください。自動判定なし",
     reviewChecking: "死石を確認しています…",
-    settling: moves => "石をタップで修正。AIが決着をつけています（" + moves + "手）",
-    settleCut: moves => "上限の" + moves + "手で止めた盤面。取られた石を死石にします",
-    settleDone: moves => moves ? "決着後の盤面（" + moves + "手）。取られた石を死石にします" : "打つ手がなく、そのまま判定します",
+    settling: moves => "石をタップで修正。AIが決着中（" + moves + "手）",
+    settleCut: moves => "上限の" + moves + "手で停止。取られた石を死石にします",
+    settleDone: moves => moves ? "決着後（" + moves + "手）。取られた石を死石にします" : "打つ手がなく、そのまま判定します",
     settleSkip: "スキップ",
     settleReplay: "決着手順を再生",
     settleExtend: "AIに続きを打たせる",
@@ -155,9 +155,8 @@ export const TEXT = {
       "\n白：" + (white.detail ? white.detail + "＝" : "") + white.total,
     breakdownAria: breakdown => breakdown.replace("\n", "、"),
     /** What is added to a board count; empty when nothing is. */
-    detail: (area, { prisoners = null, komi = null, bonus = 0 } = {}) => {
-      const parts = (prisoners !== null ? "＋アゲハマ" + prisoners : "") +
-        (komi !== null ? "＋コミ" + komi : "") + (bonus ? "＋置き石補正" + bonus : "");
+    detail: (area, { komi = null, bonus = 0 } = {}) => {
+      const parts = (komi !== null ? "＋コミ" + komi : "") + (bonus ? "＋置き石補正" + bonus : "");
       return parts ? area + parts : "";
     },
     seki: "セキの地は数えません",
@@ -656,7 +655,7 @@ export const TEXT = {
         "日本ルールは、地（囲んだ空き点）とアゲハマ（対局中に取った石と、終局時に取り除いた死石）の合計で勝敗を決めます。互先のコミは6.5目です。セキの中の空き点は地に数えません。アゲハマは地合いのバーの下に表示されます。採点中は、アゲハマを元の持ち主の地に小さな石で埋めて示します。まとまりの外枠の色は、アゲハマ表示の枠の色と同じです。",
         "置き碁は新規対戦の「詳細設定」で選べます。白が先に打ち、コミは0.5目です。中国ルールでは白に置き石の数だけ加点します（日本ルールでは加点しません）。",
         "五目並べは同じ盤と石で遊ぶ別のゲームです。黒から交互に打ち、縦・横・斜めのどれかに自分の石を5つ以上続けて並べた方が勝ちです。石を取ること、パス、採点はありません。盤が埋まったら引き分けです。置き石は使えません。",
-        "「自由」（1台で打つだけ）はルールのない盤です。空いた交点をタップすると、操作列で選んだ色（● 黒／○ 白）の石を置き、石をタップすると取り除きます。石を取ること、着手禁止点、パス、採点はありません。地合いの色は表示されるので、局面を並べて検討できます。待ったで直前の操作を戻せます。",
+        "「自由」はルールのない盤です（1台で打つ・対友人。対COMでは選べません）。空いた交点をタップすると、操作列で選んだ色（● 黒／○ 白）の石を置き、石をタップすると取り除きます。手番はなく、対友人ではどちらもいつでも両方の色を置けます。石を取ること、着手禁止点、パス、採点はありません。地合いの色は表示されるので、局面を並べて検討できます。待ったで直前の操作を戻せます（対友人では相手が受け入れたら）。",
         "五目並べの「禁じ手」は詳細設定で選べます。ありにすると連珠と同じく、黒だけ三三（活三を2つ同時に作る手）・四四（四を2つ同時に作る手）・長連（6つ以上）を打てず、ちょうど5つで勝ちになります。5つが同時にできる手は打てます。白に禁じ手はなく、長連でも勝ちです。",
       ],
       current: "現在の対局：",
