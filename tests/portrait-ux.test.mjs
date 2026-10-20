@@ -75,8 +75,10 @@ test("finished view exposes next match and history without hidden menus",()=>{
   assert.match(app,/\$\("newMatchSheet"\)\.hidden=!isFinished/);
   assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished \|\| !!room/);
   assert.match(app,/\$\("openHistory"\)\.hidden=!isFinished/);
-  // 共有 sits beside 履歴 and opens the share sheet for the game just played.
-  assert.match(html,/<button id="openShare" class="secondary" type="button" aria-label="この試合を共有する"[^>]*hidden>共有<\/button>/);
+  // The header's share glyph closes the row and opens the share sheet for the game just played.
+  const glyph=html.match(/id="shareToggle"[^>]*>\s*(<svg[\s\S]*?<\/svg>)/)[1].replace(/width="23" height="23"/,'width="22" height="22"');
+  assert.match(html,/<button id="newMatch" class="primary"[^>]*>もう一局<\/button>\s*<!--[^>]*-->\s*<button id="openShare" class="secondary share-game" type="button" aria-label="この試合を共有する"[^>]*hidden>/);
+  assert.ok(html.includes('id="openShare" class="secondary share-game" type="button" aria-label="この試合を共有する" title="この試合を共有する" hidden>'+glyph+'</button>'));
   assert.match(app,/\$\("openShare"\)\.hidden=!isFinished/);
   assert.match(app,/\$\("openShare"\)\.onclick=openSharePanel/);
 });

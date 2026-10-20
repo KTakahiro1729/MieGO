@@ -637,6 +637,7 @@ body{overflow:hidden}
 .action-row.finished-actions{justify-content:flex-end}
 .game-panel.is-finished .action-row .secondary{flex:1}
 .game-panel.is-finished .action-row #newMatch{flex:2}
+.game-panel.is-finished .action-row .share-game{flex:0 0 48px;width:48px;min-width:48px;padding:0;display:grid;place-items:center}
 .inline-score-actions{display:flex;flex:1 1 auto;min-width:0;gap:8px;margin:0}
 .inline-score-actions>.fused{flex:1 1 auto}
 .action-row .inline-score-actions button{flex:1 1 auto;min-width:0;padding:9px 6px;font-size:12px}
