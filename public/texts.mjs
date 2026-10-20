@@ -189,6 +189,18 @@ export const TEXT = {
     thinkMove: "次の一手を計算中",
     thinkReading: (depth, percent, seconds) => depth + "手先を読み中 " + percent + "%" + (seconds ? "・約" + seconds + "秒" : ""),
     yourTurnAi: "あなたの番です",
+    // The turn row's two players. A COM goes by its character name, with its strength under it.
+    you: "あなた",
+    opponent: "相手",
+    black: "黒",
+    white: "白",
+    playersLabel: "対局者",
+    toMove: "打つ番です",
+    comThinking: "考え中",
+    // 最強's side of the turn row has about 80px on a 320px phone; the full line is read out.
+    sideDownloading: percent => "読込中 " + percent + "%",
+    sidePreparing: "準備中",
+    sideReading: percent => "考え中 " + percent + "%",
     watchPause: "一時停止",
     watchResume: "再開",
     // While watching: stepping in lets the viewer place the next stone; × goes back to watching.

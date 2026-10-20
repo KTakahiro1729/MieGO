@@ -77,6 +77,7 @@ import { interpolateOwnership, prisonerOutline } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
+import { playerSides } from "./player-row.mjs";
 import { DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
 import {
   CUSTOM_CHARACTER,
@@ -521,18 +522,23 @@ function onStrongMessage(net, event) {
     finishAiMove(result);
   }
 }
-/** While 最強 is to move: what it is doing, with how far along it is;
- * null for any other move. */
+/** While 最強 is to move: what it is doing, with how far along it is, in full
+ * and short enough for its side of the turn row; null for any other move. */
 function strongWait() {
   if(!isAiTurn() || isGomoku(game) || comToMove().strength!=="strongest")return null;
   const net=strongNet();
-  if(net.state==="loading")return net.progress<100?TEXT.game.thinkDownloading(net.progress):TEXT.game.thinkPreparing;
+  if(net.state==="loading")return net.progress<100?
+    {text:TEXT.game.thinkDownloading(net.progress),short:TEXT.game.sideDownloading(net.progress)}:
+    {text:TEXT.game.thinkPreparing,short:TEXT.game.sidePreparing};
   if(net.state!=="ready")return null;
   const read=aiJob?.strong && aiJob.read;
   // The time left needs one timed evaluation of this read first.
-  if(read?.total>0)return TEXT.game.thinkReading(read.depth,Math.floor(100*read.done/read.total),
-    read.done>0 && Math.max(1,Math.round(read.remainingMs/1000)));
-  return TEXT.game.thinkMove;
+  if(read?.total>0){
+    const percent=Math.floor(100*read.done/read.total);
+    return {text:TEXT.game.thinkReading(read.depth,percent,read.done>0 && Math.max(1,Math.round(read.remainingMs/1000))),
+      short:TEXT.game.sideReading(percent)};
+  }
+  return {text:TEXT.game.thinkMove,short:TEXT.game.comThinking};
 }
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
@@ -1085,10 +1091,14 @@ function show() {
       fallbackMode?TEXT.game.aiStopped:
       isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
     (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite);
-  if(!room)$("netStatus").textContent=waiting || (spectating?TEXT.common.modeWatch:
+  if(!room)$("netStatus").textContent=waiting?.text || (spectating?TEXT.common.modeWatch:
     gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal);
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=TEXT.game.moveLabel(game.moveNumber);
+  // The sentence above stays for the states it explains (scoring, the result, waiting, a stopped AI).
+  renderPlayers(game.status==="playing" && !isFree(game) && !(room && !connected) &&
+    !(spectating && watchReturning && !watchPaused && !intervening) &&
+    !(gameMode==="ai" && !gomoku && fallbackMode),waiting);
   // ◁ opens the replay one move back; ▷ only moves within a replay, so it rests disabled here.
   $("stepBack").disabled=!game.moves.length;
   $("stepForward").disabled=true;
@@ -1657,15 +1667,17 @@ function timeOut(side) {
   save();show();
 }
 gameClock.onTimeout(timeOut);
-// Each side's time beside the move count: the side to move counts down.
+// Each person's time under their name in the turn row: the side to move counts down.
+// A COM has no clock, so its side keeps its strength or 考え中.
+const clockShown = side => !!game.timeControl && !boardReview && room===null && !isFree(game) &&
+  !(gameMode==="ai" && (isWatching() || side!==humanColor));
 function renderClock() {
-  const box=$("gameClock");
-  box.hidden=!game.timeControl || !!boardReview || room!==null || isFree(game);
-  if(box.hidden)return;
   const running=gameClock.reading();
   for(const side of [BLACK,WHITE]){
-    const reading=running?.side===side?running:readClock(game,side);
     const cell=$(side===BLACK?"clockBlack":"clockWhite");
+    cell.hidden=!clockShown(side);
+    if(cell.hidden)continue;
+    const reading=running?.side===side?running:readClock(game,side);
     cell.textContent=reading.main>0?clockText(reading.main):
       reading.byoyomi===null?clockText(0):TEXT.game.byoyomi(clockSeconds(reading.byoyomi));
     cell.classList.toggle("is-running",running?.side===side);
@@ -2097,8 +2109,31 @@ function saveReviewVariation(){
     $("reviewNotice").textContent=TEXT.review.variationSaved;
   }catch(error){$("reviewNotice").textContent=messageFor(error,TEXT.review.variationSaveFailed);}
 }
+/** Both players in the turn row: who each colour is, and whether it is to move. */
+function renderPlayers(shown, waiting=null) {
+  $("players").hidden=!shown;
+  $("statusRow").querySelector(".status-main").classList.toggle("has-players",shown);
+  if(!shown)return;
+  const sides=playerSides({mode:room?"online":gameMode,watching:isWatching(),humanColor,aiCom,watchAi,
+    onlineColor:room?myOnlineColor():null});
+  for(const color of [BLACK,WHITE]){
+    const side=sides[color],box=$(color===BLACK?"playerBlack":"playerWhite");
+    const toMove=game.next===color;
+    const thinking=toMove && side.com && !watchPaused && !intervening;
+    box.classList.toggle("is-turn",toMove);
+    box.querySelector(".player-wait").hidden=!thinking;
+    // A person's 持ち時間 takes the place of their line.
+    box.querySelector(".player-name").textContent=side.name;
+    // The opponent's line carries the connection; the side to move says so.
+    box.querySelector(".player-detail-text").textContent=
+      room && !side.com && side.name===TEXT.game.opponent?$("netStatus").textContent:
+      thinking?(waiting?.short || TEXT.game.comThinking):clockShown(color)?"":toMove && !side.com?TEXT.game.toMove:side.detail;
+  }
+  $("playersMove").textContent=TEXT.game.moveLabel(game.moveNumber);
+}
 function renderBoardReview() {
   if(!boardReview)return;
+  renderPlayers(false);
   // The live match may advance over WebRTC or AI while the chosen step stays fixed.
   if(boardReview.source==="live")boardReview.snapshot=game;
   const {step,source}=boardReview;
