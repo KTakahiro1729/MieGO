@@ -44,3 +44,9 @@ test("a playout runs to two passes, with no stop to carry it on",()=>{
   assert.equal(TEXT.scoring.settleExtend,undefined);
   assert.match(app,/limit:settleMax\(sizeOf\(game\.board\)\)/);
 });
+test("starting scoring before the board has settled says the result can still swing",()=>{
+  assert.match(app,/const unsettled=localPrompt && hint===TEXT\.endgame\.playing;/);
+  assert.match(app,/localPrompt\?\(unsettled\?TEXT\.endgame\.askUnsettled:TEXT\.endgame\.askLocal\)/);
+  assert.equal(TEXT.endgame.askUnsettled,"まだ決着前です");
+  assert.match(TEXT.endgame.detailUnsettled,/結果が大きく動く/);
+});
