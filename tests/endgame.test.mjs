@@ -167,3 +167,20 @@ test("after 打ち続ける the strongest advice returns once the board settles 
   assert.equal(step(own),"終局をご検討ください");
   assert.equal(advisor.held,false);
 });
+
+test("a restored game picks the advice up from the estimates kept while it was played",()=>{
+  // The settled position of the decisive 30-move game above.
+  const rows=[".........",".........","...BBBBB.","..BBWWWB.","BBBW..WBB","BWW.W.WWW","W.BW.....",".WW......","........."];
+  const board=rows.join("").split("").map(c=>c==="B"?BLACK:c==="W"?WHITE:0);
+  const ownership=board.map((_,i)=>{const x=i%9,y=Math.floor(i/9);
+    return y<3||(y===3&&(x<4||x>6))||(y===4&&(x<3||x>6))||(y===5&&x===0)?1:-1;});
+  const states=[...Array(31).keys()].map(moveNumber=>({...newGame(),board,moveNumber}));
+  // A fresh advisor reads one estimate as no advice yet: a COM would not pass.
+  assert.equal(new EndgameAdvisor().observe(states[30],ownership),"playing");
+  const advisor=new EndgameAdvisor();
+  assert.equal(advisor.restore(states,()=>ownership),"ready");
+  // The live reading of the same position keeps it; nothing is counted twice.
+  assert.equal(advisor.observe(states[30],ownership),"ready");
+  // Positions with no kept estimate leave the advice where a new game starts.
+  assert.equal(new EndgameAdvisor().restore(states,()=>null),"playing");
+});
