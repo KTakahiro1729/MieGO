@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {newGame,play,at,isGomoku,hasGomokuForbidden,initialGame,rulesOf,toSGF,BLACK,WHITE} from "../public/core.mjs";
+import {newGame,play,at,isGomoku,hasGomokuForbidden,initialGame,rulesOf,BLACK,WHITE} from "../public/core.mjs";
 import {gomokuMove,forbiddenReason,makesFive,winningLine} from "../public/gomoku.mjs";
 import {inspectProvisionalMove,forbiddenLines,forbiddenMessage} from "../public/illegal-moves.mjs";
 import {replaySteps,parseSGF,exportSGF} from "../public/sgf.mjs";
@@ -77,7 +77,6 @@ test("replays, 待った, SGF and a friend's first board keep 五目並べ",()=>
   const sgf=exportSGF(game);
   assert.match(sgf,/^\(;GM\[4\]FF\[4\]CA\[UTF-8\]SZ\[13\];B/);
   assert.doesNotMatch(sgf,/KM\[|RU\[/);
-  assert.match(toSGF(game),/^\(;GM\[4\]/);
   const parsed=parseSGF(sgf);
   assert.equal(isGomoku(parsed.snapshot),true);
   assert.equal(parsed.snapshot.moves.length,3);
