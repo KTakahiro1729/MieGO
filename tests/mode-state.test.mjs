@@ -27,11 +27,17 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   assert.doesNotMatch(html,/id="historyPanel"|id="closeHistory"/);
   assert.match(app,/function openHistoryPanel\(\)\{openPanel\("history"\);\}/);
   assert.equal((sheet.match(/name="boardSize"[^>]*><span class="choice"><svg class="size-icon"/g)||[]).length,3);
-  // Handicap and the AI's style live under 詳細設定; the sampling-variance setting is gone.
-  const advanced=sheet.slice(sheet.indexOf('<details id="newGameAdvanced"'),sheet.indexOf('</details>',sheet.indexOf('<details id="newGameAdvanced"')));
-  for(const id of ["handicap","aiInvasion","aiReinforcement","aiHints"])assert.match(advanced,new RegExp('id="'+id+'"'));
-  // Strength stays outside 詳細設定 as four choices under its own tab, each with its note; the style sliders have three stops.
-  assert.doesNotMatch(advanced,/name="aiStrength"/);
+  // No 詳細設定 disclosure: handicap sits under ルール's choices, the AI's style under AIの強さ's; the sampling-variance setting is gone.
+  assert.doesNotMatch(sheet,/id="newGameAdvanced"/);
+  const panel=key=>{
+    const start=sheet.indexOf('id="setupPanel'+key+'"'),next=sheet.indexOf('<div id="setupPanel',start);
+    return sheet.slice(start,next>0?next:sheet.indexOf('</section>',start));
+  };
+  const advanced=panel("Strength");
+  for(const id of ["handicap","gomokuForbidden","hideStones"])assert.match(panel("Rules"),new RegExp('id="'+id+'"'));
+  for(const id of ["aiInvasion","aiReinforcement","aiHints"])assert.match(advanced,new RegExp('id="'+id+'"'));
+  // Strength is four choices under its own tab, each with its note, above the style; the style sliders have three stops.
+  assert.ok(advanced.indexOf('name="aiStrength"')<advanced.indexOf('id="aiOptions"'));
   assert.deepEqual([...sheet.matchAll(/name="aiStrength" value="(\w+)"/g)].map(m=>m[1]),["beginner","easy","normal","strong"]);
   assert.equal((sheet.slice(sheet.indexOf('id="aiStrengthChoices"'),sheet.indexOf('</fieldset>',sheet.indexOf('id="aiStrengthChoices"'))).match(/<small class="choice-note">/g)||[]).length,4);
   // 自分の石・AIの強さ・盤・ルール are one row of tabs over one panel of choices, the colour first.
@@ -46,7 +52,7 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   // The way back tops the sheet, then the mode tabs and options, then the start button.
   for(const id of ["startLocal","startAi","copy"]) {
     assert.ok(sheet.indexOf('id="returnToGame"')<sheet.indexOf('name="newGameMode"'),id);
-    assert.ok(sheet.indexOf('id="newGameAdvanced"')<sheet.indexOf('id="'+id+'"'),id);
+    assert.ok(sheet.indexOf('id="aiOptions"')<sheet.indexOf('id="'+id+'"'),id);
   }
   assert.match(app,/\$\("newGameButton"\)\.onclick=\(\)=>openPanel\(room\?"online":gameMode\)/);
 });

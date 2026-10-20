@@ -272,9 +272,12 @@ body.board-zoomed .board-bleed{opacity:1}
 .ai-advanced{min-width:0;margin:0;padding:0;border:0}
 /* Board size reads at a glance: denser grid lines for larger boards. */
 .size-icon{flex:none;width:20px;height:20px;color:#9aa1ad}
-.new-game-advanced .advanced-row{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
-.new-game-advanced .advanced-row[hidden],.new-game-advanced [hidden]{display:none}
-.new-game-advanced .advanced-row label{margin:0;white-space:nowrap;font-size:13px}
+/* Under a tab's choices, the settings that only that tab's choice uses (置き石, ヒント, …), after a line and a small heading. */
+.setup-more{margin-top:14px;padding-top:12px;border-top:1px solid #343b49}
+.setup-more-head{margin:0 0 8px;font-size:12px;font-weight:600;color:#9aa1ad}
+.setup-more .advanced-row{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
+.setup-more .advanced-row[hidden],.setup-more [hidden]{display:none}
+.setup-more .advanced-row label{margin:0;white-space:nowrap;font-size:13px}
 /* Step sliders: a named tick under each stop; the thumb's 20px width sets the tick inset. */
 .step-slider{margin-top:14px}
 .step-slider[hidden]{display:none}
@@ -290,7 +293,6 @@ body.board-zoomed .board-bleed{opacity:1}
 /* The sheet should fit one phone screen: tight section spacing, no empty status lines. */
 .mode-panel .settings-head{margin-bottom:12px}
 .mode-panel .settings-section .primary.full{margin-top:0}
-.mode-panel .new-game-advanced{margin-top:10px;padding-top:0}
 .mode-panel .explanation:empty,.mode-panel .invite-status:empty{display:none}
 .mode-panel .history-setup{padding-top:12px}
 /* One button, two meanings: × discards a provisional stone, the labelled arrow is 待った. */

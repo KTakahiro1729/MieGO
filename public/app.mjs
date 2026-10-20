@@ -485,8 +485,8 @@ function syncStepSlider(id) {
 // Invasion and reinforcement have three stops; older saves with any 0-100 value snap to the nearest.
 const personaStep=value=>Math.round(Math.max(0,Math.min(100,Number(value??50)||0))/50)*50;
 const personaLabel=value=>value<50?TEXT.ai.persona.low:value>50?TEXT.ai.persona.high:TEXT.ai.persona.mid;
-// The sheet's sliders set the COM opponent. With two COMs, 「AIの強さ」 is greyed
-// out and 詳細設定 holds a card of choices, strength included, for each colour's COM.
+// The sheet's sliders set the COM opponent. With two COMs, the strength choices are
+// greyed out and 「COMの打ち方」 holds a card of choices, strength included, for each colour's COM.
 // The sheet's side choice follows a watched game, so the choices always set
 // what the next game, and a running one, use.
 const editsWatchAi = () => aiSideChoice==="watch";
@@ -1803,7 +1803,8 @@ SETUP_TABS.forEach((key,index)=>{
 function syncSetupValues() {
   const kind=newGameModeKind();
   $("setupTabSide").classList.toggle("is-unused",kind==="local");
-  $("setupTabStrength").classList.toggle("is-unused",kind!=="ai" || editsWatchAi());
+  // While watching, the tab still holds each COM's card.
+  $("setupTabStrength").classList.toggle("is-unused",kind!=="ai");
   $("sideNote").textContent=kind==="local"?TEXT.newGame.sideNotes.local:"";
   syncSetupTabValues();
 }
@@ -1815,7 +1816,8 @@ function syncSetupTabValues() {
     const checked=[...panel.querySelectorAll("input:checked")].find(input=>input.closest("[hidden]")===panel || !panel.contains(input.closest("[hidden]")));
     // ここから打つ fixes 盤 and ルール to the record's, so those still show the value.
     const fixed=continueFrom && (key==="Board" || key==="Rules");
-    $("setupValue"+key).textContent=!checked || tab.classList.contains("is-unused") && !fixed?"—":checked.nextElementSibling.textContent.trim();
+    $("setupValue"+key).textContent=key==="Strength" && editsWatchAi() && !tab.classList.contains("is-unused")?TEXT.newGame.watchStrengthValue:
+      !checked || tab.classList.contains("is-unused") && !fixed?"—":checked.nextElementSibling.textContent.trim();
   }
 }
 $("newGameSetup").addEventListener("change",syncSetupTabValues);
@@ -2513,7 +2515,7 @@ for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforceme
 // The strength bar's stops follow AI_STRENGTHS from weakest to strongest.
 function syncStrengthUi() {
   const two=editsWatchAi(),off=newGameModeKind()!=="ai" || two;
-  // Two COMs take their strengths from 詳細設定, and the panel says so.
+  // Two COMs take their strengths from 「COMの打ち方」, and the panel says so.
   const input=document.querySelector('input[name="aiStrength"][value="'+aiStrength+'"]');
   if(input)input.checked=true;
   $("aiStrengthChoices").disabled=off;
