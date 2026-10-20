@@ -50,7 +50,7 @@ export default {
         catch { return false; }
       };
       const [katagoWorkerReady, katagoModelReady] = await Promise.all([
-        assetIsPresent("/katago-worker.bundle.mjs"), assetIsPresent("/models/katago-small.bin.gz")
+        assetIsPresent("/katago-worker.bundle.mjs"), assetIsPresent("/models/katago-small.f16.bin.gz")
       ]);
       return json({status:katagoWorkerReady&&katagoModelReady?"ok":"degraded",app:"MieGO",
         durableObjectBinding:Boolean(env.ROOMS), turnConfigured:false,

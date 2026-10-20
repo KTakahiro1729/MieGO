@@ -1,12 +1,15 @@
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { STRONG_NETWORKS } from "../public/strong-networks.mjs";
 
 const MODEL_SHA = "7c87d9e1f4499b892974e78cac53dbf2ca84b84e";
 const MODEL_URL = "https://raw.githubusercontent.com/Sir-Teo/web-katrain/8dd813aeb565cbdad5215dc75204fc40fd519c50/public/models/katago-small.bin.gz";
-const modelPath = resolve("public/models/katago-small.bin.gz");
+// The pinned download is kept out of public/: the page gets the float16 copy.
+const modelPath = resolve(".cache/katago-small.bin.gz");
+const halfModelPath = resolve("public/models/katago-small.f16.bin.gz");
 /** A pinned file, fetched up to three times until `check` (which throws on a mismatch) accepts it. */
 async function downloadPinned(url, { timeout, label, failure, check }) {
   let error;
@@ -28,12 +31,12 @@ function gitBlobSha(bytes) {
   return createHash("sha1").update("blob " + bytes.byteLength + "\0").update(bytes).digest("hex");
 }
 async function ensureModel() {
-  await mkdir(resolve("public/models"), { recursive: true });
+  await mkdir(resolve(".cache"), { recursive: true });
   try {
     const data = await readFile(modelPath);
     if (gitBlobSha(data) === MODEL_SHA) {
       console.log("KataGo model: verified cached small network");
-      return;
+      return data;
     }
   } catch {}
   const data = await downloadPinned(MODEL_URL, {
@@ -42,8 +45,20 @@ async function ensureModel() {
   });
   await writeFile(modelPath, data);
   console.log("KataGo model downloaded and verified:", data.length, "bytes");
+  return data;
 }
-await ensureModel();
+/** Publish the small network with float16 weights (src/katago/half-model.ts), about half the download. */
+async function publishHalfModel(data) {
+  const { outputFiles: [bundle] } = await build({
+    entryPoints: ["src/katago/half-model.ts"], bundle: true, format: "esm", platform: "node", write: false, logLevel: "silent"
+  });
+  const { halveModel } = await import("data:text/javascript;base64," + Buffer.from(bundle.contents).toString("base64"));
+  const half = gzipSync(halveModel(new Uint8Array(gunzipSync(data))), { level: 9 });
+  await mkdir(resolve("public/models"), { recursive: true });
+  await writeFile(halfModelPath, half);
+  console.log("KataGo model published with float16 weights:", half.length, "bytes");
+}
+await publishHalfModel(await ensureModel());
 
 // 最強's networks are about 100 MB each. Cloudflare serves files of at most
 // 25 MiB, so each is published in parts; the page downloads them only when a

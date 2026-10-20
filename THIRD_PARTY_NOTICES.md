@@ -64,7 +64,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 ## Web KaTrain
 
 KataGo network evaluation code in `vendor/web-katrain/` (https://github.com/Sir-Teo/web-katrain, revision `8dd813aeb565cbdad5215dc75204fc40fd519c50`),
-bundled into the KataGo worker under `/katago/`, and the small test network `/models/katago-small.bin.gz` downloaded from the same revision.
+bundled into the KataGo worker under `/katago/`, and the small test network `katago-small.bin.gz` downloaded from the same revision, published as `/models/katago-small.f16.bin.gz` with its large weight blocks rounded to float16.
 See `vendor/web-katrain/NOTICE.md` for what MieGO changed.
 
 ```text
