@@ -62,3 +62,19 @@ test("search engines and link previews get a description, one canonical URL and 
   assert.match(readFileSync(resolve(root, "public/robots.txt"), "utf8"), /^Sitemap: https:\/\/miego\.fun\/sitemap\.xml$/m);
   assert.match(readFileSync(resolve(root, "public/sitemap.xml"), "utf8"), /<loc>https:\/\/miego\.fun\/<\/loc>/);
 });
+test("the page may not be framed, and its policy admits every third party the page loads", () => {
+  const headers = readFileSync(resolve(root, "public/_headers"), "utf8");
+  assert.match(headers, /^  X-Frame-Options: DENY$/m);
+  const csp = headers.match(/^  Content-Security-Policy: (.+)$/m)?.[1];
+  assert.ok(csp, "Missing Content-Security-Policy");
+  const directives = Object.fromEntries(csp.split(";").map(d => d.trim().split(/\s+/)).map(([name, ...values]) => [name, values]));
+  assert.deepEqual(directives["frame-ancestors"], ["'none'"]);
+  assert.deepEqual(directives["object-src"], ["'none'"]);
+  assert.ok(!directives["script-src"].includes("'unsafe-inline'") && !directives["script-src"].includes("'unsafe-eval'"));
+  // Turnstile's script and widget, the share image's fonts, and the KataGo WASM.
+  const origin = (file, pattern) => new URL(readFileSync(resolve(root, file), "utf8").match(pattern)[1]).origin;
+  const turnstile = origin("public/app.mjs", /script\.src="([^"]+)"/);
+  assert.ok(directives["script-src"].includes(turnstile) && directives["frame-src"].includes(turnstile));
+  assert.ok(directives["style-src"].includes(origin("public/share-image.mjs", /href:"([^"]+)"/)));
+  assert.ok(directives["script-src"].includes("'wasm-unsafe-eval'"));
+});
