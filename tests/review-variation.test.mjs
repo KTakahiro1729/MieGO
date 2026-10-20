@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {newGame,play,at,BLACK,WHITE} from "../public/core.mjs";
 import {activeReviewSnapshot,proposeReviewStone,commitReviewStone,variationForSharing} from "../public/review-variation.mjs";
+import { TEXT } from "../public/texts.mjs";
 const gameWithMoves=(...positions)=>positions.reduce((g,p)=>play(g,p),newGame());
 const reviewAt=(snapshot,step)=>({source:"archive",snapshot,step,activeLine:"main",variation:null,metadata:null});
 test("a different move creates a variation without touching the source snapshot",()=>{
@@ -42,7 +43,7 @@ test("continue and revise a variation from any earlier node",()=>{
 test("illegal variations are rejected while preserving the original",()=>{
  const g=gameWithMoves(at(2,2),at(3,3));
  const r=reviewAt(g,2);
- assert.throws(()=>proposeReviewStone(r,g,at(2,2)),/すでに|着手|打てません/);
+ assert.throws(()=>proposeReviewStone(r,g,at(2,2)),{message:TEXT.rules.occupied});
  assert.equal(g.moves.length,2);
 });
 test("pass is supported as a legal alternative move",()=>{

@@ -73,6 +73,8 @@ test("a friend's client may act only for the friend's color", () => {
   assert.equal(isPeerAction({ type: "dead_auto", positions: [] }, game, peer), false);
   assert.equal(isPeerAction({ type: "dead_auto", positions: [] }, game, { ...peer, peerIsOwner: true }), true);
   assert.equal(isPeerAction({ type: "dead", position: 0 }, game, peer), true);
+  for (const type of ["solo_scoring", "solo_score"])
+    assert.equal(isPeerAction({ type }, game, { ...peer, peerIsOwner: true }), false, type);
   assert.equal(isPeerAction({ type: "move", position: 0 }, game, { peerColor: null }), false);
 });
 
@@ -122,4 +124,13 @@ test("only new sign-ins of the other seat on another device are reported", () =>
   // The guest hears about the owner's seat, not its own.
   assert.deepEqual(newPeerSignins({ owner: 3, guest: 9 }, "guest", 2), { seen: 3, notify: true });
   assert.deepEqual(newPeerSignins({ owner: "x" }, "guest", 2), { seen: 2, notify: false });
+});
+
+test("the inviter's 石を隠す reaches a guest who has not received the game yet",()=>{
+  const host=newGame(true,{hideStones:true}), guest=newGame();
+  const adopted=reconcileGame(guest,0,host,0,{localIsOwner:false});
+  assert.equal(adopted.kind,"adopt");
+  assert.equal(adopted.game.hideStones,true);
+  assert.equal(reconcileGame(host,0,guest,0,{localIsOwner:true}).kind,"send");
+  assert.equal(isConsistentSnapshot(play(host,0)),true);
 });

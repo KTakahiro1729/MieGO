@@ -64,14 +64,14 @@ export default {
       if (!sameOrigin(request,url)) return json({error:"Forbidden origin"},403);
       let payload; try { payload = await body(request); } catch { return inputError(); }
       if (!["black","white"].includes(payload.color)) return inputError();
-      if (!await verifyHuman(payload.turnstileToken,request,env)) return json({error:"Human verification failed"},403);
+      if (!await verifyHuman(payload.turnstileToken,request,env)) return json({error:"Human verification failed",code:"verification"},403);
       const room = [...crypto.getRandomValues(new Uint8Array(16))].map(b=>b.toString(16).padStart(2,"0")).join("");
       const ownerKey = random(), guestKey = random(), ownerSession = random();
       const setup = await callRoom(roomStub(env,room), "/init", {
         ownerKeyHash:await hash(ownerKey),guestKeyHash:await hash(guestKey),
         ownerSessionHash:await hash(ownerSession), ownerColor:payload.color
       });
-      if (!setup.ok) return json({error:"Could not create room"},503);
+      if (!setup.ok) return json({error:"Could not create room",code:"create_failed"},503);
       return json({room, ownerKey, guestKey, ownerSession, ownerColor:payload.color},201);
     }
     const op = path.match(/^\/api\/rooms\/([a-f0-9]{32})\/(claim|ticket|revoke|ws)$/);
@@ -89,7 +89,7 @@ export default {
       if (!["claim","ticket","revoke"].includes(action) || request.method !== "POST") return inputError();
       if (!sameOrigin(request,url)) return json({error:"Forbidden origin"},403);
       let data; try { data = await body(request); } catch { return inputError(); }
-      if (action === "claim" && !await verifyHuman(data.turnstileToken,request,env)) return json({error:"Human verification failed"},403);
+      if (action === "claim" && !await verifyHuman(data.turnstileToken,request,env)) return json({error:"Human verification failed",code:"verification"},403);
       return callRoom(stub,"/"+action,data);
     }
     // Legacy clients cannot use the unprotected TURN/STUN discovery API.
@@ -153,11 +153,11 @@ export class GameRoom extends DurableObject {
         return json({ok:true});
       }
       let meta=await this.metadata();
-      if (!meta) return json({error:"Room expired or removed"},410);
+      if (!meta) return json({error:"Room expired or removed",code:"room_gone"},410);
       if (url.pathname==="/claim") {
-        if (!this.allowed("claim",12)) return json({error:"Too many attempts"},429);
+        if (!this.allowed("claim",12)) return json({error:"Too many attempts",code:"rate_limited"},429);
         if (!["owner","guest"].includes(data.role) || typeof data.key!=="string" || data.key.length!==48) return inputError();
-        if (await hash(data.key)!==meta[data.role+"KeyHash"]) return json({error:"Invalid invitation"},403);
+        if (await hash(data.key)!==meta[data.role+"KeyHash"]) return json({error:"Invalid invitation",code:"invalid_invitation"},403);
         const session=random();
         // A seat that already had a device is now signed in elsewhere: the
         // other player is told (now, or when it next joins), as is every device.
@@ -173,9 +173,9 @@ export class GameRoom extends DurableObject {
         }
         return json({session,role:data.role,ownerColor:meta.ownerColor});
       }
-      if (!this.allowed("ticket",30)) return json({error:"Reconnect rate exceeded"},429);
+      if (!this.allowed("ticket",30)) return json({error:"Reconnect rate exceeded",code:"rate_limited"},429);
       if (!["owner","guest"].includes(data.role) || typeof data.session!=="string" || data.session.length!==48) return inputError();
-      if (await hash(data.session)!==meta[data.role+"SessionHash"]) return json({error:"Session expired"},403);
+      if (await hash(data.session)!==meta[data.role+"SessionHash"]) return json({error:"Session expired",code:"session_expired"},403);
       if (url.pathname==="/revoke") {
         if (data.role!=="owner") return json({error:"Only creator may revoke"},403);
         await this.destroy(4002,"Invitation replaced");

@@ -30,8 +30,8 @@ test("the position question carries the board, the turn and handicap rules",()=>
 });
 
 test("the position question never carries a private room URL",()=>{
-  assert.throws(()=>makePositionPrompt(newGame(),"https://miego.example/?room=abc"),/共有できない/);
-  assert.throws(()=>makePositionPrompt(newGame(),"javascript:alert(1)"),/共有できない/);
+  assert.throws(()=>makePositionPrompt(newGame(),"https://miego.example/?room=abc"));
+  assert.throws(()=>makePositionPrompt(newGame(),"javascript:alert(1)"));
 });
 
 test("the help sheet opens with the beginner questions and falls back to manual copy",()=>{

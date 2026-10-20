@@ -85,7 +85,7 @@
           <button id="newMatch" class="primary" type="button" hidden>もう一局</button>
         </div>
         <div id="illegalPromptFallbackPanel" class="illegal-prompt-fallback" hidden>
-          <label for="illegalPromptFallback">自動でコピーできませんでした。下の文章を選択してコピーしてください。</label>
+          <label for="illegalPromptFallback">下の文章を選択してコピーしてください。自動ではコピーできませんでした。</label>
           <textarea id="illegalPromptFallback" readonly rows="7" spellcheck="false"></textarea>
           <button id="closeIllegalPromptFallback" class="secondary" type="button">閉じる</button>
         </div>
@@ -238,6 +238,7 @@
             </select>
           </div>
           <p id="handicapNote" class="explanation" hidden></p>
+          <div class="mode hide-stones"><div><strong>石を隠す（地合いだけ表示）</strong><p>石を描かず、地合いの色だけで盤面を読みます。この対局の間は変えられず、対友人では相手の画面も同じになります。整地になると石が現れます。</p></div><input id="hideStones" type="checkbox" aria-label="石を隠す（地合いだけ表示）"></div>
           <div id="aiOptions" class="ai-advanced" hidden>
             <div class="mode"><div><strong>ヒントを表示</strong><p>あなたの番に、KataGoの候補手を1〜3で示します。</p></div><input id="aiHints" type="checkbox" aria-label="ヒントを表示する"></div>
             <div id="aiInvasionRow" class="step-slider">
@@ -260,7 +261,7 @@
         <button id="startLocal" class="primary full" type="button">対局を始める</button>
       </section>
       <section id="onlineSetup" class="settings-section" hidden>
-        <div id="p2pVerify" hidden><p>新しい対局の作成・初回参加には本人確認が必要です。</p><div id="p2pTurnstile"></div></div>
+        <div id="p2pVerify" hidden><p>対局の作成と初回の参加では、ロボットでないことを確認します。</p><div id="p2pTurnstile"></div></div>
         <button id="copy" class="primary full" type="button">招待リンクを準備する</button>
         <div id="inviteDetails" class="invite-details hidden">
           <label for="inviteUrl">招待URL</label><input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="招待URL">
@@ -269,7 +270,7 @@
         <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
         <p id="roomInfo" class="explanation"></p>
         <details id="seatLinkBox" class="info-disclosure" hidden><summary>別の端末で続ける</summary>
-          <p class="explanation">自分用の再入室リンクです。別の端末で開くと、あなたの席で続きを打てます（この端末の接続は切れます）。持っている人は誰でもあなたの席に入れるので、相手やほかの人には送らないでください。</p>
+          <p class="explanation">自分用の再入室リンクです。別の端末で開くと、あなたの席で続きを打てます（この端末では続けられなくなります）。持っている人は誰でもあなたの席に入れるので、相手やほかの人には送らないでください。</p>
           <button id="copySeatLink" class="secondary full" type="button">自分用の再入室リンクをコピー</button>
           <input id="seatLinkFallback" type="text" readonly hidden autocomplete="off" spellcheck="false" aria-label="自分用の再入室リンク">
           <p id="seatLinkStatus" class="invite-status" role="status" aria-live="polite"></p>
@@ -370,7 +371,7 @@
           <ul class="help-list">
             <li>「招待リンクを準備する」を押し、もう一度押すと招待URLをコピーできます。友人に送って開いてもらえば対局が始まります。</li>
             <li>対局中に招待URLをもう一度見るときは、「新規対戦」を開きます。</li>
-            <li>新しい対局を作るときなどに、本人確認が出ることがあります。</li>
+            <li>新しい対局を作るときなどに、ロボットでないことの確認が出ることがあります。</li>
             <li>アドレスバーのURLには参加用の鍵を残しません。同じブラウザなら開き直すだけで続きから再開できます。別の端末で続けるときは「別の端末で続ける」から自分用の再入室リンクをコピーしてください。</li>
             <li>相手の席に別の端末から参加があると、お知らせが出ます。相手が端末を替えたのでなければ、招待URLがほかの人に渡っていないか確認してください。</li>
           </ul>

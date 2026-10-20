@@ -1,6 +1,7 @@
 import { parseGameSnapshot } from "./mode-state.mjs";
 import {normalizeStrength} from "./ai-strength.mjs";
 import { TEXT } from "./texts.mjs";
+import { UserError } from "./user-error.mjs";
 
 const PREFIX="miego:game:v1:";
 const ACTIVE="miego:active:v1:";
@@ -51,9 +52,8 @@ export class GameLibrary {
     return r?.mode===mode ? r : null;
   }
   setActive(mode,id) {
-    if(!["local","ai"].includes(mode))throw Error(TEXT.history.badMode);
     const record=this.load(id);
-    if(!record || record.mode!==mode)throw Error(TEXT.history.recordMissing);
+    if(!record || record.mode!==mode || !["local","ai"].includes(mode))throw new UserError(TEXT.history.recordMissing);
     this.storage.setItem(ACTIVE+mode,id);
   }
   /** Stores a value; when the storage is full, the least recently updated
@@ -87,21 +87,21 @@ export class GameLibrary {
    * neither its order nor its revision changes. */
   setFavorite(id,favorite) {
     const record=this.load(id);
-    if(!record)throw Error(TEXT.history.recordMissing);
+    if(!record)throw new UserError(TEXT.history.recordMissing);
     const updated={...record,favorite:favorite===true};
     this.write(PREFIX+id,JSON.stringify(updated),[id]);
     return updated;
   }
   save({id=null,mode,snapshot,roomId=null,lastPosition=null,humanColor=1,
         aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null},expectedRevision=null) {
-    if(!MODES.has(mode))throw Error(TEXT.history.badMode);
-    if(!parseGameSnapshot(JSON.stringify(snapshot)))throw Error(TEXT.history.badRecord);
-    if(mode==="online" && !ROOM_RE.test(roomId||""))throw Error(TEXT.history.badRoom);
     const previous=id===null?null:this.load(id);
-    if(id!==null && !previous)throw Error(TEXT.history.previousMissing);
-    if(previous && previous.mode!==mode)throw Error(TEXT.history.modeMismatch);
+    // Nothing that cannot be read back is written.
+    if(!MODES.has(mode) || !parseGameSnapshot(JSON.stringify(snapshot)) ||
+       (mode==="online" && !ROOM_RE.test(roomId||"")) || (previous && previous.mode!==mode))
+      throw Error("Record would not read back");
+    if(id!==null && !previous)throw new UserError(TEXT.history.recordMissing);
     if(previous && expectedRevision!==null && previous.revision!==expectedRevision)
-      throw Error(TEXT.history.otherTab);
+      throw new UserError(TEXT.history.otherTab);
     const timestamp=this.now();
     const result={
       version:1,id:previous?.id||this.createId(),mode,

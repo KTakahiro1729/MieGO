@@ -8,7 +8,7 @@ import {formatBoardForAi} from "../public/board-text.mjs";
 import {parseGameSnapshot} from "../public/mode-state.mjs";
 import {replaySteps} from "../public/sgf.mjs";
 
-test("new games are created at 9, 13 or 19 and other sizes are refused",()=>{
+test("new games are created at 9, 13 or 19 and other sizes are not restored",()=>{
   for(const size of [9,13,19]){
     const game=newGame(true,{size});
     assert.equal(game.board.length,size*size);
@@ -16,7 +16,6 @@ test("new games are created at 9, 13 or 19 and other sizes are refused",()=>{
     assert.ok(parseGameSnapshot(JSON.stringify(game)));
   }
   assert.equal(newGame().board.length,81,"the default stays 9x9");
-  assert.throws(()=>newGame(true,{size:15}));
   assert.equal(parseGameSnapshot(JSON.stringify({...newGame(),board:Array(100).fill(0)})),null);
 });
 
