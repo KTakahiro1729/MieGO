@@ -4,7 +4,7 @@ import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
 import { ROOM_PATTERN, selectColor, playerColor, colorLabel, guestUrl, ownUrl, readCheckpoint, saveCheckpoint, reconcileGame, isPeerAction, storageKey, roomUrl, newPeerSignins } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
-import { isPaletteChoice, normalizePalette, showsOwnership, paletteGradient, countingGradient, interpolateOwnership, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
+import { isPaletteChoice, normalizePalette, showsOwnership, countingPalette, paletteGradient, countingGradient, interpolateOwnership, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
 import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss, boardTheme as boardLook } from "./board-theme.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
@@ -103,7 +103,11 @@ try{setCustomColours(JSON.parse(localStorage.getItem("miego-custom-colours")||"n
 setOpacityShape(localStorage.getItem("miego-opacity-shape"));
 const storedBoardTheme = localStorage.getItem("miego-board");
 let boardTheme = isBoardTheme(storedBoardTheme) ? storedBoardTheme : DEFAULT_BOARD_THEME;
-const overlayOn = () => showsOwnership(palette);
+// With the stones hidden the colours are all there is, so "表示しない" falls
+// back to the default map, as counting does.
+let stonesHidden = localStorage.getItem("miego-hide-stones")==="1";
+const shownPalette = () => stonesHidden ? countingPalette(palette) : palette;
+const overlayOn = () => showsOwnership(shownPalette());
 const storedOpacity = Number(localStorage.getItem("miego-opacity"));
 let opacity = Number.isFinite(storedOpacity) && storedOpacity>=0 && storedOpacity<=1 && localStorage.getItem("miego-opacity")!==null ? storedOpacity : .55;
 let connected = false;
@@ -166,7 +170,7 @@ const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openS
   getThumbnailOverlay:record=>{
     if(!overlayOn())return null;
     const ownership=ownershipStore.recall(record.id,record.snapshot.board);
-    return ownership?{ownership,palette,opacity}:null;
+    return ownership?{ownership,palette:shownPalette(),opacity}:null;
   }});
 const {renderHistoryList,importHistoryFile}=historyPanel;
 // Sheets are aria-modal: keep Tab and taps out of the board behind them.
@@ -303,8 +307,8 @@ const boardZoom=createBoardZoom({
 });
 const boardRenderer = createBoardRenderer({
   canvas,
-  getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette,opacity,boardTheme,
-    humanTurn:isHumanTurn(),hints:visibleHints()})
+  getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette:shownPalette(),opacity,boardTheme,
+    hideStones:stonesHidden,humanTurn:isHumanTurn(),hints:visibleHints()})
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
 // Hints belong to one committed position and are only drawn on the human's turn.
@@ -1026,6 +1030,15 @@ document.querySelectorAll('input[name="boardTheme"]').forEach(input => {
     updateGradient();draw();
   };
 });
+$("hideStones").onchange=e=>{
+  const wasOn=overlayOn();
+  stonesHidden=e.target.checked;
+  try{localStorage.setItem("miego-hide-stones",stonesHidden?"1":"0");}catch{}
+  updateGradient();show();
+  if(wasOn!==overlayOn()){
+    if(boardReview)requestReviewOwnership();else requestAnalysis();
+  }
+};
 // The colour pickers show the chosen map; editing one turns it into "カスタム".
 function fillColourInputs(){
   const shown=paletteColours(showsOwnership(palette)?palette:PALETTE_CUSTOM);
@@ -1058,7 +1071,9 @@ $("opacity").oninput=e=>{
 };
 $("resetAppearance").onclick=()=>{
   const wasOn=overlayOn();
-  palette="mono";opacity=.55;boardTheme=DEFAULT_BOARD_THEME;
+  palette="mono";opacity=.55;boardTheme=DEFAULT_BOARD_THEME;stonesHidden=false;
+  try{localStorage.setItem("miego-hide-stones","0");}catch{}
+  $("hideStones").checked=false;
   localStorage.setItem("miego-palette",palette);
   localStorage.setItem("miego-opacity","0.55");
   localStorage.setItem("miego-board",boardTheme);
@@ -1109,7 +1124,7 @@ function updateGradient(){
   // While counting, the same legend explains the flat area colours instead.
   const counting=isCounting();
   $("gradient").style.backgroundImage=counting?countingGradient(palette,opacity,boardTheme):
-    paletteGradient(palette,opacity,boardTheme);
+    paletteGradient(shownPalette(),opacity,boardTheme);
   $("legendNeutral").hidden=!counting;
   $("ownershipLegend").classList.toggle("overlay-off",!counting && !overlayOn() ||
     game.status==="finished" && !counting);
@@ -1720,7 +1735,7 @@ function shareImageDetails(animated){
   return {snapshot,step,gameId,labels:{...shareLabels({step,total,result,animated,
       komi:Number.isFinite(Number(metadata?.komi)) ? Number(metadata.komi) : komiOf(snapshot),
       handicap:handicapOf(snapshot)}),boardSize:sizeOf(snapshot.board),
-    theme:boardTheme,legend:coloured ? {palette,opacity} : null}};
+    theme:boardTheme,legend:coloured ? {palette:shownPalette(),opacity} : null}};
 }
 // An animation frame: the replayed position with the ownership recorded for
 // it, or the replay view's quick estimate where none was recorded.
@@ -1729,7 +1744,7 @@ function renderFrameBoard(state,gameId){
     const board=frameCanvas(ANIMATION_SIZE,ANIMATION_SIZE);
     frameRenderer={board,...createBoardRenderer({canvas:board,getView:()=>({game:frameState,
       boardReview:{display:frameState,ownership:frameOwnership},candidate:null,illegalCandidate:null,
-      lastPosition:null,displayedOwnership:null,palette,opacity,boardTheme,hints:null})})};
+      lastPosition:null,displayedOwnership:null,palette:shownPalette(),opacity,boardTheme,hints:null})})};
   }
   frameState=state;
   frameOwnership=overlayOn() ? ownershipStore.recall(gameId,state.board) ?? influence(state.board) : null;
@@ -2182,6 +2197,7 @@ const selectedPalette=document.querySelector('input[name="palette"][value="'+pal
 if(selectedPalette)selectedPalette.checked=true;
 const selectedBoardTheme=document.querySelector('input[name="boardTheme"][value="'+boardTheme+'"]');
 if(selectedBoardTheme)selectedBoardTheme.checked=true;
+$("hideStones").checked=stonesHidden;
 {const shapeRadio=document.querySelector('input[name="opacityShape"][value="'+opacityShape()+'"]');
 if(shapeRadio)shapeRadio.checked=true;}
 fillColourInputs();
