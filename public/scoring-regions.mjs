@@ -1,4 +1,4 @@
-import {BLACK,WHITE,areaScore,neighbors,isBoardSize,sizeOf,komiOf,handicapOf} from "./core.mjs";
+import {BLACK,WHITE,areaScore,neighbors,sizeOf,komiOf,handicapOf} from "./core.mjs";
 import { TEXT } from "./texts.mjs";
 
 /** Area-scoring overlay: connected same-color groups AFTER adding owned
@@ -7,8 +7,6 @@ import { TEXT } from "./texts.mjs";
  * original board for manual review until both players confirm.
  */
 export function scoringRegions(state) {
-  if(!state || !Array.isArray(state.board) || !isBoardSize(Math.sqrt(state.board.length)))
-    throw new Error(TEXT.rules.needsSizedBoard);
   const SIZE=sizeOf(state.board);
   const dead=new Set(state.dead||[]);
   const effective=state.board.map((stone,i)=>dead.has(i)?0:stone);
