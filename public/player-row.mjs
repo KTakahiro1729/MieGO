@@ -1,5 +1,5 @@
-// The turn row names both players: white on the left and black on the right,
-// the same way round as the territory bar above it.
+// The turn row names both players: black, who moves first, on the left and
+// white on the right, read left to right.
 import { BLACK, WHITE } from "./core.mjs";
 import { characterLabel } from "./ai-characters.mjs";
 import { TEXT } from "./texts.mjs";

@@ -60,13 +60,13 @@ button:hover:not(:disabled){border-color:#748094}
 .players{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:6px}
 .players[hidden]{display:none}
 .player{display:flex;flex-direction:column;gap:1px;min-width:0}
-.player.white{align-items:flex-start}
-.player.black{align-items:flex-end}
+.player.black{align-items:flex-start}
+.player.white{align-items:flex-end}
 .player-head{display:flex;align-items:center;gap:6px;max-width:100%}
-.player.black .player-head{flex-direction:row-reverse}
+.player.white .player-head{flex-direction:row-reverse}
 .player-name{font-size:14px;font-weight:600;line-height:20px;color:#8b929e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .player-detail{display:flex;align-items:center;gap:5px;font-size:11px;line-height:14px;color:var(--muted);white-space:nowrap;max-width:100%}
-.player.black .player-detail{flex-direction:row-reverse}
+.player.white .player-detail{flex-direction:row-reverse}
 .player-detail-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .player-stone{flex:none;width:14px;height:14px;box-sizing:border-box;border-radius:50%;background:radial-gradient(circle at 32% 28%,#56575c,#0c1013 72%);border:1px solid #6c7073}
 .player.white .player-stone{background:radial-gradient(circle at 32% 27%,#fff,#deddd6 72%);border-color:#b7b6b0}

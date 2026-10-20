@@ -80,9 +80,9 @@
             <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
             <div class="status-sub"><span id="moveLabel" class="move-label">{{game.moveLabel(0)}}</span><span id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</span></div>
             <div id="players" class="players" aria-label="{{game.playersLabel}}" hidden>
-              <div id="playerWhite" class="player white"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockWhite" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
-              <span id="playersMove" class="players-move"></span>
               <div id="playerBlack" class="player black"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockBlack" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
+              <span id="playersMove" class="players-move"></span>
+              <div id="playerWhite" class="player white"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockWhite" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
             </div>
           </div>
           <button id="stepForward" class="icon-button step-button" type="button" aria-label="{{review.next}}" title="{{review.next}}" disabled><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
