@@ -41,7 +41,7 @@ button:hover:not(:disabled){border-color:#748094}
 .rule-label{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .rule-line .help-button{width:20px;height:20px}
 .rule-line .help-button svg{width:16px;height:16px}
-.board-frame{width:min(100%,calc(100dvh - 294px),675px);min-width:0;align-self:center;aspect-ratio:1;padding:5px;background:linear-gradient(135deg,#b28751,#e4c587 35%,#956c43 100%);border:1px solid #d3b078;border-radius:14px;box-shadow:0 2px 1px #ffffff13 inset,0 15px 40px #0008,0 0 0 1px #f2d69422;position:relative;isolation:isolate;transition:box-shadow .3s,border-color .3s}
+.board-frame{width:min(100%,675px);min-width:0;align-self:center;aspect-ratio:1;padding:5px;background:linear-gradient(135deg,#b28751,#e4c587 35%,#956c43 100%);border:1px solid #d3b078;border-radius:14px;box-shadow:0 2px 1px #ffffff13 inset,0 15px 40px #0008,0 0 0 1px #f2d69422;position:relative;isolation:isolate;transition:box-shadow .3s,border-color .3s}
 /* Board looks (board-theme.mjs): the frame matches the canvas. */
 .board-frame[data-board-theme="light"]{background:#a9aeb6;border-color:#c9cdd3;box-shadow:0 15px 40px #0008}
 .board-frame[data-board-theme="dark"]{background:linear-gradient(135deg,#ffffff30,#ffffff08 40%,#ffffff18);border-color:#ffffff40;box-shadow:0 1px 0 #ffffff30 inset,0 15px 40px #000a,0 0 0 1px #9fc4e022;backdrop-filter:blur(6px)}
@@ -111,14 +111,13 @@ body.board-zoomed .board-bleed{opacity:1}
  .game-layout{padding:0 10px}
  .game-meta{min-height:49px;padding-bottom:9px}
  .turn{font-size:17px}
- .board-frame{padding:4px;border-radius:10px;width:min(100%,calc(100dvh - 265px))}
+ .board-frame{padding:4px;border-radius:10px}
  #board{border-radius:6px}
  .ownership-legend{margin-top:14px;width:92%}
  .settings-panel{left:0;right:0;bottom:0;top:auto;width:100%;max-height:min(84dvh,740px);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom))}
 }
 @media(max-width:350px){
  .turn{font-size:15px}
- .board-frame{width:min(100%,calc(100dvh - 254px))}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 
@@ -172,9 +171,9 @@ body.board-zoomed .board-bleed{opacity:1}
 .ai-color-choices input:focus-visible+span{outline:3px solid #f2c875;outline-offset:2px}
 .settings-section h3.ai-subhead{margin-top:22px}
 .ai-color-choices input:disabled+span{opacity:.4;cursor:not-allowed}
-.board-size-choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.board-size-choices{grid-template-columns:repeat(3,minmax(0,1fr))}
 /* The mode is one row of four icon tabs under the start button; 履歴 opens saved games instead. */
-.new-game-modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.new-game-modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
 .new-game-modes label{margin:0;cursor:pointer;position:relative}
 .new-game-modes input{position:absolute;opacity:0}
 .new-game-modes label>span{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;min-height:56px;
@@ -198,7 +197,6 @@ body.board-zoomed .board-bleed{opacity:1}
 .setup-row[hidden]{display:none}
 .setup-label{margin:0;font-size:13px;color:#d6dae3;white-space:nowrap}
 /* Narrow chips so four choices (or a board icon and 13路) stay on one line at 320px. */
-.setup-rows .ai-color-choices{gap:6px}
 .setup-rows .ai-color-choices span{padding:10px 2px;font-size:12px;white-space:nowrap}
 /* Board size reads at a glance: denser grid lines for larger boards. */
 .board-size-choices span{display:flex;align-items:center;justify-content:center;gap:4px}
@@ -277,8 +275,12 @@ body.board-zoomed .board-bleed{opacity:1}
 body{overflow:hidden}
 .app-shell{height:100dvh;min-height:0;overflow:hidden;--topbar-height:68px}
 .game-layout{height:calc(100dvh - var(--topbar-height));overflow:hidden;padding-bottom:8px}
-.game-panel{height:100%;min-height:0;--board-reserve:292px}
-.board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px);flex-shrink:0}
+.game-panel{height:100%;min-height:0}
+/* The board takes the height the controls under it leave, so a taller score
+   box shrinks the board instead of sliding under the sticky action row.
+   The height cap stands in for the layout width, since aspect-ratio turns
+   the flexed height into the width. */
+.board-frame{flex:1 1 0;min-height:0;width:auto;max-width:100%;max-height:min(675px,calc(100vw - 24px))}
 .turn-and-move{display:flex;align-items:center;gap:10px;min-width:0}
 .turn-and-move .turn{min-width:0;white-space:nowrap}
 .turn-and-move .move-label{font-size:11px;font-variant-numeric:tabular-nums;flex-shrink:0}
@@ -289,7 +291,6 @@ body{overflow:hidden}
 .endgame-bar #analysisStatus{flex:1;min-width:0;font-size:11px;text-align:right}
 
 
-.game-panel.is-scoring,.game-panel.is-finished{--board-reserve:346px}
 .score-box{flex:none;margin:3px 0 2px;padding:9px 12px 10px;min-height:0}
 .score-box strong{display:block;font-size:15px;line-height:1.25}
 .score-box p{margin:2px 0 0;font-size:11px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -297,13 +298,8 @@ body{overflow:hidden}
 @media(max-width:700px){
   .app-shell{--topbar-height:62px}
   .game-layout{padding:0 10px 6px}
-  .board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px)}
+  .board-frame{max-height:min(675px,calc(100vw - 20px))}
   .ownership-legend{margin-top:5px}
-  .game-panel{--board-reserve:285px}
-  .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:337px}
-}
-@media(max-width:350px){
-  .board-frame{width:min(100%,calc(100dvh - var(--board-reserve) - env(safe-area-inset-bottom)),675px)}
 }
 
 /* Keep the final score and its actions together at the bottom on tall phones. */
@@ -339,22 +335,10 @@ body{overflow:hidden}
   position:absolute!important;width:1px!important;height:1px!important;
   clip:rect(0,0,0,0)!important;overflow:hidden!important;white-space:nowrap!important
 }
-.game-panel.is-scoring,.game-panel.is-finished{--board-reserve:302px}
 .game-panel.is-scoring .score-box,.game-panel.is-finished .score-box{margin-top:7px}
-.game-panel:has(.review-panel:not([hidden])){--board-reserve:380px}
-@media(max-width:700px){
-  .game-panel.is-scoring,.game-panel.is-finished{--board-reserve:294px}
-  .game-panel:has(.review-panel:not([hidden])){--board-reserve:369px}
-}
 
 .review-feedback{position:absolute;bottom:calc(100% + 4px);left:4px;right:4px;margin:0 auto;padding:5px 10px;width:max-content;max-width:calc(100% - 8px);border-radius:9px;background:#272e3e;border:1px solid #645842;color:#efd398;font-size:12px;line-height:1.5;z-index:5}
 .review-feedback[hidden]{display:none}
-
-/* A variation never reserves more height than the regular playing controls. */
-.game-panel:has(.review-panel:not([hidden])){--board-reserve:292px}
-@media(max-width:430px){
- .game-panel:has(.review-panel:not([hidden])){--board-reserve:285px}
-}
 
 /* Forbidden points are not marked in advance; the existing endgame status displays the reason. */
 /* Match the status text to the size of "ここに打つ" in all states.
@@ -389,6 +373,30 @@ body{overflow:hidden}
 .secondary{background:var(--btn-bg);border:1px solid var(--btn-edge);color:var(--btn-text);border-radius:var(--radius)}
 .accent-outline{border-color:var(--accent-edge);color:var(--accent-text)}
 .danger-armed{background:var(--danger-bg);border-color:var(--danger-edge);color:var(--danger-text)}
+/* Related buttons or choices fuse into one segmented control: one outer edge,
+   1px dividers between members, square inner corners. The dividers are the
+   group's edge colour showing through 1px gaps, so a hidden member leaves no
+   stray line, and a group with every member hidden disappears. A .primary
+   never joins a group; it keeps its own gap (UX policy §3.6). */
+.fused{display:flex;gap:1px;margin:0;padding:0;min-width:0;border:1px solid var(--fused-edge,var(--btn-edge));border-radius:var(--radius);background:var(--fused-edge,var(--btn-edge));overflow:hidden}
+.fused:not(:has(>:not([hidden]))){display:none}
+.fused>*{flex:1 1 0;min-width:0;margin:0}
+.fused>button,.fused>label>span{border:0;border-radius:0;background:var(--fused-bg,var(--btn-bg))}
+.fused>label{display:flex;margin:0;cursor:pointer;position:relative}
+.fused>label>span{flex:1;min-width:0}
+/* A disabled member dims its text, not its tile, so the dividers stay even. */
+.fused>button:disabled{opacity:1;color:color-mix(in srgb,var(--btn-text) 36%,transparent)}
+.fused>.danger-armed{background:var(--danger-bg);color:var(--danger-text)}
+.fused>button:focus-visible,.fused input:focus-visible+span{outline-offset:-3px}
+.fused input:checked+span{box-shadow:inset 0 0 0 1px #efcb81}
+.fused>label:first-child>span{border-radius:calc(var(--radius) - 1px) 0 0 calc(var(--radius) - 1px)}
+.fused>label:last-child>span{border-radius:0 calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0}
+.fused-column{flex-direction:column}
+.fused-column>*{flex:none}
+.settings-panel .fused-column{margin-top:14px}
+.settings-panel .fused-column>.full{margin-top:0}
+/* Choices in the sheets keep their raised tile colours. */
+.ai-color-choices.fused,.new-game-modes.fused,.shape-choices .fused{--fused-bg:#252c38;--fused-edge:#505766;gap:1px}
 .armed-note{margin:6px 0 0;color:var(--danger-text);font-size:12px;line-height:1.5}
 @media(max-width:700px){:root{--action-h:54px}}
 
@@ -399,6 +407,7 @@ body{overflow:hidden}
 .action-row button{white-space:nowrap;min-height:var(--action-h)}
 .action-row .secondary{font-size:14px;padding:9px 10px}
 .action-row .primary{flex:1 1 auto;min-width:0;padding:9px 6px;font-size:14px}
+.action-row .move-controls{flex:0 0 auto}
 .action-row .undo-button{flex:0 0 48px;min-width:48px;width:48px;padding:0;display:grid;place-items:center}
 .action-row #pass{flex:0 0 60px;min-width:60px;width:60px;padding:9px 5px}
 .action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;font-size:12px;padding:6px 2px}
@@ -426,6 +435,7 @@ body{overflow:hidden}
 .game-panel.is-finished .action-row .secondary{flex:1}
 .game-panel.is-finished .action-row #newMatch{flex:2}
 .inline-score-actions{display:flex;flex:1 1 auto;min-width:0;gap:8px;margin:0}
+.inline-score-actions>.fused{flex:1 1 auto}
 .action-row .inline-score-actions button{flex:1 1 auto;min-width:0;padding:9px 6px;font-size:12px}
 .inline-score-actions #agree{flex:1.6 1 auto}
 
@@ -450,9 +460,11 @@ body{overflow:hidden}
 .review-navigation{display:flex;align-items:stretch;gap:7px;position:relative}
 .review-navigation>button,.review-navigation>.review-menu>summary{height:var(--action-h);min-height:var(--action-h);
   display:flex;align-items:center;justify-content:center;padding:7px}
-.review-navigation>button:not(.review-step-toggle):not(.review-continue){flex:0 0 44px}
+.review-navigation>.review-steps{flex:1}
+.review-steps>button{height:var(--action-h);min-height:var(--action-h);display:flex;align-items:center;justify-content:center;padding:7px}
+.review-steps>button:not(.review-step-toggle){flex:0 0 44px}
+.review-steps>.review-step-toggle{flex:1;min-width:0;flex-direction:column;gap:2px;color:#eac981;font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .review-navigation>.review-continue{flex:0 0 auto;padding:0 14px;font-size:13px;white-space:nowrap}
-.review-navigation>.review-step-toggle{flex:1;min-width:0;flex-direction:column;gap:2px;color:#eac981;font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .review-navigation>.review-menu{position:relative;flex:0 0 44px;min-width:44px}
 .review-navigation>.review-menu>summary{cursor:pointer;list-style:none}
 .review-navigation>.review-menu>summary::-webkit-details-marker{display:none}
@@ -480,7 +492,7 @@ body{overflow:hidden}
   .game-panel.is-reviewing .connection-status{display:none}
   .review-navigation{gap:4px}
   .review-navigation>.review-menu{flex-basis:42px;min-width:42px}
-  .review-navigation>button:not(.review-step-toggle):not(.review-continue){flex-basis:42px}
+  .review-steps>button:not(.review-step-toggle){flex-basis:42px}
   .review-navigation>.review-continue{padding:0 10px;font-size:12px}
 }
 @media(max-width:350px){
@@ -559,14 +571,11 @@ body{overflow:hidden}
 .ramp-stop input::-moz-color-swatch{border:0;border-radius:50%}
 .ramp-captions{position:relative;height:14px;margin:4px 15px 0;font-size:10px;color:#8f97a5}
 .ramp-captions span{position:absolute;left:var(--at);transform:translateX(-50%);white-space:nowrap}
-.segmented{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border:1px solid #3a4150;border-radius:14px;background:#1b212c}
-.segmented label{margin:0;position:relative;cursor:pointer}
-.segmented input{position:absolute;opacity:0}
-.segmented span{display:grid;justify-items:center;gap:2px;padding:9px 6px;border-radius:10px;font-size:13px;font-weight:650;color:#c9ced8;transition:background .15s,color .15s}
-.segmented small{font-size:10px;font-weight:400;color:#8f97a5}
-.segmented svg{width:40px;height:20px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-.segmented input:checked+span{background:#38342d;color:#f8ddac;box-shadow:inset 0 0 0 1px #efcb8188}
-.segmented input:focus-visible+span{outline:3px solid #f2c875;outline-offset:2px}
+.shape-choices .fused span{display:grid;justify-items:center;gap:2px;padding:9px 6px;font-size:13px;font-weight:650;color:#c9ced8;transition:background .15s,color .15s}
+.shape-choices .fused small{font-size:10px;font-weight:400;color:#8f97a5}
+.shape-choices .fused svg{width:40px;height:20px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.shape-choices .fused input{position:absolute;opacity:0}
+.shape-choices .fused input:checked+span{background:#38342d;color:#f8ddac}
 /* Settings hierarchy: section (h3) > setting (.setting-label) > control. */
 .settings-section h3{display:flex;align-items:center;gap:4px}
 .setting-label,.palette-choices legend.setting-label{display:flex;align-items:baseline;gap:8px;padding:0;margin:0 0 8px;color:#ccd0da;font-size:13px}
@@ -579,6 +588,23 @@ body{overflow:hidden}
 .ownership-tuning{transition:opacity .2s}
 .ownership-settings.is-off .ownership-tuning{opacity:.38;pointer-events:none}
 
-/* 決着手順: the playout controls under the scoring instruction. */
-.settle-actions{display:flex;gap:8px;justify-content:center}
-.settle-actions:has(button:not([hidden])){margin:6px 0}
+/* Score box: two lines that fit where the endgame bar was, so the board keeps
+   its playing size. The title and instruction share the first line, both
+   colours share the second, and the 決着手順 buttons live in the action row.
+   It is not drawn as a card: a frame and divider would only add lines next
+   to the prisoner pills, so spacing alone sets it apart. */
+.score-box{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:8px;align-items:baseline;
+  /* Line heights are fixed so the two lines fill the 48px endgame-bar slot whatever font the phone has. */
+  grid-template-rows:24px auto;padding:2px 4px 0;margin-bottom:0;background:none;border:0;border-radius:0}
+.score-head{grid-column:1;min-width:0}
+/* While scoring the step title sits in the turn label; only the result keeps its title here. */
+.game-panel.is-scoring .score-head strong{display:none}
+/* After the game the rule line under the turn label already says how it was counted. */
+.game-panel.is-finished .score-box>p{display:none}
+.score-box>p{grid-column:2;grid-row:1;min-width:0;margin:0}
+.score-table{grid-column:1/-1;grid-template-columns:1fr 1fr;column-gap:10px;margin-top:2px;padding-top:0;border-top:0}
+.score-table .score-row{gap:4px;line-height:20px}
+.score-table .score-total,.score-table .score-name{line-height:20px}
+/* On narrow phones the stone alone names the side, so the breakdown keeps one line. */
+@media(max-width:360px){.score-table .score-name{display:none}}
+.score-row .score-detail{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:15px}

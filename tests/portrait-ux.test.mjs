@@ -28,7 +28,9 @@ test("endgame choices share exactly one fixed-height horizontal strip",()=>{
 });
 test("final score is above sticky actions and visible in a compact score area",()=>{
   assert.ok(html.indexOf('id="scoreBox"')<html.indexOf('id="actionRow"'));
-  assert.match(css,/\.game-panel\.is-scoring,\.game-panel\.is-finished\{--board-reserve:337px\}/);
+  // No fixed reserve under the board: it takes the height the controls leave.
+  assert.doesNotMatch(css,/--board-reserve/);
+  // On-screen positions are checked in a browser by scoring-layout.test.mjs.
   // The legend stays while counting and explains the counted areas.
   assert.doesNotMatch(css,/\.is-scoring \.ownership-legend[^}]*display:none/);
   assert.match(appearance,/\$\("legendNeutral"\)\.hidden=!counting/);
@@ -38,7 +40,7 @@ test("final score is above sticky actions and visible in a compact score area",(
 test("game screen viewport never scrolls and board responds to available height",()=>{
   assert.match(css,/body\{overflow:hidden\}/);
   assert.match(css,/\.game-layout\{height:calc\(100dvh - var\(--topbar-height\)\);overflow:hidden/);
-  assert.match(css,/calc\(100dvh - var\(--board-reserve\) - env\(safe-area-inset-bottom\)\)/);
+  assert.match(css,/\.board-frame\{flex:1 1 0;min-height:0;width:auto;max-width:100%;max-height:min\(675px,calc\(100vw - 24px\)\)\}/);
 });
 test("pass is a single tap in every mode; solo endgame stays in-bar",()=>{
   assert.match(app,/\$\("pass"\)\.onclick=\(\)=>submitMove\(null\);/);
@@ -101,6 +103,9 @@ test("continue-style choices sit left of the advancing choice, in the bar and wh
   assert.ok(bar.indexOf('id="endDecline"')<bar.indexOf('id="endAccept"'));
   const scoring=html.slice(html.indexOf('id="scoringActions"'),html.indexOf('id="openHistory"'));
   assert.ok(scoring.indexOf('id="resume"')<scoring.indexOf('id="agree"'));
+  // The 決着手順 controls share the scoring row, left of the advancing choice.
+  for(const id of ["settleSkip","settleReplay"])assert.ok(scoring.indexOf(`id="${id}"`)>0 &&
+    scoring.indexOf(`id="${id}"`)<scoring.indexOf('id="agree"'));
 });
 test("only a solo accept is gold; an incoming online offer gets two equal choices",()=>{
   assert.match(app,/\$\("endAccept"\)\.classList\.toggle\("primary",!room\)/);
