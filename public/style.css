@@ -466,6 +466,8 @@ body{overflow:hidden}
 .fused input:checked+span{box-shadow:inset 0 0 0 1px #efcb81}
 .fused>label:first-child>span{border-radius:calc(var(--radius) - 1px) 0 0 calc(var(--radius) - 1px)}
 .fused>label:last-child>span{border-radius:0 calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0}
+/* A group of one rounds all four corners, so its chosen edge reaches each one. */
+.fused>label:only-child>span{border-radius:calc(var(--radius) - 1px)}
 .fused-column{flex-direction:column}
 .fused-column>*{flex:none}
 .settings-panel .fused-column{margin-top:14px}
