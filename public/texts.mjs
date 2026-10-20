@@ -132,18 +132,29 @@ export const TEXT = {
     waitingDead: "死石判定を待っています",
     finishedResign: "対局終了",
     finishedScore: "中国式で採点確定",
+    finishedScoreJapanese: "日本式で採点確定",
     reviewPending: "死石を自動判定中…",
     reviewLoading: "KataGoを準備中。石の手動指定もできます",
     reviewAwaiting: "相手側で死石を判定中…",
     reviewComplete: "数字は石＋地。死石はタップで修正",
     reviewNone: "数字は石＋地。必要なら石をタップ",
     reviewModified: "数字は石＋地。点数を確認してください",
+    reviewCompleteJapanese: "数字は地。死石はタップで修正",
+    reviewNoneJapanese: "数字は地。必要なら石をタップ",
+    reviewModifiedJapanese: "数字は地。点数を確認してください",
     reviewUnavailable: "AI判定不可。石をタップして指定",
     reviewChecking: "死石を確認しています…",
-    breakdown: (black, whiteArea, komi, handicap, white) =>
-      "黒：" + black + "\n白：" + whiteArea + "＋コミ" + komi + (handicap ? "＋置き石補正" + handicap : "") + "＝" + white,
+    // Each row: { area, detail, total } from scoreRows.
+    breakdown: (black, white) => "黒：" + (black.detail ? black.detail + "＝" : "") + black.total +
+      "\n白：" + (white.detail ? white.detail + "＝" : "") + white.total,
     breakdownAria: breakdown => breakdown.replace("\n", "、"),
-    whiteDetail: (whiteArea, komi, handicap) => whiteArea + "＋コミ" + komi + (handicap ? "＋置き石補正" + handicap : ""),
+    /** What is added to a board count; empty when nothing is. */
+    detail: (area, { prisoners = null, komi = null, bonus = 0 } = {}) => {
+      const parts = (prisoners !== null ? "＋アゲハマ" + prisoners : "") +
+        (komi !== null ? "＋コミ" + komi : "") + (bonus ? "＋置き石補正" + bonus : "");
+      return parts ? area + parts : "";
+    },
+    seki: "セキの地は数えません",
   },
 
   game: {
@@ -159,8 +170,12 @@ export const TEXT = {
     moveLabel: move => move + "手目 ‹ ›",
     localPractice: "ローカル練習",
     boardLabel: size => size + "路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。",
-    ruleSummary: (size, komi, handicap) => size + "路盤 · 中国式ルール · " + (handicap ?
-      "置き石" + handicap + "子 · コミ" + komi + "＋置き石補正" + handicap + "目" : "コミ" + komi),
+    ruleSummary: (size, komi, handicap, japanese = false) => size + "路盤 · " +
+      (japanese ? "日本式ルール · " : "中国式ルール · ") + (handicap ?
+      "置き石" + handicap + "子 · コミ" + komi + (japanese ? "目" : "＋置き石補正" + handicap + "目") : "コミ" + komi),
+    capturesLabel: "アゲハマ",
+    captures: (black, white) => "アゲハマ　黒 " + black + "　白 " + white,
+    capturesAria: (black, white) => "アゲハマ：黒が取った石" + black + "、白が取った石" + white,
     newMatchOnline: "新しい対局",
     newMatchLocal: "もう一局",
     hintIllegal: "禁止手の仮置き中。確定せず、理由を質問する文をコピーできます",
@@ -277,6 +292,7 @@ export const TEXT = {
     noteOnline: "黒を持つ側が置き石を受け、白が先に打ちます。",
     noteLocal: "白が先に打ちます。",
     noteRule: "コミ0.5目、白に置き石の数だけ加点（中国式）。",
+    noteRuleJapanese: "コミ0.5目（日本式）。",
     note9: "9路は5子まで。",
   },
 
@@ -506,8 +522,10 @@ export const TEXT = {
   prompts: {
     asBeginner: "私は囲碁を始めたばかりの初心者です。専門用語にはひと言説明を添え、短く、やさしく答えてください。",
     afterwards: "説明のあとで、私が次に試すとよいことを1つだけ教えてください。わからない点はこのあと質問します。",
-    ruleLine: (komi, handicap) => "ルール：中国ルール（盤上の石と地の合計で数える）、" +
-      (handicap ? "置き石" + handicap + "子、コミ" + komi + "目＋置き石補正" + handicap + "目" : "コミ" + komi + "目"),
+    ruleLine: (komi, handicap, japanese = false) => (japanese ?
+      "ルール：日本ルール（地とアゲハマの合計で数え、セキの地は数えない）、" :
+      "ルール：中国ルール（盤上の石と地の合計で数える）、") +
+      (handicap ? "置き石" + handicap + "子、コミ" + komi + "目" + (japanese ? "" : "＋置き石補正" + handicap + "目") : "コミ" + komi + "目"),
     playing: (size, ruleLine) => "囲碁アプリMieGOで" + size + "路盤を打っています。" + ruleLine + "。",
     rulesAsk: "囲碁の基本を順番に教えてください。",
     rulesTopics: [
@@ -590,6 +608,8 @@ export const TEXT = {
     board: "盤",
     sizes: { 9: "9路", 13: "13路", 19: "19路" },
     mySide: "自分の石",
+    rules: "ルール",
+    rulesChoices: { chinese: "中国式", japanese: "日本式" },
     advanced: "詳細設定",
     start: "対局を始める",
   },
@@ -663,8 +683,9 @@ export const TEXT = {
     rules: {
       summary: "ルールと置き石",
       items: [
-        "中国ルールです。盤上の自分の石と地の合計で勝敗を決めます。",
-        "置き碁は新規対戦の「詳細設定」で選べます。白が先に打ち、コミは0.5目、白に置き石の数だけ加点します。",
+        "新規対戦でルールを選べます。中国ルール（既定）は、盤上の自分の石と地の合計で勝敗を決めます。互先のコミは7.5目です。",
+        "日本ルールは、地（囲んだ空き点）とアゲハマ（対局中に取った石と、終局時に取り除いた死石）の合計で勝敗を決めます。互先のコミは6.5目です。セキの中の空き点は地に数えません。アゲハマは地合いのバーの下に表示されます。",
+        "置き碁は新規対戦の「詳細設定」で選べます。白が先に打ち、コミは0.5目です。中国ルールでは白に置き石の数だけ加点します（日本ルールでは加点しません）。",
       ],
       current: "現在の対局：",
     },

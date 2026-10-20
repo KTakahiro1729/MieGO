@@ -1,4 +1,4 @@
-import {BLACK,WHITE,areaScore,neighbors,isBoardSize,sizeOf,komiOf,handicapOf} from "./core.mjs";
+import {BLACK,WHITE,areaScore,neighbors,isBoardSize,sizeOf,komiOf,handicapBonusOf,isJapanese} from "./core.mjs";
 import { TEXT } from "./texts.mjs";
 
 /** Area-scoring overlay: connected same-color groups AFTER adding owned
@@ -36,28 +36,36 @@ export function scoringRegions(state) {
       const db=(b%SIZE-centerX)**2+(Math.floor(b/SIZE)-centerY)**2;
       return da-db||a-b;
     })[0];
-    regions.push({color,count:positions.length,stones:stones.length,
+    // Japanese labels count territory only; stones on the board score nothing.
+    const count=isJapanese(state)?territory.length:positions.length;
+    if(!count)continue;
+    regions.push({color,count,stones:stones.length,
       territory:territory.length,position,positions});
   }
   return {filled,regions,owned};
 }
 
-/** One line that adds up: the white total is shown as its board area plus
- * komi (and the handicap compensation), so it matches the board labels.
- */
+/** One line that adds up: each side's board count plus what is added to it. */
 export function scoreBreakdown(state) {
-  const score=areaScore(state),komi=komiOf(state),handicap=handicapOf(state);
-  const whiteArea=score.white-komi-handicap;
-  return TEXT.scoring.breakdown(score.black,whiteArea,komi,handicap,score.white);
+  const rows=scoreRows(state);
+  return TEXT.scoring.breakdown(rows.black,rows.white);
 }
 
-/** The scoreboard rows: board area, what is added to it, and the total. */
+/** The scoreboard rows: board count (area, or territory under Japanese
+ * rules), what is added to it, and the total. */
 export function scoreRows(state) {
-  const score=areaScore(state),komi=komiOf(state),handicap=handicapOf(state);
-  const whiteArea=score.white-komi-handicap;
+  const score=areaScore(state),komi=komiOf(state),bonus=handicapBonusOf(state);
+  const japanese=isJapanese(state);
+  const row=(color,total)=>{
+    const prisoners=japanese?score.prisoners[color]:0;
+    const extra=color==="white"?komi+bonus:0;
+    const area=total-prisoners-extra;
+    return {area,detail:TEXT.scoring.detail(area,{prisoners:japanese?prisoners:null,
+      komi:color==="white"?komi:null,bonus:color==="white"?bonus:0}),total};
+  };
   return {
-    black:{area:score.black,detail:"",total:score.black},
-    white:{area:whiteArea,detail:TEXT.scoring.whiteDetail(whiteArea,komi,handicap),total:score.white},
+    black:row("black",score.black),
+    white:row("white",score.white),
     leader:score.difference>0?"black":score.difference<0?"white":null
   };
 }

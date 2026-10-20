@@ -1,4 +1,4 @@
-import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, boardHash, handicapOf, komiOf, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
+import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, boardHash, handicapOf, komiOf, isJapanese, rulesOf, RULESETS, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
 import { copyInviteText } from "./invite.mjs";
@@ -76,7 +76,8 @@ const myOnlineColor=()=>ownerColor===null?null:playerColor(p2pRole,ownerColor);
 const currentSideSelection=()=>document.querySelector('input[name="onlineSide"]:checked')?.value||"random";
 // Before play starts, a changed side, board size or handicap calls for a new invitation.
 const inviteMatchesChoice=()=>issuedSide===currentSideSelection() &&
-  (connected || game.moveNumber>0 || (sizeOf(game.board)===boardSize && handicapOf(game)===onlineHandicap));
+  (connected || game.moveNumber>0 || (sizeOf(game.board)===boardSize && handicapOf(game)===onlineHandicap &&
+    rulesOf(game)===gameRules));
 // The player's own seat link moves the game to another device; it never sits in the address bar.
 function ownSeatLink() {
   try{return room && inviteKey ? (p2pRole==="owner"?ownUrl:guestUrl)(location.origin,room,inviteKey) : null;}
@@ -112,6 +113,9 @@ let humanColor = BLACK, invasion = 50, reinforcement = 50;
 let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNotice = null;
 let aiSideChoice = "black";
 let aiHandicap = 0, localHandicap = 0, onlineHandicap = 0;
+// The ruleset for the next new game, shared by every mode like the board size.
+let gameRules = "chinese";
+const toRules = value => RULESETS.includes(value) ? value : "chinese";
 // Up to nine stones; newGame() caps the count for the chosen board (9x9: five).
 const toHandicap = value => handicapOf({handicap:Number(value)},19);
 // The board size for the next new game in any mode; a running game keeps its own.
@@ -275,7 +279,7 @@ function stopAiTurn() {
 function rememberSettings() {
   try {
     localStorage.setItem("miego-local-settings", JSON.stringify({
-      mode:gameMode,humanColor,aiSide:aiSideChoice,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap,onlineHandicap,boardSize
+      mode:gameMode,humanColor,aiSide:aiSideChoice,invasion,reinforcement,aiStrength,aiHints,aiHandicap,localHandicap,onlineHandicap,boardSize,gameRules
     }));
   } catch {}
 }
@@ -590,7 +594,13 @@ function show() {
   updateGradient();
   const handicap=handicapOf(game),size=sizeOf(game.board);
   canvas.setAttribute("aria-label",TEXT.game.boardLabel(shownSize()));
-  $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap);
+  const japanese=isJapanese(game);
+  $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,japanese);
+  // Japanese territory scoring counts prisoners, so they sit under the ownership bar.
+  $("captureCounts").hidden=!japanese;
+  $("capturesBlack").textContent=String(game.captures?.black||0);
+  $("capturesWhite").textContent=String(game.captures?.white||0);
+  $("captureCounts").setAttribute("aria-label",TEXT.game.capturesAria(game.captures?.black||0,game.captures?.white||0));
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
   $("gamePanel").classList.toggle("is-scoring",isScoring);
   $("gamePanel").classList.toggle("is-finished",isFinished);
@@ -611,13 +621,14 @@ function show() {
   $("actionRow").classList.toggle("finished-actions",isFinished);
   $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:TEXT.scoring.title;
   $("scoreInstruction").textContent=isFinished?
-    (game.result?.endsWith("+R")?TEXT.scoring.finishedResign:TEXT.scoring.finishedScore):
+    (game.result?.endsWith("+R")?TEXT.scoring.finishedResign:
+      japanese?TEXT.scoring.finishedScoreJapanese:TEXT.scoring.finishedScore):
     deadReview==="pending"?TEXT.scoring.reviewPending:
     deadReview==="loading"?TEXT.scoring.reviewLoading:
     deadReview==="awaiting"?TEXT.scoring.reviewAwaiting:
-    deadReview==="complete"?TEXT.scoring.reviewComplete:
-    deadReview==="none"?TEXT.scoring.reviewNone:
-    deadReview==="modified"?TEXT.scoring.reviewModified:
+    deadReview==="complete"?(japanese?TEXT.scoring.reviewCompleteJapanese:TEXT.scoring.reviewComplete):
+    deadReview==="none"?(japanese?TEXT.scoring.reviewNoneJapanese:TEXT.scoring.reviewNone):
+    deadReview==="modified"?(japanese?TEXT.scoring.reviewModifiedJapanese:TEXT.scoring.reviewModified):
     deadReview==="unavailable"?TEXT.scoring.reviewUnavailable:
     TEXT.scoring.reviewChecking;
   // The scoring controls live in the existing sticky action row.
@@ -933,7 +944,7 @@ function freshLocalBoard() {
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
   lastOfferKey=null;endHintSuppressedUntil=-1;
   deadEvaluation=null;deadReview="idle";deadReviewTouched=false;
-  game=freshLocalGame(game,localHandicap,boardSize);currentGameId=null;currentRevision=null;
+  game=freshLocalGame(game,localHandicap,boardSize,gameRules);currentGameId=null;currentRevision=null;
   save();show();requestAnalysis();
 }
 /** 新規対戦 → 1台で打つ: leaves an AI or friend match (kept in the library). */
@@ -1320,7 +1331,7 @@ async function beginOnlineRoom(){
   guestInviteKey=created.guestKey;issuedSide=choice;onlineRevision=0;seenPeerSignins=0;linkKey=null;
   clearBoardReview();
   gameMode="online";stopAiTurn();
-  game=newGame(true,{handicap:onlineHandicap,size:boardSize});candidate=null;lastPosition=null;
+  game=newGame(true,{handicap:onlineHandicap,size:boardSize,rules:gameRules});candidate=null;lastPosition=null;
   currentGameId=null;currentRevision=null;
   deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
@@ -1389,6 +1400,13 @@ for(const input of document.querySelectorAll('input[name="boardSize"]')) {
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
+    syncHandicapUi();rememberSettings();renderInviteButton();
+  };
+}
+for(const input of document.querySelectorAll('input[name="gameRules"]')) {
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    gameRules=toRules(e.target.value);
     syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
@@ -2038,7 +2056,7 @@ $("startAi").onclick=()=>{
   catch(error){$("aiMatchStatus").textContent=error.message;return;}
   aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
-  game=newGame(true,{handicap:aiHandicap,size:boardSize});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
+  game=newGame(true,{handicap:aiHandicap,size:boardSize,rules:gameRules});currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;
   $("aiMatchStatus").textContent=TEXT.ai.started(colorLabel(humanColor));
   save();closePanels();show();requestAnalysis();
@@ -2058,6 +2076,8 @@ for (const input of document.querySelectorAll('input[name="aiSide"]')) {
 function syncHandicapUi() {
   const sizeChoice=document.querySelector('input[name="boardSize"][value="'+boardSize+'"]');
   if(sizeChoice)sizeChoice.checked=true;
+  const rulesChoice=document.querySelector('input[name="gameRules"][value="'+gameRules+'"]');
+  if(rulesChoice)rulesChoice.checked=true;
   // One set of handicap buttons shows the stored choice of the selected mode.
   const kind=newGameModeKind(),ai=kind==="ai";
   const shown=ai?aiHandicap:kind==="online"?onlineHandicap:localHandicap;
@@ -2067,7 +2087,7 @@ function syncHandicapUi() {
   $("handicapNote").hidden=!shown;
   $("handicapNote").textContent=(ai?TEXT.handicap.noteAi:
     kind==="online"?TEXT.handicap.noteOnline:TEXT.handicap.noteLocal)+
-    TEXT.handicap.noteRule+(boardSize===9?TEXT.handicap.note9:"");
+    (gameRules==="japanese"?TEXT.handicap.noteRuleJapanese:TEXT.handicap.noteRule)+(boardSize===9?TEXT.handicap.note9:"");
   // With handicap the human is Black; the saved side preference returns afterwards.
   for(const input of document.querySelectorAll('input[name="aiSide"]'))
     input.disabled=!!aiHandicap && input.value!=="black";
@@ -2167,6 +2187,7 @@ else try {
     aiHandicap=toHandicap(settings.aiHandicap);localHandicap=toHandicap(settings.localHandicap);
     onlineHandicap=toHandicap(settings.onlineHandicap);
     boardSize=toBoardSize(settings.boardSize);
+    gameRules=toRules(settings.gameRules);
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
     onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));

@@ -3,6 +3,12 @@ import { TEXT } from "./texts.mjs";
 export const SIZE = 9;
 export const BOARD_SIZES = Object.freeze([9, 13, 19]);
 export const KOMI = 7.5;
+/** Chinese area scoring (the default) or Japanese territory scoring. */
+export const RULESETS = Object.freeze(["chinese", "japanese"]);
+// Even-game komi per ruleset (KataGo's defaults; the Nihon Ki-in uses 6.5).
+export const RULES_KOMI = Object.freeze({ chinese: 7.5, japanese: 6.5 });
+export const rulesOf = state => state?.rules === "japanese" ? "japanese" : "chinese";
+export const isJapanese = state => rulesOf(state) === "japanese";
 export const BLACK = 1;
 export const WHITE = -1;
 export const isBoardSize = size => BOARD_SIZES.includes(size);
@@ -56,26 +62,31 @@ export const starPoints = size => handicapPoints(size, size === 19 ? 9 : 5);
 export const HANDICAP_POINTS = Object.freeze(handicapPoints(SIZE, 5));
 export const MAX_HANDICAP = maxHandicap(SIZE);
 // Handicap games use 0.5 komi; Chinese rules (and KataGo's "chinese" ruleset,
-// whiteHandicapBonus=N) also give White one point per handicap stone.
+// whiteHandicapBonus=N) also give White one point per handicap stone. Japanese
+// territory scoring needs no such bonus (KataGo: whiteHandicapBonus=0), since
+// the handicap stones themselves are not counted.
 export const HANDICAP_KOMI = 0.5;
 export const handicapOf = (state, size = Array.isArray(state?.board) ? sizeOf(state.board) : SIZE) =>
   Number.isInteger(state?.handicap) && state.handicap >= 2 && state.handicap <= maxHandicap(size) ? state.handicap : 0;
-export const komiOf = state => Number.isFinite(state?.komi) ? state.komi : KOMI;
-/** Points added to White's area: komi plus the Chinese handicap compensation. */
-export const whiteCompensation = state => komiOf(state) + handicapOf(state);
-export function newGame(assisted = true, { handicap = 0, size = SIZE } = {}) {
+export const komiOf = state => Number.isFinite(state?.komi) ? state.komi : RULES_KOMI[rulesOf(state)];
+/** Chinese handicap compensation: one point per stone, none under Japanese rules. */
+export const handicapBonusOf = state => isJapanese(state) ? 0 : handicapOf(state);
+/** Points added to White's score: komi plus any handicap compensation. */
+export const whiteCompensation = state => komiOf(state) + handicapBonusOf(state);
+export function newGame(assisted = true, { handicap = 0, size = SIZE, rules = "chinese" } = {}) {
   if (!isBoardSize(size)) throw new Error(TEXT.rules.unsupportedSize);
   const stones = handicapOf({ handicap }, size);
   const board = Array(size * size).fill(0);
   for (const p of handicapPoints(size, stones)) board[p] = BLACK;
   return { board, next: stones ? WHITE : BLACK, passes: 0, moves: [], moveNumber: 0,
     captures: { black: 0, white: 0 }, history: [boardHash(board)], status: "playing",
-    assisted, handicap: stones, komi: stones ? HANDICAP_KOMI : KOMI,
+    assisted, handicap: stones, rules: rulesOf({ rules }),
+    komi: stones ? HANDICAP_KOMI : RULES_KOMI[rulesOf({ rules })],
     dead: [], agreed: { black: false, white: false }, endProposal: null, result: null };
 }
 /** The empty-or-handicap starting position a record's moves are replayed from. */
 export const initialGame = state => newGame(state?.assisted !== false,
-  { handicap: handicapOf(state), size: sizeOf(state?.board) });
+  { handicap: handicapOf(state), size: sizeOf(state?.board), rules: rulesOf(state) });
 export function play(state, position) {
   if (state.status !== "playing") throw new Error(TEXT.rules.notPlaying);
   // A real move answers any pending 待った request by moving on.
@@ -187,7 +198,11 @@ export function resume(state) {
   if (state.status !== "scoring") throw new Error(TEXT.rules.notCounting);
   return { ...state, status: "playing", passes: 0, endProposal: null, dead: [], agreed: { black: false, white: false } };
 }
+/** The final score under the game's ruleset (area or territory). */
 export function areaScore(state) {
+  return isJapanese(state) ? territoryScore(state) : chineseAreaScore(state);
+}
+function chineseAreaScore(state) {
   const board = [...state.board];
   for (const n of state.dead) board[n] = 0;
   const size = sizeOf(board), owned = Array(board.length).fill(0);
@@ -212,6 +227,74 @@ export function areaScore(state) {
     if (owner === WHITE) white += queue.length;
   }
   return { black, white, difference: black - white, owned };
+}
+/** Empty regions (after removing dead stones) with the colour that alone borders each. */
+function emptyRegions(board) {
+  const size = sizeOf(board), visited = new Set(), regions = [];
+  for (let i = 0; i < board.length; i++) {
+    if (board[i] || visited.has(i)) continue;
+    const points = [i], border = new Set(); visited.add(i);
+    for (let head = 0; head < points.length; head++) {
+      for (const n of neighbors(points[head], size)) {
+        if (board[n]) border.add(board[n]);
+        else if (!visited.has(n)) { visited.add(n); points.push(n); }
+      }
+    }
+    regions.push({ points, owner: border.size === 1 ? [...border][0] : 0 });
+  }
+  return regions;
+}
+/** Liberties of the group a stone of `color` at empty `point` would join. */
+function libertiesAfter(board, point, color) {
+  const next = [...board]; next[point] = color;
+  return group(next, point).liberties.size;
+}
+/**
+ * Stones in seki, found from the shared liberties left at the end: an empty
+ * point touching both colours where a stone of either colour would leave its
+ * own group in atari (or with no liberty), so neither side can fill it.
+ */
+export function sekiStones(state) {
+  const board = state.board.map((stone, i) => state.dead.includes(i) ? 0 : stone);
+  const size = sizeOf(board), seki = new Set();
+  for (let p = 0; p < board.length; p++) {
+    if (board[p]) continue;
+    const touching = neighbors(p, size).filter(n => board[n]);
+    if (!touching.some(n => board[n] === BLACK) || !touching.some(n => board[n] === WHITE)) continue;
+    // Filling must not capture anything: then it would be a real move, not seki.
+    const captures = color => touching.some(n => board[n] === -color && group(board, n).liberties.size === 1);
+    if (captures(BLACK) || captures(WHITE)) continue;
+    if (libertiesAfter(board, p, BLACK) > 1 || libertiesAfter(board, p, WHITE) > 1) continue;
+    for (const n of touching) for (const s of group(board, n).stones) seki.add(s);
+  }
+  return [...seki].sort((a, b) => a - b);
+}
+/**
+ * Japanese territory scoring (Nihon Ki-in rules, 1989): territory plus
+ * prisoners. Prisoners are the stones captured during play and the dead
+ * stones removed at the end. Empty points enclosed by stones in seki are not
+ * territory, and stones on the board do not count.
+ */
+export function territoryScore(state) {
+  const dead = new Set(state.dead);
+  const board = state.board.map((stone, i) => dead.has(i) ? 0 : stone);
+  const seki = new Set(sekiStones(state)), size = sizeOf(board);
+  const owned = board.map(stone => stone);
+  const territory = { black: 0, white: 0 };
+  for (const { points, owner } of emptyRegions(board)) {
+    const inSeki = owner && points.some(p => neighbors(p, size).some(n => seki.has(n)));
+    const color = inSeki ? 0 : owner;
+    for (const p of points) owned[p] = color;
+    if (color === BLACK) territory.black += points.length;
+    if (color === WHITE) territory.white += points.length;
+  }
+  let deadBlack = 0, deadWhite = 0;
+  for (const i of dead) { if (state.board[i] === BLACK) deadBlack++; if (state.board[i] === WHITE) deadWhite++; }
+  const prisoners = { black: (state.captures?.black || 0) + deadWhite,
+    white: (state.captures?.white || 0) + deadBlack };
+  const black = territory.black + prisoners.black;
+  const white = territory.white + prisoners.white + whiteCompensation(state);
+  return { black, white, difference: black - white, owned, territory, prisoners, seki: [...seki] };
 }
 export function agreeScore(state, color) {
   if (state.status !== "scoring" || ![BLACK, WHITE].includes(color)) throw new Error(TEXT.rules.notCounting);
@@ -244,7 +327,7 @@ export function toSGF(state) {
   const moves = state.moves.filter(m => m.position !== "resign")
     .map(m => ";" + enc(m.color) + "[" + coord(m.position) + "]").join("");
   const handicap = handicapOf(state);
-  return "(;GM[1]FF[4]CA[UTF-8]SZ[" + size + "]KM[" + komiOf(state) + "]RU[Chinese]" +
+  return "(;GM[1]FF[4]CA[UTF-8]SZ[" + size + "]KM[" + komiOf(state) + "]RU[" + (isJapanese(state) ? "Japanese" : "Chinese") + "]" +
     (handicap ? "HA[" + handicap + "]AB" + handicapPoints(size, handicap).map(p => "[" + coord(p) + "]").join("") : "") +
     (state.result ? "RE[" + state.result + "]" : "") + moves + ")";
 }

@@ -1,4 +1,4 @@
-import { BLACK, sizeOf, handicapOf, komiOf } from "./core.mjs";
+import { BLACK, sizeOf, handicapOf, komiOf, isJapanese } from "./core.mjs";
 import { formatBoardSection } from "./board-text.mjs";
 import { shareableReviewUrl } from "./sgf-link.mjs";
 import { TEXT } from "./texts.mjs";
@@ -10,7 +10,7 @@ const AFTERWARDS=TEXT.prompts.afterwards;
 
 function ruleLine(game) {
   const handicap=handicapOf(game);
-  return TEXT.prompts.ruleLine(komiOf(game),handicap);
+  return TEXT.prompts.ruleLine(komiOf(game),handicap,isJapanese(game));
 }
 
 export function makeRulesPrompt(game) {

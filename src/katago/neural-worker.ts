@@ -10,7 +10,7 @@ import { parseKataGoModelV8 } from "../../vendor/web-katrain/src/engine/katago/l
 import { KataGoModelV8Tf } from "../../vendor/web-katrain/src/engine/katago/modelV8";
 import { postprocessKataGoV8 } from "../../vendor/web-katrain/src/engine/katago/evalV8";
 import { toKataGoPosition } from "./position.mjs";
-import { whiteCompensation } from "../../public/core.mjs";
+import { whiteCompensation, rulesOf } from "../../public/core.mjs";
 
 let model: KataGoModelV8Tf | null = null;
 let boot: Promise<void> | null = null;
@@ -65,7 +65,8 @@ async function evaluate(state: unknown) {
     ...pos,
     // KataGo's NN komi input already includes the handicap bonus (selfKomi).
     komi: whiteCompensation(state),
-    rules: "chinese",
+    // Japanese games use KataGo's "japanese" ruleset: territory scoring, seki tax.
+    rules: rulesOf(state),
     conservativePassAndIsRoot: true,
     outSpatial: spatialFeatures,
     outGlobal: globalFeatures
@@ -114,7 +115,7 @@ async function evaluateMovePolicy(state: unknown) {
   const { size, pos, spatialFeatures, globalFeatures } = encode(state);
   const area = size * size;
   fillInputsV7FastForPosition({
-    ...pos, komi: whiteCompensation(state), rules: "chinese",
+    ...pos, komi: whiteCompensation(state), rules: rulesOf(state),
     conservativePassAndIsRoot: true,
     outSpatial: spatialFeatures, outGlobal: globalFeatures
   });

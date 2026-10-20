@@ -50,6 +50,7 @@
           <div class="gradient" id="gradient" aria-hidden="true"></div>
           <div class="legend-labels"><span id="legendWhite">白の地</span><span id="legendNeutral" hidden>中立</span><span id="legendBlack">黒の地</span></div>
         </div>
+        <div id="captureCounts" class="capture-counts" role="status" hidden><span class="capture-stone white" aria-hidden="true"></span><span id="capturesWhite">0</span><span class="capture-label">アゲハマ</span><span id="capturesBlack">0</span><span class="capture-stone black" aria-hidden="true"></span></div>
         <div id="endgameBar" class="endgame-bar" aria-label="終局の相談">
           <span id="endStatus" class="end-status" role="status" aria-live="polite">終局まではまだまだです</span>
           <button id="copyIllegalPrompt" class="secondary accent-outline illegal-prompt-action" type="button" aria-label="禁止手についてAIに質問する文章をコピー" title="コピーした文章を好きなAIに貼り付けて質問できます" hidden><span>AIに質問</span><svg class="copy-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><svg class="copied-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></button>
@@ -216,6 +217,9 @@
               <label><input type="radio" name="boardSize" value="19"><span><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 4.22H22M4.22 2V22M2 6.44H22M6.44 2V22M2 8.67H22M8.67 2V22M2 10.89H22M10.89 2V22M2 13.11H22M13.11 2V22M2 15.33H22M15.33 2V22M2 17.56H22M17.56 2V22M2 19.78H22M19.78 2V22M2 22.00H22M22.00 2V22"/></svg>19路</span></label>
             </div>
           </div>
+          <div id="rulesRow" class="setup-row"><span class="setup-label">ルール</span>
+            <div class="ai-color-choices rules-choices"><label><input type="radio" name="gameRules" value="chinese" checked><span>中国式</span></label><label><input type="radio" name="gameRules" value="japanese"><span>日本式</span></label></div>
+          </div>
           <div id="aiSideRow" class="setup-row" hidden><span class="setup-label">自分の石</span>
             <div class="ai-color-choices side-choices"><label><input type="radio" name="aiSide" value="random"><span>ランダム</span></label><label><input type="radio" name="aiSide" value="black" checked><span>● 黒</span></label><label><input type="radio" name="aiSide" value="white"><span>○ 白</span></label></div>
           </div>
@@ -348,8 +352,9 @@
         </details>
         <details id="help-rules" class="info-disclosure help-topic" name="helpTopic"><summary>ルールと置き石</summary>
           <ul class="help-list">
-            <li>中国ルールです。盤上の自分の石と地の合計で勝敗を決めます。</li>
-            <li>置き碁は新規対戦の「詳細設定」で選べます。白が先に打ち、コミは0.5目、白に置き石の数だけ加点します。</li>
+            <li>新規対戦でルールを選べます。中国ルール（既定）は、盤上の自分の石と地の合計で勝敗を決めます。互先のコミは7.5目です。</li>
+            <li>日本ルールは、地（囲んだ空き点）とアゲハマ（対局中に取った石と、終局時に取り除いた死石）の合計で勝敗を決めます。互先のコミは6.5目です。セキの中の空き点は地に数えません。アゲハマは地合いのバーの下に表示されます。</li>
+            <li>置き碁は新規対戦の「詳細設定」で選べます。白が先に打ち、コミは0.5目です。中国ルールでは白に置き石の数だけ加点します（日本ルールでは加点しません）。</li>
           </ul>
           <p class="explanation">現在の対局：<span id="ruleSummary">9路盤 · 中国式ルール · コミ7.5</span></p>
         </details>
