@@ -18,7 +18,7 @@ export const AI_CHARACTERS = Object.freeze({
   serious: define("strong"),
 });
 export const CUSTOM_CHARACTER = "custom";
-export const DEFAULT_AI_CHARACTER = "steady";
+export const DEFAULT_AI_CHARACTER = "chick";
 
 // Saved settings hold any 0-100 value; every axis has three stops.
 const step = value => Math.round(Math.max(0,Math.min(100,Number(value ?? 50) || 0))/50)*50;
