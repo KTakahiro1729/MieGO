@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {gameStorageKey,parseGameSnapshot,needsSwitchConfirmation} from "../public/mode-state.mjs";
 import {TEXT} from "../public/texts.mjs";
-import {app,between,html,source} from "./helpers/source.mjs";
+import {app,between,css,html,source} from "./helpers/source.mjs";
 
 const sheet=between(html,'<aside id="modePanel"','</aside>');
 const panel=key=>{
@@ -10,15 +10,18 @@ const panel=key=>{
   return sheet.slice(start,next>0?next:sheet.indexOf('</section>',start));
 };
 
-test("a 新規対戦 button opens one sheet with the three modes and 履歴 as icon tabs",()=>{
+test("a 新規対戦 button opens one sheet with the modes as icon tabs, then 戻る and 対戦履歴を見る",()=>{
   assert.match(html,/<button id="newGameButton"[^>]*>新規対戦<\/button>/);
   assert.match(app,/\$\("newGameButton"\)\.onclick=\(\)=>openPanel\(room\?"online":gameMode\)/);
   assert.doesNotMatch(html,/<select id="modePicker"|<option value="history">/);
-  // The modes and 履歴 form one row of icon tabs in one sheet: [対COM|観戦|対友人] [1台で打つ] [履歴].
+  // The modes form one row of icon tabs in one sheet, [対COM|観戦|対友人] [1台で打つ];
+  // under them, [現在の対局に戻る] [対戦履歴を見る].
   assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,5);
-  const modes=between(sheet,'<div class="new-game-modes">','<div id="newGameSetup">');
+  const modes=between(sheet,'<div class="new-game-modes">','<div class="new-game-nav">');
   assert.deepEqual(modes.split('<div class="fused">').slice(1).map(group=>[...group.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1])),
-    [["ai","watch","online"],["local"],["history"]]);
+    [["ai","watch","online"],["local"]]);
+  const nav=between(sheet,'<div class="new-game-nav">','<div id="newGameSetup">');
+  assert.ok(nav.indexOf('id="returnToGame"')>=0 && nav.indexOf('id="returnToGame"')<nav.indexOf('id="openHistoryFromNew"'));
   assert.match(sheet,/id="openHistoryFromNew" type="radio" name="newGameMode" value="history"/);
   // 対COM first, 履歴 last; 対COM is the first-visit default.
   assert.deepEqual([...sheet.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1]),["ai","watch","online","local","history"]);
@@ -30,9 +33,9 @@ test("a 新規対戦 button opens one sheet with the three modes and 履歴 as i
   assert.match(app,/function openHistoryPanel\(\)\{openPanel\("history"\);\}/);
 });
 
-test("自分の石・COMのキャラ・盤・ルール are one row of tabs over one panel of choices",()=>{
-  assert.deepEqual([...sheet.matchAll(/id="setupTab(\w+)"[^>]*role="tab"/g)].map(m=>m[1]),["Side","Strength","Board","Rules"]);
-  for(const key of ["Board","Rules","Side","Strength"])assert.match(sheet,new RegExp('id="setupPanel'+key+'" class="setup-panel" role="tabpanel"'));
+test("自分の石・COMのキャラ・盤・ルール・時間 are one row of tabs over one panel of choices",()=>{
+  assert.deepEqual([...sheet.matchAll(/id="setupTab(\w+)"[^>]*role="tab"/g)].map(m=>m[1]),["Side","Strength","Board","Rules","Time"]);
+  for(const key of ["Board","Rules","Side","Strength","Time"])assert.match(sheet,new RegExp('id="setupPanel'+key+'" class="setup-panel" role="tabpanel"'));
   for(const size of [9,13,19])assert.match(sheet,new RegExp('name="boardSize" value="'+size+'"'));
   assert.equal((sheet.match(/name="boardSize"[^>]*><span class="choice"><svg class="size-icon"/g)||[]).length,3);
   // No 詳細設定 disclosure: handicap sits under ルール's choices; the sampling-variance setting is gone.
@@ -58,9 +61,9 @@ test("the COM is eight characters with notes, then カスタム's strength and f
     assert.deepEqual([...sheet.matchAll(new RegExp('name="'+name+'" value="(\\d+)"',"g"))].map(m=>m[1]),["0","50","100"]);
 });
 
-test("the way back tops the sheet, then the mode tabs and options, then the start button",()=>{
+test("the mode tabs and the way back, then the options, then the start button",()=>{
   for(const id of ["startLocal","startAi","copy"]) {
-    assert.ok(sheet.indexOf('id="returnToGame"')<sheet.indexOf('name="newGameMode"'),id);
+    assert.ok(sheet.indexOf('id="returnToGame"')<sheet.indexOf('id="newGameSetup"'),id);
     assert.ok(sheet.indexOf('id="aiStrengthRow"')<sheet.indexOf('id="'+id+'"'),id);
   }
 });
@@ -128,9 +131,9 @@ test("direct game controls replace hidden action menus; new local games start fr
  assert.match(row,/id="openHistory"/);
  assert.doesNotMatch(row,/<details|id="gameMenu"/);
  assert.doesNotMatch(html,/id="openHistorySettings"|id="openCurrentMode"/);
- assert.match(app,/if \(room \|\| gameMode!=="local"\) return;/);
  assert.match(app,/\$\("startLocal"\)\.onclick=\(\)=>continueFrom\?forkBoardReview\("local"\):startLocalGame\(\);/);
- assert.match(app,/game=freshLocalGame\(game,nextGameOptions\(localHandicap\)\);currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
+ assert.match(app,/function freshLocalBoard\(fresh=freshLocalGame\(game,nextGameOptions\(localHandicap\)\)\)/);
+ assert.match(app,/game=fresh;currentGameId=null;currentRevision=null;\s*save\(\);show\(\);requestAnalysis\(\);/);
 });
 test("settings button shows a toothed gear and is labeled",()=>{
   const gear=html.slice(html.indexOf('id="settingsToggle"'),html.indexOf('</button>',html.indexOf('id="settingsToggle"')));
@@ -141,7 +144,7 @@ test("settings button shows a toothed gear and is labeled",()=>{
 });
 
 test("reset discards endgame and dead-stone hints",()=>{
-  const block=app.slice(app.indexOf("function freshLocalBoard()"),app.indexOf("function startLocalGame()"));
+  const block=app.slice(app.indexOf("function freshLocalBoard("),app.indexOf("function startLocalGame()"));
   assert.match(block,/endgameAdvisor\.reset\(\)/);
   assert.match(block,/deadReview="idle"/);
   assert.match(block,/deadEvaluation=null/);
@@ -159,7 +162,30 @@ test("the 新規対戦 sheet offers a way back to the current or an unfinished s
   assert.match(app,/if\(target\.mode\)\{resumeModeGame\(target\.mode\);return;\}/);
 });
 test("every new game takes its options from nextGameOptions, so a new option is added in one place",()=>{
- const starts=app.match(/game=(newGame\(true,|freshLocalGame\(game,)[^;]*;/g);
+ const starts=app.match(/(game=newGame\(true,|startAiGame\(newGame\(true,|fresh=freshLocalGame\(game,)[^;]*;/g);
  assert.equal(starts.length,3);
  for(const start of starts)assert.match(start,/nextGameOptions\((local|online|ai)Handicap\)/);
+ // もう一局 replays the finished game's own options instead of the sheet's.
+ assert.match(app,/startAiGame\(initialGame\(game\),watching,/);
+ assert.match(app,/freshLocalBoard\(initialGame\(game\)\);/);
+});
+test("every mode's start button reads 新しい対局を始める and stays at the bottom of the sheet",()=>{
+ assert.equal(TEXT.newGame.start,"新しい対局を始める");
+ assert.match(app,/function startLabel\(\)\{return continueFrom\?TEXT\.review\.continue:TEXT\.newGame\.start;\}/);
+ assert.match(app,/\$\("copy"\)\.textContent=!room\?TEXT\.newGame\.start:/);
+ assert.match(css,/\.mode-panel #localSetup,\.mode-panel #aiSetup,\.mode-panel #onlineStart\{[^}]*position:sticky/);
+ // 対友人's button is its own section, so it can stick like the others.
+ assert.match(html,/<section id="onlineStart" class="settings-section" hidden>\s*<button id="copy"/);
+});
+test("the 時間 tab holds the clock and 観戦's speed, each greyed out where the mode does not use it",()=>{
+  const time=panel("Time");
+  assert.ok(time.indexOf('id="timeControlSetup"')>=0 && time.indexOf('id="timeControlSetup"')<time.indexOf('id="watchSpeedRow"'));
+  assert.doesNotMatch(panel("Rules"),/id="mainTime"|id="byoyomi"/);
+  assert.doesNotMatch(panel("Side"),/name="watchSpeed"/);
+  assert.match(app,/const untimedRules=kind=>gameRules==="free" \|\| kind==="online" \|\| kind==="ai" && watchChoice;/);
+  // 観戦 runs without a clock; its tab value is the speed.
+  assert.match(app,/startAiGame\(newGame\(true,\{\.\.\.nextGameOptions\(aiHandicap\),\.\.\.\(watchChoice\?\{timeControl:null\}:\{\}\)\}\),watchChoice,aiSideChoice\);/);
+  assert.equal(TEXT.newGame.timeValue("","") ,"なし");
+  assert.equal(TEXT.newGame.timeValue("10分","30秒"),"10分+30秒");
+  assert.equal(TEXT.newGame.timeValue("","30秒"),"秒読み30秒");
 });

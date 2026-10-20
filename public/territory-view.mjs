@@ -42,6 +42,14 @@ export function setCustomColours(value) {
   custom = colours(...list);
   return true;
 }
+// The swatches offered for each colour of the custom map, from the presets
+// and ColorBrewer's diverging schemes; any other colour can still be picked.
+export const PALETTE_COLOUR_CHOICES = Object.freeze({
+  whiteSettled:Object.freeze(["#e66101","#00b373","#f6f9ff","#d7301f","#1b7837","#b35806"]),
+  whiteLeaning:Object.freeze(["#fdb863","#74ca97","#f6f9ff","#fc8d59","#a6dba0","#f1a340"]),
+  blackLeaning:Object.freeze(["#92c5de","#ffbdf4","#161a22","#91bfdb","#c2a5cf","#998ec3"]),
+  blackSettled:Object.freeze(["#0571b0","#ca69c8","#161a22","#4575b4","#762a83","#542788"])
+});
 export const OPACITY_SHAPES = Object.freeze(["V","U"]);
 export const DEFAULT_OPACITY_SHAPE = "V";
 let shape = DEFAULT_OPACITY_SHAPE;
@@ -119,6 +127,14 @@ export function countingGradient(palette = DEFAULT_PALETTE, opacity = 1) {
     "linear-gradient(90deg,"+fill(white)+" 0 33%,transparent 33% 67%,"+fill(black)+" 67% 100%)";
 }
 export const NEUTRAL_MARK = "rgba(96,92,84,.85)";
+// 日本式: prisoners filled into territory and the アゲハマ counter wear the
+// colour of the side that took them, so each block reads as that side's
+// points and shows against the area it sits in. `white` outlines White stones
+// (Black's prisoners), so it is Black's colour, and the other way round.
+export function prisonerOutline(palette = DEFAULT_PALETTE) {
+  const {white,black} = coloursFor(countingPalette(palette));
+  return {white:hex(black.rgb),black:hex(white.rgb)};
+}
 export function interpolateOwnership(from,to,progress) {
   const t=clamp(progress,0,1);
   if (!Array.isArray(to) || ![81,169,361].includes(to.length)) throw new Error("Invalid ownership map");

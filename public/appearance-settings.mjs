@@ -1,5 +1,16 @@
-import { DEFAULT_PALETTE, isPaletteChoice, normalizePalette, showsOwnership, countingPalette, paletteGradient, countingGradient, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
-import { DEFAULT_BOARD_THEME, isBoardTheme, surfaceCss, boardTheme as boardLook } from "./board-theme.mjs";
+import { DEFAULT_PALETTE, PALETTE_COLOUR_CHOICES, isPaletteChoice, normalizePalette, showsOwnership, countingPalette, paletteGradient, countingGradient, PALETTE_CUSTOM, COLOUR_KEYS, paletteColours, setCustomColours, setOpacityShape, opacityShape, DEFAULT_OPACITY_SHAPE } from "./territory-view.mjs";
+import {
+  BOARD_COLOUR_CHOICES,
+  BOARD_COLOUR_KEYS,
+  BOARD_CUSTOM,
+  boardColours,
+  boardTheme as boardLook,
+  DEFAULT_BOARD_THEME,
+  isBoardTheme,
+  setCustomBoardColours,
+  surfaceCss,
+} from "./board-theme.mjs";
+import { TEXT } from "./texts.mjs";
 
 // The 設定 sheet's 碁盤 and 地合いの表示 groups: the board look, the colour
 // map, its opacity and curve, kept in localStorage, plus the legend and the
@@ -16,6 +27,8 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
   // The player's own colours and the opacity curve live in territory-view.
   try{setCustomColours(JSON.parse(stored("miego-custom-colours")||"null"));}catch{}
   setOpacityShape(stored("miego-opacity-shape"));
+  // The player's own board colours live in board-theme.
+  try{setCustomBoardColours(JSON.parse(stored("miego-board-colours")||"null"));}catch{}
   const storedBoardTheme = stored("miego-board");
   let boardTheme = isBoardTheme(storedBoardTheme) ? storedBoardTheme : DEFAULT_BOARD_THEME;
   const storedOpacity = stored("miego-opacity")===null ? NaN : Number(stored("miego-opacity"));
@@ -32,6 +45,7 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
       const wasOn=overlayOn();
       palette=isPaletteChoice(e.target.value)?e.target.value:DEFAULT_PALETTE;
       store("miego-palette",palette);
+      setEditing(palette===PALETTE_CUSTOM?"palette":null);
       fillColourInputs();updateGradient();show();
       if(wasOn!==overlayOn())onOverlayOn();
     };
@@ -41,25 +55,96 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
       if (!e.target.checked) return;
       boardTheme=isBoardTheme(e.target.value)?e.target.value:DEFAULT_BOARD_THEME;
       store("miego-board",boardTheme);
+      setEditing(boardTheme===BOARD_CUSTOM?"board":null);
       updateGradient();draw();
     };
   });
-  // The colour pickers show the chosen map; editing one turns it into "カスタム".
-  function fillColourInputs(){
-    const shown=paletteColours(showsOwnership(palette)?palette:PALETTE_CUSTOM);
-    for(const key of COLOUR_KEYS)$("colour-"+key).value=shown[key];
+  // Changing カスタム's colours: the sheet shrinks to that group's swatches
+  // until 完了, so the board stays in view. Choosing カスタム opens it;
+  // 色を変える opens it again later.
+  let editing=null;
+  const editGroups={board:"customBoardColours",palette:"customPaletteColours"};
+  function setEditing(which){
+    editing=which;
+    $("settingsPanel").classList.toggle("is-editing",!!which);
+    for(const [name,id] of Object.entries(editGroups)){
+      $(id).hidden=editing!==name;
+      $(id).closest?.(".settings-section")?.classList.toggle("has-editing",editing===name);
+    }
+    document.body?.classList.toggle("colour-editing",!!which);
+    $("editBoardColours").hidden=!!which || boardTheme!==BOARD_CUSTOM;
+    $("editPaletteColours").hidden=!!which || palette!==PALETTE_CUSTOM;
   }
-  for(const key of COLOUR_KEYS)$("colour-"+key).oninput=()=>{
-    const wasOn=overlayOn();
-    const chosen=Object.fromEntries(COLOUR_KEYS.map(k=>[k,$("colour-"+k).value]));
+  $("editBoardColours").onclick=()=>setEditing("board");
+  $("editPaletteColours").onclick=()=>setEditing("palette");
+  for(const id of Object.values(editGroups))$(id).querySelector?.("[data-done]")?.addEventListener("click",()=>setEditing(null));
+  // Closing the sheet ends the editing, so it opens whole next time.
+  for(const id of ["closeSettings","settingsBackdrop"])$(id).addEventListener?.("click",()=>setEditing(null));
+  // Each custom colour is a row of swatches that apply at once; only the last
+  // button, "＋", opens the device's colour picker, so a stray tap never
+  // brings up a dialog. Used by カスタム on the board and on the colour map.
+  function colourRow(row,item,choices,pick){
+    if(!row.append)return {chips:[],other:{}};
+    const label=document.createElement("span");
+    label.className="colour-row-label";label.textContent=item;label.setAttribute("aria-hidden","true");
+    const chips=choices.map((colour,i)=>{
+      const chip=document.createElement("button");
+      chip.type="button";chip.className="colour-chip";chip.dataset.colour=colour;
+      chip.style.backgroundColor=colour;chip.setAttribute("role","radio");
+      chip.setAttribute("aria-label",TEXT.settings.colourChoice(item,i+1));
+      chip.onclick=()=>pick(colour);
+      return chip;
+    });
+    const other=document.createElement("label");
+    other.className="colour-chip colour-other";other.title=TEXT.settings.otherColour(item);
+    const input=document.createElement("input");
+    input.type="color";input.setAttribute("aria-label",TEXT.settings.otherColour(item));
+    input.oninput=()=>pick(input.value);
+    other.append(input);
+    row.append(label,...chips,other);
+    return {chips,other,input};
+  }
+  // Marks the chosen swatch; a colour of the player's own shows on "＋".
+  function markColourRow({chips,other,input},colour){
+    let preset=false;
+    for(const chip of chips){
+      const on=chip.dataset.colour===colour;
+      preset||=on;
+      chip.setAttribute("aria-checked",String(on));
+    }
+    if(input)input.value=colour;
+    other.classList?.toggle("is-chosen",!preset);
+    if(other.style)other.style.backgroundColor=preset?"":colour;
+  }
+  const boardRows=Object.fromEntries(BOARD_COLOUR_KEYS.map(key=>[key,
+    colourRow($("boardColour-"+key),TEXT.settings.boardColours[key],BOARD_COLOUR_CHOICES[key],colour=>pickBoardColour(key,colour))]));
+  function pickBoardColour(key,colour){
+    const chosen={...boardColours(BOARD_CUSTOM),[key]:colour};
+    if(!setCustomBoardColours(chosen))return;
+    store("miego-board-colours",JSON.stringify(chosen));
+    updateGradient();draw();
+  }
+  function markBoardColours(){
+    const custom=boardColours(BOARD_CUSTOM);
+    for(const key of BOARD_COLOUR_KEYS)markColourRow(boardRows[key],custom[key]);
+  }
+
+  // The ramp's dots show the chosen map; カスタム adds a row of swatches per colour.
+  const paletteRows=Object.fromEntries(COLOUR_KEYS.map(key=>[key,
+    colourRow($("paletteColour-"+key),TEXT.settings.paletteColours[key],PALETTE_COLOUR_CHOICES[key],colour=>pickPaletteColour(key,colour))]));
+  function pickPaletteColour(key,colour){
+    const chosen={...paletteColours(PALETTE_CUSTOM),[key]:colour};
     if(!setCustomColours(chosen))return;
     store("miego-custom-colours",JSON.stringify(chosen));
-    palette=PALETTE_CUSTOM;
-    store("miego-palette",palette);
-    check("palette",PALETTE_CUSTOM);
-    updateGradient();show();
-    if(!wasOn)onOverlayOn();
-  };
+    fillColourInputs();updateGradient();show();
+  }
+  function fillColourInputs(){
+    const shown=paletteColours(showsOwnership(palette)?palette:PALETTE_CUSTOM);
+    for(const key of COLOUR_KEYS)$("colour-"+key).style.backgroundColor=shown[key];
+    setEditing(editing==="palette" && palette!==PALETTE_CUSTOM ? null : editing);
+    const custom=paletteColours(PALETTE_CUSTOM);
+    for(const key of COLOUR_KEYS)markColourRow(paletteRows[key],custom[key]);
+  }
   document.querySelectorAll('input[name="opacityShape"]').forEach(input=>{
     input.onchange=e=>{
       if(!e.target.checked)return;
@@ -118,7 +203,16 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
       swatch.style.backgroundColor=surface;
       swatch.style.backgroundImage=onBoardStrip(showsOwnership(name)?paletteGradient(name,opacity):null);
     });
-    canvas.closest(".board-frame")?.setAttribute("data-board-theme",boardTheme);
+    setEditing(editing==="board" && boardTheme!==BOARD_CUSTOM ? null : editing);
+    markBoardColours();
+    const custom=boardColours(BOARD_CUSTOM),swatch=$("customBoardSwatch");
+    swatch.style.setProperty("--sw-board",custom.board);
+    swatch.style.setProperty("--sw-line",custom.line);
+    swatch.style.setProperty("--sw-black",custom.black);
+    swatch.style.setProperty("--sw-white",custom.white);
+    const frame=canvas.closest(".board-frame");
+    frame?.setAttribute("data-board-theme",boardTheme);
+    frame?.style.setProperty("--board-colour",custom.board);
   }
   // The controls start on the remembered choices.
   function check(name,value){

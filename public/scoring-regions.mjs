@@ -11,8 +11,6 @@ import {
   sizeOf,
 } from "./core.mjs";
 
-/** Outline colours of the filled-in prisoners, shared by the board and the アゲハマ counter. */
-export const PRISONER_OUTLINE=Object.freeze({black:"#e0a03a",white:"#3aaec4"});
 import { TEXT } from "./texts.mjs";
 
 /** Area-scoring overlay: connected same-color groups AFTER adding owned

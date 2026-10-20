@@ -70,7 +70,10 @@ test("resignation is a visible button with inline two-tap safety",()=>{
 test("finished view exposes next match and history without hidden menus",()=>{
   assert.match(html,/id="newMatch"/);
   assert.match(html,/id="openHistory"/);
-  assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished/);
+  // 新規対戦 opens the sheet; もう一局 plays the same game again, except with a friend.
+  assert.match(html,/<button id="newMatchSheet" class="secondary"[^>]*>新規対戦<\/button>\s*<button id="newMatch" class="primary"[^>]*>もう一局<\/button>/);
+  assert.match(app,/\$\("newMatchSheet"\)\.hidden=!isFinished/);
+  assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished \|\| !!room/);
   assert.match(app,/\$\("openHistory"\)\.hidden=!isFinished/);
 });
 
@@ -117,7 +120,8 @@ test("solo prompt hides the second gold button without shifting the action row",
   assert.match(app,/\$\("actionRow"\)\.classList\.toggle\("end-prompt-open",localPrompt\)/);
   assert.match(css,/\.action-row\.end-prompt-open #confirm\{visibility:hidden\}/);
   // Opening the prompt drops any provisional stone; tapping the board means "keep playing".
-  assert.match(app,/candidate=null;illegalCandidate=null;illegalPromptCopied=false;[\s\S]{0,80}endExpanded=true;show\(\)/);
+  assert.match(app,/clearProvisional\(\);[\s\S]{0,80}endExpanded=true;show\(\)/);
+  assert.match(app,/function clearProvisional\(\) \{\s*candidate=null;illegalCandidate=null;illegalPromptCopied=false;/);
   assert.match(app,/if\(!room && endExpanded\)endExpanded=false;/);
 });
 test("AI scoring waits for a computing move instead of pausing the AI",()=>{

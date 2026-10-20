@@ -67,7 +67,7 @@ test("replay does not write moves to an active live or P2P session",()=>{
   assert.match(app,/const updates=source==="live"/);
 });
 test("saved records open directly on the main board from the saved-game entries",()=>{
-  assert.match(html,/id="openHistoryFromNew"[^>]*><span>[\s\S]*?<strong>履歴<\/strong><\/span><\/label>/);
+  assert.match(html,/id="openHistoryFromNew"[^>]*><span>[\s\S]*?<strong>対戦履歴を見る<\/strong><\/span><\/label>/);
   assert.match(app,/if\(kind==="history"\)historyPanel\.showHistory\(\);/);
   assert.match(app,/enterBoardReview\(record\.snapshot,count,"archive",record\.sgfMeta,record\)/);
 });
@@ -141,7 +141,7 @@ test("one primary slot in the replay row starts a game from the shown position",
   assert.doesNotMatch(html,/id="continuePanel"|name="continueKind"/);
   assert.match(app,/openPanel\(fromLocal \|\| !canContinueWithAi\(\)\?"local":"ai"\)/);
   assert.match(app,/if\(continueFrom\)\{forkBoardReview\("ai"\);return;\}/);
-  assert.match(app,/watching=ai && watchChoice;/);
+  assert.match(app,/setWatching\(ai && watchChoice\);/);
   // The record fixes the board and rules; a friend game and 履歴 cannot start from a position.
   assert.match(app,/input\.value==="online" \|\| input\.value==="history"/);
   assert.match(app,/\["boardSize",sizeOf\(line\.board\)\],\["gameRules",rulesOf\(line\)\]/);

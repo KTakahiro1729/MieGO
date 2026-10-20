@@ -195,6 +195,18 @@ export const TEXT = {
     thinkMove: "次の一手を計算中",
     thinkReading: (depth, percent, seconds) => depth + "手先を読み中 " + percent + "%" + (seconds ? "・約" + seconds + "秒" : ""),
     yourTurnAi: "あなたの番です",
+    // The turn row's two players. A COM goes by its character name, with its strength under it.
+    you: "あなた",
+    opponent: "相手",
+    black: "黒",
+    white: "白",
+    playersLabel: "対局者",
+    toMove: "打つ番です",
+    comThinking: "考え中",
+    // 最強's side of the turn row has about 80px on a 320px phone; the full line is read out.
+    sideDownloading: percent => "読込中 " + percent + "%",
+    sidePreparing: "準備中",
+    sideReading: percent => "考え中 " + percent + "%",
     watchPause: "一時停止",
     watchResume: "再開",
     // While watching: stepping in lets the viewer place the next stone; × goes back to watching.
@@ -219,8 +231,9 @@ export const TEXT = {
     capturesLabel: "アゲハマ",
     captures: (black, white) => "アゲハマ　黒 " + black + "　白 " + white,
     capturesAria: (black, white) => "アゲハマ：黒が取った石" + black + "、白が取った石" + white,
-    newMatchOnline: "新しい対局",
-    newMatchLocal: "もう一局",
+    // After a game: 新規対戦 opens the sheet; もう一局 starts the same game again at once.
+    rematch: "もう一局",
+    rematchAria: "同じ設定でもう一局",
     hintIllegal: "禁止手の仮置き中。確定せず、理由を質問する文をコピーできます",
     hintCandidate: "仮置き中。確定か取り消しを選べます",
     hintScoring: "盤上の石をタップすると死石を指定できます",
@@ -339,7 +352,6 @@ export const TEXT = {
     ready: "KataGo準備完了。AI対局を開始できます。",
     startUnavailable: "AIを使えません",
     startLoading: "KataGo準備中…",
-    restart: "新しい対局を始める",
     preparing: "準備中…",
     preparingMatch: "対局を準備しています…",
     started: colorLabel => "対局を開始しました。あなたは" + colorLabel + "です。",
@@ -375,7 +387,6 @@ export const TEXT = {
   online: {
     colorBlack: "黒番",
     colorWhite: "白番",
-    prepareInvite: "招待リンクを準備する",
     renewInvite: "新しい設定で招待リンクを作り直す",
     copyInvite: "招待リンクをコピー",
     checkpointFailed: "このページを閉じずに対局してください。この端末に保存できませんでした。",
@@ -605,12 +616,19 @@ export const TEXT = {
     close: "設定を閉じる",
     reset: "初期状態に戻す",
     board: "碁盤",
-    themes: { wood: "木目", light: "ライト", dark: "ダーク" },
+    themes: { wood: "木目", light: "ライト", dark: "ダーク", custom: "カスタム" },
+    boardColours: { board: "盤", line: "線", black: "黒石", white: "白石" },
+    customBoardColours: "盤の色（カスタム）",
+    editColours: "色を変える",
+    done: "完了",
+    colourChoice: (item, n) => item + "の色 " + n,
+    otherColour: item => item + "をほかの色に",
     ownership: "地合いの表示",
     palette: "配色",
     palettes: { mono: "白〜黒", greenPurple: "緑〜紫", custom: "カスタム", none: "表示しない" },
     colour: "色",
-    colourNote: "丸をタップして変えると「カスタム」に",
+    customPaletteColours: "地合いの色（カスタム）",
+    paletteColours: { whiteSettled: "白の地", whiteLeaning: "白寄り", blackLeaning: "黒寄り", blackSettled: "黒の地" },
     whiteSettled: "白の地（確定）の色",
     whiteLeaning: "白寄りの色",
     blackLeaning: "黒寄りの色",
@@ -629,15 +647,15 @@ export const TEXT = {
 
   newGame: {
     title: "新規対戦",
-    history: "履歴",
+    history: "対戦履歴を見る",
     ai: "対COM",
     online: "対友人",
     board: "盤",
     sizes: { 9: "9路", 13: "13路", 19: "19路" },
     mySide: "自分の石",
-    // 観戦 is a mode of its own: two COMs play, at the speed chosen under its first tab.
+    // 観戦 is a mode of its own: two COMs play, at the speed chosen under the 時間 tab.
     watch: "観戦",
-    watchSpeed: "速さ",
+    watchSpeedHead: "観戦の速さ",
     watchSpeeds: { slow: "ゆっくり", normal: "ふつう", fast: "はやい" },
     watchSpeedNotes: {
       slow: "一手ごとに2秒ほど置きます。",
@@ -673,9 +691,14 @@ export const TEXT = {
       random: "黒か白かを対局ごとにくじで決めます。",
       white: "あとから打ちます。",
       local: "1台で打つでは、黒と白を交互に打ちます。",
+      watch: "観戦では、黒も白もCOMが打ちます。",
     },
     hideStones: "石を隠す（地合いだけ表示）",
-    // 持ち時間 and 秒読み on one row at 320px; both なし plays without a clock.
+    // The 時間 tab: 持ち時間 and 秒読み on one row at 320px (both なし plays without a clock),
+    // then 観戦's speed. Under the tab's name, what the chosen mode uses.
+    time: "時間",
+    timeHead: "持ち時間と秒読み",
+    timeValue: (main, byoyomi) => !main && !byoyomi ? "なし" : !byoyomi ? main : !main ? "秒読み" + byoyomi : main + "+" + byoyomi,
     mainTime: "持ち時間",
     mainTimes: { 0: "なし", 60: "1分", 300: "5分", 600: "10分", 1200: "20分", 1800: "30分" },
     byoyomi: "秒読み",
@@ -683,7 +706,8 @@ export const TEXT = {
     gomokuForbidden: "禁じ手あり（五目並べ）",
     gomokuForbiddenNote: "黒だけ三三・四四・長連を打てなくなります。先手の黒が強すぎるのを抑える連珠のルールです。",
     hideStonesNote: "石を描かず、地合いの色だけで盤面を読みます。この対局の間は変えられず、対友人では相手の画面も同じになります。整地になると石が現れます。",
-    start: "対局を始める",
+    // The start button of every mode, 対友人 included (it makes the invitation).
+    start: "新しい対局を始める",
   },
 
   help: {
@@ -735,6 +759,7 @@ export const TEXT = {
         "数字は石と地の合計です。",
         "色は対局中の地合いと同じ配色で、確定した地を示します。小さな輪は、どちらの地でもない「中立」の点です。",
         "納得したら「この計算に同意」で確定します。対友人は2人とも同意すると確定します。",
+        "終局後の「もう一局」は、盤・ルール・置き石と、対COMならCOMと自分の石の選び方も同じにして、すぐ次の対局を始めます。設定を変えるときは「新規対戦」を押します。対友人は「新規対戦」から招待し直します。",
       ],
     },
     illegal: {
@@ -784,13 +809,13 @@ export const TEXT = {
         "「最強」の名人は、対局を始めたときに強いKataGo（約100MB、9路は9路専用のもの）を読み込みます。ふだんは読まずにKataGoが一番よいとする手を打ち、形勢が悪いときだけ読みます。2目以上負けているなら候補手を8手打ってみて、6目以上なら上位5手それぞれに相手の応手3手まで読んで、目数差が一番よくなる手を選びます。打ち方の好みは使いません。",
         "打ち方の好みは4つです。侵入度は相手の地に入るか、攻守は相手の石を攻めるか自分の石を守るか、高さは序盤に低く地を取るか高く勢力を作るか、応じ方は相手の手の近くで応じるか離れて打つかです。キャラは読みをせず、KataGoの候補のうち好みに合う手を少し選びやすくするだけなので、違いは手の2〜3割に出ます。",
         "「カスタム」を選ぶと、強さと4つの好みを自分で決められます。",
-        "「新規対戦」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。黒と白それぞれのCOMのキャラは「COMのキャラ」タブで決めます。手の間に置く間は「速さ」タブで決め、「一時停止」でいつでも止められ、◁でさかのぼると一時停止して形勢グラフを見られます。「介入する」を押してから盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。",
+        "「新規対戦」で「観戦」を選ぶと、黒も白もCOMが打ち、その対局を眺められます。黒と白それぞれのCOMのキャラは「COMのキャラ」タブで決めます。手の間に置く間は「時間」タブの「観戦の速さ」で決め、「一時停止」でいつでも止められ、◁でさかのぼると一時停止して形勢グラフを見られます。「介入する」を押してから盤をタップすると、その手番の石を仮置きできます。「ここに打つ」で確定するとその色を引き継いでCOMと対戦を続け、×を押すと観戦に戻ります。",
       ],
     },
     online: {
       summary: "対友人",
       items: [
-        "「招待リンクを準備する」を押し、もう一度押すと招待URLをコピーできます。友人に送って開いてもらえば対局が始まります。",
+        "「新しい対局を始める」を押すと招待URLができ、もう一度押すとコピーできます。友人に送って開いてもらえば対局が始まります。",
         "対局中に招待URLをもう一度見るときは、「新規対戦」を開きます。",
         "新しい対局を作るときなどに、ロボットでないことの確認が出ることがあります。",
         "アドレスバーのURLには参加用の鍵を残しません。同じブラウザなら開き直すだけで続きから再開できます。別の端末で続けるときは「別の端末で続ける」から自分用の再入室リンクをコピーしてください。",
@@ -802,7 +827,7 @@ export const TEXT = {
       items: [
         "対局は自動で保存されます。保存先はこの端末のブラウザなので、ほかの端末では見られません。",
         "新規対戦で対局を始めても、それまでの対局は「履歴」に残ります。",
-        "新規対戦の「履歴」で棋譜を選ぶと再生できます。盤をタップすると別の手を試せます。",
+        "新規対戦の「対戦履歴を見る」で棋譜を選ぶと再生できます。盤をタップすると別の手を試せます。",
         "再生中は盤の下の「ここから打つ」で、新規対戦と同じシートが開き、表示中の局面から対COM・観戦・1台で続けられます（盤とルールは元の対局のまま）。履歴の対局の最後の局面では、終局していなければ「続きを打つ」で再開できます。",
         "「SGFファイルを読み込む」でほかのアプリの棋譜も開けます。",
         "保存容量がいっぱいになると、古い棋譜から自動で削除されます。残したい棋譜は「履歴」の☆でお気に入りにしてください。お気に入りと、いま打っている対局・途中の1台／AI対局は削除されません。",

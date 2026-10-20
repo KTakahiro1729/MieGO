@@ -78,7 +78,12 @@
           <button id="stepBack" class="icon-button step-button" type="button" aria-label="{{review.previous}}" title="{{review.previous}}" disabled><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
           <div class="status-main">
             <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
-            <div class="status-sub"><span id="moveLabel" class="move-label">{{game.moveLabel(0)}}</span><span id="gameClock" class="game-clock" aria-label="{{game.clockLabel}}" hidden><span class="clock-stone black" aria-hidden="true"></span><span id="clockBlack" class="clock-time"></span><span class="clock-stone white" aria-hidden="true"></span><span id="clockWhite" class="clock-time"></span></span><span id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</span></div>
+            <div class="status-sub"><span id="moveLabel" class="move-label">{{game.moveLabel(0)}}</span><span id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</span></div>
+            <div id="players" class="players" aria-label="{{game.playersLabel}}" hidden>
+              <div id="playerBlack" class="player black"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockBlack" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
+              <span id="playersMove" class="players-move"></span>
+              <div id="playerWhite" class="player white"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockWhite" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
+            </div>
           </div>
           <button id="stepForward" class="icon-button step-button" type="button" aria-label="{{review.next}}" title="{{review.next}}" disabled><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
         </div>
@@ -123,7 +128,8 @@
           </div>
           <button id="openHistory" class="secondary" type="button" hidden>{{help.history.summary}}</button>
           <button id="confirm" class="primary" type="button" disabled><span id="confirmStone" class="button-stone" aria-hidden="true"></span>{{common.playHere}}</button>
-          <button id="newMatch" class="primary" type="button" hidden>{{game.newMatchLocal}}</button>
+          <button id="newMatchSheet" class="secondary" type="button" hidden>{{header.newGame}}</button>
+          <button id="newMatch" class="primary" type="button" aria-label="{{game.rematchAria}}" title="{{game.rematchAria}}" hidden>{{game.rematch}}</button>
           <button id="watchIntervene" class="secondary" type="button" hidden>{{game.watchIntervene}}</button>
           <button id="watchToggle" class="primary" type="button" aria-pressed="false" hidden>{{game.watchPause}}</button>
         </div>
@@ -157,7 +163,16 @@
           <label class="palette-choice"><input type="radio" name="boardTheme" value="wood" checked><span class="board-swatch wood"></span><span>{{settings.themes.wood}}</span></label>
           <label class="palette-choice"><input type="radio" name="boardTheme" value="light"><span class="board-swatch light"></span><span>{{settings.themes.light}}</span></label>
           <label class="palette-choice"><input type="radio" name="boardTheme" value="dark"><span class="board-swatch dark"></span><span>{{settings.themes.dark}}</span></label>
+          <label class="palette-choice"><input type="radio" name="boardTheme" value="custom"><span class="board-swatch custom" id="customBoardSwatch"></span><span>{{settings.themes.custom}}</span></label>
         </fieldset>
+        <button id="editBoardColours" class="edit-colours" type="button" hidden>{{settings.editColours}}</button>
+        <div class="setting-group custom-colours" id="customBoardColours" hidden>
+          <div class="custom-colours-head"><span>{{settings.customBoardColours}}</span><button class="done-button" type="button" data-done>{{settings.done}}</button></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.boardColours.board}}" id="boardColour-board"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.boardColours.line}}" id="boardColour-line"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.boardColours.black}}" id="boardColour-black"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.boardColours.white}}" id="boardColour-white"></div>
+        </div>
       </section>
       <section class="settings-section ownership-settings" id="ownershipSettings">
         <h3>{{settings.ownership}}<button class="help-button" type="button" data-help="ownership" aria-label="{{common.helpFor(help.ownership)}}" title="{{common.helpFor(help.ownership)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></h3>
@@ -168,20 +183,28 @@
           <label class="palette-choice"><input type="radio" name="palette" value="custom"><span class="swatch" data-palette="custom"></span><span>{{settings.palettes.custom}}</span></label>
           <label class="palette-choice"><input type="radio" name="palette" value="none"><span class="swatch" data-palette="none"></span><span>{{settings.palettes.none}}</span></label>
         </fieldset>
+        <button id="editPaletteColours" class="edit-colours" type="button" hidden>{{settings.editColours}}</button>
         <div class="setting-group ownership-tuning">
-          <div class="setting-label" id="colourLabel">{{settings.colour}}<span class="setting-note">{{settings.colourNote}}</span></div>
+          <div class="setting-label" id="colourLabel">{{settings.colour}}</div>
           <div class="ramp" role="group" aria-labelledby="colourLabel">
             <div class="ramp-ends" aria-hidden="true"><span class="ramp-stone white"></span><span>{{common.whiteArea}}</span><span class="ramp-spacer"></span><span>{{common.blackArea}}</span><span class="ramp-stone black"></span></div>
             <div class="ramp-track">
               <div class="ramp-preview" id="rampPreview" aria-hidden="true"></div>
               <span class="ramp-neutral" aria-hidden="true"></span>
-              <label class="ramp-stop" style="--at:0%"><input type="color" id="colour-whiteSettled" aria-label="{{settings.whiteSettled}}"></label>
-              <label class="ramp-stop" style="--at:27%"><input type="color" id="colour-whiteLeaning" aria-label="{{settings.whiteLeaning}}"></label>
-              <label class="ramp-stop" style="--at:73%"><input type="color" id="colour-blackLeaning" aria-label="{{settings.blackLeaning}}"></label>
-              <label class="ramp-stop" style="--at:100%"><input type="color" id="colour-blackSettled" aria-label="{{settings.blackSettled}}"></label>
+              <span class="ramp-stop" style="--at:0%" id="colour-whiteSettled" aria-hidden="true"></span>
+              <span class="ramp-stop" style="--at:27%" id="colour-whiteLeaning" aria-hidden="true"></span>
+              <span class="ramp-stop" style="--at:73%" id="colour-blackLeaning" aria-hidden="true"></span>
+              <span class="ramp-stop" style="--at:100%" id="colour-blackSettled" aria-hidden="true"></span>
             </div>
             <div class="ramp-captions" aria-hidden="true"><span style="--at:0%">{{settings.settled}}</span><span style="--at:27%">{{settings.leaning}}</span><span style="--at:50%">{{common.neutral}}</span><span style="--at:73%">{{settings.leaning}}</span><span style="--at:100%">{{settings.settled}}</span></div>
           </div>
+        </div>
+        <div class="setting-group ownership-tuning custom-colours" id="customPaletteColours" hidden>
+          <div class="custom-colours-head"><span>{{settings.customPaletteColours}}</span><button class="done-button" type="button" data-done>{{settings.done}}</button></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.whiteSettled}}" id="paletteColour-whiteSettled"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.whiteLeaning}}" id="paletteColour-whiteLeaning"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.blackLeaning}}" id="paletteColour-blackLeaning"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.blackSettled}}" id="paletteColour-blackSettled"></div>
         </div>
         <fieldset class="setting-group ownership-tuning shape-choices">
           <legend class="setting-label">{{settings.strength}}</legend>
@@ -222,7 +245,6 @@
     </aside>
     <aside id="modePanel" class="settings-panel mode-panel" role="dialog" aria-modal="true" aria-labelledby="modeTitle" hidden>
       <div class="settings-head"><h2 id="modeTitle">{{header.newGame}}</h2><span class="sheet-head-actions"><button class="help-button" type="button" data-help="local" aria-label="{{common.helpFor(newGame.title)}}" title="{{common.helpFor(newGame.title)}}" id="modeHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="closeMode" class="icon-button" type="button" aria-label="{{common.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span></div>
-      <button id="returnToGame" class="secondary accent-outline full return-to-game" type="button">{{history.returnCurrent}}</button>
       <section class="settings-section new-game-common">
         <div class="new-game-modes">
           <div class="fused">
@@ -233,16 +255,18 @@
           <div class="fused">
             <label><input type="radio" name="newGameMode" value="local"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><circle cx="10" cy="10" r="2" fill="currentColor"/><circle cx="14" cy="14" r="2"/></svg><strong>{{help.local.summary}}</strong></span></label>
           </div>
-          <div class="fused">
+          <div class="new-game-nav">
+            <button id="returnToGame" class="mode-button" type="button">{{history.returnCurrent}}</button>
             <label><input id="openHistoryFromNew" type="radio" name="newGameMode" value="history"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 3.5V8h4.5"/><path d="M12 7.5V12l3 2"/></svg><strong>{{newGame.history}}</strong></span></label>
           </div>
         </div>
         <div id="newGameSetup">
         <div class="setup-tabs" role="tablist" aria-label="{{newGame.setupTabs}}">
-          <button id="setupTabSide" class="setup-tab" type="button" role="tab" aria-selected="true" aria-controls="setupPanelSide"><span id="setupNameSide">{{newGame.mySide}}</span><small id="setupValueSide" class="setup-tab-value"></small></button>
+          <button id="setupTabSide" class="setup-tab" type="button" role="tab" aria-selected="true" aria-controls="setupPanelSide"><span>{{newGame.mySide}}</span><small id="setupValueSide" class="setup-tab-value"></small></button>
           <button id="setupTabStrength" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelStrength" tabindex="-1"><span>{{ai.strengthLabel}}</span><small id="setupValueStrength" class="setup-tab-value"></small></button>
           <button id="setupTabBoard" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelBoard" tabindex="-1"><span>{{newGame.board}}</span><small id="setupValueBoard" class="setup-tab-value"></small></button>
           <button id="setupTabRules" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelRules" tabindex="-1"><span>{{newGame.rules}}</span><small id="setupValueRules" class="setup-tab-value"></small></button>
+          <button id="setupTabTime" class="setup-tab" type="button" role="tab" aria-selected="false" aria-controls="setupPanelTime" tabindex="-1"><span>{{newGame.time}}</span><small id="setupValueTime" class="setup-tab-value"></small></button>
         </div>
         <div class="setup-panels">
           <div id="setupPanelSide" class="setup-panel" role="tabpanel" aria-labelledby="setupTabSide">
@@ -255,11 +279,6 @@
               <label class="choice-row"><input type="radio" name="onlineSide" value="black"><span class="choice">{{common.sideBlack}}</span><small class="choice-note">{{newGame.sideNotes.black}}</small></label>
               <label class="choice-row"><input type="radio" name="onlineSide" value="random" checked><span class="choice">{{common.random}}</span><small class="choice-note">{{newGame.sideNotes.random}}</small></label>
               <label class="choice-row"><input type="radio" name="onlineSide" value="white"><span class="choice">{{common.sideWhite}}</span><small class="choice-note">{{newGame.sideNotes.white}}</small></label>
-            </fieldset></div>
-            <div id="watchSpeedRow" hidden><fieldset class="choice-list speed-list">
-              <label class="choice-row"><input type="radio" name="watchSpeed" value="slow"><span class="choice">{{newGame.watchSpeeds.slow}}</span><small class="choice-note">{{newGame.watchSpeedNotes.slow}}</small></label>
-              <label class="choice-row"><input type="radio" name="watchSpeed" value="normal" checked><span class="choice">{{newGame.watchSpeeds.normal}}</span><small class="choice-note">{{newGame.watchSpeedNotes.normal}}</small></label>
-              <label class="choice-row"><input type="radio" name="watchSpeed" value="fast"><span class="choice">{{newGame.watchSpeeds.fast}}</span><small class="choice-note">{{newGame.watchSpeedNotes.fast}}</small></label>
             </fieldset></div>
             <p id="sideNote" class="explanation setup-note"></p>
           </div>
@@ -332,14 +351,23 @@
               </select>
             </div>
             <p id="handicapNote" class="explanation" hidden></p>
+            <div id="gomokuForbiddenRow" class="mode hide-stones"><div><strong>{{newGame.gomokuForbidden}}</strong><p>{{newGame.gomokuForbiddenNote}}</p></div><input id="gomokuForbidden" type="checkbox" aria-label="{{newGame.gomokuForbidden}}"></div>
+            <div id="hideStonesRow" class="mode hide-stones"><div><strong>{{newGame.hideStones}}</strong><p>{{newGame.hideStonesNote}}</p></div><input id="hideStones" type="checkbox" aria-label="{{newGame.hideStones}}"></div>
+            </div>
+          </div>
+          <div id="setupPanelTime" class="setup-panel" role="tabpanel" aria-labelledby="setupTabTime" hidden>
+            <div class="setup-more"><p class="setup-more-head">{{newGame.timeHead}}</p>
             <div id="timeControlSetup" class="advanced-row time-control"><label for="mainTime">{{newGame.mainTime}}</label>
               <select id="mainTime" class="handicap-select"><option value="0">{{newGame.mainTimes.0}}</option><option value="60">{{newGame.mainTimes.60}}</option><option value="300">{{newGame.mainTimes.300}}</option><option value="600">{{newGame.mainTimes.600}}</option><option value="1200">{{newGame.mainTimes.1200}}</option><option value="1800">{{newGame.mainTimes.1800}}</option></select>
               <label for="byoyomi">{{newGame.byoyomi}}</label>
               <select id="byoyomi" class="handicap-select"><option value="0">{{newGame.byoyomis.0}}</option><option value="10">{{newGame.byoyomis.10}}</option><option value="30">{{newGame.byoyomis.30}}</option><option value="60">{{newGame.byoyomis.60}}</option></select>
             </div>
-            <div id="gomokuForbiddenRow" class="mode hide-stones"><div><strong>{{newGame.gomokuForbidden}}</strong><p>{{newGame.gomokuForbiddenNote}}</p></div><input id="gomokuForbidden" type="checkbox" aria-label="{{newGame.gomokuForbidden}}"></div>
-            <div id="hideStonesRow" class="mode hide-stones"><div><strong>{{newGame.hideStones}}</strong><p>{{newGame.hideStonesNote}}</p></div><input id="hideStones" type="checkbox" aria-label="{{newGame.hideStones}}"></div>
             </div>
+            <div id="watchSpeedRow" class="setup-more"><p class="setup-more-head">{{newGame.watchSpeedHead}}</p><fieldset id="watchSpeedChoices" class="choice-list speed-list">
+              <label class="choice-row"><input type="radio" name="watchSpeed" value="slow"><span class="choice">{{newGame.watchSpeeds.slow}}</span><small class="choice-note">{{newGame.watchSpeedNotes.slow}}</small></label>
+              <label class="choice-row"><input type="radio" name="watchSpeed" value="normal" checked><span class="choice">{{newGame.watchSpeeds.normal}}</span><small class="choice-note">{{newGame.watchSpeedNotes.normal}}</small></label>
+              <label class="choice-row"><input type="radio" name="watchSpeed" value="fast"><span class="choice">{{newGame.watchSpeeds.fast}}</span><small class="choice-note">{{newGame.watchSpeedNotes.fast}}</small></label>
+            </fieldset></div>
           </div>
         </div>
         </div>
@@ -349,7 +377,6 @@
       </section>
       <section id="onlineSetup" class="settings-section" hidden>
         <div id="p2pVerify" hidden><p>{{online.verifyNote}}</p><div id="p2pTurnstile"></div></div>
-        <button id="copy" class="primary full" type="button">{{online.prepareInvite}}</button>
         <div id="inviteDetails" class="invite-details hidden">
           <label for="inviteUrl">{{online.inviteUrl}}</label><input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="{{online.inviteUrl}}">
           <button id="nativeShare" class="secondary full hidden" type="button">{{online.nativeShare}}</button>
@@ -362,6 +389,9 @@
           <input id="seatLinkFallback" type="text" readonly hidden autocomplete="off" spellcheck="false" aria-label="{{online.seatLinkField}}">
           <p id="seatLinkStatus" class="invite-status" role="status" aria-live="polite"></p>
         </details>
+      </section>
+      <section id="onlineStart" class="settings-section" hidden>
+        <button id="copy" class="primary full" type="button">{{newGame.start}}</button>
       </section>
       <section id="aiSetup" class="settings-section" hidden>
         <button id="startAi" class="primary full" type="button" disabled>{{ai.preparing}}</button>
