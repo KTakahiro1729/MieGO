@@ -13,3 +13,5 @@ GitHub revision and verified against the Git blob SHA-1
 7c87d9e1f4499b892974e78cac53dbf2ca84b84e.
 The model is the authors' approximately 3.8 MB test network and is unsuitable
 for strong Go analysis.
+MieGO serves it with its large weight blocks rounded to float16
+(src/katago/half-model.ts), which halves the download.
