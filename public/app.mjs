@@ -76,7 +76,7 @@ import { scoreBreakdown, scoreRows, PRISONER_OUTLINE } from "./scoring-regions.m
 import { createBoardZoom } from "./board-zoom.mjs";
 import {forbiddenLines,inspectProvisionalMove,makeIllegalMovePrompt} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
-import { GameLibrary } from "./game-library.mjs";
+import { cleanWatchAi, GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { createShareImages, downloadBlob } from "./share-images.mjs";
 import { OwnershipStore } from "./ownership-store.mjs";
@@ -194,6 +194,19 @@ let aiStrength = DEFAULT_AI_STRENGTH, aiHints = false, hints = null, takebackNot
 // What a friend's answer did to an end offer, shown once in the bar like takebackNotice.
 let endNotice = null;
 let aiSideChoice = "black";
+// COM同士 (aiSide "watch"): the AI plays both colours with a pause between
+// moves, so each one can be followed; the player can pause and resume it.
+let watching = false, watchPaused = false, watchTimer = null, lastWatchMoveAt = 0;
+// Each colour's COM when two COMs play.
+const newCom = (strength=DEFAULT_AI_STRENGTH, invasion=50, reinforcement=50) =>
+  ({strength,invasion,reinforcement});
+let watchAi = {black:newCom(), white:newCom()};
+const WATCH_STEP_MS = 1100;
+// A tap on the board while watching steps in: the COMs wait while the viewer
+// places a provisional stone for the side to move. ここに打つ takes that colour
+// over; × goes back to watching after a slightly longer pause.
+let intervening = false;
+const WATCH_RESUME_MS = 1800;
 let aiHandicap = 0, localHandicap = 0, onlineHandicap = 0;
 // The ruleset for the next new game, shared by every mode like the board size.
 let gameRules = "chinese";
@@ -375,15 +388,30 @@ function passNotice() {
   if(by===me)return {text:TEXT.endgame.passedSelf,second:false};
   return {text:room?TEXT.endgame.passedOpponent:TEXT.endgame.passedAi,second:true};
 }
-const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" && game.next === -humanColor;
+const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" &&
+  (watching ? !intervening : game.next === -humanColor);
 const isHumanTurn = () => room
   ? (connected && (myOnlineColor()!==null && game.next===myOnlineColor()))
-  : (gameMode !== "ai" || (game.next === humanColor && (isGomoku(game) || katagoReady && !fallbackMode)));
+  : (gameMode !== "ai" || ((isGomoku(game) || katagoReady && !fallbackMode) &&
+    (watching ? intervening : game.next === humanColor)));
+const isWatching = () => !room && gameMode === "ai" && watching;
 function stopAiTurn() {
   aiThinking = false; aiJob = null;
   analysisContext=null;deadEvaluation=null;
   pending = ++seq;
   clearTimeout(analysisTimer);
+  clearTimeout(watchTimer);watchTimer=null;
+}
+/** COM同士 asks for the next move only once the pause after the last one is
+ * over, and not at all while paused; meanwhile the board shows its estimate. */
+function watchDue() {
+  clearTimeout(watchTimer);watchTimer=null;
+  if(!watching)return true;
+  if(watchPaused){$("aiMatchStatus").textContent=TEXT.ai.watchPaused;return false;}
+  const wait=lastWatchMoveAt+WATCH_STEP_MS-performance.now();
+  if(wait<=0)return true;
+  watchTimer=setTimeout(requestAnalysis,wait);
+  return false;
 }
 // One remembered choice per line, in alphabetical order, so that two
 // branches adding different choices touch different lines.
@@ -404,6 +432,7 @@ function rememberSettings() {
       mode:gameMode,
       onlineHandicap,
       reinforcement,
+      watchAi,
     }));
   } catch {}
 }
@@ -429,10 +458,40 @@ function syncStepSlider(id) {
 // Invasion and reinforcement have three stops; older saves with any 0-100 value snap to the nearest.
 const personaStep=value=>Math.round(Math.max(0,Math.min(100,Number(value??50)||0))/50)*50;
 const personaLabel=value=>value<50?TEXT.ai.persona.low:value>50?TEXT.ai.persona.high:TEXT.ai.persona.mid;
+// The sheet's sliders set the COM opponent. With two COMs, 「AIの強さ」 sets both,
+// and 詳細設定 holds a card of choices for each colour's COM.
+// The sheet's side choice follows a watched game (see watchCurrentGame), so
+// the sliders always set what the next game, and a running one, use.
+const editsWatchAi = () => aiSideChoice==="watch";
+const COM_SLOTS = {Black:"black", White:"white"};
+const COM_FIELDS = {Invasion:"invasion", Reinforcement:"reinforcement", Strength:"strength"};
+function syncComCards() {
+  for(const [slot,side] of Object.entries(COM_SLOTS))
+    for(const [field,key] of Object.entries(COM_FIELDS)){
+      const input=document.querySelector('input[name="com'+slot+field+'"][value="'+watchAi[side][key]+'"]');
+      if(input)input.checked=true;
+    }
+}
+function syncWatchSliderRows() {
+  const two=editsWatchAi();
+  $("watchAiOptions").hidden=!two;
+  $("aiPersonaRows").hidden=two;
+  // Hints are for the player's own turn, which two COMs never have.
+  $("aiHintsRow").hidden=two;
+}
+function readWatchAi(value, fallback) {
+  const clean=cleanWatchAi(value);
+  if(!clean)return {black:{...fallback},white:{...fallback}};
+  for(const side of ["black","white"])
+    clean[side]={strength:normalizeStrength(clean[side].strength,DEFAULT_AI_STRENGTH),
+      invasion:personaStep(clean[side].invasion),reinforcement:personaStep(clean[side].reinforcement)};
+  return clean;
+}
 function updatePersonaUi() {
   $("aiInvasion").value=String(invasion);
   $("aiReinforcement").value=String(reinforcement);
   syncStepSlider("aiInvasion");syncStepSlider("aiReinforcement");
+  syncComCards();syncWatchSliderRows();
 }
 
 let displayedOwnership = null, transitionFrame = null;
@@ -542,6 +601,7 @@ function requestAnalysis() {
       $("aiMatchStatus").textContent = TEXT.ai.waitingLoad;
       show();return;
     }
+    if (!watchDue()) { requestOwnership(); show(); return; }
     const id = ++seq;
     pending=id;
     aiThinking=true;
@@ -551,6 +611,10 @@ function requestAnalysis() {
     postToWorker({id,kind:"move",state:game});
     show();return;
   }
+  requestOwnership();
+}
+/** The ownership estimate of the shown position, which also feeds the endgame advice. */
+function requestOwnership() {
   pending=++seq;
   if(!overlayOn()) {
     analysis=null;
@@ -573,6 +637,7 @@ function requestGomokuTurn() {
   pending=++seq;
   analysis=null;displayedOwnership=null;
   if(!isAiTurn() || endExpanded || aiThinking){draw();return;}
+  if(!watchDue()){show();return;}
   const id=pending;
   aiThinking=true;
   aiJob={id,number:game.moveNumber,hash:boardHash(game.board)};
@@ -583,6 +648,7 @@ function requestGomokuTurn() {
     if(aiJob!==job)return;
     aiThinking=false;aiJob=null;
     if(!isAiTurn() || game.moveNumber!==job.number || boardHash(game.board)!==job.hash){show();return;}
+    lastWatchMoveAt=performance.now();
     submitMove(gomokuMove(game.board,game.next,Math.random,{forbidden:hasGomokuForbidden(game)}),true);
   },GOMOKU_AI_DELAY_MS);
 }
@@ -746,6 +812,8 @@ function finishAiMove(result) {
     switchToFallback("non-KataGo move response");
     return;
   }
+  // A paused COM同士 stops at once: the move is asked for again on 再開.
+  if(watching && watchPaused){requestAnalysis();return;}
   try {
     // This is an NN evaluation of the committed position, not a preview.
     const valid=Array.isArray(result.ownership) &&
@@ -753,13 +821,16 @@ function finishAiMove(result) {
       result.ownership.every(v=>Number.isFinite(v)&&Math.abs(v)<=1.001);
     const passStage=valid?endgameAdvisor.observe(game,result.ownership):"playing";
     if(valid){endgameStage=passStage;rememberOwnership(game.board,result.ownership);}
+    // Two COMs each play with their own settings.
+    const com=watching?watchAi[game.next===BLACK?"black":"white"]:newCom(aiStrength,invasion,reinforcement);
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
       ownership:result.ownership,endgameStage:passStage,
-      invasion,reinforcement,strength:aiStrength,
+      invasion:com.invasion,reinforcement:com.reinforcement,strength:com.strength,
       temperature:0.38
     });
-    $("aiMatchStatus").textContent = TEXT.ai.playingWith(AI_STRENGTHS[aiStrength].label,personaLabel(invasion),
-      personaLabel(reinforcement));
+    $("aiMatchStatus").textContent = TEXT.ai.playingWith(AI_STRENGTHS[com.strength].label,personaLabel(com.invasion),
+      personaLabel(com.reinforcement));
+    if(watching)lastWatchMoveAt=performance.now();
     submitMove(next,true);
   } catch(error) {
     switchToFallback(error instanceof Error?error.message:String(error));
@@ -847,7 +918,7 @@ function handleAnalysis(event) {
     result.engine==="katago") {
     endgameStage=endgameAdvisor.observe(game,result.ownership);
     updateEndUi();
-    if(gameMode==="ai" && !room && game.next===humanColor && Array.isArray(result.policy)) {
+    if(gameMode==="ai" && !room && !watching && game.next===humanColor && Array.isArray(result.policy)) {
       hints={number:context.number,hash:context.hash,moves:policyHints(game,result.policy)};
       draw();
     }
@@ -877,8 +948,10 @@ function show() {
   const needsKatago=gameRules!=="gomoku";
   $("startAi").disabled=needsKatago && (!katagoReady || fallbackMode);
   renderInviteButton();
+  const spectating=isWatching();
   $("startAi").textContent=needsKatago && fallbackMode?TEXT.ai.startUnavailable:
-    needsKatago && !katagoReady?TEXT.ai.startLoading:gameMode==="ai"?TEXT.ai.restart:TEXT.ai.start;
+    needsKatago && !katagoReady?TEXT.ai.startLoading:aiSideChoice==="watch"?TEXT.ai.startWatch:
+    gameMode==="ai"?TEXT.ai.restart:TEXT.ai.start;
   keepArmedLabel($("startAi"));
   $("aiInvasion").disabled=false;
   $("aiReinforcement").disabled=false;
@@ -889,11 +962,13 @@ function show() {
     // The scoring step names itself here, so the score box keeps its one line for the instruction.
     game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
     room?(connected?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):TEXT.game.waitingOpponent):
-    gameMode==="ai"?(gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
+    gameMode==="ai"?(spectating?(game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite):
+      gomoku?(isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
       fallbackMode?TEXT.game.aiStopped:!katagoReady?TEXT.game.aiPreparing:
       isAiTurn()?TEXT.game.aiTurn:TEXT.game.yourTurnAi):
     (game.next===BLACK?TEXT.game.turnBlack:TEXT.game.turnWhite);
-  if(!room)$("netStatus").textContent=gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
+  if(!room)$("netStatus").textContent=spectating?TEXT.common.modeWatch:
+    gameMode==="ai"?TEXT.common.modeAi:TEXT.common.modeLocal;
   $("netStatus").classList.toggle("online",connected);
   $("moveLabel").textContent=TEXT.game.moveLabel(game.moveNumber);
   $("hint").textContent=illegalCandidate?TEXT.game.hintIllegal:
@@ -901,6 +976,7 @@ function show() {
     game.status==="scoring"?TEXT.game.hintScoring:
     gameMode==="ai" && !gomoku && fallbackMode?TEXT.game.hintAiStopped:
     gameMode==="ai" && !gomoku && !katagoReady?TEXT.game.hintAiLoading:
+    spectating && game.status==="playing"?(watchPaused?TEXT.game.hintWatchPaused:TEXT.game.hintWatching):
     isAiTurn()?TEXT.game.hintAiThinking:"";
   const blocked=!!illegalCandidate;
   $("confirm").disabled=!candidate || !myTurn || blocked;
@@ -964,6 +1040,13 @@ function show() {
   $("confirm").hidden=isScoring || isFinished;
   $("copyIllegalPrompt").hidden=isScoring || isFinished || !blocked;
   $("actionRow").classList.toggle("finished-actions",isFinished);
+  // COM同士: one button pauses and resumes; stepping in shows × and ここに打つ instead.
+  const watchingPlay=spectating && game.status==="playing";
+  $("watchToggle").hidden=!watchingPlay || intervening;
+  if(watchingPlay)for(const id of ["pass","resign"])$(id).hidden=true;
+  if(watchingPlay && !intervening)for(const id of ["cancel","confirm"])$(id).hidden=true;
+  $("watchToggle").textContent=watchPaused?TEXT.game.watchResume:TEXT.game.watchPause;
+  $("watchToggle").setAttribute("aria-pressed",String(watchPaused));
   $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:
     scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
   const playout=settleView();
@@ -1125,7 +1208,8 @@ function apply(action, remote=false, isAiMove=false) {
     const hadCandidate=!!candidate;
     if(room)onlineRevision++;
     // The opponent's move may land anywhere, so show the whole board again.
-    if(action.type==="move" && (remote || isAiMove))boardZoom.reset();
+    // A watched COM同士 game keeps the zoom the viewer chose.
+    if(action.type==="move" && (remote || isAiMove && !watching))boardZoom.reset();
     candidate=null;save();show();
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
@@ -1179,6 +1263,11 @@ canvas.addEventListener("click",e=>{
     else if(settle){settle.taps=[...(settle.taps||[]),position];skipSettle();return;}
     apply({type:"dead",position,selected:!game.dead.includes(position)});return;
   }
+  if(game.status==="playing" && isWatching() && !intervening && (isGomoku(game) || katagoReady && !fallbackMode) &&
+     game.board[position]===0){
+    stopAiTurn(); // The COM's move being computed waits for the viewer's decision.
+    intervening=true;
+  }
   if(game.status!=="playing" || !isHumanTurn())return;
   if(!room && endExpanded)endExpanded=false;
   // Occupied intersections cannot hold a provisional stone.
@@ -1194,6 +1283,7 @@ canvas.addEventListener("click",e=>{
 $("confirm").onclick=()=>{
   if(candidate && !illegalCandidate && isHumanTurn()){
     const position=candidate.moves.at(-1).position;
+    if(isWatching() && intervening)takeOverWatchedGame(game.next);
     submitMove(position);
   }
 };
@@ -1208,6 +1298,10 @@ $("cancel").onclick=()=>{
   }
   candidate=null;illegalCandidate=null;illegalPromptCopied=false;
   $("illegalPromptFallbackPanel").hidden=true;
+  if(isWatching() && intervening){
+    // Back to watching: the COMs resume after a pause a little longer than a move's.
+    intervening=false;lastWatchMoveAt=performance.now()+WATCH_RESUME_MS-WATCH_STEP_MS;
+  }
   show();requestAnalysis();
 };
 $("copyIllegalPrompt").onclick=async()=>{
@@ -1392,7 +1486,8 @@ function isCounting(){
 function save(){
   try {
     const record=gameLibrary.save({id:currentGameId,mode:room?"online":gameMode,
-      roomId:room||null,snapshot:game,lastPosition,humanColor,aiStrength,invasion,reinforcement,seat},currentRevision);
+      roomId:room||null,snapshot:game,lastPosition,humanColor,aiStrength,invasion,reinforcement,seat,
+      watch:gameMode==="ai" && watching,watchAi},currentRevision);
     currentGameId=record.id;currentRevision=record.revision;
     if(!room)gameLibrary.setActive(gameMode,record.id);
     if(room)persistOnline();
@@ -1406,10 +1501,12 @@ function savedGame(mode) {
   try{record=gameLibrary.active(mode);}catch(error){storageError(error);}
   currentGameId=record?.id||null;currentRevision=record?.revision||null;
   lastPosition=record?.lastPosition??null;
+  watching=mode==="ai" && record?.watch===true;watchPaused=false;intervening=false;
   if(mode==="ai" && record){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     aiStrength=normalizeStrength(record.aiStrength);
     invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
+    if(watching)watchAi=readWatchAi(record.watchAi,newCom(aiStrength,invasion,reinforcement));
   }
   return record?.snapshot||newGame(true,{size:boardSize});
 }
@@ -1634,6 +1731,11 @@ function showNewGameMode(kind) {
   $("modePanel").scrollTop=0;
   if(kind==="history")historyPanel.showHistory();
   $("aiSideRow").hidden=$("aiStrengthRow").hidden=$("aiOptions").hidden=kind!=="ai";
+  // A running AI game can be handed to the COM whichever side the player took.
+  $("watchCurrent").hidden=kind!=="ai" || !!room || gameMode!=="ai" || watching ||
+    game.status!=="playing" || !!boardReview;
+  $("watchCurrent").disabled=fallbackMode;
+  syncSideUi();syncStrengthUi();updatePersonaUi();
   $("onlineSideRow").hidden=kind!=="online";
   $("modeHelp").dataset.help=kind;
   syncReturnButton(kind);
@@ -2020,12 +2122,15 @@ function resumeSelectedReview(){
   gameMode=record.mode;game=JSON.parse(JSON.stringify(record.snapshot));
   currentGameId=record.id;currentRevision=record.revision;
   lastPosition=record.lastPosition;candidate=null;
+  watching=gameMode==="ai" && record.watch===true;watchPaused=false;intervening=false;
   if(gameMode==="ai"){
     humanColor=record.humanColor===WHITE?WHITE:BLACK;
     invasion=personaStep(record.invasion);reinforcement=personaStep(record.reinforcement);
-    aiStrength=normalizeStrength(record.aiStrength);syncStrengthUi();
+    aiStrength=normalizeStrength(record.aiStrength);
+    if(watching)watchAi=readWatchAi(record.watchAi,newCom(aiStrength,invasion,reinforcement));
+    syncStrengthUi();
     // A random preference stays random; a fixed one follows the resumed game.
-    if(aiSideChoice!=="random")aiSideChoice=humanColor===WHITE?"white":"black";
+    if(aiSideChoice!=="random")aiSideChoice=watching?"watch":humanColor===WHITE?"white":"black";
     syncSideUi();
     updatePersonaUi();
   }
@@ -2097,18 +2202,22 @@ $("startAi").onclick=()=>{
   clearBoardReview();
   stopAiTurn();
   gameMode="ai";
+  watching=aiSideChoice==="watch";watchPaused=false;intervening=false;
+  // The empty board shows for a moment before the first watched move.
+  lastWatchMoveAt=performance.now();
   // Handicap stones always belong to the human, who therefore plays Black.
   // Otherwise: the same choices and the same random draw as a friend invitation.
-  try{humanColor=aiHandicap && gameRules!=="gomoku"?BLACK:selectColor(aiSideChoice);}
+  try{humanColor=watching || aiHandicap && gameRules!=="gomoku"?BLACK:selectColor(aiSideChoice);}
   catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
-  aiStrength=strengthAt($("aiStrength").value);
+  // The slider shows a watched game's 設定するCOM, so it only sets aiStrength otherwise.
+  if(!watching)aiStrength=strengthAt($("aiStrength").value);
   hints=null;takebackNotice=null;
   game=newGame(true,nextGameOptions(aiHandicap));currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;endNotice=null;
-  $("aiMatchStatus").textContent=TEXT.ai.started(colorLabel(humanColor));
+  $("aiMatchStatus").textContent=watching?TEXT.ai.watchStarted:TEXT.ai.started(colorLabel(humanColor));
   save();closePanels();show();requestAnalysis();
 };
-const SIDE_CHOICES=["random","black","white"];
+const SIDE_CHOICES=["random","black","white","watch"];
 function syncSideUi() {
   const input=document.querySelector('input[name="aiSide"][value="'+aiSideChoice+'"]');
   if(input)input.checked=true;
@@ -2117,9 +2226,41 @@ for (const input of document.querySelectorAll('input[name="aiSide"]')) {
   input.onchange=e=>{
     if(!e.target.checked)return;
     aiSideChoice=SIDE_CHOICES.includes(e.target.value)?e.target.value:"black";
-    rememberSettings();
+    rememberSettings();syncSideUi();syncStrengthUi();updatePersonaUi();show();
   };
 }
+// この対局を観戦する: a running AI game hands the player's colour to the COM too.
+function watchCurrentGame() {
+  if(room || gameMode!=="ai" || watching || game.status!=="playing" || boardReview)return;
+  watching=true;watchPaused=false;intervening=false;hints=null;
+  // The player's colour goes to a COM like the one already playing.
+  watchAi={black:newCom(aiStrength,invasion,reinforcement),white:newCom(aiStrength,invasion,reinforcement)};
+  aiSideChoice="watch";rememberSettings();syncSideUi();syncStrengthUi();updatePersonaUi();
+  candidate=null;illegalCandidate=null;endExpanded=false;
+  lastWatchMoveAt=performance.now();
+  $("aiMatchStatus").textContent=TEXT.ai.watchStarted;
+  save();closePanels();show();requestAnalysis();
+}
+$("watchCurrent").onclick=watchCurrentGame;
+// Confirming a stone placed while watching takes that colour over; the COM keeps the other.
+function takeOverWatchedGame(color) {
+  if(!isWatching() || game.status!=="playing")return;
+  stopAiTurn(); // A move being computed for the taken colour is dropped.
+  watching=false;watchPaused=false;intervening=false;humanColor=color;hints=null;
+  // The COM left playing keeps its settings.
+  ({strength:aiStrength,invasion,reinforcement}=watchAi[color===BLACK?"white":"black"]);
+  if(aiSideChoice!=="random")aiSideChoice=color===BLACK?"black":"white";
+  syncSideUi();syncStrengthUi();updatePersonaUi();
+  $("aiMatchStatus").textContent=TEXT.ai.tookOver(colorLabel(color));
+  save();show();requestAnalysis();
+}
+$("watchToggle").onclick=()=>{
+  if(!isWatching() || game.status!=="playing")return;
+  watchPaused=!watchPaused;
+  // 再開 plays the next move straight away.
+  if(!watchPaused)lastWatchMoveAt=0;
+  show();requestAnalysis();
+};
 function syncHandicapUi() {
   const sizeChoice=document.querySelector('input[name="boardSize"][value="'+boardSize+'"]');
   if(sizeChoice)sizeChoice.checked=true;
@@ -2138,10 +2279,10 @@ function syncHandicapUi() {
   $("handicapNote").textContent=(ai?TEXT.handicap.noteAi:
     kind==="online"?TEXT.handicap.noteOnline:TEXT.handicap.noteLocal)+
     (gameRules==="japanese"?TEXT.handicap.noteRuleJapanese:TEXT.handicap.noteRule)+(boardSize===9?TEXT.handicap.note9:"");
-  // With handicap the human is Black; the saved side preference returns afterwards.
+  // With handicap the human is Black (or watches); the saved side preference returns afterwards.
   for(const input of document.querySelectorAll('input[name="aiSide"]'))
-    input.disabled=!!aiHandicap && gameRules!=="gomoku" && input.value!=="black";
-  if(aiHandicap && gameRules!=="gomoku"){
+    input.disabled=!!aiHandicap && gameRules!=="gomoku" && !["black","watch"].includes(input.value);
+  if(aiHandicap && gameRules!=="gomoku" && aiSideChoice!=="watch"){
     const black=document.querySelector('input[name="aiSide"][value="black"]');
     if(black)black.checked=true;
   }else syncSideUi();
@@ -2158,11 +2299,24 @@ function syncHandicapUi() {
     syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
+for(const [slot,side] of Object.entries(COM_SLOTS))
+for(const [field,key] of Object.entries(COM_FIELDS))
+for(const input of document.querySelectorAll('input[name="com'+slot+field+'"]')) {
+  input.onchange=e=>{
+    if(!e.target.checked)return;
+    watchAi[side][key]=key==="strength"?normalizeStrength(e.target.value,DEFAULT_AI_STRENGTH):
+      personaStep(e.target.value);
+    syncStrengthUi();
+    if(isWatching())save();else rememberSettings();
+    $("aiMatchStatus").textContent=TEXT.ai.nextMove;
+  };
+}
 for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforcement"]]) {
   $(id).oninput=e=>{
     const value=personaStep(e.target.value);
     if(key==="invasion")invasion=value;else reinforcement=value;
-    updatePersonaUi();rememberSettings();
+    updatePersonaUi();
+    if(isWatching())save();else rememberSettings();
     $("aiMatchStatus").textContent=TEXT.ai.nextMove;
   };
 }
@@ -2170,15 +2324,24 @@ for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforceme
 const STRENGTH_ORDER=Object.keys(AI_STRENGTHS);
 const strengthAt=index=>normalizeStrength(STRENGTH_ORDER[Number(index)],DEFAULT_AI_STRENGTH);
 function syncStrengthUi() {
-  $("aiStrength").value=String(STRENGTH_ORDER.indexOf(aiStrength));
+  const two=editsWatchAi();
+  // With two COMs the main bar shows Black's; a note says when White's differs.
+  $("aiStrength").value=String(STRENGTH_ORDER.indexOf(two?watchAi.black.strength:aiStrength));
   syncStepSlider("aiStrength");
+  if(two && watchAi.black.strength!==watchAi.white.strength)
+    $("aiStrengthNote").textContent=TEXT.ai.strengthSplit;
+  syncComCards();
   $("aiHints").checked=aiHints;
+  syncWatchSliderRows();
 }
 // Strength applies from the next AI move, like the personality sliders.
 $("aiStrength").oninput=e=>{
-  aiStrength=strengthAt(e.target.value);syncStepSlider("aiStrength");
+  const strength=strengthAt(e.target.value);
+  if(editsWatchAi())watchAi.black.strength=watchAi.white.strength=strength;
+  else aiStrength=strength;
+  syncStrengthUi();
   if(gameMode==="ai")save();else rememberSettings();
-  $("aiMatchStatus").textContent=TEXT.ai.nextStrength(AI_STRENGTHS[aiStrength].label);
+  $("aiMatchStatus").textContent=TEXT.ai.nextStrength(AI_STRENGTHS[strength].label);
 };
 $("aiHints").onchange=e=>{
   aiHints=e.target.checked;rememberSettings();
@@ -2249,6 +2412,7 @@ else try {
     aiHints=settings.aiHints===true;
     invasion=personaStep(settings.invasion);
     reinforcement=personaStep(settings.reinforcement);
+    watchAi=readWatchAi(settings.watchAi,newCom(aiStrength,invasion,reinforcement));
   }
   game=savedGame(gameMode);endExpanded=!!game.endProposal;
 }catch{}
