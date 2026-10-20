@@ -28,9 +28,12 @@
     <main class="game-layout">
       <section id="gamePanel" class="game-panel" aria-label="{{header.gamePanel}}">
         <div class="game-meta">
-          <div class="turn-and-move">
-            <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
-            <button id="moveLabel" class="move-label move-history-toggle" type="button" aria-label="{{review.play}}" title="{{review.play}}">{{game.moveLabel(0)}}</button>
+          <div class="meta-main">
+            <div class="turn-and-move">
+              <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
+              <button id="moveLabel" class="move-label move-history-toggle" type="button" aria-label="{{review.play}}" title="{{review.play}}">{{game.moveLabel(0)}}</button>
+            </div>
+            <div class="rule-line"><span id="ruleLabel" class="rule-label">{{game.ruleLabel(9,0,7.5,0)}}</span><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></div>
           </div>
           <div id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</div>
         </div>
@@ -81,6 +84,7 @@
             <button id="backToDead" class="secondary" type="button" hidden>{{scoring.backToDead}}</button>
             <button id="settleSkip" class="secondary" type="button" hidden>{{scoring.settleSkip}}</button>
             <button id="settleReplay" class="secondary" type="button" hidden>{{scoring.settleReplay}}</button>
+            <button id="settleExtend" class="secondary" type="button" hidden>{{scoring.settleExtend}}</button>
             <button id="agree" class="primary" type="button" disabled>{{scoring.agree}}</button>
           </div>
           <button id="openHistory" class="secondary" type="button" hidden>{{help.history.summary}}</button>
@@ -202,6 +206,30 @@
     </aside>
     <aside id="modePanel" class="settings-panel mode-panel" role="dialog" aria-modal="true" aria-labelledby="modeTitle" hidden>
       <div class="settings-head"><h2 id="modeTitle">{{header.newGame}}</h2><span class="sheet-head-actions"><button class="help-button" type="button" data-help="local" aria-label="{{common.helpFor(newGame.title)}}" title="{{common.helpFor(newGame.title)}}" id="modeHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="closeMode" class="icon-button" type="button" aria-label="{{common.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span></div>
+      <button id="returnToGame" class="secondary accent-outline full return-to-game" type="button" hidden>{{history.returnCurrent}}</button>
+      <section id="localSetup" class="settings-section" hidden>
+        <button id="startLocal" class="primary full" type="button">{{newGame.start}}</button>
+      </section>
+      <section id="onlineSetup" class="settings-section" hidden>
+        <div id="p2pVerify" hidden><p>{{online.verifyNote}}</p><div id="p2pTurnstile"></div></div>
+        <button id="copy" class="primary full" type="button">{{online.prepareInvite}}</button>
+        <div id="inviteDetails" class="invite-details hidden">
+          <label for="inviteUrl">{{online.inviteUrl}}</label><input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="{{online.inviteUrl}}">
+          <button id="nativeShare" class="secondary full hidden" type="button">{{online.nativeShare}}</button>
+        </div>
+        <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
+        <p id="roomInfo" class="explanation"></p>
+        <details id="seatLinkBox" class="info-disclosure" hidden><summary>{{online.seatLinkSummary}}</summary>
+          <p class="explanation">{{online.seatLinkNote}}</p>
+          <button id="copySeatLink" class="secondary full" type="button">{{online.seatLinkCopy}}</button>
+          <input id="seatLinkFallback" type="text" readonly hidden autocomplete="off" spellcheck="false" aria-label="{{online.seatLinkField}}">
+          <p id="seatLinkStatus" class="invite-status" role="status" aria-live="polite"></p>
+        </details>
+      </section>
+      <section id="aiSetup" class="settings-section" hidden>
+        <button id="startAi" class="primary full" type="button" disabled>{{ai.preparing}}</button>
+        <p id="aiMatchStatus" class="visually-hidden" role="status" aria-live="polite">{{ai.preparingMatch}}</p>
+      </section>
       <section class="settings-section new-game-common">
         <div class="new-game-modes">
           <label><input type="radio" name="newGameMode" value="ai" checked><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 1.5v3.5M15 1.5v3.5M9 19v3.5M15 19v3.5M1.5 9H5M1.5 15H5M19 9h3.5M19 15h3.5"/><circle cx="12" cy="12" r="2.6"/></svg><strong>{{newGame.ai}}</strong></span></label>
@@ -209,7 +237,6 @@
           <label><input type="radio" name="newGameMode" value="local"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><circle cx="10" cy="10" r="2" fill="currentColor"/><circle cx="14" cy="14" r="2"/></svg><strong>{{help.local.summary}}</strong></span></label>
           <label><input id="openHistoryFromNew" type="radio" name="newGameMode" value="history"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 3.5V8h4.5"/><path d="M12 7.5V12l3 2"/></svg><strong>{{newGame.history}}</strong></span></label>
         </div>
-        <button id="returnToGame" class="secondary full return-to-game" type="button" hidden>{{history.returnCurrent}}</button>
         <div id="newGameSetup">
         <div class="setup-rows">
           <div class="setup-row"><span class="setup-label">{{newGame.board}}</span>
@@ -220,7 +247,7 @@
             </div>
           </div>
           <div id="rulesRow" class="setup-row"><span class="setup-label">{{newGame.rules}}</span>
-            <div class="ai-color-choices rules-choices"><label><input type="radio" name="gameRules" value="chinese" checked><span>{{newGame.rulesChoices.chinese}}</span></label><label><input type="radio" name="gameRules" value="japanese"><span>{{newGame.rulesChoices.japanese}}</span></label></div>
+            <div class="ai-color-choices rules-choices"><label><input type="radio" name="gameRules" value="chinese" checked><span>{{newGame.rulesChoices.chinese}}</span></label><label><input type="radio" name="gameRules" value="japanese"><span>{{newGame.rulesChoices.japanese}}</span></label><label><input type="radio" name="gameRules" value="gomoku"><span>{{newGame.rulesChoices.gomoku}}</span></label></div>
           </div>
           <div id="aiSideRow" class="setup-row" hidden><span class="setup-label">{{newGame.mySide}}</span>
             <div class="ai-color-choices side-choices"><label><input type="radio" name="aiSide" value="random"><span>{{common.random}}</span></label><label><input type="radio" name="aiSide" value="black" checked><span>{{common.sideBlack}}</span></label><label><input type="radio" name="aiSide" value="white"><span>{{common.sideWhite}}</span></label></div>
@@ -244,7 +271,8 @@
             </select>
           </div>
           <p id="handicapNote" class="explanation" hidden></p>
-          <div class="mode hide-stones"><div><strong>{{newGame.hideStones}}</strong><p>{{newGame.hideStonesNote}}</p></div><input id="hideStones" type="checkbox" aria-label="{{newGame.hideStones}}"></div>
+          <div id="gomokuForbiddenRow" class="mode hide-stones" hidden><div><strong>{{newGame.gomokuForbidden}}</strong><p>{{newGame.gomokuForbiddenNote}}</p></div><input id="gomokuForbidden" type="checkbox" aria-label="{{newGame.gomokuForbidden}}"></div>
+          <div id="hideStonesRow" class="mode hide-stones"><div><strong>{{newGame.hideStones}}</strong><p>{{newGame.hideStonesNote}}</p></div><input id="hideStones" type="checkbox" aria-label="{{newGame.hideStones}}"></div>
           <div id="aiOptions" class="ai-advanced" hidden>
             <div class="mode"><div><strong>{{ai.hints}}</strong><p>{{ai.hintsNote}}</p></div><input id="aiHints" type="checkbox" aria-label="{{ai.hintsAria}}"></div>
             <div id="aiInvasionRow" class="step-slider">
@@ -262,29 +290,6 @@
           </div>
         </details>
         </div>
-      </section>
-      <section id="localSetup" class="settings-section" hidden>
-        <button id="startLocal" class="primary full" type="button">{{newGame.start}}</button>
-      </section>
-      <section id="onlineSetup" class="settings-section" hidden>
-        <div id="p2pVerify" hidden><p>{{online.verifyNote}}</p><div id="p2pTurnstile"></div></div>
-        <button id="copy" class="primary full" type="button">{{online.prepareInvite}}</button>
-        <div id="inviteDetails" class="invite-details hidden">
-          <label for="inviteUrl">{{online.inviteUrl}}</label><input id="inviteUrl" type="text" readonly autocomplete="off" spellcheck="false" aria-label="{{online.inviteUrl}}">
-          <button id="nativeShare" class="secondary full hidden" type="button">{{online.nativeShare}}</button>
-        </div>
-        <p id="inviteStatus" class="invite-status" role="status" aria-live="polite"></p>
-        <p id="roomInfo" class="explanation"></p>
-        <details id="seatLinkBox" class="info-disclosure" hidden><summary>{{online.seatLinkSummary}}</summary>
-          <p class="explanation">{{online.seatLinkNote}}</p>
-          <button id="copySeatLink" class="secondary full" type="button">{{online.seatLinkCopy}}</button>
-          <input id="seatLinkFallback" type="text" readonly hidden autocomplete="off" spellcheck="false" aria-label="{{online.seatLinkField}}">
-          <p id="seatLinkStatus" class="invite-status" role="status" aria-live="polite"></p>
-        </details>
-      </section>
-      <section id="aiSetup" class="settings-section" hidden>
-        <button id="startAi" class="primary full" type="button" disabled>{{ai.preparing}}</button>
-        <p id="aiMatchStatus" class="visually-hidden" role="status" aria-live="polite">{{ai.preparingMatch}}</p>
       </section>
       <section id="historySetup" class="settings-section history-setup" hidden>
         <p class="explanation">{{history.intro}}</p>

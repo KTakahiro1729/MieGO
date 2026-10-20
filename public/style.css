@@ -35,6 +35,12 @@ button:hover:not(:disabled){border-color:#748094}
 .connection-status{font-size:11px;color:#aeb6c0;white-space:nowrap;display:flex;align-items:center;gap:7px}
 .connection-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#7b8392;flex:none}
 .connection-status.online::before{background:#4fca8a;box-shadow:0 0 8px #4fca8a66}
+.meta-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+/* The current rules: plain text, not a button; its ? opens the rules help. */
+.rule-line{display:flex;align-items:center;min-width:0;padding-left:31px}
+.rule-label{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.rule-line .help-button{width:20px;height:20px}
+.rule-line .help-button svg{width:16px;height:16px}
 .board-frame{width:min(100%,675px);min-width:0;align-self:center;aspect-ratio:1;padding:5px;background:linear-gradient(135deg,#b28751,#e4c587 35%,#956c43 100%);border:1px solid #d3b078;border-radius:14px;box-shadow:0 2px 1px #ffffff13 inset,0 15px 40px #0008,0 0 0 1px #f2d69422;position:relative;isolation:isolate;transition:box-shadow .3s,border-color .3s}
 /* Board looks (board-theme.mjs): the frame matches the canvas. */
 .board-frame[data-board-theme="light"]{background:#a9aeb6;border-color:#c9cdd3;box-shadow:0 15px 40px #0008}
@@ -166,29 +172,36 @@ body.board-zoomed .board-bleed{opacity:1}
 .settings-section h3.ai-subhead{margin-top:22px}
 .ai-color-choices input:disabled+span{opacity:.4;cursor:not-allowed}
 .board-size-choices{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-/* The mode is the main choice: a 2x2 grid of icon tiles; 履歴 opens saved games instead. */
-.new-game-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+/* The mode is one row of four icon tabs under the start button; 履歴 opens saved games instead. */
+.new-game-modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 .new-game-modes label{margin:0;cursor:pointer;position:relative}
 .new-game-modes input{position:absolute;opacity:0}
-.new-game-modes label>span{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px;
-  padding:8px 10px;border:1px solid #505766;border-radius:var(--radius);background:#252c38;color:#f1f2f2;font:inherit;cursor:pointer;box-sizing:border-box}
-.new-game-modes strong{font-size:14px}
+.new-game-modes label>span{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;min-height:56px;
+  padding:6px 2px;border:1px solid #505766;border-radius:var(--radius);background:#252c38;color:#f1f2f2;font:inherit;cursor:pointer;box-sizing:border-box}
+.new-game-modes .mode-icon{width:22px;height:22px}
+.new-game-modes strong{font-size:12px;white-space:nowrap}
 .new-game-modes input:checked+span{border-color:#efcb81;background:#38342d}
 .new-game-modes input:checked+span .mode-icon,.new-game-modes input:checked+span strong{color:#f8ddac}
 .new-game-modes input:focus-visible+span{outline:3px solid #f2c875;outline-offset:2px}
 .mode-icon{flex:none;color:#c9ced8}
 .handicap-select{width:100%;min-height:var(--control-h);background:#252c38;border:1px solid #4a5160;border-radius:var(--radius-sm);color:#f1f0ed;padding:10px 12px}
 .mode-panel .new-game-common{padding-top:0}
-.return-to-game{margin-top:10px}
+/* The way back opens the sheet; under one line, the start button and then the choices. */
+.mode-panel>:not(.settings-head):not([hidden])~.new-game-common{margin-top:14px}
+.mode-panel .return-to-game{margin:0 0 14px}
+.mode-panel .return-to-game:not([hidden])~section:not([hidden]){border-top:1px solid #343b49;padding-top:14px}
+.mode-panel .return-to-game:not([hidden])~section:not([hidden])~section:not([hidden]){border-top:0;padding-top:0}
 /* Board, handicap and side share one compact label-left grid instead of a heading each. */
-.setup-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;margin-top:16px}
+.setup-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;align-items:center;margin-top:14px}
 .setup-row{display:contents}
 .setup-row[hidden]{display:none}
 .setup-label{margin:0;font-size:13px;color:#d6dae3;white-space:nowrap}
-.setup-rows .ai-color-choices span{padding:10px 4px}
+/* Narrow chips so four choices (or a board icon and 13路) stay on one line at 320px. */
+.setup-rows .ai-color-choices{gap:6px}
+.setup-rows .ai-color-choices span{padding:10px 2px;font-size:12px;white-space:nowrap}
 /* Board size reads at a glance: denser grid lines for larger boards. */
-.board-size-choices span{display:flex;align-items:center;justify-content:center;gap:6px}
-.size-icon{color:#9aa1ad}
+.board-size-choices span{display:flex;align-items:center;justify-content:center;gap:4px}
+.size-icon{flex:none;width:20px;height:20px;color:#9aa1ad}
 .board-size-choices input:checked+span .size-icon{color:#f8ddac}
 .new-game-advanced .advanced-row{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
 .new-game-advanced .advanced-row[hidden],.new-game-advanced [hidden]{display:none}
@@ -207,12 +220,11 @@ body.board-zoomed .board-bleed{opacity:1}
 .step-note{margin-top:2px;min-height:1.7em}
 /* The sheet should fit one phone screen: tight section spacing, no empty status lines. */
 .mode-panel .settings-head{margin-bottom:12px}
-.mode-panel #localSetup,.mode-panel #onlineSetup,.mode-panel #aiSetup{padding:0}
-.mode-panel .settings-section .primary.full{margin-top:12px}
+.mode-panel .settings-section .primary.full{margin-top:0}
 .mode-panel .new-game-advanced{margin-top:10px;padding-top:0}
 .mode-panel .explanation:empty,.mode-panel .invite-status:empty{display:none}
 .mode-panel .history-setup{padding-top:12px}
-.side-choices{grid-template-columns:repeat(3,1fr)}
+.side-choices,.rules-choices{grid-template-columns:repeat(3,1fr)}
 /* One button, two meanings: × discards a provisional stone, the labelled arrow is 待った. */
 .undo-button .takeback-icon{display:none;flex-direction:column;align-items:center;gap:1px;line-height:1}
 .undo-button .takeback-icon small{font-size:10px;font-weight:700;letter-spacing:.02em}
@@ -376,10 +388,17 @@ body{overflow:hidden}
 .action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;font-size:12px;padding:6px 2px}
 /* The AI question follows the reason text directly. It is drawn about one
    line tall to sit with the 14px text; ::after keeps a 44px tap target. */
-.endgame-bar.has-illegal .end-status{flex:0 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The reason wraps onto a second line inside the bar's fixed height (UX policy §3.5). */
+.endgame-bar.has-illegal .end-status{flex:0 1 auto;min-width:0;white-space:pre-line;overflow:hidden;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
 @media(max-width:360px){
   .endgame-bar.has-illegal .end-status{font-size:13px}
   .endgame-bar .illegal-prompt-action{margin-left:6px;padding:0 8px}
+}
+/* On the narrowest phones the AI question keeps only its copy icon (and its
+   aria-label), so the reason still fits in two lines. */
+@media(max-width:340px){
+  .endgame-bar .illegal-prompt-action>span{display:none}
 }
 .endgame-bar.has-illegal .help-button{margin-left:auto}
 .endgame-bar .illegal-prompt-action{position:relative;display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;min-height:0;height:28px;margin-left:10px;padding:0 10px;font-size:13px;font-weight:650;white-space:nowrap;line-height:1}
@@ -551,5 +570,8 @@ body{overflow:hidden}
   padding:2px 4px 0;margin-bottom:0;background:none;border:0;border-radius:0}
 .score-head{grid-column:1;min-width:0}
 .score-box>p{grid-column:2;grid-row:1;min-width:0;margin:0}
-.score-table{grid-column:1/-1;grid-template-columns:1fr 1fr;column-gap:14px;margin-top:2px;padding-top:0;border-top:0}
+.score-table{grid-column:1/-1;grid-template-columns:1fr 1fr;column-gap:10px;margin-top:2px;padding-top:0;border-top:0}
+.score-table .score-row{gap:4px}
+/* On narrow phones the stone alone names the side, so the breakdown keeps one line. */
+@media(max-width:360px){.score-table .score-name{display:none}}
 .score-row .score-detail{min-width:0;white-space:normal;overflow-wrap:anywhere}

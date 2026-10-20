@@ -49,6 +49,12 @@ export const TEXT = {
     occupied: "空いている交点を選んでください。",
     suicide: "別の交点を選んでください。自殺手で打てません。",
     ko: "別の交点を選んでください。コウで打てません。",
+    // 五目並べ with 禁じ手: Black's forbidden shapes.
+    gomoku: {
+      doubleThree: "別の交点を選んでください。黒の三三で打てません。",
+      doubleFour: "別の交点を選んでください。黒の四四で打てません。",
+      overline: "別の交点を選んでください。黒の長連で打てません。",
+    },
   },
 
   takeback: {
@@ -78,6 +84,7 @@ export const TEXT = {
     near: "そろそろ終局です",
     ready: "終局をご検討ください",
     unavailable: "終局は自分で判断してください。目安を出せません",
+    gomoku: "縦・横・斜めに5つ並べたら勝ち",
     checking: "終局の目安を確認中",
     updating: "終局の目安を更新中",
     offline: "相手を待っています",
@@ -122,6 +129,8 @@ export const TEXT = {
     finishedResign: "対局終了",
     finishedScore: "中国式で採点確定",
     finishedScoreJapanese: "日本式で採点確定",
+    finishedGomoku: "5つ並びました",
+    finishedGomokuDraw: "盤が埋まったので引き分けです",
     reviewPending: "死石を自動判定中…",
     reviewLoading: "KataGoを準備中。石の手動指定もできます",
     reviewAwaiting: "相手側で死石を判定中…",
@@ -138,6 +147,8 @@ export const TEXT = {
     settleDone: moves => moves ? "決着後の盤面（" + moves + "手）。取られた石を死石にします" : "打つ手がなく、そのまま判定します",
     settleSkip: "スキップ",
     settleReplay: "決着手順を再生",
+    settleExtend: "AIに続きを打たせる",
+    settleExtendHint: moves => "続きを打たせて地を決めてください。" + moves + "手で停止",
     // Each row: { area, detail, total } from scoreRows.
     breakdown: (black, white) => "黒：" + (black.detail ? black.detail + "＝" : "") + black.total +
       "\n白：" + (white.detail ? white.detail + "＝" : "") + white.total,
@@ -163,9 +174,15 @@ export const TEXT = {
     moveLabel: move => move + "手目 ‹ ›",
     localPractice: "ローカル練習",
     boardLabel: size => size + "路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。",
-    ruleSummary: (size, komi, handicap, japanese = false) => size + "路盤 · " +
+    ruleSummary: (size, komi, handicap, japanese = false, forbidden = false) => japanese === "gomoku" ?
+      size + "路盤 · 五目並べ" + (forbidden ? "（禁じ手あり：黒は三三・四四・長連を打てず、ちょうど5つで勝ち。白は5つ以上で勝ち）" :
+        "（禁じ手なし：5つ以上並べたら勝ち）") : size + "路盤 · " +
       (japanese ? "日本式ルール · " : "中国式ルール · ") + (handicap ?
       "置き石" + handicap + "子 · コミ" + komi + (japanese ? "目" : "＋置き石補正" + handicap + "目") : "コミ" + komi),
+    // The short form of ruleSummary, shown in the turn row above the board.
+    ruleLabel: (size, rules, komi, handicap, forbidden = false) => size + "路 · " +
+      (rules === "gomoku" ? "五目並べ" + (forbidden ? " · 禁じ手あり" : "") : (rules === "japanese" ? "日本式" : "中国式") +
+        (handicap ? " · 置き石" + handicap : " · コミ" + komi)),
     capturesLabel: "アゲハマ",
     captures: (black, white) => "アゲハマ　黒 " + black + "　白 " + white,
     capturesAria: (black, white) => "アゲハマ：黒が取った石" + black + "、白が取った石" + white,
@@ -245,6 +262,7 @@ export const TEXT = {
     thinking: "KataGoが着手を計算中…",
     playingWith: (strength, invasion, reinforcement) => "強さ「" + strength + "」・侵入度「" + invasion +
       "」・補強度「" + reinforcement + "」で対局中（探索なし）",
+    playingGomoku: "五目並べのCOMは、並びの長さを数える簡単な読みで打ちます（強さの設定は使いません）。",
     ready: "KataGo準備完了。AI対局を開始できます。",
     startUnavailable: "AIを使えません",
     startLoading: "KataGo準備中…",
@@ -440,11 +458,12 @@ export const TEXT = {
     tooLarge: "512KB以下のSGFファイルを選んでください。",
     tooLong: "手数や分岐の少ない棋譜を選んでください。",
     multipleGames: "対局が1つだけ入ったファイルを選んでください。",
-    notGo: "囲碁の棋譜ファイルを選んでください。",
+    notGo: "囲碁か五目並べの棋譜ファイルを選んでください。",
     sizes: sizes => sizes + "路盤の棋譜を選んでください。",
     format: "FF[4]形式のSGFファイルを選んでください。",
     setupMidGame: "途中で石を置き直していない棋譜を選んでください。",
     setupWhite: "白石を最初に置いていない棋譜を選んでください。",
+    setupGomoku: "最初に石を置いていない五目並べの棋譜を選んでください。",
     handicap: max => "置き石が星への2〜" + max + "子の棋譜を選んでください。",
     player: "黒から（置き碁は白から）打ち始める棋譜を選んでください。",
     illegalMove: move => "別の棋譜を選んでください。" + move + "手目がMieGOのルールでは打てません。",
@@ -486,8 +505,9 @@ export const TEXT = {
     illegalTitle: size => "MieGO・" + size + "路盤の着手確認",
     illegalTurn: color => "手番：" + color + "、選択した空点は図中の◇です。",
     illegalReason: reason => "禁止理由：" + reason,
-    illegalReasons: { suicide: "自殺手", ko: "コウ" },
+    illegalReasons: { suicide: "自殺手", ko: "コウ", doubleThree: "黒の三三（禁じ手）", doubleFour: "黒の四四（禁じ手）", overline: "黒の長連（禁じ手）" },
     illegalAsk: "なぜこの手が打てないのか、盤面と囲碁のルールに沿って説明してください。",
+    illegalAskGomoku: "なぜこの手が打てないのか、盤面と五目並べの禁じ手（連珠のルール）に沿って説明してください。",
     handoffIntro: "MieGOの棋譜URL（9・13・19路盤）です。以下のURL仕様に従って解釈・生成できます。",
     handoffBoard: step => "選択している局面（" + step + "手目）の盤面",
     handoffSpec: [
@@ -546,9 +566,11 @@ export const TEXT = {
     sizes: { 9: "9路", 13: "13路", 19: "19路" },
     mySide: "自分の石",
     rules: "ルール",
-    rulesChoices: { chinese: "中国式", japanese: "日本式" },
+    rulesChoices: { chinese: "中国式", japanese: "日本式", gomoku: "五目並べ" },
     advanced: "詳細設定",
     hideStones: "石を隠す（地合いだけ表示）",
+    gomokuForbidden: "禁じ手あり（五目並べ）",
+    gomokuForbiddenNote: "黒だけ三三・四四・長連を打てなくなります。先手の黒が強すぎるのを抑える連珠のルールです。",
     hideStonesNote: "石を描かず、地合いの色だけで盤面を読みます。この対局の間は変えられず、対友人では相手の画面も同じになります。整地になると石が現れます。",
     start: "対局を始める",
   },
@@ -596,8 +618,8 @@ export const TEXT = {
     scoring: {
       summary: "死石の確認",
       items: [
-        "採点に入ると、AIが両者パスまで打ち進めて（決着手順）、取られた石を死石の候補にします。AIが置いた石は仮のもので、対局の盤面は変わりません。",
-        "決着手順の途中で「スキップ」を押すと、すぐ結果に進みます。石を押すと、結果に進んでからその石の死石の指定を切り替えます。「決着手順を再生」でもう一度見られます。",
+        "採点に入ると、AIが両者パスまで打ち進めて（決着手順）、取られた石を死石の候補にします。AIが境目に置いた石は小さな石で残り、地を数えるときの境目になります。対局の棋譜は変わりません。",
+        "決着手順の途中で「スキップ」を押すと、すぐ結果に進みます。石を押すと、結果に進んでからその石の死石の指定を切り替えます。「決着手順を再生」でもう一度見られます。手数の上限で止まったときは「AIに続きを打たせる」で、止まった所から続けられます。",
         "死石の候補が違っていたら、石をタップして直します。",
         "数字は石と地の合計です。",
         "色は対局中の地合いと同じ配色で、確定した地を示します。小さな輪は、どちらの地でもない「中立」の点です。",
@@ -627,6 +649,8 @@ export const TEXT = {
         "新規対戦でルールを選べます。中国ルール（既定）は、盤上の自分の石と地の合計で勝敗を決めます。互先のコミは7.5目です。",
         "日本ルールは、地（囲んだ空き点）とアゲハマ（対局中に取った石と、終局時に取り除いた死石）の合計で勝敗を決めます。互先のコミは6.5目です。セキの中の空き点は地に数えません。アゲハマは地合いのバーの下に表示されます。採点中は、アゲハマを元の持ち主の地に小さな石で埋めて示します。まとまりの外枠の色は、アゲハマ表示の枠の色と同じです。",
         "置き碁は新規対戦の「詳細設定」で選べます。白が先に打ち、コミは0.5目です。中国ルールでは白に置き石の数だけ加点します（日本ルールでは加点しません）。",
+        "五目並べは同じ盤と石で遊ぶ別のゲームです。黒から交互に打ち、縦・横・斜めのどれかに自分の石を5つ以上続けて並べた方が勝ちです。石を取ること、パス、採点はありません。盤が埋まったら引き分けです。置き石は使えません。",
+        "五目並べの「禁じ手」は詳細設定で選べます。ありにすると連珠と同じく、黒だけ三三（活三を2つ同時に作る手）・四四（四を2つ同時に作る手）・長連（6つ以上）を打てず、ちょうど5つで勝ちになります。5つが同時にできる手は打てます。白に禁じ手はなく、長連でも勝ちです。",
       ],
       current: "現在の対局：",
     },

@@ -92,13 +92,13 @@ async function step(page,at,label,action){
   }
 }
 
-test("scoring and the result fit above the action row on every screen",{skip,timeout:480000},async t=>{
+test("scoring and the result fit above the action row on every screen",{skip,timeout:720000},async t=>{
   if(!browser)throw launchError||Error("Playwright is not installed");
   await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
   t.after(async()=>{await browser.close();server.close();});
   const origin=`http://127.0.0.1:${server.address().port}/`;
   // Japanese rules add the prisoner pills above the score box.
-  for(const {rules,board} of [{rules:"chinese",board:"9"},{rules:"japanese",board:"19"}])for(const size of VIEWPORTS){
+  for(const {rules,board} of [{rules:"chinese",board:"9"},{rules:"chinese",board:"19"},{rules:"japanese",board:"19"}])for(const size of VIEWPORTS){
     const at=`${size.join("×")} ${rules} ${board}路`;
     const page=await browser.newPage({viewport:{width:size[0],height:size[1]}});
     await page.goto(origin);
