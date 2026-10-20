@@ -94,7 +94,7 @@ import {
   readCom,
   setComValue,
 } from "./ai-characters.mjs";
-import { strongNetworkFor } from "./strong-networks.mjs";
+import { createStrongWorkers } from "./strong-worker.mjs";
 import {
   answerTakeback,
   requestTakeback,
@@ -502,66 +502,36 @@ const isWatching = () => !room && gameMode === "ai" && watching;
 const comToMove = () => watching ? watchAi[sideKey(game.next)] : aiCom;
 const gameUsesStrongest = () => !room && gameMode==="ai" && game.status==="playing" && !isGomoku(game) &&
   (watching ? watchAi.black.strength==="strongest" || watchAi.white.strength==="strongest" : aiCom.strength==="strongest");
-// 最強 has its own worker and network (about 100 MB, 9路 or larger boards),
-// started only once a game against it is under way. If it cannot load, the
-// COM plays on with the small network instead.
-const strongNets = {};
-// Behind by this many points, 最強 reads one or two moves ahead.
-const STRONG_READ = {one:2,two:6};
-const strongNet = () => {
-  const key=strongNetworkFor(sizeOf(game.board));
-  return strongNets[key] ??= {key,worker:null,state:"idle",progress:0};
-};
-function startStrongWorker(net=strongNet()) {
-  if(net.worker || net.state==="failed")return;
-  net.state="loading";net.progress=0;
-  net.worker=new Worker("/katago-worker.bundle.mjs?net="+net.key,{type:"module"});
-  net.worker.onerror=e=>strongFailed(net,e.message || "worker startup error");
-  net.worker.onmessage=event=>onStrongMessage(net,event);
-}
-function strongFailed(net, reason) {
-  console.warn("Strongest ("+net.key+") network unavailable; the COM plays with the small network:",reason);
-  net.state="failed";
-  net.worker?.terminate();net.worker=null;
-  if(net!==strongNet())return;
-  if(aiJob?.strong){aiThinking=false;aiJob=null;}
-  if(gameMode==="ai")$("aiMatchStatus").textContent=TEXT.ai.strongestFailed;
-  if(isAiTurn())requestAnalysis();
-}
-function onStrongMessage(net, event) {
-  const result=event.data;
-  if(result?.kind==="progress") {
-    net.progress=result.total>0?Math.floor(100*result.loaded/result.total):0;
-    if(net===strongNet() && isAiTurn() && !aiThinking && comToMove().strength==="strongest"){
-      $("aiMatchStatus").textContent=TEXT.ai.strongestLoading(net.progress);
+const strongWorkers = createStrongWorkers({
+  boardSize:()=>sizeOf(game.board),
+  onProgress(progress) {
+    if(isAiTurn() && !aiThinking && comToMove().strength==="strongest"){
+      $("aiMatchStatus").textContent=TEXT.ai.strongestLoading(progress);
       show();
     }
-    return;
-  }
-  if(result?.kind==="availability") {
-    if(!result.available){strongFailed(net,result.error || TEXT.analysis.initFailed);return;}
-    net.state="ready";
-    if(net===strongNet() && isAiTurn())requestAnalysis();
-    return;
-  }
-  if(result?.kind==="reading") {
+  },
+  onReady() {
+    if(isAiTurn())requestAnalysis();
+  },
+  onFailed() {
+    if(aiJob?.strong){aiThinking=false;aiJob=null;}
+    if(gameMode==="ai")$("aiMatchStatus").textContent=TEXT.ai.strongestFailed;
+    if(isAiTurn())requestAnalysis();
+  },
+  onReading(result) {
     if(aiJob?.id!==result.id)return;
     aiJob.read={depth:result.depth,done:result.done,total:result.total,
       remainingMs:Math.max(0,result.total-result.done)*(Number(result.evalMs)||0)};
     $("aiMatchStatus").textContent=TEXT.ai.strongestReading;
     show();
-    return;
-  }
-  if(result?.kind==="move") {
-    if(result.error){strongFailed(net,result.error);return;}
-    finishAiMove(result);
-  }
-}
+  },
+  onMove:result=>finishAiMove(result),
+});
 /** While 最強 is to move: what it is doing, with how far along it is, in full
  * and short enough for its side of the turn row; null for any other move. */
 function strongWait() {
   if(!isAiTurn() || isGomoku(game) || comToMove().strength!=="strongest")return null;
-  const net=strongNet();
+  const net=strongWorkers.current();
   if(net.state==="loading")return net.progress<100?
     {text:TEXT.game.thinkDownloading(net.progress),short:TEXT.game.sideDownloading(net.progress)}:
     {text:TEXT.game.thinkPreparing,short:TEXT.game.sidePreparing};
@@ -728,7 +698,7 @@ function requestAnalysis() {
   clearTimeout(analysisTimer);
   analysisContext=null;
   // The 最強 network downloads while the player thinks about the first move.
-  if(gameUsesStrongest())startStrongWorker();
+  if(gameUsesStrongest())strongWorkers.start();
   if(game.status==="scoring") {
     pending=++seq;
     analysisContext=null;
@@ -768,9 +738,9 @@ function requestAnalysis() {
       $("aiMatchStatus").textContent = TEXT.ai.unavailableContinue;
       show();return;
     }
-    const net = strongNet(), strong = comToMove().strength==="strongest" && net.state!=="failed";
+    const net = strongWorkers.current(), strong = comToMove().strength==="strongest" && net.state!=="failed";
     if (strong && net.state!=="ready") {
-      startStrongWorker(net);
+      strongWorkers.start(net);
       $("aiMatchStatus").textContent = TEXT.ai.strongestLoading(net.progress);
       requestOwnership(); show(); return;
     }
@@ -786,7 +756,7 @@ function requestAnalysis() {
     aiJob={id,number:game.moveNumber,hash:boardHash(game.board),strong};
     $("analysisStatus").textContent = TEXT.analysis.thinking;
     $("aiMatchStatus").textContent = TEXT.ai.thinking;
-    if(strong)net.worker.postMessage({id,kind:"move",state:game,read:STRONG_READ});
+    if(strong)strongWorkers.requestMove(net,id,game);
     else postToWorker({id,kind:"move",state:game});
     show();return;
   }
