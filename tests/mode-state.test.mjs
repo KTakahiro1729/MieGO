@@ -35,7 +35,7 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
   };
   const advanced=panel("Strength");
   for(const id of ["handicap","gomokuForbidden","hideStones"])assert.match(panel("Rules"),new RegExp('id="'+id+'"'));
-  assert.match(advanced,/id="aiHints"/);
+  assert.doesNotMatch(html+app,/aiHints|policyHints/);
   // The COM is eight choices under its own tab, each with its note, above the style;
   // カスタム's strength and four style rows follow the list directly, with no card around them.
   assert.ok(advanced.indexOf('name="aiCharacter"')<advanced.indexOf('id="aiOptions"'));

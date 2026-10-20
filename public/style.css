@@ -276,7 +276,7 @@ body.board-zoomed .board-bleed{opacity:1}
 .ai-advanced{min-width:0;margin:0;padding:0;border:0}
 /* Board size reads at a glance: denser grid lines for larger boards. */
 .size-icon{flex:none;width:20px;height:20px;color:#9aa1ad}
-/* Under a tab's choices, the settings that only that tab's choice uses (置き石, ヒント, …), after a line and a small heading. */
+/* Under a tab's choices, the settings that only that tab's choice uses (置き石, …), after a line and a small heading. */
 .setup-more{margin-top:14px;padding-top:12px;border-top:1px solid #343b49}
 .setup-more-head{margin:0 0 8px;font-size:12px;font-weight:600;color:#9aa1ad}
 .setup-more .advanced-row{display:flex;align-items:center;gap:12px;margin:4px 0 8px}

@@ -78,7 +78,6 @@ import {
   setComValue,
 } from "./ai-characters.mjs";
 import { strongNetworkFor } from "./strong-networks.mjs";
-import { policyHints } from "./ai-assist.mjs";
 import {
   answerTakeback,
   requestTakeback,
@@ -214,7 +213,7 @@ let gameMode = room ? "online" : "ai";
 let humanColor = BLACK;
 // The COM opponent: a character, or カスタム with its own strength and style.
 let aiCom = readCom({character:DEFAULT_AI_CHARACTER});
-let aiHints = false, hints = null, takebackNotice = null;
+let takebackNotice = null;
 // What a friend's answer did to an end offer, shown once in the bar like takebackNotice.
 let endNotice = null;
 let aiSideChoice = "black";
@@ -515,7 +514,6 @@ function rememberSettings() {
   try {
     localStorage.setItem("miego-local-settings", JSON.stringify({
       aiHandicap,
-      aiHints,
       aiCom,
       aiSide:aiSideChoice,
       boardSize,
@@ -571,11 +569,9 @@ function syncComCards() {
 }
 function syncWatchSliderRows() {
   const two=editsWatchAi();
-  $("watchAiOptions").hidden=!two;
+  $("watchAiOptions").hidden=$("aiOptionsMore").hidden=!two;
   // カスタム's own rows show only for the one COM it sets.
   $("aiCustom").hidden=two || aiCom.character!==CUSTOM_CHARACTER;
-  // Hints are for the player's own turn, which two COMs never have.
-  $("aiHints").disabled=two;
 }
 function readWatchAi(value, fallback) {
   const clean=cleanWatchAi(value);
@@ -602,7 +598,6 @@ const boardRenderer = createBoardRenderer({
     displayedOwnership,
     game,
     hideStones:hidingStones(),
-    hints:visibleHints(),
     humanTurn:isHumanTurn(),
     illegalCandidate,
     keptPlayout:keptPlayout(),
@@ -613,13 +608,6 @@ const boardRenderer = createBoardRenderer({
   })
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
-// Hints belong to one committed position and are only drawn on the human's turn.
-function visibleHints() {
-  if(!aiHints || room || gameMode!=="ai" || boardReview || candidate || illegalCandidate ||
-     game.status!=="playing" || !isHumanTurn())return null;
-  return hints && hints.number===game.moveNumber && hints.hash===boardHash(game.board)
-    ? hints.moves : null;
-}
 // 待った: one shared board undoes the latest move; AI and friend games undo
 // the player's own latest move together with any reply after it.
 const takebackOptions = () => room ? {color:myOnlineColor(),scope:"own"} :
@@ -1020,10 +1008,6 @@ function handleAnalysis(event) {
     result.engine==="katago") {
     if(!isFree(game))endgameStage=endgameAdvisor.observe(game,result.ownership);
     updateEndUi();
-    if(gameMode==="ai" && !room && !watching && game.next===humanColor && Array.isArray(result.policy)) {
-      hints={number:context.number,hash:context.hash,moves:policyHints(game,result.policy)};
-      draw();
-    }
   }
   if(!overlayOn())return;
   analysis=result;
@@ -1472,7 +1456,7 @@ $("resign").onclick=()=>{
 function afterTakeback() {
   const last=game.moves.at(-1)?.position;
   lastPosition=Number.isInteger(last)?last:null;
-  candidate=null;illegalCandidate=null;hints=null;
+  candidate=null;illegalCandidate=null;
   if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
   transitionFrame=null;analysis=null;displayedOwnership=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;
@@ -2256,7 +2240,7 @@ function forkBoardReview(kind="local") {
   // 観戦 lets the two COMs set in the sheet play on from the shown position.
   watching=ai && aiSideChoice==="watch";watchPaused=false;intervening=false;watchReturning=false;
   if(watching)lastWatchMoveAt=performance.now();
-  if(ai){humanColor=side;hints=null;takebackNotice=null;}
+  if(ai){humanColor=side;takebackNotice=null;}
   currentGameId=null;currentRevision=null;
   const last=game.moves.at(-1)?.position;
   lastPosition=Number.isInteger(last)?last:null;
@@ -2477,7 +2461,7 @@ $("startAi").onclick=()=>{
   // Otherwise: the same choices and the same random draw as a friend invitation.
   try{humanColor=watching || aiHandicap && gameRules!=="gomoku"?BLACK:selectColor(aiSideChoice);}
   catch{$("aiMatchStatus").textContent=TEXT.common.retry;return;}
-  hints=null;takebackNotice=null;
+  takebackNotice=null;
   game=newGame(true,nextGameOptions(aiHandicap));currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
   endgameAdvisor.reset();endgameStage="playing";endExpanded=false;lastOfferKey=null;endNotice=null;
   $("aiMatchStatus").textContent=watching?TEXT.ai.watchStarted:TEXT.ai.started(colorLabel(humanColor));
@@ -2499,7 +2483,7 @@ for (const input of document.querySelectorAll('input[name="aiSide"]')) {
 function takeOverWatchedGame(color) {
   if(!isWatching() || game.status!=="playing")return;
   stopAiTurn(); // A move being computed for the taken colour is dropped.
-  watching=false;watchPaused=false;intervening=false;watchReturning=false;humanColor=color;hints=null;
+  watching=false;watchPaused=false;intervening=false;watchReturning=false;humanColor=color;
   // The COM left playing keeps its settings.
   aiCom=watchAi[color===BLACK?"white":"black"];
   if(aiSideChoice!=="random")aiSideChoice=color===BLACK?"black":"white";
@@ -2605,15 +2589,9 @@ function syncStrengthUi() {
   // Two COMs take their characters from 「COMの打ち方」, and the panel says so;
   // one COM's line names its strength and the style it leans on, which カスタム's rows already show.
   $("aiStrengthNote").textContent=newGameModeKind()!=="ai"?"":two?TEXT.ai.strengthInAdvanced:aiCom.character===CUSTOM_CHARACTER?"":comSummary(aiCom);
-  $("aiHints").checked=aiHints;
   updatePersonaUi();
   syncSetupValues();
 }
-$("aiHints").onchange=e=>{
-  aiHints=e.target.checked;rememberSettings();
-  if(aiHints && !visibleHints())requestAnalysis();
-  draw();
-};
 $("copy").onclick=copyLink;
 $("inviteUrl").onclick=e=>e.currentTarget.select();
 $("nativeShare").onclick=async()=>{
@@ -2675,7 +2653,6 @@ else try {
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
     onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
-    aiHints=settings.aiHints===true;
     // Settings from before characters kept strength, 侵入度 and 補強度 on their own.
     aiCom=newCom(settings.aiCom ?? {strength:settings.aiStrength,invasion:settings.invasion,
       reinforcement:settings.reinforcement});
