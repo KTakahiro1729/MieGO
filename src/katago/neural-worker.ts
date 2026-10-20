@@ -11,6 +11,7 @@ import { KataGoModelV8Tf } from "../../vendor/web-katrain/src/engine/katago/mode
 import { postprocessKataGoV8 } from "../../vendor/web-katrain/src/engine/katago/evalV8";
 import { toKataGoPosition } from "./position.mjs";
 import { whiteCompensation, rulesOf } from "../../public/core.mjs";
+import { STRONG_NETWORKS } from "../../public/strong-networks.mjs";
 
 let model: KataGoModelV8Tf | null = null;
 let boot: Promise<void> | null = null;
@@ -18,24 +19,28 @@ let backend = "uninitialized";
 let newest: { id: number; state: unknown; kind?: "move" | "analyze" | "scoring" | "settle" } | null = null;
 let busy = false;
 
-// The page starts a second worker with ?net=kata9x9 for 最強; it only plays moves.
-const strong = new URLSearchParams(self.location.search).get("net") === "kata9x9";
-const modelName = strong ? "kata9x9 (9x9 network)" : "katago-small (test network)";
+// The page starts a second worker with ?net=<key> for 最強; it only plays moves.
+const strongNet = new URLSearchParams(self.location.search).get("net");
+const strong = strongNet !== null && Object.hasOwn(STRONG_NETWORKS, strongNet);
+const modelName = strong ? STRONG_NETWORKS[strongNet as keyof typeof STRONG_NETWORKS].name : "katago-small (test network)";
 async function fetchBytes(url: string) {
   const response = await fetch(url, { cache: "force-cache" });
   if (!response.ok) throw new Error("KataGo model HTTP " + response.status);
   return new Uint8Array(await response.arrayBuffer());
 }
-/** The 9x9 network comes in parts (Cloudflare serves at most 25 MiB a file),
+/** 最強's network comes in parts (Cloudflare serves at most 25 MiB a file),
  * reported as they arrive so the page can show how far the download is. */
 async function downloadStrongModel() {
-  const manifest = await (await fetch("/models/kata9x9/parts.json", { cache: "no-cache" })).json() as
+  const base = "/models/" + strongNet + "/";
+  const listing = await fetch(base + "parts.json", { cache: "no-cache" });
+  if (!listing.ok) throw new Error("KataGo model HTTP " + listing.status);
+  const manifest = await listing.json() as
     { bytes: number; parts: { path: string; bytes: number }[] };
   const whole = new Uint8Array(manifest.bytes);
   let loaded = 0;
   self.postMessage({ kind: "progress", loaded, total: manifest.bytes });
   for (const part of manifest.parts) {
-    const bytes = await fetchBytes("/models/kata9x9/" + part.path);
+    const bytes = await fetchBytes(base + part.path);
     if (bytes.length !== part.bytes) throw new Error("KataGo model part has the wrong size");
     whole.set(bytes, loaded);
     loaded += bytes.length;

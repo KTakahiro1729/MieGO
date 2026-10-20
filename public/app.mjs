@@ -65,12 +65,8 @@ import { interpolateOwnership } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
-import {
-  AI_STRENGTHS,
-  DEFAULT_AI_STRENGTH,
-  normalizeStrength,
-  strengthForSize,
-} from "./ai-strength.mjs";
+import { AI_STRENGTHS, DEFAULT_AI_STRENGTH, normalizeStrength } from "./ai-strength.mjs";
+import { strongNetworkFor } from "./strong-networks.mjs";
 import { policyHints } from "./ai-assist.mjs";
 import {
   answerTakeback,
@@ -420,44 +416,48 @@ const isHumanTurn = () => room
 const isWatching = () => !room && gameMode === "ai" && watching;
 // The COM whose turn it is: in COM同士 each side has its own settings.
 const comToMove = () => watching ? watchAi[game.next===BLACK?"black":"white"] : newCom(aiStrength,invasion,reinforcement);
-const playsStrongest = com => strengthForSize(com.strength,sizeOf(game.board))==="strongest";
 const gameUsesStrongest = () => !room && gameMode==="ai" && game.status==="playing" && !isGomoku(game) &&
-  (watching ? playsStrongest(watchAi.black) || playsStrongest(watchAi.white) : playsStrongest(newCom(aiStrength)));
-// 最強 has its own worker and 9x9 network (about 98 MB), started only once a
-// game against it is under way. If it cannot load, the COM plays on with the
-// small network instead.
-let strongWorker = null, strongState = "idle", strongProgress = 0;
-function startStrongWorker() {
-  if(strongWorker || strongState==="failed")return;
-  strongState="loading";strongProgress=0;
-  strongWorker=new Worker("/katago-worker.bundle.mjs?net=kata9x9",{type:"module"});
-  strongWorker.onerror=e=>strongFailed(e.message || "worker startup error");
-  strongWorker.onmessage=onStrongMessage;
+  (watching ? watchAi.black.strength==="strongest" || watchAi.white.strength==="strongest" : aiStrength==="strongest");
+// 最強 has its own worker and network (about 100 MB, 9路 or larger boards),
+// started only once a game against it is under way. If it cannot load, the
+// COM plays on with the small network instead.
+const strongNets = {};
+const strongNet = () => {
+  const key=strongNetworkFor(sizeOf(game.board));
+  return strongNets[key] ??= {key,worker:null,state:"idle",progress:0};
+};
+function startStrongWorker(net=strongNet()) {
+  if(net.worker || net.state==="failed")return;
+  net.state="loading";net.progress=0;
+  net.worker=new Worker("/katago-worker.bundle.mjs?net="+net.key,{type:"module"});
+  net.worker.onerror=e=>strongFailed(net,e.message || "worker startup error");
+  net.worker.onmessage=event=>onStrongMessage(net,event);
 }
-function strongFailed(reason) {
-  console.warn("Strongest (kata9x9) network unavailable; the COM plays with the small network:",reason);
-  strongState="failed";
-  strongWorker?.terminate();strongWorker=null;
+function strongFailed(net, reason) {
+  console.warn("Strongest ("+net.key+") network unavailable; the COM plays with the small network:",reason);
+  net.state="failed";
+  net.worker?.terminate();net.worker=null;
+  if(net!==strongNet())return;
   if(aiJob?.strong){aiThinking=false;aiJob=null;}
   if(gameMode==="ai")$("aiMatchStatus").textContent=TEXT.ai.strongestFailed;
   if(isAiTurn())requestAnalysis();
 }
-function onStrongMessage(event) {
+function onStrongMessage(net, event) {
   const result=event.data;
   if(result?.kind==="progress") {
-    strongProgress=result.total>0?Math.floor(100*result.loaded/result.total):0;
-    if(isAiTurn() && !aiThinking && playsStrongest(comToMove()))
-      $("aiMatchStatus").textContent=TEXT.ai.strongestLoading(strongProgress);
+    net.progress=result.total>0?Math.floor(100*result.loaded/result.total):0;
+    if(net===strongNet() && isAiTurn() && !aiThinking && comToMove().strength==="strongest")
+      $("aiMatchStatus").textContent=TEXT.ai.strongestLoading(net.progress);
     return;
   }
   if(result?.kind==="availability") {
-    if(!result.available){strongFailed(result.error || TEXT.analysis.initFailed);return;}
-    strongState="ready";
-    if(isAiTurn())requestAnalysis();
+    if(!result.available){strongFailed(net,result.error || TEXT.analysis.initFailed);return;}
+    net.state="ready";
+    if(net===strongNet() && isAiTurn())requestAnalysis();
     return;
   }
   if(result?.kind==="move") {
-    if(result.error){strongFailed(result.error);return;}
+    if(result.error){strongFailed(net,result.error);return;}
     finishAiMove(result);
   }
 }
@@ -535,8 +535,7 @@ const COM_FIELDS = {Invasion:"invasion", Reinforcement:"reinforcement", Strength
 function syncComCards() {
   for(const [slot,side] of Object.entries(COM_SLOTS))
     for(const [field,key] of Object.entries(COM_FIELDS)){
-      const value=key==="strength"?strengthForSize(watchAi[side][key],boardSize):watchAi[side][key];
-      const input=document.querySelector('input[name="com'+slot+field+'"][value="'+value+'"]');
+      const input=document.querySelector('input[name="com'+slot+field+'"][value="'+watchAi[side][key]+'"]');
       if(input)input.checked=true;
     }
 }
@@ -666,10 +665,10 @@ function requestAnalysis() {
       $("aiMatchStatus").textContent = TEXT.ai.unavailableContinue;
       show();return;
     }
-    const strong = playsStrongest(comToMove()) && strongState!=="failed";
-    if (strong && strongState!=="ready") {
-      startStrongWorker();
-      $("aiMatchStatus").textContent = TEXT.ai.strongestLoading(strongProgress);
+    const net = strongNet(), strong = comToMove().strength==="strongest" && net.state!=="failed";
+    if (strong && net.state!=="ready") {
+      startStrongWorker(net);
+      $("aiMatchStatus").textContent = TEXT.ai.strongestLoading(net.progress);
       requestOwnership(); show(); return;
     }
     if (!strong && !katagoReady) {
@@ -684,7 +683,7 @@ function requestAnalysis() {
     aiJob={id,number:game.moveNumber,hash:boardHash(game.board),strong};
     $("analysisStatus").textContent = TEXT.analysis.thinking;
     $("aiMatchStatus").textContent = TEXT.ai.thinking;
-    if(strong)strongWorker.postMessage({id,kind:"move",state:game});
+    if(strong)net.worker.postMessage({id,kind:"move",state:game});
     else postToWorker({id,kind:"move",state:game});
     show();return;
   }
@@ -899,15 +898,15 @@ function finishAiMove(result) {
     const passStage=valid?endgameAdvisor.observe(game,result.ownership):"playing";
     if(valid){endgameStage=passStage;rememberOwnership(game.board,result.ownership);}
     // Two COMs each play with their own settings.
-    const com=comToMove(),strength=strengthForSize(com.strength,sizeOf(game.board));
+    const com=comToMove();
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
       ownership:result.ownership,endgameStage:passStage,
-      invasion:com.invasion,reinforcement:com.reinforcement,strength,
+      invasion:com.invasion,reinforcement:com.reinforcement,strength:com.strength,
       temperature:0.38
     });
-    $("aiMatchStatus").textContent = strength==="strongest" ?
+    $("aiMatchStatus").textContent = com.strength==="strongest" ?
       (job.strong?TEXT.ai.playingStrongest:TEXT.ai.strongestFailed) :
-      TEXT.ai.playingWith(AI_STRENGTHS[strength].label,personaLabel(com.invasion),personaLabel(com.reinforcement));
+      TEXT.ai.playingWith(AI_STRENGTHS[com.strength].label,personaLabel(com.invasion),personaLabel(com.reinforcement));
     if(watching)lastWatchMoveAt=performance.now();
     submitMove(next,true);
   } catch(error) {
@@ -1892,7 +1891,7 @@ for(const input of document.querySelectorAll('input[name="boardSize"]')) {
     localHandicap=Math.min(localHandicap,maxHandicap(boardSize));
     aiHandicap=Math.min(aiHandicap,maxHandicap(boardSize));
     onlineHandicap=Math.min(onlineHandicap,maxHandicap(boardSize));
-    syncHandicapUi();syncStrengthUi();rememberSettings();renderInviteButton();
+    syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
 for(const input of document.querySelectorAll('input[name="gameRules"]')) {
@@ -2474,11 +2473,8 @@ for(const [id,key] of [["aiInvasion","invasion"],["aiReinforcement","reinforceme
 function syncStrengthUi() {
   const two=editsWatchAi(),off=newGameModeKind()!=="ai" || two;
   // Two COMs take their strengths from 詳細設定, and the panel says so.
-  // 最強 is a 9x9 network: on other boards its choice reads as 「つよい」, which is how it plays.
-  const input=document.querySelector('input[name="aiStrength"][value="'+strengthForSize(aiStrength,boardSize)+'"]');
+  const input=document.querySelector('input[name="aiStrength"][value="'+aiStrength+'"]');
   if(input)input.checked=true;
-  for(const sized of document.querySelectorAll('input[value="strongest"]'))
-    sized.disabled=strengthForSize("strongest",boardSize)!=="strongest";
   $("aiStrengthChoices").disabled=off;
   $("aiStrengthNote").textContent=two && newGameModeKind()==="ai"?TEXT.ai.strengthInAdvanced:"";
   syncComCards();

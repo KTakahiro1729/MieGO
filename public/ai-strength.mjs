@@ -15,19 +15,14 @@ export const AI_STRENGTHS = Object.freeze({
   easy:{label:TEXT.ai.strengths.easy,kyu:20},
   normal:{label:TEXT.ai.strengths.normal,kyu:12},
   strong:{label:TEXT.ai.strengths.strong,kyu:null},
-  // Plays the top policy move of KataGo's 9x9 network (kata9x9), which the
-  // page downloads only once a game against it starts.
-  strongest:{label:TEXT.ai.strengths.strongest,kyu:null,boardSize:9}
+  // Plays the top policy move of a full-size KataGo network (strong-networks.mjs),
+  // which the page downloads only once a game against it starts.
+  strongest:{label:TEXT.ai.strengths.strongest,kyu:null}
 });
 export const DEFAULT_AI_STRENGTH = "easy";
 // Saved games from before strength levels existed used the full policy.
 export const normalizeStrength = (value, fallback="strong") =>
   Object.hasOwn(AI_STRENGTHS,value) ? value : fallback;
-
-/** The strength a game of this board size plays with: a level made for one
- * board size plays as 「つよい」 on the others. */
-export const strengthForSize = (strength, size) =>
-  AI_STRENGTHS[strength]?.boardSize && AI_STRENGTHS[strength].boardSize!==size ? "strong" : strength;
 
 export function pickCount(kyu, legalCount, boardSquares=SIZE*SIZE) {
   const norm=legalCount/boardSquares;

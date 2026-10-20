@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {newGame,play,at,boardHash} from "../public/core.mjs";
 import {choosePolicyMove} from "../public/ai-opponent.mjs";
-import {AI_STRENGTHS,pickCount,pickWeakenedMove,fillsOwnEye,normalizeStrength,strengthForSize} from "../public/ai-strength.mjs";
+import {AI_STRENGTHS,pickCount,pickWeakenedMove,fillsOwnEye,normalizeStrength} from "../public/ai-strength.mjs";
+import {STRONG_NETWORKS,strongNetworkFor} from "../public/strong-networks.mjs";
 import {policyHints} from "../public/ai-assist.mjs";
 
 // A deterministic generator so sampling tests do not flake.
@@ -89,10 +90,13 @@ test("最強 plays the network's top move whatever the personality, and passes o
   assert.equal(choosePolicyMove(state,logits,5,{strength:"strongest",endgameStage:"playing"}),at(2,6));
 });
 
-test("最強 is a 9x9 level that plays as つよい on larger boards",()=>{
+test("最強 plays 9路 with the 9x9 network and larger boards with the b18 network",()=>{
   assert.equal(normalizeStrength("strongest"),"strongest");
-  assert.equal(strengthForSize("strongest",9),"strongest");
-  assert.equal(strengthForSize("strongest",13),"strong");
-  assert.equal(strengthForSize("strongest",19),"strong");
-  assert.equal(strengthForSize("easy",19),"easy");
+  assert.equal(strongNetworkFor(9),"kata9x9");
+  assert.equal(strongNetworkFor(13),"b18");
+  assert.equal(strongNetworkFor(19),"b18");
+  for(const network of Object.values(STRONG_NETWORKS)){
+    assert.match(network.url,/^https:\/\/.+\.bin\.gz$/);
+    assert.match(network.sha256,/^[0-9a-f]{64}$/);
+  }
 });

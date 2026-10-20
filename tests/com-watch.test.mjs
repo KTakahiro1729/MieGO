@@ -61,8 +61,8 @@ test("a watched game is saved and resumed as watched",()=>{
 test("each COM of a watched game plays with its own strength and personality",()=>{
   // The move is chosen with the settings of the colour to play.
   assert.match(app,/const comToMove = \(\) => watching \? watchAi\[game\.next===BLACK\?"black":"white"\]/);
-  assert.match(body("finishAiMove"),/const com=comToMove\(\),strength=strengthForSize\(com\.strength,/);
-  assert.match(body("finishAiMove"),/invasion:com\.invasion,reinforcement:com\.reinforcement,strength,/);
+  assert.match(body("finishAiMove"),/const com=comToMove\(\);/);
+  assert.match(body("finishAiMove"),/invasion:com\.invasion,reinforcement:com\.reinforcement,strength:com\.strength/);
   // 詳細設定 holds one card per COM, shown only for two COMs.
   const advanced=between('id="newGameAdvanced"','</details>');
   const cards=[...advanced.matchAll(/<fieldset class="com-card">([\s\S]*?)<\/fieldset>/g)].map(m=>m[1]);
