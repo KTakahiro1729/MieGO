@@ -1,4 +1,4 @@
-import {BLACK,WHITE,areaScore,neighbors,isBoardSize,sizeOf,komiOf,handicapBonusOf,isJapanese} from "./core.mjs";
+import {BLACK,WHITE,areaScore,neighbors,isBoardSize,sizeOf,komiOf,handicapBonusOf,isJapanese,scoringStepOf} from "./core.mjs";
 
 /** Outline colours of the filled-in prisoners, shared by the board and the アゲハマ counter. */
 export const PRISONER_OUTLINE=Object.freeze({black:"#e0a03a",white:"#3aaec4"});
@@ -9,7 +9,7 @@ import { TEXT } from "./texts.mjs";
  * Dead stones are removed from the effective board, but are kept in the
  * original board for manual review until both players confirm.
  */
-export function scoringRegions(state) {
+export function scoringRegions(state, {prisonerPoints=null}={}) {
   if(!state || !Array.isArray(state.board) || !isBoardSize(Math.sqrt(state.board.length)))
     throw new Error(TEXT.rules.needsSizedBoard);
   const SIZE=sizeOf(state.board);
@@ -40,8 +40,9 @@ export function scoringRegions(state) {
       return da-db||a-b;
     })[0];
     // Japanese labels count territory only; stones on the board score nothing.
-    const count=isJapanese(state)?territory.length:positions.length;
-    if(!count)continue;
+    // Once the prisoners are filled in, the label is the territory they leave.
+    const count=isJapanese(state)?territory.filter(i=>!prisonerPoints?.has(i)).length:positions.length;
+    if(!count && !prisonerPoints)continue;
     regions.push({color,count,stones:stones.length,
       territory:territory.length,position,positions});
   }
@@ -54,14 +55,26 @@ export function scoreBreakdown(state) {
   return TEXT.scoring.breakdown(rows.black,rows.white);
 }
 
+/** Japanese counting after the dead stones are agreed (or a finished count). */
+export const prisonersFilled=state=>isJapanese(state) &&
+  (scoringStepOf(state)==="count" || state.status==="finished" && !state.result?.endsWith("+R"));
+
 /** The scoreboard rows: board count (area, or territory under Japanese
- * rules), what is added to it, and the total. */
+ * rules), what is added to it, and the total. Once the prisoners fill
+ * territory, each side's count is the territory left, plus komi for White;
+ * the difference is the same as territory plus prisoners. */
 export function scoreRows(state) {
   const score=areaScore(state),komi=komiOf(state),bonus=handicapBonusOf(state);
-  const japanese=isJapanese(state);
+  const japanese=isJapanese(state),filled=prisonersFilled(state);
   const row=(color,total)=>{
     const prisoners=japanese?score.prisoners[color]:0;
     const extra=color==="white"?komi+bonus:0;
+    if(filled){
+      const other=color==="black"?"white":"black";
+      const area=score.territory[color]-score.prisoners[other];
+      return {area,detail:TEXT.scoring.detail(area,{komi:color==="white"?komi:null,
+        bonus:color==="white"?bonus:0}),total:area+extra};
+    }
     const area=total-prisoners-extra;
     return {area,detail:TEXT.scoring.detail(area,{prisoners:japanese?prisoners:null,
       komi:color==="white"?komi:null,bonus:color==="white"?bonus:0}),total};
@@ -77,16 +90,15 @@ export function scoreRows(state) {
  * 日本式の整地: each side's prisoners go back into the territory of the side
  * they came from (White stones Black took fill White's territory, and the
  * other way round), packed as one compact block per region where possible.
- * Points still holding a stone (dead stones while they are being marked) stay
- * clear. Returns the filled points per prisoner colour; a side with more
+ * This is the second counting step, after the dead stones are agreed. Returns the filled points per prisoner colour; a side with more
  * prisoners than visible territory fills what there is.
  */
-export function prisonerFill(state) {
-  if(!isJapanese(state) || !["scoring","finished"].includes(state.status) ||
-     state.result?.endsWith("+R"))return {black:[],white:[]};
+export function prisonerFill(state, {avoid=null}={}) {
+  if(!prisonersFilled(state))return {black:[],white:[]};
   const score=areaScore(state),size=sizeOf(state.board);
   const regions=scoringRegions(state).regions;
-  const free=i=>score.owned[i]&&(state.status==="finished"||!state.board[i]);
+  // The dead stones are off the board by now; kept playout stones stay clear.
+  const free=i=>score.owned[i] && !avoid?.has(i);
   const fill=(color,count)=>{
     const placed=[];
     // Largest territory first; each block grows from the region point farthest

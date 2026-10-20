@@ -101,6 +101,7 @@ export function play(state, position) {
     // Dead marks from an earlier, resumed count never carry into a new one.
     return { ...state, next: -color, passes, endProposal: null, moveNumber: state.moveNumber + 1,
       status: passes >= 2 ? "scoring" : "playing", agreed: { black: false, white: false },
+      ...(passes >= 2 ? { scoringStep: "dead" } : {}),
       dead: passes >= 2 ? [] : state.dead,
       history: [...state.history, boardHash(state.board)],
       moves: [...state.moves, { color, position: null }] };
@@ -159,7 +160,7 @@ export function answerEndProposal(state, color, accept) {
     return { ...state, endProposal: null }; // withdraw own offer
   }
   if (!accept) return { ...state, endProposal: null };
-  return { ...state, status: "scoring", passes: 0, endProposal: null,
+  return { ...state, status: "scoring", scoringStep: "dead", passes: 0, endProposal: null,
     dead: [], agreed: { black: false, white: false } };
 }
 /** A human may open scoring in a solo/AI match, without fabricating
@@ -167,7 +168,7 @@ export function answerEndProposal(state, color, accept) {
  */
 export function beginSoloScoring(state) {
   if(state.status!=="playing")throw new Error(TEXT.rules.scoreOnlyWhilePlaying);
-  return {...state,status:"scoring",passes:0,endProposal:null,dead:[],
+  return {...state,status:"scoring",scoringStep:"dead",passes:0,endProposal:null,dead:[],
     agreed:{black:false,white:false}};
 }
 export function toggleDead(state, index) {
@@ -175,7 +176,8 @@ export function toggleDead(state, index) {
   const stones = group(state.board, index).stones;
   const dead = new Set(state.dead), removing = [...stones].every(i => dead.has(i));
   for (const i of stones) removing ? dead.delete(i) : dead.add(i);
-  return { ...state, dead: [...dead], agreed: { black: false, white: false } };
+  // Changing the dead stones goes back to the dead-stone step.
+  return { ...state, dead: [...dead], scoringStep: "dead", agreed: { black: false, white: false } };
 }
 /** Apply a KataGo-based dead-stone proposal as complete connected groups.
  * This is provisional: users may toggle the marked stones before agreement.
@@ -191,12 +193,13 @@ export function setDeadCandidates(state, positions) {
     }
     for(const stone of group(state.board,index).stones) marked.add(stone);
   }
-  return {...state,dead:[...marked].sort((a,b)=>a-b),
+  return {...state,dead:[...marked].sort((a,b)=>a-b),scoringStep:"dead",
     agreed:{black:false,white:false}};
 }
 export function resume(state) {
   if (state.status !== "scoring") throw new Error(TEXT.rules.notCounting);
-  return { ...state, status: "playing", passes: 0, endProposal: null, dead: [], agreed: { black: false, white: false } };
+  return { ...state, status: "playing", scoringStep: "dead", passes: 0, endProposal: null, dead: [],
+    agreed: { black: false, white: false } };
 }
 /** The final score under the game's ruleset (area or territory). */
 export function areaScore(state) {
@@ -296,8 +299,32 @@ export function territoryScore(state) {
   const white = territory.white + prisoners.white + whiteCompensation(state);
   return { black, white, difference: black - white, owned, territory, prisoners, seki: [...seki] };
 }
+/**
+ * Japanese counting has two steps: both sides first agree on the dead stones
+ * ("dead"); then the prisoners are filled into territory and they agree on
+ * the count ("count"). Chinese counting is a single step (null).
+ */
+export const scoringStepOf = state => state?.status === "scoring" && isJapanese(state)
+  ? (state.scoringStep === "count" ? "count" : "dead") : null;
+export function agreeDead(state, color) {
+  if (scoringStepOf(state) !== "dead" || ![BLACK, WHITE].includes(color)) throw new Error(TEXT.rules.notCounting);
+  const agreed = { ...state.agreed, [color === BLACK ? "black" : "white"]: true };
+  if (!agreed.black || !agreed.white) return { ...state, agreed };
+  return { ...state, scoringStep: "count", agreed: { black: false, white: false } };
+}
+/** A single human confirms the dead stones, as finalizeSoloScore does the count. */
+export function confirmDeadSolo(state) {
+  if (scoringStepOf(state) !== "dead") throw new Error(TEXT.rules.notCounting);
+  return { ...state, scoringStep: "count", agreed: { black: false, white: false } };
+}
+/** Back from the count to the dead stones. */
+export function backToDead(state) {
+  if (scoringStepOf(state) !== "count") throw new Error(TEXT.rules.notCounting);
+  return { ...state, scoringStep: "dead", agreed: { black: false, white: false } };
+}
 export function agreeScore(state, color) {
-  if (state.status !== "scoring" || ![BLACK, WHITE].includes(color)) throw new Error(TEXT.rules.notCounting);
+  if (state.status !== "scoring" || scoringStepOf(state) === "dead" || ![BLACK, WHITE].includes(color))
+    throw new Error(TEXT.rules.notCounting);
   const agreed = { ...state.agreed, [color === BLACK ? "black" : "white"]: true };
   if (!agreed.black || !agreed.white) return { ...state, agreed };
   const s = areaScore(state);
@@ -308,7 +335,7 @@ export function agreeScore(state, color) {
  * fake agreement by the opposing color into the match record.
  */
 export function finalizeSoloScore(state) {
-  if(state.status!=="scoring")throw new Error(TEXT.rules.finalizeOnlyWhileScoring);
+  if(state.status!=="scoring" || scoringStepOf(state)==="dead")throw new Error(TEXT.rules.finalizeOnlyWhileScoring);
   const s=areaScore(state);
   return {...state,status:"finished",
     result:(s.difference>0?"B+":"W+")+Math.abs(s.difference).toFixed(1)};

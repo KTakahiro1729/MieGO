@@ -1,4 +1,4 @@
-import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, boardHash, handicapOf, komiOf, isJapanese, areaScore, rulesOf, RULESETS, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
+import { BLACK, WHITE, BOARD_SIZES, sizeOf, maxHandicap, newGame, play, toggleDead, resume, agreeScore, beginSoloScoring, finalizeSoloScore, boardHash, handicapOf, komiOf, isJapanese, areaScore, scoringStepOf, agreeDead, confirmDeadSolo, backToDead, rulesOf, RULESETS, proposeEnd, answerEndProposal, setDeadCandidates } from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
 import { settleLimit, settleStart, pickSettleMove, settleStep, deadFromPlayout, replayPlayout } from "./settle-playout.mjs";
 import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
@@ -314,7 +314,7 @@ const boardZoom=createBoardZoom({
 const boardRenderer = createBoardRenderer({
   canvas,
   getView:()=>({game,boardReview,candidate,illegalCandidate,lastPosition,displayedOwnership,palette,opacity,boardTheme,
-    humanTurn:isHumanTurn(),hints:visibleHints(),settle:settleView()})
+    humanTurn:isHumanTurn(),hints:visibleHints(),settle:settleView(),keptPlayout:keptPlayout()})
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
 // Hints belong to one committed position and are only drawn on the human's turn.
@@ -484,7 +484,8 @@ function commitSettle(run) {
   const job=deadEvaluation;
   settle=null;deadEvaluation=null;
   if(!scoringJobCurrent(job)){show();return;}
-  settlePlayout={number:game.moveNumber,hash:boardHash(game.board),positions:run.positions};
+  settlePlayout={number:game.moveNumber,hash:boardHash(game.board),positions:run.positions,
+    board:run.state.board};
   apply(scoringReviewAction("dead_auto",{positions:run.dead,playout:run.positions}));
 }
 /** 再生: the kept playout again, without asking KataGo. */
@@ -525,6 +526,15 @@ function stopSettleShow() {
 const currentPlayout=()=>settlePlayout && game.status==="scoring" &&
   settlePlayout.number===game.moveNumber && settlePlayout.hash===boardHash(game.board) &&
   settlePlayout.positions.length ? settlePlayout : null;
+/** The stones the playout placed stay on the board, as fill stones, until the count is over. */
+function keptPlayout() {
+  if(boardReview || settle || settleShow || !settlePlayout?.board)return null;
+  const counted=game.status==="scoring" || game.status==="finished" && !game.result?.endsWith("+R");
+  if(!counted || settlePlayout.number!==game.moveNumber || settlePlayout.hash!==boardHash(game.board))return null;
+  const kept=[];
+  settlePlayout.board.forEach((color,i)=>{if(color && !game.board[i])kept.push({position:i,color});});
+  return kept;
+}
 /** What the board shows during a playout: its position over the real stones. */
 function settleView() {
   if(boardReview || game.status!=="scoring")return null;
@@ -752,7 +762,8 @@ function show() {
   $("confirm").hidden=isScoring || isFinished;
   $("copyIllegalPrompt").hidden=isScoring || isFinished || !blocked;
   $("actionRow").classList.toggle("finished-actions",isFinished);
-  $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:TEXT.scoring.title;
+  $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:
+    scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
   const playout=settleView();
   $("settleSkip").hidden=!playout;
   $("settleReplay").hidden=!!playout || !isScoring || !currentPlayout();
@@ -764,6 +775,7 @@ function show() {
     deadReview==="pending"?TEXT.scoring.reviewPending:
     deadReview==="loading"?TEXT.scoring.reviewLoading:
     deadReview==="awaiting"?TEXT.scoring.reviewAwaiting:
+    scoringStepOf(game)==="count"?TEXT.scoring.countStep:
     deadReview==="complete"?(japanese?TEXT.scoring.reviewCompleteJapanese:TEXT.scoring.reviewComplete):
     deadReview==="none"?(japanese?TEXT.scoring.reviewNoneJapanese:TEXT.scoring.reviewNone):
     deadReview==="modified"?(japanese?TEXT.scoring.reviewModifiedJapanese:TEXT.scoring.reviewModified):
@@ -779,7 +791,10 @@ function show() {
     const agreeing=room?(myOnlineColor()===WHITE?"white":"black"):
       gameMode==="ai"?(humanColor===BLACK?"black":"white"):"black";
     $("agree").textContent=game.agreed[agreeing]?TEXT.scoring.agreedWaiting:
-      ready?TEXT.scoring.agree:TEXT.scoring.waitingDead;
+      !ready?TEXT.scoring.waitingDead:
+      scoringStepOf(game)==="dead"?TEXT.scoring.agreeDead:TEXT.scoring.agree;
+    $("backToDead").hidden=scoringStepOf(game)!=="count";
+    $("backToDead").disabled=room&&!connected;
     if(game.agreed[agreeing])$("agree").disabled=true;
     $("resume").disabled=room&&!connected;
   }
@@ -845,7 +860,9 @@ function apply(action, remote=false, isAiMove=false) {
       if(action.type==="dead_auto")game=setDeadCandidates(game,action.positions);
       // The friend who ran the playout sends it along, so both boards can replay it.
       if(action.type==="dead_auto" && Array.isArray(action.playout) && replayPlayout(game,action.playout)) {
-        settlePlayout={number:game.moveNumber,hash:boardHash(game.board),positions:[...action.playout]};
+        const frames=replayPlayout(game,action.playout);
+        settlePlayout={number:game.moveNumber,hash:boardHash(game.board),positions:[...action.playout],
+          board:frames.at(-1).board};
         if(remote)setTimeout(replaySettle,0);
       }
       deadReview=action.type==="dead_unavailable"?"unavailable":
@@ -859,6 +876,16 @@ function apply(action, remote=false, isAiMove=false) {
       }
       game=agreeScore(game,action.color);
     }
+    else if(action.type==="agree_dead" || action.type==="solo_dead") {
+      // 日本式: the dead stones are agreed first; then the prisoners fill territory.
+      if(!canApproveScoring(game,deadReview,room,connected) ||
+         action.type==="solo_dead" && (room || remote)) {
+        if(!remote)throw new Error(TEXT.game.finalizeAfterReview);
+        return;
+      }
+      game=action.type==="solo_dead"?confirmDeadSolo(game):agreeDead(game,action.color);
+    }
+    else if(action.type==="back_to_dead") game=backToDead(game);
     else if(action.type==="resume") game=resume(game);
     // "mode" (the removed per-game overlay switch) from older peers is ignored below.
     else if(action.type==="end_offer") {
@@ -1112,10 +1139,12 @@ $("agree").onclick=()=>{
   if(!canApproveScoring(game,deadReview,room,connected))return;
   const color=room?myOnlineColor():gameMode==="ai"?humanColor:BLACK;
   if(game.agreed[color===BLACK?"black":"white"])return;
-  if(!room)apply({type:"solo_score"});
-  else apply({type:"agree",color});
+  const deadStep=scoringStepOf(game)==="dead";
+  if(!room)apply({type:deadStep?"solo_dead":"solo_score"});
+  else apply({type:deadStep?"agree_dead":"agree",color});
 };
 $("resume").onclick=()=>apply({type:"resume"});
+$("backToDead").onclick=()=>apply({type:"back_to_dead"});
 $("endPropose").onclick=()=>{
   if(game.status!=="playing" || game.endProposal || game.takebackRequest)return;
   const color=myColorForEnd();

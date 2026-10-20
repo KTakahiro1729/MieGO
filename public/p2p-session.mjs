@@ -53,7 +53,7 @@ export function saveCheckpoint(storage, room, value) {
   catch {return false;}
 }
 // Actions a peer may only take in its own name, and those only the room owner sends.
-const OWN_COLOR_ACTIONS=new Set(["agree","end_offer","end_answer","takeback_request","takeback_answer"]);
+const OWN_COLOR_ACTIONS=new Set(["agree","agree_dead","end_offer","end_answer","takeback_request","takeback_answer"]);
 const OWNER_ACTIONS=new Set(["dead_auto","dead_unavailable"]);
 /** A peer plays only on its own turn and offers, answers or agrees only for its own color. */
 export function isPeerAction(action, game, {peerColor, peerIsOwner=false}) {

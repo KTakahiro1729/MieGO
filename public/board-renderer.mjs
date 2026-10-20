@@ -2,7 +2,7 @@ import {SIZE as DEFAULT_SIZE, BLACK, WHITE, sizeOf, starPoints} from "./core.mjs
 import {ownershipPixel,showsOwnership,countingPalette,countingOpacity,NEUTRAL_MARK} from "./territory-view.mjs";
 import {boardTheme} from "./board-theme.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
-import {scoringRegions,prisonerFill,PRISONER_OUTLINE} from "./scoring-regions.mjs";
+import {scoringRegions,prisonerFill,prisonersFilled,PRISONER_OUTLINE} from "./scoring-regions.mjs";
 
 /**
  * Draws the current board without modifying the match. Each draw reads one
@@ -110,8 +110,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   /** 日本式: prisoners filled into territory, each block outlined in its counter colour. */
-  function paintPrisonerFill(theme,game,gap,pad) {
-    const fill=prisonerFill(game);
+  function paintPrisonerFill(theme,fill,gap,pad) {
     for(const [key,color] of [["white",WHITE],["black",BLACK]]){
       const points=new Set(fill[key]);
       if(!points.size)continue;
@@ -181,8 +180,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       const color=!boardReview && illegalCandidate?.position===i && display.board[i]===0
         ? game.next : committedColor;
       if(!color)continue;
-      if(!boardReview && game.status==="finished" &&
-         !game.result?.endsWith("+R") && game.dead?.includes(i))continue;
+      // Dead stones are off the board once the count is final, or filled under Japanese rules.
+      if(!boardReview && (game.status==="finished" && !game.result?.endsWith("+R") ||
+         prisonersFilled(game)) && game.dead?.includes(i))continue;
       const x=pad+(i%SIZE)*gap;
       const y=pad+Math.floor(i/SIZE)*gap;
       const r=gap*.44;
@@ -294,13 +294,19 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     paintGrid(theme,d,gap,pad);
     paintOwnership(view,gap,pad);
     const scoredFinished=game.status==="finished" && !game.result?.endsWith("+R");
-    const scoring=!boardReview && (game.status==="scoring" || scoredFinished)?
-      scoringRegions(game):null;
+    // Stones kept from the settle playout, and the prisoners filled around them.
+    const kept=!boardReview && Array.isArray(view.keptPlayout) ? view.keptPlayout : [];
+    const counting=!boardReview && (game.status==="scoring" || scoredFinished);
+    const fill=counting?prisonerFill(game,{avoid:new Set(kept.map(k=>k.position))}):null;
+    const scoring=counting?scoringRegions(game,prisonersFilled(game)?
+      {prisonerPoints:new Set([...fill.black,...fill.white])}:{}):null;
     if(scoring)paintCountingArea(view,scoring,gap,pad);
     paintStarPoints(theme,gap,pad);
     if(scoring)paintNeutralPoints(game,scoring,gap,pad);
     paintStones(theme,view,display,gap,pad);
-    if(scoring)paintPrisonerFill(theme,game,gap,pad);
+    for(const {position,color} of kept)
+      paintFillStone(theme,color,pad+(position%SIZE)*gap,pad+Math.floor(position/SIZE)*gap,gap);
+    if(scoring)paintPrisonerFill(theme,fill,gap,pad);
     if(scoring)paintRegionLabels(scoring.regions,gap,pad);
     paintLastMove(view,display,gap,pad);
     if(!boardReview)paintHints(view,display,gap,pad);

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BLACK, WHITE, at, newGame, initialGame, play, areaScore, territoryScore, sekiStones,
-  whiteCompensation, komiOf, toSGF, beginSoloScoring, finalizeSoloScore } from "../public/core.mjs";
+  whiteCompensation, komiOf, toSGF, beginSoloScoring, finalizeSoloScore, confirmDeadSolo } from "../public/core.mjs";
 import { parseSGF, exportSGF, replaySteps } from "../public/sgf.mjs";
 import { scoreRows, scoreBreakdown, scoringRegions } from "../public/scoring-regions.mjs";
 import { TEXT } from "../public/texts.mjs";
@@ -90,7 +90,7 @@ test("captures, finishing and SGF keep the Japanese ruleset", () => {
   // Black captures a white stone at (0,0).
   for (const p of [at(1, 0), at(0, 0), at(0, 1)]) game = play(game, p);
   assert.equal(game.captures.black, 1);
-  const done = finalizeSoloScore(beginSoloScoring(game));
+  const done = finalizeSoloScore(confirmDeadSolo(beginSoloScoring(game)));
   assert.match(done.result, /^[BW]\+/);
   assert.match(toSGF(done), /RU\[Japanese\]KM\[6\.5\]|KM\[6\.5\]RU\[Japanese\]/);
   const sgf = exportSGF(done);
@@ -113,13 +113,19 @@ test("prisoners fill the territory of the side they came from, as one outlined b
   const board = Array(81).fill(0);
   for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(5, y)] = WHITE; }
   board[at(1, 1)] = WHITE; // dead, inside Black's area
-  const game = japanese({ board, dead: [at(1, 1)], captures: { black: 4, white: 2 } });
+  const dead = japanese({ board, dead: [at(1, 1)], captures: { black: 4, white: 2 } });
+  // Nothing is filled until the dead stones are agreed.
+  assert.deepEqual(prisonerFill(dead), { black: [], white: [] });
+  const game = { ...dead, scoringStep: "count" };
   const fill = prisonerFill(game);
   // Black holds 4 captured + 1 dead White stones; they go back into White's territory.
   assert.equal(fill.white.length, 5);
   assert.ok(fill.white.every(p => p % 9 > 5));
   assert.equal(fill.black.length, 2);
-  assert.ok(fill.black.every(p => p % 9 < 3 && p !== at(1, 1)), "a dead stone still on the board stays clear");
+  assert.ok(fill.black.every(p => p % 9 < 3));
+  // Stones kept from the settle playout stay clear.
+  const avoid = new Set(fill.black);
+  assert.ok(prisonerFill(game, { avoid }).black.every(p => !avoid.has(p)));
   // Each block is connected.
   for (const points of [fill.white, fill.black]) {
     const set = new Set(points), seen = new Set([points[0]]), queue = [points[0]];
@@ -132,4 +138,33 @@ test("prisoners fill the territory of the side they came from, as one outlined b
   assert.deepEqual(prisonerFill({ ...game, status: "finished", result: "B+R" }), { black: [], white: [] });
   // More prisoners than territory: what there is gets filled.
   assert.equal(prisonerFill({ ...game, captures: { black: 200, white: 0 } }).white.length, 27);
+});
+
+test("after the dead stones are agreed, the count is the territory the prisoners leave", async () => {
+  const { scoreRows, scoringRegions, prisonerFill } = await import("../public/scoring-regions.mjs");
+  const { agreeDead, agreeScore, scoringStepOf, toggleDead } = await import("../public/core.mjs");
+  const board = Array(81).fill(0);
+  for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(5, y)] = WHITE; }
+  board[at(1, 1)] = WHITE;
+  let game = japanese({ board, dead: [at(1, 1)], captures: { black: 2, white: 1 } });
+  assert.equal(scoringStepOf(game), "dead");
+  assert.throws(() => agreeScore(game, BLACK));
+  game = agreeDead(game, BLACK);
+  assert.equal(scoringStepOf(game), "dead");
+  game = agreeDead(game, WHITE);
+  assert.equal(scoringStepOf(game), "count");
+  assert.deepEqual(game.agreed, { black: false, white: false });
+  // Black: 27 territory less White's 1 prisoner; White: 27 less Black's 3, plus komi.
+  assert.deepEqual(scoreRows(game), {
+    black: { area: 26, detail: "", total: 26 },
+    white: { area: 24, detail: "24＋コミ6.5", total: 30.5 }, leader: "white" });
+  const fill = prisonerFill(game);
+  const labels = scoringRegions(game, { prisonerPoints: new Set([...fill.black, ...fill.white]) })
+    .regions.map(r => r.count).sort((a, b) => a - b);
+  assert.deepEqual(labels, [24, 26]);
+  // The difference, and so the result, is the same as territory plus prisoners.
+  const finished = agreeScore(agreeScore(game, BLACK), WHITE);
+  assert.equal(finished.result, "W+4.5");
+  // Changing a dead stone goes back to the first step.
+  assert.equal(scoringStepOf(toggleDead(game, at(1, 1))), "dead");
 });

@@ -71,8 +71,9 @@ test("finished view exposes next match and history without hidden menus",()=>{
 });
 
 test("AI scoring uses human-only confirmation, and remote scoring retains two-player consent",()=>{
-  assert.match(app,/if\(!room\)apply\(\{type:"solo_score"\}\)/);
-  assert.match(app,/else apply\(\{type:"agree",color\}\)/);
+  // Japanese counting agrees on the dead stones first, the same way.
+  assert.match(app,/if\(!room\)apply\(\{type:deadStep\?"solo_dead":"solo_score"\}\)/);
+  assert.match(app,/else apply\(\{type:deadStep\?"agree_dead":"agree",color\}\)/);
   assert.match(app,/game=finalizeSoloScore\(game\)/);
   assert.match(app,/game=beginSoloScoring\(game\)/);
   assert.doesNotMatch(app,/apply\(\{type:"agree",color:gameMode==="ai"\?/);
