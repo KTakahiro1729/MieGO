@@ -83,6 +83,12 @@ import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { createShareImages, downloadBlob } from "./share-images.mjs";
 import { OwnershipStore } from "./ownership-store.mjs";
 import { replayLine, prefetchOrder } from "./ownership-prefetch.mjs";
+import {
+  leadSeries,
+  scoreGraphSvg,
+  stepAt,
+  swingSteps,
+} from "./score-graph.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
@@ -869,7 +875,7 @@ function handleAnalysis(event) {
   if(prefetch?.inflight && result.id===prefetch.inflight.id) {
     const state=prefetch.states[prefetch.inflight.step];
     prefetch.inflight=null;
-    if(validFor(state))keepReviewOwnership(prefetch,state.board,result.ownership);
+    if(validFor(state)){keepReviewOwnership(prefetch,state.board,result.ownership);renderScoreGraph();}
     else prefetch=null; // A failing estimate is not retried in the background.
     return;
   }
@@ -877,7 +883,7 @@ function handleAnalysis(event) {
     const state=boardReview.preview||boardReview.display;
     if(validFor(state)) {
       boardReview.ownership=result.ownership;
-      if(!boardReview.preview)keepReviewOwnership(reviewOwner(),state.board,result.ownership);
+      if(!boardReview.preview){keepReviewOwnership(reviewOwner(),state.board,result.ownership);renderScoreGraph();}
       draw();
     }
     return;
@@ -1915,6 +1921,7 @@ function renderBoardReview() {
   $("stepBack").disabled=step===0 || isPreview;
   $("stepForward").disabled=step>=count || isPreview;
   $("reviewStepRange").disabled=isPreview;
+  renderScoreGraph();
   // One way back: at the live game's latest move 続きを打つ already returns to it.
   $("reviewBack").hidden=isPreview || atLiveLatest();
   $("reviewPlayActions").hidden=!isPreview;
@@ -1979,7 +1986,7 @@ function planPrefetch() {
 function pumpPrefetch() {
   if(!boardReview){prefetch=null;return;}
   if(!prefetch || prefetch.inflight || workerWaiting!==null || aiThinking ||
-     !katagoReady || fallbackMode || !overlayOn())return;
+     !katagoReady || fallbackMode || !(overlayOn() || scoreGraphShown()))return;
   while(prefetch.queue.length){
     const step=prefetch.queue.shift(),state=prefetch.states[step];
     if(!state || ownershipStore.recall(prefetch.gameId,state.board))continue;
@@ -1988,6 +1995,45 @@ function pumpPrefetch() {
     prefetch.inflight={id,step};
     return;
   }
+}
+// 形勢グラフ: Black's estimated lead at every step of the replayed line, drawn
+// where the step slider was. It fills in as KataGo estimates the positions.
+let scoreGraph=null;
+// No graph while stepping back through a game still being played: it would
+// tell the player who is ahead mid-game.
+const scoreGraphShown = () => !!boardReview && !isGomoku(boardReview.display) && !isFree(boardReview.display) &&
+  !(boardReview.source==="live" && game.status!=="finished");
+function renderScoreGraph() {
+  const box=$("reviewGraph"),shown=scoreGraphShown();
+  box.classList.toggle("no-graph",!shown);
+  if(!shown){$("reviewGraphPlot").innerHTML="";scoreGraph=null;return;}
+  const line=activeReviewSnapshot(boardReview,game);
+  if(scoreGraph?.line!==line){
+    let states=[];
+    try{states=replayLine(line);}catch{}
+    scoreGraph={line,states,marks:[]};
+  }
+  const {gameId}=reviewOwner();
+  // A line that ended early (a resignation) still spans every step.
+  const series=Array(line.moves.length+1).fill(null);
+  leadSeries(scoreGraph.states,state=>ownershipStore.recall(gameId,state.board))
+    .forEach((lead,step)=>{if(step<series.length)series[step]=lead;});
+  scoreGraph.marks=swingSteps(series,line.moves,{minSwing:Math.max(3,line.board.length/27)});
+  const width=Math.round(box.clientWidth),height=Math.round(box.clientHeight);
+  // Not laid out yet (the tools are still hidden): drawing at 1x1 would blow
+  // the marks up to the whole bar. The resize observer draws it once sized.
+  if(width<=0 || height<=0){$("reviewGraphPlot").innerHTML="";return;}
+  $("reviewGraphPlot").innerHTML=scoreGraphSvg(series,{width,height,step:boardReview.step,marks:scoreGraph.marks,stepLabel:TEXT.review.graphEnd});
+}
+// A tap near a marked turning point lands on it; otherwise on the nearest step.
+function pickGraphStep(event) {
+  if(!scoreGraphShown() || boardReview.preview)return;
+  const rect=$("reviewGraph").getBoundingClientRect();
+  const count=activeReviewSnapshot(boardReview,game).moves.length;
+  const x=event.clientX-rect.left;
+  const near=(scoreGraph?.marks||[]).find(step=>count && Math.abs(step/count*rect.width-x)<=10);
+  const step=near ?? stepAt(x,rect.width,count);
+  if(step!==boardReview.step)setBoardReviewStep(step);
 }
 function requestReviewOwnership() {
   if(!boardReview)return;
@@ -2216,6 +2262,15 @@ $("stepBack").onclick=()=>{
 $("stepForward").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
 $("reviewBack").onclick=leaveBoardReview;
 $("reviewStepRange").oninput=e=>setBoardReviewStep(Number(e.target.value));
+$("reviewGraph").addEventListener("pointerdown",e=>{
+  if(!scoreGraphShown())return;
+  $("reviewGraph").setPointerCapture(e.pointerId);
+  pickGraphStep(e);
+});
+$("reviewGraph").addEventListener("pointermove",e=>{
+  if($("reviewGraph").hasPointerCapture(e.pointerId))pickGraphStep(e);
+});
+new ResizeObserver(()=>{if(boardReview)renderScoreGraph();}).observe($("reviewGraph"));
 $("reviewConfirm").onclick=confirmReviewPreview;
 $("reviewCancel").onclick=discardReviewPreview;
 $("reviewVariation").onclick=selectVariationLine;

@@ -47,7 +47,10 @@
         <div id="infoPanel" class="info-panel">
         <div id="reviewTools" class="review-tools" role="group" aria-label="{{review.menu}}" hidden>
           <div class="review-scrubber">
-            <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="{{review.range}}">
+            <div id="reviewGraph" class="review-graph">
+              <div id="reviewGraphPlot" class="review-graph-plot" aria-hidden="true"></div>
+              <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="{{review.range}}">
+            </div>
           </div>
           <div class="review-extras">
             <button id="reviewVariation" type="button" hidden>{{review.showVariation}}</button>
