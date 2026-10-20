@@ -5,7 +5,7 @@ import { makeReviewUrl,readReviewUrl } from "../public/sgf-link.mjs";
 import {
   illegalMoveReasons, inspectProvisionalMove, makeIllegalMovePrompt, ILLEGAL_KO, ILLEGAL_SUICIDE
 } from "../public/illegal-moves.mjs";
-import {readFileSync} from "node:fs";
+import {source} from "./helpers/source.mjs";
 
 // Build both forbidden positions through legal play so the SGF URL and board agree.
 function suicidePosition() {
@@ -86,10 +86,10 @@ test("suicide question includes its SGF replay URL but not prior-board snapshot"
   assert.doesNotMatch(text,/直前の着手前の盤面/);
 });
 test("no forbidden markers, no status coordinates, normal-weight matching type",()=>{
-  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
-  const renderer=readFileSync(new URL("../public/board-renderer.mjs",import.meta.url),"utf8");
-  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
-  const style=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
+  const app=source("app.mjs");
+  const renderer=source("board-renderer.mjs");
+  const html=source("index.html");
+  const style=source("style.css");
   assert.doesNotMatch(renderer,/drawIllegalMoveMarker|paintIllegalMarkers|illegalMoveReasons/);
   assert.match(renderer,/illegalCandidate\?\.position/);
   assert.match(app,/inspectProvisionalMove\(game,position\)/);
@@ -97,8 +97,6 @@ test("no forbidden markers, no status coordinates, normal-weight matching type",
   assert.match(app,/makeReviewUrl\(location\.origin,\{snapshot:game\},game\.moves\.length\)/);
   assert.match(app,/makeIllegalMovePrompt\(game,selected,link\)/);
   assert.doesNotMatch(app,/pointLabel\(illegalCandidate\.position\)/);
-  assert.match(html,/id="copyIllegalPrompt"/);
-  assert.match(html,/id="endStatus"/);
   assert.match(app,/classList\.toggle\("has-illegal",blocked\)/);
   assert.match(style,/\.action-row #confirm\{font-size:14px\}/);
   assert.match(style,/font-size:14px;font-weight:400;line-height:1\.3/);

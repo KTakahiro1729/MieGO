@@ -1,3 +1,5 @@
+import { boardFromHash } from "../../public/core.mjs";
+
 // Pure adapter from MieGO's -1/0/+1 flat board and replay record to KataGo v7.
 // Board sizes MieGO can play; the network itself is size-independent.
 const SIZES = [9, 13, 19];
@@ -13,10 +15,9 @@ const normalized = (board, size) => Array.from({ length: size }, (_, y) =>
   })
 );
 export function fromBoardHash(hash, size = 9) {
-  if (typeof hash !== "string" || hash.length !== size * size || /[^012]/.test(hash))
-    throw new Error("Invalid MieGO board history");
-  // MieGO hashes -1=>0, empty=>1, +1=>2.
-  return normalized(Array.from(hash, c => Number(c) - 1), size);
+  const board = boardFromHash(hash, size * size);
+  if (!board) throw new Error("Invalid MieGO board history");
+  return normalized(board, size);
 }
 export function toKataGoPosition(state) {
   const size = boardSizeOf(state?.board);

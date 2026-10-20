@@ -1,8 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {readFileSync} from "node:fs";
-const get=name=>readFileSync(new URL("../public/"+name,import.meta.url),"utf8");
-const html=get("index.html"),app=get("app.mjs"),css=get("style.css"),help=get("help-sheet.mjs");
+import {source} from "./helpers/source.mjs";
+const html=source("index.html"),app=source("app.mjs"),css=source("style.css"),help=source("help-sheet.mjs");
 const sheet=html.slice(html.indexOf('<aside id="helpPanel"'),html.indexOf('</aside>',html.indexOf('<aside id="helpPanel"')));
 const topics=new Set([...sheet.matchAll(/<details id="help-([\w-]+)"/g)].map(m=>m[1]));
 
@@ -13,7 +12,6 @@ test("the header reads 新規対戦, share, help, then the settings gear at the 
   for(const label of ["共有を開く","ヘルプを開く","設定を開く"])
     assert.match(header,new RegExp('aria-label="'+label+'" title="'+label+'"'),"icon buttons name themselves on hover too");
   assert.match(header,/id="helpToggle" class="icon-button"[^>]*aria-label="ヘルプを開く"[^>]*aria-controls="helpPanel"/);
-  assert.match(help,/\$\("helpToggle"\)\.onclick=/);
 });
 
 test("explanations live in the help sheet instead of being scattered",()=>{

@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {readFileSync} from "node:fs";
 import {renderIndex} from "../scripts/build-html.mjs";
+import {source} from "./helpers/source.mjs";
 
-const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+const app=source("app.mjs");
 const html=await renderIndex();
 const choices=name=>[...html.matchAll(new RegExp('name="'+name+'" value="([a-z]+)"',"g"))].map(m=>m[1]);
 const body=name=>app.slice(app.indexOf("function "+name+"("),app.indexOf("\n}\n",app.indexOf("function "+name+"(")));

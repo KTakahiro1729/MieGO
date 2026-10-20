@@ -5,6 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0e1119">
   <title>{{page.title}}</title>
+  <meta name="description" content="{{page.description}}">
+  <link rel="canonical" href="https://miego.fun/">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/icon-96.png" type="image/png" sizes="96x96">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="MieGO">
+  <meta property="og:locale" content="ja_JP">
+  <meta property="og:url" content="https://miego.fun/">
+  <meta property="og:title" content="{{page.title}}">
+  <meta property="og:description" content="{{page.description}}">
+  <meta property="og:image" content="https://miego.fun/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="{{page.imageAlt}}">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="stylesheet" href="/style.css">
   <!-- module preloads -->
 </head>
@@ -12,7 +28,7 @@
   <canvas id="boardBleed" class="board-bleed" aria-hidden="true"></canvas>
   <div class="app-shell">
     <header class="topbar">
-      <div class="brand" aria-label="MieGO">Mie<span>GO</span></div>
+      <h1 class="brand" aria-label="MieGO">Mie<span>GO</span></h1>
       <div class="header-actions">
         <button id="newGameButton" class="secondary new-game-button" type="button" aria-haspopup="dialog" aria-controls="modePanel">{{header.newGame}}</button>
         <button id="shareToggle" class="icon-button" type="button" aria-label="{{share.open}}" title="{{share.open}}" aria-controls="sharePanel" aria-expanded="false">
@@ -363,6 +379,7 @@
     <aside id="helpPanel" class="settings-panel help-panel" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
       <div class="settings-head"><h2 id="helpTitle">{{help.title}}</h2><button id="closeHelp" class="icon-button" type="button" aria-label="{{help.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <section class="settings-section help-topics">
+        <p class="explanation help-intro">{{page.description}}</p>
         <details id="help-beginner" class="info-disclosure help-topic" name="helpTopic"><summary>{{help.beginner.summary}}</summary>
           <p class="explanation">{{help.beginner.body}}</p>
           <div class="fused fused-column">

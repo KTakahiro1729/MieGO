@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, play, at } from "../public/core.mjs";
+import {
+  at,
+  boardFromHash,
+  boardHash,
+  newGame,
+  play,
+} from "../public/core.mjs";
 import { toKataGoPosition, fromBoardHash } from "../src/katago/position.mjs";
 
 test("KataGo adapter encodes 9x9 Chinese-side stones and komi inputs", () => {
@@ -36,4 +42,12 @@ test("13x13 and 19x19 positions keep their size and coordinates", () => {
     assert.deepEqual(a.moveHistory[0], { x: size - 1, y: 0, player: "black" });
   }
   assert.throws(() => toKataGoPosition({ board: Array(100).fill(0), moves: [], next: 1 }));
+});
+
+test("a history hash turns back into its board, and anything else into null", () => {
+  const g = play(newGame(), at(3, 3));
+  assert.deepEqual(boardFromHash(boardHash(g.board), 81), g.board);
+  assert.equal(boardFromHash(boardHash(g.board), 169), null);
+  assert.equal(boardFromHash("3".repeat(81), 81), null);
+  assert.equal(boardFromHash(undefined, 81), null);
 });
