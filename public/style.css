@@ -181,9 +181,11 @@ body.board-zoomed .board-bleed{opacity:1}
 .mode-icon{flex:none;color:#c9ced8}
 .handicap-select{width:100%;min-height:var(--control-h);background:#252c38;border:1px solid #4a5160;border-radius:var(--radius-sm);color:#f1f0ed;padding:10px 12px}
 .mode-panel .new-game-common{padding-top:0}
-/* 新たな対局を開始 opens the sheet; the way back sits right under it, then the choices. */
+/* The way back opens the sheet; under one line, the start button and then the choices. */
 .mode-panel>:not(.settings-head):not([hidden])~.new-game-common{margin-top:14px}
-.mode-panel .return-to-game{margin-top:8px}
+.mode-panel .return-to-game{margin:0 0 14px}
+.mode-panel .return-to-game:not([hidden])~section:not([hidden]){border-top:1px solid #343b49;padding-top:14px}
+.mode-panel .return-to-game:not([hidden])~section:not([hidden])~section:not([hidden]){border-top:0;padding-top:0}
 /* Board, handicap and side share one compact label-left grid instead of a heading each. */
 .setup-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 10px;align-items:center;margin-top:14px}
 .setup-row{display:contents}
@@ -213,7 +215,6 @@ body.board-zoomed .board-bleed{opacity:1}
 .step-note{margin-top:2px;min-height:1.7em}
 /* The sheet should fit one phone screen: tight section spacing, no empty status lines. */
 .mode-panel .settings-head{margin-bottom:12px}
-.mode-panel #localSetup,.mode-panel #onlineSetup,.mode-panel #aiSetup{padding:0}
 .mode-panel .settings-section .primary.full{margin-top:0}
 .mode-panel .new-game-advanced{margin-top:10px;padding-top:0}
 .mode-panel .explanation:empty,.mode-panel .invite-status:empty{display:none}

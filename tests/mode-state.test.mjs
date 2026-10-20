@@ -36,12 +36,11 @@ test("a 新規対戦 button opens one sheet with the three modes, board size, ha
     assert.equal((sheet.slice(sheet.indexOf('id="'+id+'Row"')).split('</div>')[0].match(/data-note=/g)||[]).length,id==="aiStrength"?4:3);
   assert.doesNotMatch(html+app,/aiLevel/);
   for(const id of ["startLocal","startAi","copy","openHistoryFromNew"])assert.match(sheet,new RegExp('id="'+id+'"'));
-  // 新たな対局を開始 sits at the top of the sheet, above the way back and the mode tabs.
-  for(const id of ["startLocal","startAi","copy"])
-    assert.ok(sheet.indexOf('id="'+id+'"')<sheet.indexOf('id="returnToGame"'),id);
-  assert.ok(sheet.indexOf('id="returnToGame"')<sheet.indexOf('name="newGameMode"'));
-  assert.equal(TEXT.newGame.start,"新たな対局を開始");
-  assert.match(app,/!katagoReady\?TEXT\.ai\.startLoading:TEXT\.newGame\.start;/);
+  // The way back tops the sheet, then the start button, then the mode tabs and options.
+  for(const id of ["startLocal","startAi","copy"]) {
+    assert.ok(sheet.indexOf('id="returnToGame"')<sheet.indexOf('id="'+id+'"'),id);
+    assert.ok(sheet.indexOf('id="'+id+'"')<sheet.indexOf('name="newGameMode"'),id);
+  }
   assert.match(app,/\$\("newGameButton"\)\.onclick=\(\)=>openPanel\(room\?"online":gameMode\)/);
 });
 test("settings is presentation-only and has no board rotation",()=>{
@@ -132,7 +131,7 @@ test("reset discards endgame and dead-stone hints",()=>{
 test("the 新規対戦 sheet offers a way back to the current or an unfinished saved game",()=>{
   const sheet=html.slice(html.indexOf('<aside id="modePanel"'),html.indexOf('</aside>',html.indexOf('<aside id="modePanel"')));
   assert.match(sheet,/id="returnToGame"[^>]*hidden>現在の対局に戻る<\/button>/);
-  assert.match(app,/return boardReview\?\{mode:null,label:TEXT\.history\.returnCurrent\}:null;/);
+  assert.match(app,/return \{mode:null,label:TEXT\.history\.returnCurrent\};/);
   assert.equal(TEXT.history.returnCurrent,"現在の対局に戻る");
   assert.doesNotMatch(app,/label:[^\n]*手目/);
   // Finished games and friend rooms are not resumed from here.

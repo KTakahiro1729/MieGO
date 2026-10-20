@@ -201,6 +201,7 @@
     </aside>
     <aside id="modePanel" class="settings-panel mode-panel" role="dialog" aria-modal="true" aria-labelledby="modeTitle" hidden>
       <div class="settings-head"><h2 id="modeTitle">{{header.newGame}}</h2><span class="sheet-head-actions"><button class="help-button" type="button" data-help="local" aria-label="{{common.helpFor(newGame.title)}}" title="{{common.helpFor(newGame.title)}}" id="modeHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="closeMode" class="icon-button" type="button" aria-label="{{common.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span></div>
+      <button id="returnToGame" class="secondary accent-outline full return-to-game" type="button" hidden>{{history.returnCurrent}}</button>
       <section id="localSetup" class="settings-section" hidden>
         <button id="startLocal" class="primary full" type="button">{{newGame.start}}</button>
       </section>
@@ -224,7 +225,6 @@
         <button id="startAi" class="primary full" type="button" disabled>{{ai.preparing}}</button>
         <p id="aiMatchStatus" class="visually-hidden" role="status" aria-live="polite">{{ai.preparingMatch}}</p>
       </section>
-      <button id="returnToGame" class="secondary accent-outline full return-to-game" type="button" hidden>{{history.returnCurrent}}</button>
       <section class="settings-section new-game-common">
         <div class="new-game-modes">
           <label><input type="radio" name="newGameMode" value="ai" checked><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 1.5v3.5M15 1.5v3.5M9 19v3.5M15 19v3.5M1.5 9H5M1.5 15H5M19 9h3.5M19 15h3.5"/><circle cx="12" cy="12" r="2.6"/></svg><strong>{{newGame.ai}}</strong></span></label>

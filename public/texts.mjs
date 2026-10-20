@@ -249,6 +249,8 @@ export const TEXT = {
     ready: "KataGo準備完了。AI対局を開始できます。",
     startUnavailable: "AIを使えません",
     startLoading: "KataGo準備中…",
+    restart: "設定して再戦",
+    start: "AIと対局を始める",
     preparing: "準備中…",
     preparingMatch: "対局を準備しています…",
     started: colorLabel => "対局を開始しました。あなたは" + colorLabel + "です。",
@@ -549,7 +551,7 @@ export const TEXT = {
     advanced: "詳細設定",
     hideStones: "石を隠す（地合いだけ表示）",
     hideStonesNote: "石を描かず、地合いの色だけで盤面を読みます。この対局の間は変えられず、対友人では相手の画面も同じになります。整地になると石が現れます。",
-    start: "新たな対局を開始",
+    start: "対局を始める",
   },
 
   help: {

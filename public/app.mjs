@@ -827,7 +827,7 @@ function show() {
   $("startAi").disabled=!katagoReady || fallbackMode;
   renderInviteButton();
   $("startAi").textContent=fallbackMode?TEXT.ai.startUnavailable:
-    !katagoReady?TEXT.ai.startLoading:TEXT.newGame.start;
+    !katagoReady?TEXT.ai.startLoading:gameMode==="ai"?TEXT.ai.restart:TEXT.ai.start;
   keepArmedLabel($("startAi"));
   $("aiInvasion").disabled=false;
   $("aiReinforcement").disabled=false;
@@ -1370,11 +1370,10 @@ function resumeModeGame(mode) {
 /**
  * The 新規対戦 sheet's way back: the game on the board for the current mode
  * (leaving any replay), or the unfinished saved game of another offline mode.
- * Without a replay, going back to the board is just the sheet's ×.
  */
 function returnTarget(kind) {
   if(kind==="history" || kind===(room?"online":gameMode))
-    return boardReview?{mode:null,label:TEXT.history.returnCurrent}:null;
+    return {mode:null,label:TEXT.history.returnCurrent};
   if(kind==="online")return null; // friend rooms reopen from the saved games
   let record=null;
   try{record=gameLibrary.active(kind);}catch{}
