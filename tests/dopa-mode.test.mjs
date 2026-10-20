@@ -73,11 +73,11 @@ function page({ level = null, reduced = false } = {}) {
   const graphClasses = new Set();
   const graph = { offsetWidth: 0, classList: classList(graphClasses) };
   const score = { textContent: "黒が12.5目差で勝利" };
-  const later = [], frames = [], buzzes = [];
+  const later = [], frames = [];
   let time = 0;
   const dopa = createDopaMode({ $, stage, frame, graph, score: () => score, ...(reduced === null ? {} : { reducedMotion: () => reduced }),
-    vibrate: pattern => buzzes.push(pattern), random: () => .5, schedule: f => later.push(f), requestFrame: f => frames.push(f), now: () => time });
-  return { $, dopa, saved, buzzes, children, classes, graphClasses, score, later, frames, tick: ms => { time += ms; frames.shift()?.(); } };
+    random: () => .5, schedule: f => later.push(f), requestFrame: f => frames.push(f), now: () => time });
+  return { $, dopa, saved, children, classes, graphClasses, score, later, frames, tick: ms => { time += ms; frames.shift()?.(); } };
 }
 
 test("the 設定 switch starts off, is remembered and goes back to off with 初期状態に戻す", () => {
@@ -135,18 +135,15 @@ test("every capture shakes the board, and four stones or more quake it", () => {
   assert.equal(p.classes.size, 0);
 });
 
-test("a good move shakes the board and buzzes the phone", () => {
+test("a good move shakes the board", () => {
   const p = page({ level: "on" });
   p.dopa.praise();
   assert.ok(p.classes.has("dopa-shake"));
-  assert.equal(p.buzzes.length, 1);
-  const still = page({ level: "on", reduced: true });
-  still.dopa.praise();
-  assert.equal(still.classes.size, 0, "reduced motion keeps the board still");
-  assert.equal(still.buzzes.length, 1, "but the phone still buzzes");
-  const off = page();
-  off.dopa.praise();
-  assert.equal(off.buzzes.length + off.classes.size, 0);
+  for (const options of [{}, { level: "on", reduced: true }]) {
+    const still = page(options);
+    still.dopa.praise();
+    assert.equal(still.classes.size, 0);
+  }
 });
 
 test("a turning point of the replay lands with ドン！, a shake and a bouncing mark", () => {

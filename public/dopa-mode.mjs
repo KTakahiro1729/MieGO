@@ -8,7 +8,7 @@ import { TEXT } from "./texts.mjs";
 // the board shakes, harder the more were taken, and a win rains confetti over
 // the board under 勝利！ or 圧勝！ while its points count up. A player's own
 // move that the network itself would play (goodMove) rings its own chime and
-// shakes the board, and the phone too where the browser can vibrate. Stepping through a
+// shakes the board. Stepping through a
 // replay onto a marked turning point of the 形勢グラフ bounces its mark under
 // ドン！, and in 秒読み the running clock grows from 10 seconds left and the
 // board's edge pulses red, once a second, from 5. It never changes the game,
@@ -32,7 +32,6 @@ const HURRY_FROM = 10000;
 const PULSE_FROM = 5000;
 // A move is good when the network gives it at least this share of its favourite's weight.
 const GOOD_SHARE = .5;
-const GOOD_BUZZ = [25, 40, 60];
 const CONFETTI_COLOURS = ["#f0c773", "#e5675c", "#6cc4a1", "#6aa6e8", "#c08ee8", "#f4f1ea", "#ff8fd1"];
 
 /** A stored level: "on" (the old オン and ULTRA included) or "off". */
@@ -81,7 +80,6 @@ export function countedLabel(label, value) {
 }
 
 export function createDopaMode({ $, stage, frame, graph, score, reducedMotion = stillMotion,
-  vibrate = pattern => globalThis.navigator?.vibrate?.(pattern),
   random = Math.random, schedule = setTimeout, requestFrame = globalThis.requestAnimationFrame?.bind(globalThis),
   now = () => performance.now() }) {
   let level = dopaLevel(stored(DOPA_KEY));
@@ -151,11 +149,10 @@ export function createDopaMode({ $, stage, frame, graph, score, reducedMotion = 
       if (event.points !== null) countUp(event.points);
     }
   }
-  /** A good move by the player: the board shakes, and so does the phone where it can. */
+  /** A good move by the player shakes the board. */
   function praise() {
-    if (level === "off") return;
-    try { vibrate(GOOD_BUZZ); } catch {}
-    if (!reducedMotion()) shake("dopa-shake");
+    if (level === "off" || reducedMotion()) return;
+    shake("dopa-shake");
   }
   /** ドン！ for the replay landing on a marked turning point of the 形勢グラフ. */
   function don() {
