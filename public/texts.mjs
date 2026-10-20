@@ -74,6 +74,10 @@ export const TEXT = {
     doneAi: "待ったをしました。",
   },
 
+  dopa: {
+    bigWin: "圧勝！",
+  },
+
   result: {
     draw: "引き分け",
     byResign: (winner, loser) => color(loser) + "の投了で" + color(winner) + "が勝利",
@@ -619,6 +623,9 @@ export const TEXT = {
     reset: "初期状態に戻す",
     sound: "効果音",
     soundNote: "石を打つ・取る、秒読み、終局で鳴らします",
+    dopa: "ドパガキモード",
+    dopaNote: "石を取ったときや勝ったときに派手に祝います",
+    dopaLevels: { off: "オフ", on: "オン", ultra: "ULTRA" },
     board: "碁盤",
     themes: { wood: "木目", light: "ライト", dark: "ダーク", custom: "カスタム" },
     boardColours: { board: "盤", line: "線", black: "黒石", white: "白石" },
