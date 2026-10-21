@@ -15,10 +15,12 @@ import {scoringRegions,prisonerFill,prisonersFilled} from "./scoring-regions.mjs
 // Stones taken by a move fade out over this long instead of vanishing.
 export const CAPTURE_FADE_MS=200;
 const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-// ドパガキモード's burst: sparks fly from each taken stone for this long.
-export const BURST_MS=650;
-const BURST_SPARKS={on:7,ultra:12};
-const BURST_LIMIT={on:70,ultra:160};
+// ドパガキモード: sparks fly from each taken stone, and a "+N" rises over them, for this long.
+export const BURST_MS=900;
+// Each placed stone sends out a ring for this long.
+export const WAVE_MS=480;
+const BURST_SPARKS=20;
+const BURST_LIMIT=320;
 
 /**
  * Draws the current board without modifying the match. Each draw reads one
@@ -36,7 +38,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   // The side length of the position being drawn; set at the start of each draw.
   let SIZE = DEFAULT_SIZE;
   // The live position last drawn and each stone's alpha in it, to find what a move captured.
-  let lastLive=null, shownAlpha=[], fading=[], sparks=[], frame=null;
+  let lastLive=null, shownAlpha=[], fading=[], sparks=[], pops=[], waves=[], frame=null;
 
   function paintGrid(theme, d, gap, pad) {
     ctx.clearRect(0,0,d,d);
@@ -342,8 +344,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   // A live move that removed stones starts them fading from the alpha they were last shown at.
-  // ドパガキモード ("on" or "ultra") also sends sparks out of each, more and
-  // farther the more stones the move took; ULTRA's are rainbow-coloured.
+  // ドパガキモード ("on") also rings out from the placed stone and sends
+  // rainbow sparks out of each taken one, more and farther the more were taken.
   function noteCaptures(game,live,burst) {
     const before=lastLive;
     lastLive=live?{board:[...game.board],moves:game.moves.length,alpha:shownAlpha}:null;
@@ -351,35 +353,24 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
        !requestFrame || stillMotion())return;
     const start=now();
     const taken=[];
-    for(let i=0;i<game.board.length;i++)
+    for(let i=0;i<game.board.length;i++){
       if(before.board[i] && !game.board[i] && before.alpha[i]){
         fading.push({position:i,color:before.board[i],from:before.alpha[i],start});
         taken.push(i);
       }
-    if(!BURST_SPARKS[burst] || !taken.length)return;
-    const each=Math.max(2,Math.min(BURST_SPARKS[burst],Math.floor(BURST_LIMIT[burst]/taken.length)));
-    const reach=Math.min(3,1+taken.length*.15);
+      if(burst==="on" && !before.board[i] && game.board[i])waves.push({x:i%SIZE,y:Math.floor(i/SIZE),start});
+    }
+    if(burst!=="on" || !taken.length)return;
+    const each=Math.max(3,Math.min(BURST_SPARKS,Math.floor(BURST_LIMIT/taken.length)));
+    const reach=Math.min(4,1.4+taken.length*.2);
     for(const position of taken)
       for(let k=0;k<each;k++){
         const angle=random()*Math.PI*2, speed=(.4+random()*.6)*reach;
         sparks.push({x:position%SIZE,y:Math.floor(position/SIZE),dx:Math.cos(angle)*speed,dy:Math.sin(angle)*speed,
-          hue:burst==="ultra"?Math.floor(random()*360):null,start});
+          hue:Math.floor(random()*360),start});
       }
-  }
-  function paintSparks(gap,pad) {
-    const time=now();
-    sparks=sparks.filter(s=>time-s.start<BURST_MS);
-    ctx.save();
-    for(const s of sparks){
-      const p=(time-s.start)/BURST_MS, out=1-(1-p)**2;
-      ctx.globalAlpha=1-p;
-      ctx.fillStyle=s.hue===null?"#f0c773":"hsl("+s.hue+" 90% 62%)";
-      ctx.beginPath();
-      ctx.arc(pad+(s.x+s.dx*out)*gap,pad+(s.y+s.dy*out)*gap,gap*.09*(1-p*.5),0,Math.PI*2);
-      ctx.fill();
-    }
-    ctx.restore();
-    if(sparks.length && frame===null)frame=requestFrame(()=>{frame=null;draw();});
+    const mid=axis=>taken.reduce((sum,p)=>sum+axis(p),0)/taken.length;
+    pops.push({x:mid(p=>p%SIZE),y:mid(p=>Math.floor(p/SIZE)),count:taken.length,start});
   }
   function paintFading(theme,gap,pad) {
     const time=now();
@@ -388,6 +379,44 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       paintStone(theme,f.color,pad+(f.position%SIZE)*gap,pad+Math.floor(f.position/SIZE)*gap,gap*.44,
         f.from*(1-(time-f.start)/CAPTURE_FADE_MS));
     if(fading.length && frame===null)frame=requestFrame(()=>{frame=null;draw();});
+  }
+  function paintSparks(gap,pad) {
+    const time=now();
+    sparks=sparks.filter(s=>time-s.start<BURST_MS);
+    pops=pops.filter(s=>time-s.start<BURST_MS);
+    waves=waves.filter(s=>time-s.start<WAVE_MS);
+    ctx.save();
+    for(const w of waves){
+      const p=(time-w.start)/WAVE_MS;
+      ctx.globalAlpha=(1-p)*.9;
+      ctx.strokeStyle="#f0c773";
+      ctx.lineWidth=gap*.12*(1-p)+1;
+      ctx.beginPath();
+      ctx.arc(pad+w.x*gap,pad+w.y*gap,gap*(.45+1.4*p),0,Math.PI*2);
+      ctx.stroke();
+    }
+    for(const s of sparks){
+      const p=(time-s.start)/BURST_MS, out=1-(1-p)**2;
+      ctx.globalAlpha=1-p;
+      ctx.fillStyle="hsl("+s.hue+" 95% 62%)";
+      ctx.beginPath();
+      ctx.arc(pad+(s.x+s.dx*out)*gap,pad+(s.y+s.dy*out)*gap,gap*.13*(1-p*.5),0,Math.PI*2);
+      ctx.fill();
+    }
+    for(const s of pops){
+      const p=(time-s.start)/BURST_MS, grow=Math.min(1,p*6);
+      ctx.globalAlpha=p<.7?1:(1-p)/.3;
+      ctx.font="900 "+Math.round(gap*(.6+.25*Math.min(s.count,8)/8)*(.6+.4*grow))+"px sans-serif";
+      ctx.textAlign="center";
+      ctx.textBaseline="middle";
+      const x=pad+s.x*gap, y=pad+(s.y-.4-p*1.2)*gap;
+      ctx.fillStyle="#5a3a12";
+      ctx.fillText("+"+s.count,x+2,y+3);
+      ctx.fillStyle="#f0c773";
+      ctx.fillText("+"+s.count,x,y);
+    }
+    ctx.restore();
+    if((sparks.length || pops.length || waves.length) && frame===null)frame=requestFrame(()=>{frame=null;draw();});
   }
 
   /**
@@ -445,7 +474,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     paintStarPoints(theme,gap,pad);
     if(scoring)paintNeutralPoints(game,scoring,gap,pad);
     const live=!boardReview && game.status==="playing";
-    if(!live){fading=[];sparks=[];}
+    if(!live){fading=[];sparks=[];pops=[];waves=[];}
     shownAlpha=[];
     paintStones(theme,view,display,gap,pad);
     noteCaptures(game,live,view.burst);
@@ -456,7 +485,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     if(scoring)paintPrisonerFill(theme,fill,view.palette,gap,pad);
     if(scoring)paintRegionLabels(scoring.regions,gap,pad);
     paintLastMove(theme,view,display,gap,pad);
-    if(sparks.length)paintSparks(gap,pad);
+    if(sparks.length || pops.length || waves.length)paintSparks(gap,pad);
     if(view.sampleStones && !counting && !view.candidate && !view.illegalCandidate && display.board.every(v=>!v))
       paintSampleStones(theme,gap,pad);
   }
