@@ -2,14 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {newGame,play,BLACK,WHITE} from "../public/core.mjs";
 import {
+  BALANCE,
+  compatibility,
   MAX_POOLED,
   MIN_MOVES,
+  pairShare,
+  PLAY_STYLE_RE,
   playStyle,
   pooledPlayStyle,
   readStyleLink,
   reportPlayStyles,
   statPayload,
-  styleLink
+  styleLink,
+  styleRanks,
+  typeShare
 } from "../public/play-style.mjs";
 import {createHistoryStyle} from "../public/history-style.mjs";
 import {installDom} from "./helpers/fake-dom.mjs";
@@ -55,11 +61,12 @@ test("the resignation right after the shown moves counts",()=>{
   assert.equal(playStyle(game,WHITE,{through:shown}).type[3],"Q");
 });
 
-test("every one of the 16 types has a short name",()=>{
-  const types=[];
+test("every one of the 17 types has a short name",()=>{
+  const types=[BALANCE];
   for(const a of "AG")for(const b of "HL")for(const c of "FR")for(const d of "TQ")types.push(a+b+c+d);
   assert.deepEqual(Object.keys(TEXT.playStyle.types).sort(),types.sort());
-  assert.equal(new Set(Object.values(TEXT.playStyle.types).map(t=>t.name)).size,16);
+  assert.equal(new Set(Object.values(TEXT.playStyle.types).map(t=>t.name)).size,17);
+  assert.ok(types.every(type=>PLAY_STYLE_RE.test(type)));
 });
 
 test("a shown style is counted once, by type, board size and rules only",()=>{
@@ -77,13 +84,16 @@ test("a shown style is counted once, by type, board size and rules only",()=>{
 
 test("a player's /style link carries the type, colour and how far each axis leans",()=>{
   const style=playStyle(highAndLow(),WHITE),link=styleLink(style);
-  assert.match(link,/^\/style\?t=.LRQ&c=W&s=-?\d+,-?\d+,-?\d+,-100$/);
+  // Resigned with no ownership kept: 潔い, with the timing unknown.
+  assert.match(link,/^\/style\?t=.LRQ&c=W&s=-?\d+,-?\d+,-?\d+,-75&p=\d+,\d+,\d+,\d+&e=\d+,\d+,\d+,$/);
   const read=readStyleLink(link.slice(link.indexOf("?")));
   assert.equal(read.type,style.type);
   assert.equal(read.color,"W");
   assert.equal(read.leans.length,4);
+  assert.ok(read.ranks.every(v=>v>=1 && v<=50),"where the player stands among people");
+  assert.equal(read.evidence[3],null,"no reason for 引き際 without ownership");
   assert.ok(read.leans.every(v=>Math.abs(v)<=100));
-  assert.deepEqual(readStyleLink("?t=AHFT"),{type:"AHFT",color:null,leans:null,games:1});
+  assert.deepEqual(readStyleLink("?t=AHFT"),{type:"AHFT",color:null,leans:null,ranks:null,evidence:null,games:1,partner:null});
   assert.equal(readStyleLink("?t=XXXX"),null);
   assert.equal(readStyleLink("?t=AHFT&s=1,2,3,999").leans,null,"out-of-range leanings are dropped");
 });
@@ -184,4 +194,42 @@ test("each way to 棋風診断 leads on to the others",async()=>{
   // Read together, a type's text no longer speaks of one game.
   for(const {text} of Object.values(TEXT.playStyle.types))
     assert.doesNotMatch(TEXT.playStyle.pooledText(text),/この一局/);
+});
+
+test("resigning while the game is still close is more 潔い than resigning when it is lost",()=>{
+  const game=highAndLow(),size=game.board.length;
+  // Even ownership: White resigns about even (komi aside), the earliest kind of resignation.
+  const close=playStyle(game,WHITE,{recall:()=>Array(size).fill(0)});
+  // Black owns most of the board: White resigns a lost game.
+  const lost=playStyle(game,WHITE,{recall:()=>Array(size).fill(0.5)});
+  assert.equal(close.score.grit,-1);
+  assert.equal(lost.score.grit,-0.5);
+  assert.equal(close.type[3],"Q");
+  assert.equal(lost.type[3],"Q");
+  // The page is told how far behind: none for the close one, a lot for the lost one.
+  assert.equal(close.score.shares[3],-1);
+  assert.ok(lost.score.shares[3]<-100);
+  assert.ok(styleRanks(close.score)[3]<styleRanks(lost.score)[3],"the earlier resignation is the rarer");
+});
+
+test("two styles read together: every pair has something, and the link carries the partner",()=>{
+  const types=Object.keys(TEXT.playStyle.types);
+  for(const a of types)for(const b of types){
+    const result=compatibility({type:a},{type:b});
+    assert.ok(result.percent>=70 && result.percent<=99,a+b);
+    assert.equal(result.relations.length,4);
+    const key=result.headline.startsWith("differ") ? null : result.headline;
+    assert.ok(key===null ? TEXT.playStyle.compat.headlines.differ[Number(result.headline.slice(6))] : TEXT.playStyle.compat.headlines[key],a+b);
+    assert.ok(pairShare(a,b)>0);
+  }
+  assert.equal(compatibility({type:"AHFT"},{type:"AHFT"}).headline,"mirror");
+  assert.equal(compatibility({type:"AHFT"},{type:"GLRQ"}).headline,"opposite");
+  assert.equal(compatibility({type:"AHFT"},{type:"GHFT"}).headline,"differ0");
+  assert.equal(compatibility({type:BALANCE},{type:"GHFT"}).headline,"balance");
+  const total=types.reduce((sum,type)=>sum+typeShare(type),0);
+  assert.ok(Math.abs(total-100)<1,"the types' shares make up everyone");
+  const game=highAndLow(),black=playStyle(game,BLACK),white=playStyle(game,WHITE);
+  const read=readStyleLink(styleLink(black,white).split("?")[1]);
+  assert.equal(read.partner.type,white.type);
+  assert.equal(read.partner.leans.length,4);
 });

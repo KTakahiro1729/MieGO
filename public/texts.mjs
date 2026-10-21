@@ -552,11 +552,25 @@ export const TEXT = {
   playStyle: {
     title: "棋風診断",
     pageTitle: type => type ? type + "の棋風｜MieGO 棋風診断" : "MieGO 棋風診断",
-    pageDescription: "MieGOで打った一局の棋譜から、攻め・序盤・相手の手への応じ方・引き際の4つで打ち方を16タイプに分けるお遊びの診断です。",
-    intro: "一局の棋譜から、あなたの打った手だけを見て、打ち方を4つの軸で16タイプに分けます。AIの性格と同じものさしで測る、お遊びの診断です。",
+    pageDescription: "MieGOで打った一局の棋譜から、攻め・序盤・相手の手への応じ方・引き際の4つで打ち方を17タイプに分けるお遊びの診断です。",
+    intro: "一局の棋譜から、あなたの打った手だけを見て、打ち方を4つの軸で17タイプに分けます。AIの性格と同じものさしで測る、お遊びの診断です。",
     oneGame: "1局から測るので、打つたびに変わることがあります。",
+    // ％ are against people: even 19路 games on the Fox server.
+    rarity: n => "この型は全体の約" + n + "%",
+    topRank: (name, n) => "「" + name + "」は上位" + n + "%",
+    rank: n => "上位" + n + "%",
+    evidenceTitle: "診断の根拠",
+    evidence: [
+      n => "相手を攻める手が" + n + "%",
+      n => "序盤の2〜3線の手が" + n + "%",
+      n => "相手の手から2路以内への応手が" + n + "%",
+      // Below 0: resigned that many points (plus one) behind; above: played on behind that often.
+      n => n < 0 ? "形勢 約" + (-n - 1) + "目差で投了" : "10目以上負けている局面の" + n + "%でも打ち続けた",
+    ],
+    peopleSource: "％は、野狐囲碁の19路の対局（15級〜3段の7,401人分）と比べた値です。",
+    privacy: "診断はこの端末の中で計算します。棋譜は送りません。数えるのは型と盤の大きさとルールだけです。",
     axesTitle: "4つの軸",
-    allTitle: "16のタイプ",
+    allTitle: "17のタイプ",
     playCta: "MieGOで一局打つ",
     back: "MieGOに戻る",
     sideLabel: color => color === "B" ? "黒番" : "白番",
@@ -664,6 +678,47 @@ export const TEXT = {
         catch: "一つずつ守り、最後まで",
         text: "この一局では、低い場所で実利を積み、相手の手にも応じて守り抜く打ち方。小さな安心を重ねられるのが魅力だが、確認を重ねすぎて橋を渡る前に日が暮れることも。",
       },
+      // 4軸とも人の真ん中に近いときだけの17番目の型。
+      BLNC: {
+        name: "変幻自在の碁打ち",
+        catch: "どの色にも染まり、どの色にも染まらない",
+        text: "この一局では、攻めと守り、模様と実利、自由と律儀のどれにも偏らず、盤面に合わせて打ち方を変えた。4つの軸すべてが真ん中に収まる人は少なく、相手に読ませない強さがある。ただ、自分らしい一手を探して迷うことも。",
+      },
+    },
+    // 相性診断: two types side by side, read axis by axis.
+    compat: {
+      title: "相性診断",
+      percent: n => "相性 " + n + "%",
+      pairShare: n => "この組み合わせは全体の約" + n + "%",
+      partnerLabel: "相手の型",
+      partnerNone: "相手の型を選ぶ",
+      partnerPick: "相手の型を選ぶと、二人の相性を見られます。",
+      openFromShare: "二人の相性を見る",
+      copyLink: "相性を見てもらうリンクをコピー",
+      copied: "リンクをコピーしました。相手が開くと、自分の型を合わせて相性を見られます。",
+      matchMine: "履歴から自分の型を出して合わせる",
+      // The headline names the pair by how many letters they share, or by the one axis that differs.
+      headlines: {
+        mirror: "鏡写しの二人",
+        opposite: "正反対の名コンビ",
+        balance: "どんな相手とも噛み合う二人",
+        differ: ["矛と盾", "模様と実利の分業", "自由と律儀の掛け合い", "粘りと潔さの好対照"],
+        many: "似ているようで違う二人",
+      },
+      // One line per axis: when the two lean the same way, and when they lean apart.
+      same: [
+        "二人とも攻めが好き。ぶつかり合うと盤上が一気に熱くなる。",
+        "二人とも序盤の好みが同じ。同じ景色を見ながら打てる。",
+        "相手の手への応じ方が似ていて、呼吸が合う。",
+        "引き際の考え方が同じで、終わり方に納得しやすい。",
+      ],
+      differ: [
+        "攻める人と守る人。一方が仕掛け、もう一方が受け止める。",
+        "模様の人と実利の人。広さと確かさを取り合う碁になる。",
+        "自由な人と律儀な人。振り回し、振り回されるのが楽しい。",
+        "粘る人と潔い人。最後の一手まで駆け引きが続く。",
+      ],
+      balanceLine: "バランス型が相手に合わせて打ち方を変える。",
     },
   },
 

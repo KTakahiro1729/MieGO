@@ -1,4 +1,4 @@
-import { readStyleLink } from "./play-style.mjs";
+import { BALANCE, compatibility, pairShare, readStyleLink, typeShare } from "./play-style.mjs";
 import { TEXT } from "./texts.mjs";
 
 // The /style page: one 棋風診断 from a share sheet's link, or the 16 types.
@@ -16,7 +16,7 @@ const el = (tag, className, text) => {
 function axisRow(axis, letter, lean) {
   const row = el("div", "style-bar-row");
   const high = el("span", "style-bar-end", axis.highName), low = el("span", "style-bar-end", axis.lowName);
-  (letter === axis.high ? high : low).classList.add("is-lit");
+  if (letter) (letter === axis.high ? high : low).classList.add("is-lit");
   const bar = el("span", "style-bar");
   bar.setAttribute("aria-hidden", "true");
   if (lean != null) {
@@ -25,9 +25,33 @@ function axisRow(axis, letter, lean) {
     fill.style.width = size + "%";
     fill.style.left = lean >= 0 ? 50 - size + "%" : "50%";
     bar.append(fill);
-  } else bar.classList.add(letter === axis.high ? "leans-high" : "leans-low");
+  } else if (letter) bar.classList.add(letter === axis.high ? "leans-high" : "leans-low");
   row.append(high, bar, low);
   return row;
+}
+
+// The name of the side the player leans to on axis i: its letter's, or by leaning for the balanced type.
+function letterName(found, i) {
+  const axis = T.axes[i];
+  const high = found.type === BALANCE ? (found.leans?.[i] ?? 0) >= 0 : found.type[i] === axis.high;
+  return high ? axis.highName : axis.lowName;
+}
+
+function evidenceList(found) {
+  const box = el("section", "style-evidence");
+  box.append(el("h2", null, T.evidenceTitle));
+  const list = el("ul");
+  T.axes.forEach((axis, i) => {
+    const item = el("li");
+    item.append(el("strong", null, letterName(found, i) + (found.ranks ? " " + T.rank(found.ranks[i]) : "")));
+    const shown = found.evidence?.[i];
+    const say = T.evidence[i];
+    const line = shown == null || !say ? null : typeof say === "function" ? say(shown) : say[shown];
+    if (line) item.append(el("span", null, line));
+    list.append(item);
+  });
+  box.append(list);
+  return box;
 }
 
 function renderResult(found) {
@@ -41,13 +65,68 @@ function renderResult(found) {
     box.append(side);
   }
   box.append(el("p", "style-code", found.type), el("h1", "style-name", type.name),
-    el("p", "style-catch", type.catch), el("p", "style-text", found.games > 1 ? T.pooledText(type.text) : type.text));
+    el("p", "style-catch", type.catch));
+  // What makes it special comes first: the axis where the player stands out most, and how rare the type is.
+  const best = found.ranks && found.ranks.indexOf(Math.min(...found.ranks));
+  if (found.ranks) box.append(el("p", "style-rank", T.topRank(letterName(found, best), found.ranks[best])));
+  if (typeShare(found.type) != null) box.append(el("p", "style-rarity", T.rarity(typeShare(found.type))));
+  box.append(el("p", "style-text", found.games > 1 ? T.pooledText(type.text) : type.text));
   const bars = el("div", "style-bars");
-  T.axes.forEach((axis, i) => bars.append(axisRow(axis, found.type[i], found.leans?.[i])));
-  box.append(bars, el("p", "style-note", found.games > 1 ? T.pooled(found.games) : T.oneGame));
+  T.axes.forEach((axis, i) => bars.append(axisRow(axis, found.type === BALANCE ? null : found.type[i], found.leans?.[i])));
+  box.append(bars);
+  if (found.ranks || found.evidence) box.append(evidenceList(found));
+  box.append(el("p", "style-note", found.games > 1 ? T.pooled(found.games) : T.oneGame));
+  if (found.ranks || typeShare(found.type) != null) box.append(el("p", "style-note", T.peopleSource));
   box.hidden = false;
   $("styleIntro").hidden = true;
   document.title = T.pageTitle(found.type);
+}
+
+const C = T.compat;
+// Two types read together: the partner's from the link, or one picked here.
+function compatCard(found, partner) {
+  const result = compatibility(found, partner);
+  const card = el("div", "style-compat-card");
+  const pair = el("p", "style-compat-pair");
+  pair.append(el("span", "style-code", found.type), el("span", "style-compat-x", "×"), el("span", "style-code", partner.type));
+  const headline = result.headline.startsWith("differ") ? C.headlines.differ[Number(result.headline.slice(6))] : C.headlines[result.headline];
+  card.append(pair, el("p", "style-compat-names", T.types[found.type].name + " × " + T.types[partner.type].name),
+    el("p", "style-compat-percent", C.percent(result.percent)), el("h2", "style-compat-headline", headline));
+  const share = pairShare(found.type, partner.type);
+  if (share != null) card.append(el("p", "style-rarity", C.pairShare(share)));
+  const lines = el("ul", "style-compat-lines");
+  result.relations.forEach((relation, i) => lines.append(el("li", null, relation === "balance" ? C.balanceLine : C[relation][i])));
+  card.append(lines);
+  return card;
+}
+
+function renderCompat(found) {
+  const box = $("styleCompat");
+  if (!found || !T.types[found.type]) return;
+  box.replaceChildren(el("p", "style-kicker", C.title));
+  const holder = el("div");
+  if (found.partner) holder.append(compatCard(found, found.partner));
+  else {
+    // Pick a partner here, or send this page to them.
+    const label = el("label", "style-compat-pick");
+    const select = el("select");
+    select.append(Object.assign(el("option", null, C.partnerNone), { value: "" }));
+    for (const [code, type] of Object.entries(T.types)) select.append(Object.assign(el("option", null, code + " " + type.name), { value: code }));
+    label.append(el("span", null, C.partnerLabel), select);
+    const card = el("div");
+    select.onchange = () => card.replaceChildren(...(select.value ? [compatCard(found, { type: select.value })] : []));
+    const status = el("p", "style-note");
+    const copy = el("button", "secondary full", C.copyLink);
+    copy.type = "button";
+    copy.onclick = async () => {
+      try { await navigator.clipboard.writeText(location.href); status.textContent = C.copied; } catch { status.textContent = location.href; }
+    };
+    const mine = el("a", "style-cta secondary", C.matchMine);
+    mine.href = "/?open=history-style&with=" + found.type + (found.leans ? "," + found.leans.join(",") : "");
+    holder.append(el("p", "style-note", C.partnerPick), label, card, copy, status, mine);
+  }
+  box.append(holder);
+  box.hidden = false;
 }
 
 function renderAxes() {
@@ -72,5 +151,6 @@ function renderTypes(current) {
 
 const found = readStyleLink(location.search);
 renderResult(found);
+renderCompat(found);
 renderAxes();
 renderTypes(found?.type);
