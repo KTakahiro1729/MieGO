@@ -12,15 +12,19 @@ import {leadFromOwnership} from "./score-graph.mjs";
 //   F 自由 / R 律儀   playing away from the opponent's last move or next to it
 //   T 粘り強い / Q 潔い  playing on 10 points behind, or resigning and passing first
 
-// The middle of each axis: the mean of a neutral COM (normal strength, all
-// axes ふつう) over 48 sides of 9路 self-play, measured with the readings below.
-// Centring on it splits a neutral player about evenly between the two letters;
-// the mean, not the median, so a share of a few opening moves never lands on it.
+// The middle of each axis, so that players split about evenly between the two
+// letters; the mean, not the median, so a share of a few opening moves never lands on it.
 //   attack: share of moves with attack >= 0.6, used where no ownership was kept
 //   stance: (attack >= 0.6 + invasion >= 0.5)/2 - reinforcement >= 0.3, per move
 //   low: share of the opening moves (2nd line and up) on the 2nd or 3rd line
 //   near: share of replies within two lines of the opponent's last move
-const NEUTRAL = Object.freeze({attack:0.341, stance:-0.078, low:0.713, near:0.44});
+// 9路: a neutral COM (normal strength, all axes ふつう) over 48 sides of self-play.
+const NEUTRAL_SMALL = Object.freeze({attack:0.341, stance:-0.078, low:0.713, near:0.44});
+// 13路 and 19路: people, over 7,401 sides of even 19路 games on the Fox server,
+// 15級 to 3段 alike (the stance needs ownership, which those games lack, so it
+// stays the COM's). People answer locally far more often than the COM does.
+const NEUTRAL_LARGE = Object.freeze({attack:0.224, stance:-0.078, low:0.566, near:0.654});
+const neutralFor = state => state.board.length<=81 ? NEUTRAL_SMALL : NEUTRAL_LARGE;
 const OPENING = 16;
 // Fewer own moves than this reads nothing.
 export const MIN_MOVES = 10;
@@ -35,11 +39,12 @@ const lineOf = (point, size) => {
 };
 
 /** One side's tallies over one game, or null for too few moves. */
-function tallyMoves(states, moves, color, recall) {
-  let count=0, stance=0, opening=0, low=0, replies=0, near=0, behind=0;
+function tallyMoves(states, moves, color, recall, resigned=false) {
+  let count=0, stance=0, opening=0, height=0, replies=0, tenuki=0, behind=0;
   moves.forEach((move,i)=>{
     const state=states[i];
     if(move.color!==color || !Number.isInteger(move.position) || !state)return;
+    const NEUTRAL=neutralFor(state);
     const ownership=recall(state) ?? null;
     const f=personalityFeatures(state,move.position,ownership);
     count++;
@@ -48,17 +53,18 @@ function tallyMoves(states, moves, color, recall) {
     stance+=ownership ? ((f.attack>=0.6)+(f.invasion>=0.5))/2-(f.reinforcement>=0.3)-NEUTRAL.stance :
       ((f.attack>=0.6)-NEUTRAL.attack)/2;
     const line=lineOf(move.position,Math.round(Math.sqrt(state.board.length)));
-    if(i<OPENING && line>1){opening++; low+=line<=3;}
-    if(Number.isInteger(state.moves.at(-1)?.position)){replies++; near+=f.tenuki<0;}
+    // Each move is read against its own board's middle, so games of two sizes pool.
+    if(i<OPENING && line>1){opening++; height+=NEUTRAL.low-(line<=3);}
+    if(Number.isInteger(state.moves.at(-1)?.position)){replies++; tenuki+=NEUTRAL.near-(f.tenuki<0);}
     const lead=leadFromOwnership(state,ownership);
     if(lead!==null && lead*color<=-BEHIND)behind++;
   });
   if(count<MIN_MOVES)return null;
   // Resigning is 潔い; playing on behind is 粘り強い; otherwise whoever passed first let go first.
   const firstPass=moves.find(m=>m.position===null)?.color;
-  const grit=moves.some(m=>m.color===color && m.position==="resign") ? -1 :
+  const grit=resigned || moves.some(m=>m.color===color && m.position==="resign") ? -1 :
     behind/count>=0.2 ? 1 : firstPass===color ? -0.5 : firstPass===-color ? 0.5 : 0;
-  return {count,stance,opening,low,replies,near,grit};
+  return {count,stance,opening,height,replies,tenuki,grit};
 }
 
 /**
@@ -69,8 +75,8 @@ function tallyMoves(states, moves, color, recall) {
 function scoreTallies(tallies) {
   const sum=key=>tallies.reduce((total,tally)=>total+tally[key],0);
   const opening=sum("opening"), replies=sum("replies");
-  return {stance:sum("stance")/sum("count"),height:opening ? NEUTRAL.low-sum("low")/opening : 0,
-    tenuki:replies ? NEUTRAL.near-sum("near")/replies : 0,grit:sum("grit")/tallies.length};
+  return {stance:sum("stance")/sum("count"),height:opening ? sum("height")/opening : 0,
+    tenuki:replies ? sum("tenuki")/replies : 0,grit:sum("grit")/tallies.length};
 }
 
 const letter = (value, high, low) => value>=0 ? high : low;
@@ -82,7 +88,9 @@ export function styleTally(snapshot, color, {through=snapshot.moves.length, reca
   if(isGomoku(snapshot) || isFree(snapshot))return null;
   const shown=snapshot.moves.slice(0,through);
   if(snapshot.moves[through]?.position==="resign")shown.push(snapshot.moves[through]);
-  return tallyMoves(replayLine({...snapshot,moves:shown}),shown,color,recall);
+  // A resignation read from an SGF is its result, not a move.
+  const resigned=through>=snapshot.moves.length && snapshot.result===(color===BLACK ? "W+R" : "B+R");
+  return tallyMoves(replayLine({...snapshot,moves:shown}),shown,color,recall,resigned);
 }
 
 /**
