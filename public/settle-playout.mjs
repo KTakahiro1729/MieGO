@@ -5,6 +5,7 @@ import {
   emptyRegions,
   group,
   groups,
+  isJapanese,
   neighbors,
   play,
   resume,
@@ -13,24 +14,23 @@ import {
 import { OWNERSHIP_BANDS } from "./territory-view.mjs";
 
 /**
- * 決着手順: before the count, KataGo plays the position out on a scratch copy
- * until both sides pass. It is there for two things: to reach a board where
- * best play from here on would no longer change the result, and to leave
- * that board in the shape that is easiest to count (dead stones captured,
- * borders closed, dame filled). So it only plays where the outcome is still
- * open: never inside an area KataGo already calls settled (that would only be
- * a ko threat or a wasted move there), except to close its own border, take
- * dead stones or fill dame. The match itself never changes.
+ * 決着手順: before the count, KataGo finishes the board on a scratch copy the
+ * way the rules finish it after both players stop. The players stopped the
+ * match, so nothing that could change the result is played (日本囲碁規約
+ * 第九条: the game is what was played up to the stop, unless a player resumes
+ * it). The playout only fills the dame between the two sides and, under area
+ * scoring, captures the stones KataGo calls dead, which costs nothing there.
+ * Under Japanese rules dead stones are taken off without being captured
+ * (第十条), so they stay on the board and the count marks them. Open borders
+ * and undecided areas are left as they are and count for nobody (第八条);
+ * playing them out is the players' choice (対局を再開). The match itself
+ * never changes.
  */
 
 /** A guard against a playout that never ends (simple ko only stops direct
  * recaptures, so a triple ko could cycle): four thirds of the board (108,
  * 225 or 481 moves). Real playouts end with two passes long before it. */
 export const settleMax = size => Math.round(size * size * 4 / 3);
-/** The pause between shown playout moves: 333ms on 9x9, shorter on bigger
- * boards, so a playout over a third of the board takes about ten seconds
- * (at most 15 on 19x19). */
-export const settleStepMs = size => Math.min(360, Math.max(120, Math.round(9000 / Math.round(size * size / 3))));
 
 /** A scratch position to play out from: the scoring position, playable again. */
 export function settleStart(game) {
@@ -39,9 +39,17 @@ export function settleStart(game) {
     dead: [], agreed: { black: false, white: false } };
 }
 
-/** An empty point whose neighbours are all the mover's own stones (an eye). */
-function ownEye(board, point, color) {
-  return neighbors(point, sizeOf(board)).every(n => board[n] === color);
+/** Stones of the groups KataGo's ownership firmly gives to the other side. */
+function deadByOwnership(board, ownership) {
+  const dead = new Set();
+  if (!Array.isArray(ownership) || ownership.length !== board.length) return dead;
+  for (const { color, stones } of groups(board)) {
+    if (color !== BLACK && color !== WHITE) continue;
+    const control = [...stones].map(s => -color * ownership[s]);
+    if (control.every(v => v >= 0.7) && control.reduce((a, b) => a + b, 0) / control.length >= 0.85)
+      for (const s of stones) dead.add(s);
+  }
+  return dead;
 }
 
 /**
@@ -49,31 +57,30 @@ function ownEye(board, point, color) {
  * player to move: the points to fill so those dead stones come off the board.
  */
 export function captureTargets(state, ownership) {
-  const board = state.board, me = state.next, targets = new Set();
-  if (!Array.isArray(ownership) || ownership.length !== board.length) return targets;
-  for (const { color, stones, liberties } of groups(board)) {
-    if (color !== -me) continue;
-    const control = [...stones].map(s => me * ownership[s]);
-    if (control.every(v => v >= 0.7) && control.reduce((a, b) => a + b, 0) / control.length >= 0.85)
-      for (const p of liberties) targets.add(p);
-  }
+  const board = state.board, me = state.next, targets = new Set(), dead = deadByOwnership(board, ownership);
+  for (const { color, stones, liberties } of groups(board))
+    if (color === -me && dead.has([...stones][0])) for (const p of liberties) targets.add(p);
   return targets;
 }
 
 /**
  * 駄目: empty points next to stones of both colours, in an empty area that
- * touches both (so nobody's territory). The mover fills one only where its
- * own group keeps two liberties: a fill that puts it in atari (seki's shared
- * liberties among them) is left open.
+ * touches both (so nobody's territory). Stones the ownership calls dead do not
+ * count, so the points around a dead stone inside an area stay that area's.
+ * The mover fills one only where its own group keeps two liberties: a fill
+ * that puts it in atari (seki's shared liberties among them) is left open.
  */
-export function damePoints(state) {
+export function damePoints(state, ownership = null) {
   const board = state.board, size = sizeOf(board), me = state.next, points = new Set();
+  const dead = deadByOwnership(board, ownership);
+  const live = board.map((stone, i) => dead.has(i) ? 0 : stone);
   // An area with an owner is bordered by one colour alone (or by none on an
   // empty board, where no point touches both colours anyway).
-  for (const { points: area, owner } of emptyRegions(board)) {
+  for (const { points: area, owner } of emptyRegions(live)) {
     if (owner) continue;
     for (const p of area) {
-      const around = neighbors(p, size).map(n => board[n]);
+      if (board[p]) continue;
+      const around = neighbors(p, size).map(n => live[n]);
       if (!around.includes(BLACK) || !around.includes(WHITE)) continue;
       const next = [...board]; next[p] = me;
       if (group(next, p).liberties.size >= 2) points.add(p);
@@ -83,39 +90,32 @@ export function damePoints(state) {
 }
 
 /**
- * KataGo's top legal move for the player to move, or null to pass. Eye-filling
- * moves are never chosen (they could only kill one's own group), nor are
- * points KataGo calls settled for either side: inside the opponent's area a
- * move is a ko threat or an invasion the estimate already rules out, inside
- * one's own it changes nothing. The one settled point still played is one's
- * own next to an opponent stone, which closes a border. A pass wins when its
- * logit is at least the best remaining move's, except that the mover first
- * fills the liberties of opponent stones its ownership calls dead, so the
- * playout really removes them, and then fills the dame that are not the
- * opponent's, so the count leaves no point open between the two sides.
+ * The mover's next settle move, or null to pass. Under area scoring the mover
+ * first fills the liberties of opponent stones its ownership calls dead, so
+ * the playout really removes them; then, under either rules, it fills the
+ * dame that are not the opponent's, so the count leaves no point open between
+ * the two sides. KataGo's policy only orders those points: an open point, a
+ * border still to close or a move inside either area is never played. The
+ * ownership is the one of the scoring position, so the stones dead there are
+ * the only ones taken: a capture cannot make others look dead and go on.
  */
-export function pickSettleMove(state, policy, passLogit, ownership = null) {
+export function pickSettleMove(state, policy, ownership = null) {
   if (state.status !== "playing" || !Array.isArray(policy) || policy.length !== state.board.length) return null;
-  const board = state.board, me = state.next, size = sizeOf(board);
+  const board = state.board, me = state.next;
   const known = Array.isArray(ownership) && ownership.length === board.length;
   const mine = p => known ? me * ownership[p] : 0;
-  const open = p => Math.abs(mine(p)) < OWNERSHIP_BANDS.SETTLED ||
-    mine(p) >= OWNERSHIP_BANDS.SETTLED && neighbors(p, size).some(n => board[n] === -me);
   const order = policy.map((logit, p) => [logit, p])
-    .filter(([logit, p]) => Number.isFinite(logit) && !board[p] && !ownEye(board, p, me))
+    .filter(([logit, p]) => Number.isFinite(logit) && !board[p])
     .sort((a, b) => b[0] - a[0]);
   // No move brings back a board seen before (positional superko), so captures
   // and recaptures cannot cycle, with single passes between them, for ever.
   const seen = new Set(state.history || []);
   const legal = p => { try { return !seen.has(boardHash(play(state, p).board)); } catch { return false; } };
-  const targets = captureTargets(state, ownership);
-  for (const [logit, p] of order) {
-    if (Number.isFinite(passLogit) && passLogit >= logit) break;
-    if (open(p) && legal(p)) return p;
+  if (!isJapanese(state)) {
+    const targets = captureTargets(state, ownership);
+    for (const [, p] of order) if (targets.has(p) && legal(p)) return p;
   }
-  // Rather than pass, take the best-rated point that closes in on dead stones.
-  for (const [, p] of order) if (targets.has(p) && legal(p)) return p;
-  const dame = damePoints(state);
+  const dame = damePoints(state, ownership);
   for (const [, p] of order) if (dame.has(p) && mine(p) > -OWNERSHIP_BANDS.SETTLED && legal(p)) return p;
   return null;
 }

@@ -115,6 +115,42 @@ test("counting paints flat cells in the chosen colour map and rings neutral poin
   assert.deepEqual(pixel(at(0,0)),ownershipPixel(1,"mono",countingOpacity(.2),"wood"));
 });
 
+test("日本式 counting colours only territory: no living stones, no filled-in prisoners",()=>{
+  // Black walls column 4 with a dead White stone inside; White walls column 6.
+  const game={...newGame(),rules:"japanese",status:"scoring",scoringStep:"dead",board:Array(81).fill(0),
+    dead:[at(1,1)],captures:{black:2,white:0}};
+  for(let y=0;y<9;y++){game.board[at(4,y)]=BLACK;game.board[at(6,y)]=WHITE;}
+  game.board[at(1,1)]=WHITE;
+  const view={...baseView(game),palette:"mono",opacity:1};
+  const {draw,overlay}=recordingBoard(()=>view);
+  draw();
+  const alpha=i=>overlay.data[i*4+3];
+  assert.equal(alpha(at(4,0)),0,"a living Black stone");
+  assert.equal(alpha(at(6,0)),0,"a living White stone");
+  assert.ok(alpha(at(0,0))>0,"Black's territory");
+  assert.ok(alpha(at(8,0))>0,"White's territory");
+  assert.ok(alpha(at(1,1))>0,"a dead stone's point is territory once lifted");
+  view.game={...game,scoringStep:"count"};
+  draw();
+  const clear=[];
+  for(let i=0;i<81;i++)if(!view.game.board[i] && i%9!==5 && !alpha(i))clear.push(i);
+  // White's three prisoners (two captured, one dead) fill White's territory.
+  assert.equal(clear.length,3,"the filled-in prisoners stay clear");
+  assert.ok(clear.every(i=>i%9>6));
+});
+test("日本式 estimate leaves living stones clear, unless the stones are hidden",()=>{
+  const game={...newGame(),rules:"japanese",board:Array(81).fill(0)};
+  game.board[at(4,4)]=BLACK;
+  let hideStones=false;
+  const {draw,overlay}=recordingBoard(()=>({...baseView(game),hideStones,displayedOwnership:Array(81).fill(.6)}));
+  const alphaAt=(x,y)=>overlay.data[((y+1)*11+x+1)*4+3];
+  draw();
+  assert.equal(alphaAt(4,4),0);
+  assert.ok(alphaAt(3,4)>0);
+  hideStones=true;draw();
+  assert.ok(alphaAt(4,4)>0,"a clear point would give a hidden stone away");
+});
+
 test("hidden stones leave only the ownership while playing and reappear when counting",()=>{
   let game=play(play(newGame(),at(2,2)),at(6,6));
   const ownership=Array(81).fill(.9);

@@ -7,9 +7,12 @@ import { textAt } from "../public/texts.mjs";
 // in src/index.template.html, then run `node scripts/build-html.mjs`.
 //   {{help.title}}            a string
 //   {{game.moveLabel(0)}}     a function, called with numbers or other keys
-//   {{help.basics.items}}     an array, rendered as <li> lines
+//   {{help.local.items}}      an array, rendered as <li> lines
 const TEMPLATE = resolve("src/index.template.html");
 const OUTPUT = resolve("public/index.html");
+// The 棋風診断 page at /style, rendered the same way.
+const STYLE_TEMPLATE = resolve("src/style.template.html");
+const STYLE_OUTPUT = resolve("public/style.html");
 const NOTICE = "<!-- Generated from src/index.template.html and public/texts.mjs. Do not edit. -->\n";
 // The site serves MieGO's license and the third-party notices as one file,
 // since the MIT and Apache licenses ask for them in every copy.
@@ -65,9 +68,16 @@ export async function renderIndex() {
   return html.replace("<!doctype html>\n", "<!doctype html>\n" + NOTICE);
 }
 
+export async function renderStylePage() {
+  const html = renderTemplate(await readFile(STYLE_TEMPLATE, "utf8"));
+  return html.replace("<!doctype html>\n", "<!doctype html>\n" + NOTICE.replace("index", "style"));
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   await writeFile(OUTPUT, await renderIndex());
   console.log("index.html: rendered from texts.mjs");
+  await writeFile(STYLE_OUTPUT, await renderStylePage());
+  console.log("style.html: rendered from texts.mjs");
   await writeFile(LICENSES, await renderLicenses());
   console.log("licenses.txt: LICENSE and THIRD_PARTY_NOTICES.md");
 }

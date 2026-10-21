@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { at, BLACK, newGame, play, WHITE } from "../public/core.mjs";
 import {
   bigWinPoints,
@@ -87,9 +88,10 @@ test("the 設定 switch starts off, is remembered and goes back to off with 初�
   p.$("dopaMode").onchange({ target: { checked: true } });
   assert.equal(p.saved.get("miego-dopa"), "on");
   assert.equal(p.$("dopaMode").checked, true);
+  // 初期状態に戻す resets the board's look only: the mode stays on.
   p.$("resetAppearance").listeners.forEach(listener => listener());
-  assert.equal(p.dopa.level(), "off");
-  assert.equal(p.saved.get("miego-dopa"), "off");
+  assert.equal(p.dopa.level(), "on");
+  assert.equal(p.saved.get("miego-dopa"), "on");
   assert.equal(page({ level: "on" }).dopa.level(), "on");
   assert.equal(page({ level: "ultra" }).dopa.level(), "on", "the old ULTRA reads as on");
 });
@@ -189,4 +191,11 @@ test("without its own check, it follows the page's prefers-reduced-motion", () =
     assert.equal(p.classes.has("dopa-shake"), !reduce);
   }
   delete globalThis.matchMedia;
+});
+
+test("the shout's outline sits under its fill so a kanji's overlapping strokes stay hidden", () => {
+  const css = readFileSync(new URL("../public/style.css", import.meta.url), "utf8");
+  const rule = css.match(/\.dopa-shout\{[^}]*\}/)?.[0] ?? "";
+  assert.match(rule, /-webkit-text-stroke:/);
+  assert.match(rule, /paint-order:stroke fill/);
 });

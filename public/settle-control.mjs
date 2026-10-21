@@ -1,39 +1,38 @@
-// 決着手順: KataGo's playout shown on the board while it settles the dead
-// stones, and the last playout kept for 再生.
-import { boardHash, sizeOf } from "./core.mjs";
+// 決着手順: KataGo's playout that settles the dead stones, played out of sight.
+import { sizeOf } from "./core.mjs";
 import { suggestDeadStones } from "./dead-stones.mjs";
 import {
   deadFromPlayout,
   pickSettleMove,
-  replayPlayout,
   settleMax,
   settleStart,
   settleStep,
-  settleStepMs,
 } from "./settle-playout.mjs";
-
-const SETTLE_HOLD_MS=1100;
-const reducedMotion=()=>globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 /**
  * Runs one playout at a time for the scoring position. The parent owns the
  * dead-stone job: `jobCurrent(id)` tells whether a playout still belongs to it,
  * `onUnavailable()` hears that KataGo could not settle the board, and
  * `onSettled(run)` receives a finished playout ({dead, positions, taps, ...}).
+ * The board meanwhile shows the count with the stones an estimate already calls
+ * dead (`knownOwnership(board)`, kept for the board, else KataGo's first
+ * answer), so once the result is in only the stones and dame it adds change.
  */
-export function createSettleControl({getGame, isReviewing, post, show, draw, jobCurrent, onUnavailable, onSettled}) {
-  // The playout KataGo is playing (settle), the kept one (settlePlayout) and its 再生 (settleShow).
-  let settle=null, settlePlayout=null, settleShow=null;
-  const stepMs=()=>settleStepMs(sizeOf(getGame().board));
+export function createSettleControl({getGame, isReviewing, post, show, draw, jobCurrent, onUnavailable, onSettled,
+  knownOwnership=()=>null}) {
+  let settle=null;
+  /** The stones an estimate calls dead, sorted; null if it does not fit the board. */
+  function deadBy(ownership) {
+    try { return [...suggestDeadStones(getGame(),ownership)].sort((a,b)=>a-b); } catch { return null; }
+  }
   function start(id) {
     const game=getGame();
-    stopReplay();
-    settle={id,state:settleStart(game),positions:[],ownership:null,initialOwnership:null,shownAt:0,timer:null,
+    settle={id,state:settleStart(game),positions:[],ownership:null,initialOwnership:null,
+      shownDead:deadBy(knownOwnership(game.board)),
       limit:settleMax(sizeOf(game.board))};
     post({id,kind:"settle",state:settle.state});
   }
   function cancel() {
-    if(settle?.timer)clearTimeout(settle.timer);
     settle=null;
   }
   /** One KataGo answer during the playout: play its best move, or finish. */
@@ -47,21 +46,18 @@ export function createSettleControl({getGame, isReviewing, post, show, draw, job
       cancel();onUnavailable();return;
     }
     settle.ownership=result.ownership;
-    settle.initialOwnership??=result.ownership;
+    if(!settle.initialOwnership){
+      settle.initialOwnership=result.ownership;
+      if(!settle.shownDead){settle.shownDead=deadBy(result.ownership);show();}
+    }
     if(settle.state.status!=="playing" || settle.positions.length>=settle.limit)return finish();
-    const position=pickSettleMove(settle.state,result.policy,result.passLogit,result.ownership);
-    const step=settle.skip || reducedMotion()?0:stepMs();
-    const wait=Math.max(0,settle.shownAt+step-performance.now());
-    settle.timer=setTimeout(()=>{
-      if(!settle || settle.id!==result.id)return;
-      settle.timer=null;
-      settle.state=settleStep(settle.state,position);
-      settle.positions.push(position);settle.shownAt=performance.now();
-      show();
-      post({id:settle.id,kind:"settle",state:settle.state});
-    },wait);
+    const position=pickSettleMove(settle.state,result.policy,settle.initialOwnership);
+    settle.state=settleStep(settle.state,position);
+    settle.positions.push(position);
+    show();
+    post({id:settle.id,kind:"settle",state:settle.state});
   }
-  /** The playout is over: hold its final board briefly, then mark the dead stones. */
+  /** The playout is over: mark the dead stones. */
   function finish() {
     const game=getGame(), run=settle;
     let positions;
@@ -74,90 +70,26 @@ export function createSettleControl({getGame, isReviewing, post, show, draw, job
       console.error("KataGo dead-stone candidates",error);
       cancel();onUnavailable();return;
     }
-    // A playout stopped at its move limit is not a finished game; the text says so.
-    run.cut=run.state.status==="playing";
-    run.dead=positions;run.finished=true;show();
-    run.timer=setTimeout(()=>commit(run),run.skip || reducedMotion()?0:SETTLE_HOLD_MS);
-  }
-  function commit(run) {
-    if(settle!==run)return;
+    run.dead=positions;
     settle=null;
     onSettled(run);
   }
-  /** Keeps a playout of the scoring position for 再生 and the count. */
-  function keep({positions, board, initialOwnership=settlePlayout?.initialOwnership}) {
-    const game=getGame();
-    settlePlayout={number:game.moveNumber,hash:boardHash(game.board),positions,board,initialOwnership};
-  }
-  /** スキップ: a 再生 stops; a playout plays its remaining moves without the pause. */
-  function skip() {
-    if(settleShow){stopReplay();show();return;}
-    if(!settle)return;
-    settle.skip=true;
-    if(settle.timer && !settle.finished){
-      // The pending move plays at once; later ones follow without the pause.
-      clearTimeout(settle.timer);settle.timer=null;
-      post({id:settle.id,kind:"settle",state:settle.state});
-    } else if(settle.finished){
-      clearTimeout(settle.timer);
-      commit(settle);
-    }
-  }
   /**
-   * A tap on a stone during the playout skips ahead to its result and corrects
-   * that stone, as it would once the playout is over (UX方針 4: 死石解析中).
-   * True when the playout took the tap; a 再生 just stops.
+   * A tap on a stone during the playout corrects that stone once the playout
+   * is over, on top of its result (UX方針 4: 死石解析中).
+   * True when the playout took the tap.
    */
   function tap(position) {
-    if(settleShow){stopReplay();return false;}
     if(!settle)return false;
-    settle.taps=[...(settle.taps||[]),position];skip();return true;
+    settle.taps=[...(settle.taps||[]),position];return true;
   }
-  /** 再生: the kept playout again, without asking KataGo. */
-  function replay() {
-    const game=getGame();
-    if(!current() || settle)return;
-    const frames=replayPlayout(game,settlePlayout.positions);
-    if(!frames)return;
-    stopReplay();
-    const run={frames,index:0,timer:null};settleShow=run;
-    const tick=()=>{
-      if(settleShow!==run)return;
-      if(run.index>=frames.length-1 || getGame().status!=="scoring"){
-        run.finished=true;show();
-        run.timer=setTimeout(()=>{if(settleShow===run){settleShow=null;show();}},SETTLE_HOLD_MS);
-        return;
-      }
-      run.index++;show();
-      run.timer=setTimeout(tick,reducedMotion()?0:stepMs());
-    };
-    show();run.timer=setTimeout(tick,stepMs());
-  }
-  function stopReplay() {
-    if(settleShow?.timer)clearTimeout(settleShow.timer);
-    settleShow=null;
-  }
-  /** The kept playout, while it still belongs to the scoring position. */
-  const current=()=>{
-    const game=getGame();
-    return settlePlayout && game.status==="scoring" &&
-      settlePlayout.number===game.moveNumber && settlePlayout.hash===boardHash(game.board) &&
-      settlePlayout.positions.length ? settlePlayout : null;
-  };
-  /** A playout or its 再生 is on the board. */
-  const busy=()=>!!(settle || settleShow);
-  /** What the board shows during a playout: its position over the real stones. */
+  /** A playout is running. */
+  const busy=()=>!!settle;
+  /** The playout in progress: its moves for the text, and the dead stones the board shows meanwhile. */
   function view() {
     const game=getGame();
-    if(isReviewing() || game.status!=="scoring")return null;
-    if(settle)return {board:settle.state.board,base:game.board,last:settle.positions.at(-1)??null,
-      moves:settle.positions.length,ownership:settle.ownership,finished:!!settle.finished,cut:!!settle.cut};
-    if(settleShow && current()){
-      const frame=settleShow.frames[settleShow.index];
-      return {board:frame.board,base:game.board,last:frame.moves.at(-1)?.position??null,
-        moves:settleShow.index,ownership:null,finished:!!settleShow.finished};
-    }
-    return null;
+    if(!settle || isReviewing() || game.status!=="scoring")return null;
+    return {moves:settle.positions.length,dead:settle.shownDead||[]};
   }
-  return {busy,current,keep,receive,replay,skip,start,tap,view};
+  return {busy,receive,start,tap,view};
 }

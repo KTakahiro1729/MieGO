@@ -67,9 +67,9 @@ test("replay does not write moves to an active live or P2P session",()=>{
   assert.match(app,/const updates=source==="live"/);
 });
 test("saved records open directly on the main board from the saved-game entries",()=>{
-  assert.match(html,/id="openHistoryFromNew"[^>]*><span>[\s\S]*?<strong>履歴を見る<\/strong><\/span><\/label>/);
+  assert.match(html,/id="openHistoryFromNew"[^>]*><span>[\s\S]*?<strong>履歴<\/strong><\/span><\/label>/);
   assert.match(app,/if\(kind==="history"\)historyPanel\.showHistory\(\);/);
-  assert.match(app,/enterBoardReview\(record\.snapshot,count,"archive",record\.sgfMeta,record\)/);
+  assert.match(app,/enterBoardReview\(record\.snapshot,count,"archive",record\.sgfMeta\|\|namesMetadata\(record\.names\),record\)/);
 });
 test("shared URLs open in review and do not replace active local saved positions",()=>{
   assert.match(app,/if\(!room && params\.has\("sgf"\)\)/);
@@ -105,7 +105,7 @@ test("sharing lives in one header sheet, not in the replay tools",()=>{
  // Only the AI copy needs words: what to do with the copied text.
  // Explanations live inside their buttons; the sheet has no loose notes.
  assert.doesNotMatch(sheet,/class="explanation"/);
- assert.match(sheet,/id="shareAiLink"[^>]*><span>チャットAI向けにコピー<\/span><small>この盤面をチャットAIに相談したい時に使ってください。今の盤面とMieGOの使い方を説明した文章をクリップボードにコピーします<\/small><\/button>/);
+ assert.match(sheet,/id="shareAiLink"[^>]*><span>チャットAI向けにコピー<\/span><small>今の盤面と棋譜URLの読み方をコピーします。好きなチャットAIに貼り付けると、この局面を相談できます<\/small><\/button>/);
  assert.match(sheet,/id="shareSgf"[^>]*><span>SGFを保存<\/span><small>[^<]+<\/small><\/button>/);
  // Still image or game animation side by side, then one share-or-save button.
  // Each choice shows the image it would share.
@@ -113,7 +113,7 @@ test("sharing lives in one header sheet, not in the replay tools",()=>{
  assert.match(source("share-images.mjs"),/for\(const kind of SHARE_KINDS\)\{\s*try\{\s*const file=await makeShareImage\(kind,job\)/);
  // Outside replay the sheet shares the live game as it stands.
  assert.match(app,/if\(boardReview\)return \{\.\.\.variationForSharing\(boardReview,game\)/);
- assert.match(app,/return \{snapshot:game,metadata:null,/);
+ assert.match(app,/return \{snapshot:game,metadata:namesMetadata\(recordNames\(playersShown\(\)\)\),/);
  // Inviting a friend stays in the match setup, not in sharing.
  assert.doesNotMatch(sheet,/shareInvite|招待/);
  assert.match(css,/\.review-extras>button\{min-height:44px/);
@@ -127,7 +127,7 @@ test("saved games are a repeatable command, not a persistent fourth mode",()=>{
  assert.match(app,/gamePanel"\)\.classList\.remove\("is-scoring","is-finished"\)/);
 });
 test("◁ steps back one move at once; the replay row holds the way back",()=>{
-  assert.match(app,/enterBoardReview\(game,game\.moves\.length-1,"live"\)/);
+  assert.match(app,/enterBoardReview\(game,game\.moves\.length-1,"live",namesMetadata\(recordNames\(playersShown\(\)\)\)\)/);
   assert.match(app,/\$\("stepForward"\)\.disabled=true/);
   assert.match(app,/\$\("reviewBack"\)\.onclick=leaveBoardReview/);
   assert.equal(TEXT.review.showing(28),"28手目を表示中");

@@ -12,6 +12,8 @@ export { resultLabel };
 // Sizes are in 1/800ths of the card width.
 const CARD_RATIO = 1.25;
 const BOARD_X = 50, BOARD_Y = 128, BOARD = 700;
+// With a 棋風診断 line under the result the board steps down and in.
+const STYLED_BOARD_X = 65, STYLED_BOARD_Y = 156, STYLED_BOARD = 670;
 const MOVE_DELAY = 45, FIRST_DELAY = 90, LAST_DELAY = 350;
 export const SHARE_LINKS = Object.freeze([
   [TEXT.share.cardPlay,"miego.fun"],
@@ -26,7 +28,8 @@ const GOTHIC = "'Zen Kaku Gothic New', 'Hiragino Sans', 'Noto Sans JP', system-u
 const CARD_WORDS = [TEXT.share.cardMoves(""),TEXT.share.cardAllMoves(""),TEXT.share.cardUntil(""),
   TEXT.share.cardHandicap(""),TEXT.share.cardKomi(""),TEXT.share.cardLegend,TEXT.share.cardPlay,
   TEXT.share.cardContribute,TEXT.common.playing,TEXT.common.whiteArea,TEXT.common.blackArea,TEXT.result.draw,
-  TEXT.result.byResign("B","W"),TEXT.result.byTime("W","B"),TEXT.result.byPoints("B","")];
+  TEXT.result.byResign("B","W"),TEXT.result.byTime("W","B"),TEXT.result.byPoints("B",""),
+  ...Object.values(TEXT.playStyle.types).map(t=>t.name)];
 export const FONT_TEXT = [...new Set("MieGO0123456789.+〜·"+CARD_WORDS.join("")+
   "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/:-")].join("");
 
@@ -94,18 +97,39 @@ function paintLegend(ctx,u,center,y,{palette,opacity,theme},muted) {
   ctx.textBaseline="alphabetic";
 }
 
+// One 棋風診断 per player under the result, each with its stone, sharing the
+// board's width: "● AHFT 不屈の暴れん坊   ○ GLRQ 堅実な石橋".
+function paintStyles(ctx,u,look,styles,{left,right,ink}) {
+  const column=(right-left)/styles.length;
+  ctx.font="700 "+Math.round(20*u)+"px "+GOTHIC;ctx.fillStyle=ink;
+  ctx.textAlign="left";ctx.textBaseline="middle";
+  styles.forEach(({color,type},i)=>{
+    const text=TEXT.share.cardPlayStyle(type,TEXT.playStyle.types[type].name),room=column-34*u;
+    const textWidth=Math.min(ctx.measureText(text).width,room),y=138*u;
+    // Each one centred in its half of the board's width.
+    const x=left+column*(i+.5)-(26*u+textWidth)/2;
+    paintStone(ctx,look,color,x+9*u,y,9*u);
+    ctx.fillStyle=ink;ctx.fillText(text,x+26*u,y,room);
+  });
+  ctx.textBaseline="alphabetic";
+}
+
 /**
  * Draws the card onto `target` (sized by shareFrameSize). `board` is a board
  * canvas in the look `theme`; `legend` ({palette,opacity}) is drawn when the
- * image carries ownership colours.
+ * image carries ownership colours; `styles` ([{color:"B"|"W",type}]) adds
+ * a 棋風診断 line under the result.
  */
-export function paintShareFrame(target,board,{moves,rules="",result,winner=null,theme,legend=null,boardSize=9}) {
+export function paintShareFrame(target,board,{moves,rules="",result,winner=null,theme,legend=null,boardSize=9,
+  styles=[]}) {
   const {width,height}=shareFrameSize(target.width),u=width/800;
   const look=boardTheme(theme);
   // The custom board takes the dark board's ink when its colour is dark.
   const [r,g,b]=look.surface,[ink,muted]=INK[theme]||(.2126*r+.7152*g+.0722*b<110?INK.dark:INK.wood);
   const ctx=target.getContext("2d");
-  const bx=BOARD_X*u,by=BOARD_Y*u,bs=BOARD*u,center=width/2;
+  const styled=styles.length>0;
+  const bx=(styled ? STYLED_BOARD_X : BOARD_X)*u,by=(styled ? STYLED_BOARD_Y : BOARD_Y)*u,
+    bs=(styled ? STYLED_BOARD : BOARD)*u,center=width/2;
   // The board's own fill, laid out exactly as on the board and continued
   // past its edges, so the card reads as one surface.
   if(look.fill.length>1 && ctx.createLinearGradient) {
@@ -131,6 +155,8 @@ export function paintShareFrame(target,board,{moves,rules="",result,winner=null,
   const textWidth=Math.min(ctx.measureText(result).width,room),start=center-(stone+textWidth)/2;
   if(hasStone)paintStone(ctx,look,winner,start+16*u,92*u,16*u);
   ctx.textAlign="left";ctx.fillStyle=ink;ctx.fillText(result,start+stone,106*u,room);
+
+  if(styled)paintStyles(ctx,u,look,styles,{left,right,ink});
 
   if(legend && showsOwnership(legend.palette))paintLegend(ctx,u,center,866*u,{...legend,theme},muted);
 

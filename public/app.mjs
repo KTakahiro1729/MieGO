@@ -38,7 +38,8 @@ import {
 } from "./core.mjs";
 import { replayPlayout } from "./settle-playout.mjs";
 import { createSettleControl } from "./settle-control.mjs";
-import { EndgameAdvisor, endgameHint } from "./endgame.mjs";
+import { EndgameAdvisor } from "./endgame.mjs";
+import { endgameBarView } from "./endgame-bar.mjs";
 import {
   BYOYOMI_CHOICES,
   clockOf,
@@ -49,23 +50,29 @@ import {
   readClock,
   spendTime,
 } from "./game-clock.mjs";
-import { copyInviteText } from "./invite.mjs";
+import {
+  copyInviteText,
+  inviteButtonView,
+  seatLink,
+} from "./invite.mjs";
 import {
   colorLabel,
   guestUrl,
   isPeerAction,
   newPeerSignins,
-  ownUrl,
   playerColor,
   readCheckpoint,
   reconcileGame,
+  requestRematch,
   ROOM_PATTERN,
+  roundOf,
   roomUrl,
   saveCheckpoint,
   selectColor,
   storageKey,
 } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
+import { verifyP2P } from "./p2p-verify.mjs";
 import { interpolateOwnership, prisonerOutline } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
 import {
@@ -74,15 +81,17 @@ import {
   createSoundEffects,
   DOPA_VOICES,
   moveSound,
+  proposalArrived,
 } from "./sound.mjs";
 import {
   createDopaMode,
   dopaEvent,
   goodMove,
 } from "./dopa-mode.mjs";
-import { choosePolicyMove } from "./ai-opponent.mjs";
+import { choosePolicyMove, createResignWatch } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
-import { playerSides } from "./player-row.mjs";
+import { cleanName, createPlayerName } from "./player-name.mjs";
+import { playerSides, recordNames } from "./player-row.mjs";
 import { DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
 import {
   CUSTOM_CHARACTER,
@@ -103,7 +112,7 @@ import {
 import { createBoardRenderer } from "./board-renderer.mjs";
 import { scoreBreakdown, scoreRows } from "./scoring-regions.mjs";
 import { createBoardZoom } from "./board-zoom.mjs";
-import {forbiddenLines,inspectProvisionalMove,makeIllegalMovePrompt} from "./illegal-moves.mjs";
+import {inspectProvisionalMove,makeIllegalMovePrompt} from "./illegal-moves.mjs";
 import { freshLocalGame } from "./mode-state.mjs";
 import {
   capHandicaps,
@@ -122,6 +131,8 @@ import { replayLine } from "./ownership-prefetch.mjs";
 import { createReviewPrefetch, createScoreGraph } from "./review-estimates.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
+import { createHistoryStyle } from "./history-style.mjs";
+import { canReadStyle } from "./play-style.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { createHelpSheet } from "./help-sheet.mjs";
@@ -150,7 +161,7 @@ let fallbackMode = false;
 function switchToFallback(reason) {
   if (fallbackMode) return;
   fallbackMode = true;
-  endgameAdvisor.reset();
+  endgameAdvisor.reset();resignWatch.reset();
   katagoReady = false;
   aiThinking = false;
   aiJob = null;
@@ -196,6 +207,10 @@ let linkKey=inviteKey;
 let ownerColor=null,onlineSession=null,guestInviteKey=null,issuedSide=null,onlineRevision=0;
 // The other seat's count of sign-ins on another device that this player has seen.
 let seenPeerSignins=null;
+// The friend's 表示名, as their device last sent it; "" until it does.
+let peerName="";
+// The room whose friend this page has already rung in.
+let peerMetRoom=null;
 let p2pTransport;
 const myOnlineColor=()=>ownerColor===null?null:playerColor(p2pRole,ownerColor);
 const currentSideSelection=()=>document.querySelector('input[name="onlineSide"]:checked')?.value||"random";
@@ -204,23 +219,17 @@ const inviteMatchesChoice=()=>issuedSide===currentSideSelection() &&
   (connected || game.moveNumber>0 || (sizeOf(game.board)===boardSize && handicapOf(game)===onlineHandicap &&
     rulesOf(game)===gameRules && hasGomokuForbidden(game)===(gameRules==="gomoku" && gomokuForbiddenChoice)));
 // The player's own seat link moves the game to another device; it never sits in the address bar.
-function ownSeatLink() {
-  try{return room && inviteKey ? (p2pRole==="owner"?ownUrl:guestUrl)(location.origin,room,inviteKey) : null;}
-  catch{return null;}
-}
+const ownSeatLink=()=>seatLink({origin:location.origin,room,role:p2pRole,inviteKey});
 function renderInviteButton() {
   $("seatLinkBox").hidden=!ownSeatLink();
-  // Only the owner's device that created the room holds the guest's key, and
-  // the side cannot change once the game has started.
-  $("copy").disabled=!!room && (p2pRole!=="owner" || !guestInviteKey);
-  const locked=!!room && (connected || game.moveNumber>0);
+  const view=inviteButtonView({room,role:p2pRole,guestInviteKey,connected,moveNumber:game.moveNumber,issuedSide,
+    matches:inviteMatchesChoice()});
+  $("copy").disabled=view.copyDisabled;
   for(const input of document.querySelectorAll('input[name="onlineSide"]')) {
-    input.disabled=locked;
-    if(locked && issuedSide!==null)input.checked=input.value===issuedSide;
+    input.disabled=view.sideLocked;
+    if(view.sideLocked && issuedSide!==null)input.checked=input.value===issuedSide;
   }
-  $("copy").textContent=!room?TEXT.newGame.start:
-    issuedSide!==null && !inviteMatchesChoice()?
-      TEXT.online.renewInvite:TEXT.online.copyInvite;
+  $("copy").textContent=view.label;
   keepArmedLabel($("copy"));
 }
 function persistOnline(){
@@ -250,6 +259,11 @@ const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideSton
 const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingStones,isCounting,show,draw,
   onOverlayOn:()=>boardReview?requestReviewOwnership():requestAnalysis()});
 const {shownPalette,overlayOn,updateGradient}=appearance;
+// 表示名: the player's own name in the turn row, in a friend's game and in saved games.
+const playerName = createPlayerName({$,onChange:()=>{
+  show();
+  if(room && connected)p2pTransport.sendSync();
+}});
 // 効果音: off until the 設定 sheet turns them on. ドパガキモード swaps in louder voices.
 const sound = createSoundEffects({$,voices:()=>dopa.level()==="off"?CALM_VOICES:DOPA_VOICES});
 const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),graph:$("reviewGraph"),
@@ -260,6 +274,8 @@ const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),graph:
 let positionPolicy=null;
 const dopaViewer = () => isWatching() || (gameMode!=="ai" && !room) ? null : room ? myOnlineColor() : humanColor;
 let connected = false;
+// The friend game dropped and the transport is getting it back by itself.
+let reconnecting = false;
 // A first visit starts against the COM; later visits restore the saved mode.
 let gameMode = room ? "online" : "ai";
 let humanColor = BLACK;
@@ -310,6 +326,8 @@ let boardSize = 9;
 const shownSize = () => sizeOf((boardReview?.display||game).board);
 let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
+// A COM set to 投了 resigns once its game has looked lost for a few turns.
+const resignWatch = createResignWatch();
 let endExpanded = false, analysisContext = null;
 let deadEvaluation=null, deadReview="idle", deadReviewTouched=false;
 // 決着手順: KataGo's playout of the scoring position, and the one kept for 再生.
@@ -320,6 +338,7 @@ const settleControl = createSettleControl({
   show,
   draw,
   jobCurrent:id=>deadEvaluation?.id===id && scoringJobCurrent(deadEvaluation),
+  knownOwnership:board=>ownershipStore.recall(currentGameId,board),
   onUnavailable() {
     deadEvaluation=null;reviewUnavailable();
   },
@@ -327,7 +346,6 @@ const settleControl = createSettleControl({
     const job=deadEvaluation;
     deadEvaluation=null;
     if(!scoringJobCurrent(job)){show();return;}
-    settleControl.keep({positions:run.positions,board:run.state.board,initialOwnership:run.initialOwnership});
     apply(scoringReviewAction("dead_auto",{positions:run.dead,playout:run.positions}));
     // Stones tapped during the playout are corrections to its result, applied on top of it.
     for(const position of run.taps||[])
@@ -373,7 +391,16 @@ function showEvictionNotice(){
   evictedGames=0;
 }
 let currentGameId=null,currentRevision=null;
+const historyStyle=createHistoryStyle({$,gameLibrary,
+  ownSide:record=>{
+    if(record.mode==="ai")return record.humanColor;
+    const saved=record.mode==="online" ? readCheckpoint(localStorage,record.roomId) : null;
+    return [BLACK,WHITE].includes(saved?.ownerColor) ? playerColor(saved.role,saved.ownerColor) : null;
+  },
+  recall:record=>state=>ownershipStore.recall(record.id,state.board),
+  onChange:()=>renderHistoryList()});
 const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard,getBoardTheme:appearance.boardTheme,
+  decorateRow:historyStyle.decorateRow,
   getThumbnailOverlay:record=>{
     if(!overlayOn())return null;
     const ownership=ownershipStore.recall(record.id,record.snapshot.board);
@@ -412,90 +439,15 @@ function myColorForEnd() {
   return gameMode==="ai"?humanColor:BLACK;
 }
 function updateEndUi() {
-  const playing=game.status==="playing";
-  const offer=playing?game.endProposal:null;
-  const color=myColorForEnd();
-  // A friend's 待った request borrows the same in-bar answer buttons as an end offer.
-  const takebackRequest=playing && room?game.takebackRequest:null;
-  if(takebackRequest){
-    const asked=color!==null && takebackRequest.from!==color;
-    $("endStatus").textContent=asked?TEXT.takeback.requested:TEXT.takeback.waiting;
-    $("endPropose").hidden=true;
-    $("endAccept").hidden=!asked;
-    $("endDecline").hidden=false;
-    $("endAccept").textContent=TEXT.common.accept;
-    $("endDecline").textContent=asked?TEXT.takeback.decline:TEXT.common.withdraw;
-    for(const id of ["endPropose","endAccept","endDecline"])
-      $(id).disabled=!connected || color===null;
-    $("endDetail").textContent=asked?TEXT.takeback.detailAsked:
-      TEXT.takeback.detailWaiting;
-    $("endgameBar").classList.toggle("is-calling",asked);
-    return;
-  }
-  // 自由に置く has no end: the bar only says how the board works.
-  if(isFree(game)){
-    $("endStatus").textContent=room && (!connected || color===null)?TEXT.endgame.offline:TEXT.endgame.free;
-    for(const id of ["endPropose","endAccept","endDecline"])$(id).hidden=true;
-    $("endgameBar").classList.remove("is-calling","has-illegal");
-    $("actionRow").classList.remove("end-prompt-open");
-    $("endHelp").dataset.help="rules";
-    return;
-  }
-  const incoming=!!(offer && room && color!==null && offer.from!==color);
-  const localPrompt=playing && !room && endExpanded && !offer;
-  const waiting=!!(offer && !incoming);
-  const offline=!!room && (!connected || color===null);
-  // While KataGo loads there is no estimate yet; the slot stays quiet rather than saying so.
-  const hint=!katagoReady && !fallbackMode && !endgameAdvisor.previous ? "" :
-    endgameHint(game,endgameAdvisor,{unavailable:fallbackMode});
-  const passed=playing && !offer && !localPrompt && !offline ? passNotice() : null;
-  // Scoring an unsettled board leaves the rest to the playout's first-instinct moves,
-  // which can swing the result: the same question then keeps the advice above it.
-  const unsettled=localPrompt && hint===TEXT.endgame.playing;
-  const aiPassed=localPrompt && aiPassAsks();
-  $("endStatus").textContent=!playing?"":offline?TEXT.endgame.offline:
-    incoming?TEXT.endgame.proposed:
-    waiting?TEXT.endgame.waiting:
-    aiPassed?TEXT.endgame.askAiPassed:
-    localPrompt?(unsettled?hint+"\n"+TEXT.endgame.askLocal:TEXT.endgame.askLocal):
-    passed?passed.text:hint;
-  $("endPropose").hidden=!playing||!!offer||localPrompt||isGomoku(game);
-  $("endAccept").hidden=!playing||!(incoming||localPrompt);
-  $("endDecline").hidden=!playing||!(incoming||localPrompt||waiting);
-  $("endPropose").textContent=!room?TEXT.endgame.startScoring:TEXT.endgame.propose;
-  $("endAccept").textContent=!room?TEXT.endgame.goScoring:TEXT.common.accept;
-  $("endDecline").textContent=waiting?TEXT.common.withdraw:TEXT.common.keepPlaying;
-  for(const id of ["endPropose","endAccept","endDecline"])
-    $(id).disabled=offline;
-  // A move being computed is about to arrive; scoring waits for it instead of pausing the AI.
-  // While watching, a COM is nearly always thinking, so 採点を始める stops it instead.
-  if(aiThinking && !isWatching())$("endPropose").disabled=true;
-  // Answering an opponent's offer is a negotiation: neither choice is emphasized.
-  $("endAccept").classList.toggle("primary",!room);
-  $("actionRow").classList.toggle("end-prompt-open",localPrompt);
-  $("endgameBar").classList.toggle("is-asking",localPrompt);
-  $("endDetail").textContent=incoming?TEXT.endgame.detailIncoming:
-    aiPassed?TEXT.endgame.detailAiPassed:
-    localPrompt?(unsettled?TEXT.endgame.detailUnsettled:gameMode==="ai"?TEXT.endgame.detailLocalAi:
-      TEXT.endgame.detailLocal):
-    waiting?TEXT.endgame.detailWaiting:
-    room?TEXT.endgame.detailOnline:
-    TEXT.endgame.detailOffline;
-  if(playing && isGomoku(game) && !offline && !offer && !localPrompt)
-    $("endStatus").textContent=TEXT.endgame.gomoku;
-  const notice=[takebackNotice,endNotice].find(n=>n?.number===game.moveNumber &&
-    n.hash===boardHash(game.board));
-  if(playing && !offer && !localPrompt && !passed && notice)
-    $("endStatus").textContent=notice.text;
-  // A decision is asked of this player: an offer, the other side's pass, or the advice to end.
-  $("endgameBar").classList.toggle("is-calling",playing && !offline &&
-    (incoming || (!!passed?.second && !keptPlaying()) || $("endStatus").textContent===TEXT.endgame.ready));
-  // The stable left-hand status slot doubles as a rule explanation for illegal previews.
-  // 五目並べ's forbidden moves are explained with its rules, not with ko and suicide.
-  $("endHelp").dataset.help=isGomoku(game)?"rules":playing && illegalCandidate?"illegal":"endgame";
-  if(playing && illegalCandidate){
-    $("endStatus").textContent=forbiddenLines(illegalCandidate.reason);
-  }
+  const view=endgameBarView({game,color:myColorForEnd(),room:!!room,connected,gameMode,watching:isWatching(),
+    endExpanded,aiPassAsks:aiPassAsks(),katagoReady,fallbackMode,advisor:endgameAdvisor,aiThinking,
+    notices:[takebackNotice,endNotice],keptPlaying:keptPlaying(),illegalCandidate});
+  for(const [id,text] of Object.entries(view.text))$(id).textContent=text;
+  for(const [id,hidden] of Object.entries(view.hidden))$(id).hidden=hidden;
+  for(const [id,disabled] of Object.entries(view.disabled))$(id).disabled=disabled;
+  for(const [id,classes] of Object.entries(view.classes))
+    for(const [name,on] of Object.entries(classes))$(id).classList.toggle(name,on);
+  if(view.help)$("endHelp").dataset.help=view.help;
 }
 
 /** A friend has agreed to the count (or the dead stones) and this player has not yet. */
@@ -505,15 +457,6 @@ function peerAgreed() {
   return game.agreed[theirs] && !game.agreed[mine];
 }
 /** After one pass: who passed, and whether this player's pass would start scoring. */
-function passNotice() {
-  if(game.passes!==1 || game.moves.at(-1)?.position!==null)return null;
-  const by=game.moves.at(-1).color;
-  if(!room && gameMode!=="ai")return {text:TEXT.endgame.passedLocal(by===BLACK?"B":"W"),second:true};
-  if(isWatching())return {text:TEXT.endgame.passedWatch(by===BLACK?"B":"W"),second:false};
-  const me=myColorForEnd();
-  if(by===me)return {text:TEXT.endgame.passedSelf,second:false};
-  return {text:room?TEXT.endgame.passedOpponent:TEXT.endgame.passedAi,second:true};
-}
 /** Against a COM, its pass is its way of suggesting the end: the player is asked
  * 採点を始めますか？ at once, and 採点へ進む is the player's own pass. */
 const aiPassAsks = () => !room && gameMode === "ai" && !watching && game.status === "playing" &&
@@ -650,6 +593,7 @@ const COM_SLOTS = {Black:"black", White:"white"};
 // Each value a カスタム COM sets, by the name suffix of its choices.
 const COM_FIELDS = {
   Height:"height",
+  Resign:"resign",
   Stance:"stance",
   Strength:"strength",
   Tenuki:"tenuki",
@@ -699,7 +643,7 @@ const boardRenderer = createBoardRenderer({
     burst:dopa.level(),
     candidate,
     displayedOwnership,
-    game,
+    game:shownGame(),
     hideStones:hidingStones(),
     humanTurn:isHumanTurn(),
     illegalCandidate,
@@ -709,10 +653,14 @@ const boardRenderer = createBoardRenderer({
     opacity:appearance.opacity(),
     palette:shownPalette(),
     sampleStones:appearance.editingBoard(),
-    settle:settleControl.view(),
   })
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
+/** While KataGo settles the dead stones, the board counts with the ones an estimate already gives. */
+function shownGame() {
+  const playout=settleControl.view();
+  return playout && !game.dead.length ? {...game,dead:playout.dead} : game;
+}
 // 待った: one shared board undoes the latest move; AI and friend games undo
 // the player's own latest move together with any reply after it.
 const takebackOptions = () => room ? {color:myOnlineColor(),scope:"own"} :
@@ -747,7 +695,7 @@ function requestAnalysis() {
   if(game.status==="scoring") {
     pending=++seq;
     analysisContext=null;
-    endgameAdvisor.reset();
+    endgameAdvisor.reset();resignWatch.reset();
     if(game.agreed.black || game.agreed.white) {
       deadReviewTouched=true;deadReview="modified";show();return;
     }
@@ -768,7 +716,7 @@ function requestAnalysis() {
   }
   if(game.status!=="playing") {
     pending=++seq;
-    endgameAdvisor.reset();
+    endgameAdvisor.reset();resignWatch.reset();
     updateEndUi();
     return;
   }
@@ -886,6 +834,7 @@ function finishAiMove(result) {
     if(valid)rememberOwnership(game.board,result.ownership);
     // Two COMs each play with their own settings.
     const com=comToMove();
+    if(resignWatch.observe(game,com.resign,result)){submitMove("resign",true);return;}
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
       ...com,ownership:result.ownership,endgameStage:passStage,
       readMove:result.readMove,temperature:0.38
@@ -997,7 +946,7 @@ function show() {
   $("turn").textContent=waiting?TEXT.game.aiThinking:game.status==="finished"?finishedTitle():
     // The scoring step names itself here, so the score box keeps its one line for the instruction.
     game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
-    room && !connected?TEXT.game.waitingOpponent:
+    room && !connected?(reconnecting?TEXT.game.reconnecting:TEXT.game.waitingOpponent):
     isFree(game)?(freeColor===BLACK?TEXT.game.freeBlack:TEXT.game.freeWhite):
     room?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):
     // COM同士 shows whose move it is; 「COM同士」 under it says who plays.
@@ -1087,9 +1036,13 @@ function show() {
   $("endgameBar").hidden=isScoring || isFinished;
   $("resign").hidden=isScoring || isFinished;
   $("newMatchSheet").hidden=!isFinished;
-  // A friend's game is played again from a new invitation, so it only offers 新規対戦.
-  $("newMatch").hidden=!isFinished || !!room;
-  $("newMatch").disabled=gameMode==="ai" && !canRematchAi();
+  $("newMatch").hidden=!isFinished;
+  // A friend's もう一局 waits for the other player to press it too.
+  const rematchAsked=!!room && game.rematchRequest?.from===myOnlineColor();
+  $("newMatch").querySelector("small").textContent=rematchAsked?TEXT.online.rematchWaiting:TEXT.game.rematchNote;
+  for(const name of ["aria-label","title"])
+    $("newMatch").setAttribute(name,rematchAsked?TEXT.online.rematchWaitingAria:TEXT.game.rematchAria);
+  $("newMatch").disabled=gameMode==="ai" && !room && !canRematchAi() || !!room && (!connected || rematchAsked);
   $("openHistory").hidden=!isFinished;
   $("openShare").hidden=!isFinished;
   if(isScoring)$("analysisStatus").textContent=TEXT.scoring.title;
@@ -1110,6 +1063,8 @@ function show() {
       input.checked=input.value===sideKey(freeColor);
   }
   $("actionRow").classList.toggle("finished-actions",isFinished);
+  // After a game of 囲碁, its 棋風診断 is one tap away, in the share sheet.
+  $("scoreStyle").hidden=!isFinished || !playedSides().some(color=>canReadStyle(game,color));
   // COM同士: 介入する and 一時停止 (再開); stepping in shows × and ここに打つ instead.
   const watchingPlay=spectating && game.status==="playing";
   $("watchToggle").hidden=$("watchIntervene").hidden=!watchingPlay || intervening;
@@ -1121,13 +1076,7 @@ function show() {
   $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:
     scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
   const playout=settleControl.view();
-  $("settleSkip").hidden=!playout;
-  // While counting, the action row holds 死石の確認に戻る instead.
-  const counting=scoringStepOf(game)==="count";
-  $("settleReplay").hidden=!!playout || !isScoring || !settleControl.current() || counting;
-  $("scoreInstruction").textContent=playout?
-    (playout.finished?(playout.cut?TEXT.scoring.settleCut(playout.moves):TEXT.scoring.settleDone(playout.moves)):
-      TEXT.scoring.settling(playout.moves)):
+  $("scoreInstruction").textContent=playout?TEXT.scoring.settling(playout.moves):
     isFinished?
     (endedEarly(game.result)?TEXT.scoring.finishedResign:
       gomoku?(game.result==="0"?TEXT.scoring.finishedGomokuDraw:TEXT.scoring.finishedGomoku):
@@ -1179,12 +1128,12 @@ function apply(action, remote=false, isAiMove=false) {
   // without tearing down the live Go DataChannel. Local actions are built from
   // the current position, so only a peer's can be stale.
   if(remote && ["end_offer","end_answer","takeback_request","takeback_answer",
-                 "dead_auto","dead_unavailable","time_out"].includes(action?.type)) {
+                 "dead_auto","dead_unavailable","rematch","time_out"].includes(action?.type)) {
     if(action.number!==game.moveNumber || action.before!==boardHash(game.board))return;
     if(action.type==="end_answer" && action.proposalFrom!==game.endProposal?.from)return;
     if(action.type==="takeback_answer" && action.proposalFrom!==game.takebackRequest?.from)return;
   }
-  let rewound=false;
+  let rewound=false,rematchOffered=false;
   try{
     // The friend's client acts only for the friend's color.
     if(remote && !isPeerAction(action,game,{peerColor:myOnlineColor()===null?null:-myOnlineColor(),
@@ -1231,15 +1180,11 @@ function apply(action, remote=false, isAiMove=false) {
     } else if(action.type==="dead_auto" || action.type==="dead_unavailable") {
       if(!canApplyAutomatedReview(game,deadReviewTouched,action))return;
       if(action.type==="dead_auto")game=setDeadCandidates(game,action.positions);
-      // The friend who ran the playout sends it along, so both boards can replay it.
-      // Its stones on the empty points close the borders for the count.
+      // The friend who ran the playout sends it along: its stones on the empty
+      // points close the borders for the count.
       const frames=action.type==="dead_auto" && Array.isArray(action.playout) ?
         replayPlayout(game,action.playout) : null;
       game=withPlayoutFill(game,frames?.at(-1).board);
-      if(frames) {
-        settleControl.keep({positions:[...action.playout],board:frames.at(-1).board});
-        if(remote)setTimeout(settleControl.replay,0);
-      }
       deadReview=action.type==="dead_unavailable"?"unavailable":
         action.positions.length?"complete":"none";
     }
@@ -1260,7 +1205,13 @@ function apply(action, remote=false, isAiMove=false) {
       stopAiTurn();
       game=loseOnTime(game,action.color);
     }
-    else if(action.type==="resume") game=resume(game);
+    else if(action.type==="resume") game=resume(game,action.color);
+    else if(action.type==="rematch") {
+      const round=roundOf(game);
+      game=requestRematch(game,action.color);
+      if(roundOf(game)!==round)startNextRound();
+      else rematchOffered=remote;
+    }
     // "mode" (the removed per-game overlay switch) from older peers is ignored below.
     else if(action.type==="end_offer") {
       game=proposeEnd(game,action.color);
@@ -1295,16 +1246,24 @@ function apply(action, remote=false, isAiMove=false) {
     // A watched COM同士 game keeps the zoom the viewer chose.
     if(action.type==="move" && (remote || isAiMove && !watching))boardZoom.reset();
     candidate=null;save();show();
+    // After save(), which clears the notice line.
+    if(rematchOffered)showNotice(TEXT.online.rematchOffered);
     const cue=moveSound(before,game,action.type==="move"?action.position:null);
     const cheer=dopaEvent(before,game,dopaViewer());
     // Only this device's own move, judged from the position it was played in.
     const good=action.type==="move" && !remote && !isAiMove && !isFree(before) &&
       positionPolicy?.number===before.moveNumber && positionPolicy.hash===boardHash(before.board) &&
       goodMove(positionPolicy.policy,before.board,action.position);
-    if(cue)sound.play(cue,cheer?.kind==="capture"?{count:cheer.count}:undefined);
+    // ドパガキモード's voices grow with the capture, and cheer only a win.
+    if(cue)sound.play(cue,cheer??undefined);
     if(good)sound.play("good");
+    // A question for this player: the friend's もう一局, end or 待った, the COM's pass,
+    // or a watched COM同士 game reaching the count.
+    if(remote && proposalArrived(before,game) || isAiMove && endExpanded ||
+       isAiMove && isWatching() && before.status==="playing" && game.status==="scoring")sound.play("offer");
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
+       (action.type==="rematch" && game.status==="playing") ||
        (action.type==="end_answer" && game.status==="scoring") ||
        (hadCandidate && game.status==="playing"))
       requestAnalysis();
@@ -1500,7 +1459,11 @@ $("startLocal").onclick=()=>continueFrom?forkBoardReview("local"):startLocalGame
 // with the finished game's board, rules and options (and, against the COM, the same COM and side).
 $("newMatchSheet").onclick=()=>openPanel(room?"online":gameMode);
 $("newMatch").onclick=()=>{
-  if(room || game.status!=="finished")return;
+  if(game.status!=="finished")return;
+  if(room){
+    if(connected)apply({type:"rematch",color:myOnlineColor(),number:game.moveNumber,before:boardHash(game.board)});
+    return;
+  }
   if(gameMode==="ai"){
     if(!canRematchAi())return;
     startAiGame(initialGame(game),watching,aiSideChoice==="random"?"random":sideKey(humanColor));
@@ -1509,6 +1472,11 @@ $("newMatch").onclick=()=>{
   if(!save())return;
   clearBoardReview();freshLocalBoard(initialGame(game));
 };
+/** A friend's もう一局 was agreed: the finished game stays in the library, and the next one is a new record. */
+function startNextRound(){
+  currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
+  resetArmedButtons();resetPositionState();
+}
 // The KataGo opponent must be ready; 五目並べ's needs none.
 function canRematchAi(){return isGomoku(game) || katagoReady && !fallbackMode;}
 $("agree").onclick=()=>{
@@ -1519,7 +1487,12 @@ $("agree").onclick=()=>{
   if(!room)apply({type:deadStep?"solo_dead":"solo_score"});
   else apply({type:deadStep?"agree_dead":"agree",color});
 };
-$("resume").onclick=()=>apply({type:"resume"});
+// 日本囲碁規約 第九条: the opponent of the side that resumes moves first. On one
+// board for two players (or while watching) nobody in particular asks, so the turn stays.
+$("resume").onclick=()=>{
+  const color=room?myOnlineColor():gameMode==="ai" && !isWatching()?humanColor:null;
+  apply(color?{type:"resume",color}:{type:"resume"});
+};
 $("backToDead").onclick=()=>apply({type:"back_to_dead"});
 $("endPropose").onclick=()=>{
   if(game.status!=="playing" || game.endProposal || game.takebackRequest)return;
@@ -1685,7 +1658,7 @@ function isCounting(){
 function save(){
   try {
     const record=gameLibrary.save({id:currentGameId,mode:room?"online":gameMode,
-      roomId:room||null,snapshot:game,lastPosition,humanColor,aiCom,seat,
+      roomId:room||null,snapshot:game,lastPosition,humanColor,aiCom,seat,names:recordNames(playersShown()),
       watch:gameMode==="ai" && watching,watchAi},currentRevision);
     currentGameId=record.id;currentRevision=record.revision;
     if(!room)gameLibrary.setActive(gameMode,record.id);
@@ -1716,9 +1689,9 @@ function leaveOnlineRoom() {
   save();
   p2pTransport?.leave();
   const oldUrl=new URL(location.href);oldUrl.searchParams.delete("room");oldUrl.hash="";
-  room=null;seat="host";connected=false;ownerColor=null;onlineSession=null;
+  room=null;seat="host";connected=false;reconnecting=false;ownerColor=null;onlineSession=null;
   inviteKey=null;guestInviteKey=null;issuedSide=null;onlineRevision=0;p2pRole="owner";
-  linkKey=null;seenPeerSignins=null;
+  linkKey=null;seenPeerSignins=null;peerName="";
   history.replaceState(null,"",oldUrl.pathname+oldUrl.search);
   $("inviteDetails").classList.add("hidden");
   $("inviteStatus").textContent="";
@@ -1735,14 +1708,36 @@ function resumeModeGame(mode) {
   game=savedGame(mode);resetPositionState();
   save();closePanels();show();requestAnalysis();
 }
+// The room whose 友人対局に戻る was closed is not offered again.
+const RESUME_DISMISSED_KEY="miego-friend-resume-dismissed";
+// The server forgets a room a week after it was made.
+const ROOM_LIFETIME_MS=7*24*60*60*1000;
+/** The newest friend game on this device, when it is unfinished and this browser still holds its seat. */
+function resumableRoom(){
+  let record=null,dismissed=null;
+  try{record=gameLibrary.list().find(r=>r.mode==="online");dismissed=localStorage.getItem(RESUME_DISMISSED_KEY);}catch{}
+  if(!record || record.roomId===room || record.roomId===dismissed)return null;
+  if(!(Date.now()-Date.parse(record.updatedAt)<ROOM_LIFETIME_MS))return null;
+  const stored=readCheckpoint(localStorage,record.roomId);
+  return stored?.session && stored.game.status!=="finished"?record.roomId:null;
+}
+/** Reopens a friend room the way its address does: the saved seat rejoins and reconnects. */
+function openFriendRoom(target){
+  save();
+  location.assign(roomUrl(location.origin,target));
+}
 /**
  * The 新規対戦 sheet's way back, shown in every mode at the same place: the
  * unfinished saved game of the chosen offline mode when another mode is on the
  * board, otherwise the game on the board (leaving any replay).
  */
 function returnTarget(kind) {
-  const current={mode:null,label:TEXT.history.returnCurrent};
-  // Friend rooms reopen from the saved games.
+  // A finished game has nothing to continue, so the button names the board instead.
+  const current={mode:null,label:!boardReview && game.status==="finished"?TEXT.history.returnBoard:TEXT.history.returnCurrent};
+  if(kind==="online" && !room){
+    const target=resumableRoom();
+    if(target)return {mode:null,room:target,label:TEXT.online.resumeOpen};
+  }
   if(kind==="history" || kind==="online" || kind===(room?"online":gameMode))return current;
   let record=null;
   try{record=gameLibrary.active(kind);}catch{}
@@ -1755,44 +1750,27 @@ function syncReturnButton(kind) {
 }
 $("returnToGame").onclick=()=>{
   const target=returnTarget(newGameModeKind());
+  if(target.room){openFriendRoom(target.room);return;}
   if(target.mode){resumeModeGame(target.mode);return;}
   if(boardReview){clearBoardReview();show();requestAnalysis();}
   closePanels();$("newGameButton").focus();
 };
-async function verifyP2P(){
-  $("p2pVerify").hidden=false;
-  // A guest's sheet opens only for the check, so it closes once the check passes.
-  const opened=$("onlineSetup").hidden;
-  if(opened)openPanel("online");
-  const config=await fetch("/api/p2p/config").then(r=>r.json());
-  if(config.rooms===false)throw new UserError(TEXT.online.roomsUnavailable);
-  if(!config.siteKey)throw new UserError(TEXT.online.turnstileMissing);
-  if(!window.turnstile){
-    await new Promise((resolve,reject)=>{
-      const script=document.createElement("script");
-      script.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      script.onload=resolve;script.onerror=()=>reject(new UserError(TEXT.online.verifyLoadFailed));
-      document.head.append(script);
-    });
-  }
-  return new Promise((resolve,reject)=>{
-    $("p2pTurnstile").replaceChildren();
-    window.turnstile.render($("p2pTurnstile"),{sitekey:config.siteKey,action:"miego_p2p",
-      callback:token=>{if(opened)closePanels();resolve(token);},"error-callback":()=>reject(new UserError(TEXT.online.verifyFailed)),
-      "expired-callback":()=>reject(new UserError(TEXT.online.verifyExpired))});
-  });
-}
 function onPeerSync(message){
   const result=reconcileGame(game,onlineRevision,message.game,message.revision,
     {localIsOwner:p2pRole==="owner",localColor:myOnlineColor()});
   if(result.kind==="conflict"||result.kind==="invalid"){
-    connected=false;$("netStatus").textContent=TEXT.online.statusStopped;
+    connected=false;reconnecting=false;$("netStatus").textContent=TEXT.online.statusStopped;
     showSeatNotice(TEXT.online.mismatch);
     show();return false;
   }
+  // A device from before 表示名 sends none, and its player stays 相手.
+  const theirName=typeof message.name==="string"?cleanName(message.name):peerName;
+  if(theirName!==peerName){peerName=theirName;if(result.kind!=="adopt")save();}
   if(result.kind==="adopt"){
+    // A もう一局 agreed while this device was away starts a new record, too.
+    if(roundOf(result.game)!==roundOf(game)){currentGameId=null;currentRevision=null;}
     game=result.game;onlineRevision=result.revision;lastPosition=message.lastPosition??null;
-    candidate=null;endgameAdvisor.reset();
+    candidate=null;endgameAdvisor.reset();resignWatch.reset();
     endExpanded=!!game.endProposal && game.endProposal.from!==myColorForEnd();
     deadReviewTouched=false;deadEvaluation=null;
     save();requestAnalysis();
@@ -1806,8 +1784,9 @@ function onPeerSync(message){
   if(result.kind==="send")p2pTransport.sendSync();
   connected=true;$("netStatus").textContent=TEXT.online.connected;show();return true;
 }
+const verifyHuman=()=>verifyP2P({$,openSheet:()=>openPanel("online"),closeSheet:closePanels});
 p2pTransport=createP2PTransport({
-  verify:verifyP2P,
+  verify:verifyHuman,
   onSession:({session,ownerColor:chosen,role})=>{
     onlineSession=session;p2pRole=role;ownerColor=chosen==="black"?BLACK:WHITE;linkKey=null;
     seat=role==="owner"?"host":"guest";persistOnline();show();
@@ -1821,14 +1800,21 @@ p2pTransport=createP2PTransport({
   onSync:onPeerSync,
   onAction:action=>apply(action,true),
   onConnected:()=>{
-    connected=true;$("netStatus").textContent=TEXT.online.connected;
+    // The friend who opened the invite arrives: once per room, before the first move.
+    if(p2pRole==="owner" && peerMetRoom!==room && game.moveNumber===0)sound.play("offer");
+    peerMetRoom=room;
+    connected=true;reconnecting=false;$("netStatus").textContent=TEXT.online.connected;
     // A failed retry left 電波やWi-Fiを確認して…, which no longer applies once the peers meet again.
-    if($("saveStatus").textContent===TEXT.online.requestFailed)$("saveStatus").hidden=true;
+    if($("saveStatus").textContent===TEXT.online.retrying)$("saveStatus").hidden=true;
     show();
   },
-  onDisconnected:message=>{connected=false;$("netStatus").textContent=message;show();},
+  onDisconnected:(message,retrying)=>{
+    connected=false;if(retrying!==undefined)reconnecting=retrying;
+    $("netStatus").textContent=message;show();
+  },
   onError:error=>{
     console.warn("P2P",error);
+    reconnecting=!!error.retrying;
     if(error.stage==="ticket" && error.status===403){
       // An opened seat link takes the seat back once; otherwise another device holds it.
       if(linkKey){inviteKey=linkKey;linkKey=null;onlineSession=null;persistOnline();void joinRoom();return;}
@@ -1838,12 +1824,13 @@ p2pTransport=createP2PTransport({
       $("netStatus").textContent=TEXT.online.statusCannotJoin;
       showSeatNotice(TEXT.online.roomGone);
     }else{
+      // The transport tries again by itself, so the notice asks only to check the network.
       $("netStatus").textContent=TEXT.online.statusOffline;
-      showNotice(messageFor(error,TEXT.online.requestFailed));
+      showNotice(error.retrying?TEXT.online.retrying:messageFor(error,TEXT.online.requestFailed));
     }
     show();
   },
-  getSnapshot:()=>({game,revision:onlineRevision,lastPosition,
+  getSnapshot:()=>({game,revision:onlineRevision,lastPosition,name:playerName.name(),
     scoringReview:game.status==="scoring" &&
     REVIEW_DONE.has(deadReview)?deadReview:null})
 });
@@ -1851,7 +1838,7 @@ async function joinRoom(){
   if(!ROOM_PATTERN.test(room)){
     $("netStatus").textContent=TEXT.online.statusCannotJoin;showSeatNotice(TEXT.online.badInvite);return;
   }
-  const targetRoom=room;
+  const targetRoom=room;reconnecting=false;
   // show() names the mode only outside a room, so the previous mode's name would stay here.
   $("netStatus").textContent=TEXT.online.waitingConnection;
   try{
@@ -1876,7 +1863,7 @@ async function beginOnlineRoom(){
   if(room&&!confirmByRetap($("copy"),TEXT.confirm.renewInvite))return null;
   if(!room && game.moveNumber>0 &&
      !confirmByRetap($("copy"),TEXT.confirm.leaveForOnline))return null;
-  const color=selectColor(choice),token=await verifyP2P();
+  const color=selectColor(choice),token=await verifyHuman();
   const created=await p2pTransport.post("/api/rooms",
     {color:sideKey(color),turnstileToken:token});
   if(room){
@@ -1932,6 +1919,7 @@ function syncStartButtons() {
   $("startAi").disabled=needsKatago && (!katagoReady || fallbackMode);
   $("startAi").textContent=needsKatago && fallbackMode?TEXT.ai.startUnavailable:
     needsKatago && !katagoReady?TEXT.ai.startLoading:startLabel();
+  $("startAiNote").hidden=!(needsKatago && fallbackMode);
   keepArmedLabel($("startAi"));
   $("startLocal").textContent=startLabel();
   keepArmedLabel($("startLocal"));
@@ -2097,13 +2085,17 @@ function saveReviewVariation(){
     $("reviewNotice").textContent=TEXT.review.variationSaved;
   }catch(error){$("reviewNotice").textContent=messageFor(error,TEXT.review.variationSaveFailed);}
 }
+/** Who plays each colour, for the turn row and the names a saved game keeps. */
+function playersShown(){
+  return {mode:room?"online":gameMode,watching:isWatching(),humanColor,aiCom,watchAi,
+    onlineColor:room?myOnlineColor():null,myName:playerName.name(),peerName};
+}
 /** Both players in the turn row: who each colour is, and whether it is to move. */
 function renderPlayers(shown, waiting=null) {
   $("players").hidden=!shown;
   $("statusRow").querySelector(".status-main").classList.toggle("has-players",shown);
   if(!shown)return;
-  const sides=playerSides({mode:room?"online":gameMode,watching:isWatching(),humanColor,aiCom,watchAi,
-    onlineColor:room?myOnlineColor():null});
+  const sides=playerSides(playersShown());
   for(const color of [BLACK,WHITE]){
     const side=sides[color],box=$(color===BLACK?"playerBlack":"playerWhite");
     const toMove=game.next===color;
@@ -2112,9 +2104,8 @@ function renderPlayers(shown, waiting=null) {
     box.querySelector(".player-wait").hidden=!thinking;
     // A person's 持ち時間 takes the place of their line.
     box.querySelector(".player-name").textContent=side.name;
-    // The opponent's line carries the connection; the side to move says so.
+    // The connection stays in the line under the turn, which takes this row's place when it drops.
     box.querySelector(".player-detail-text").textContent=
-      room && !side.com && side.name===TEXT.game.opponent?$("netStatus").textContent:
       thinking?(waiting?.short || TEXT.game.comThinking):clockShown(color)?"":toMove && !side.com?TEXT.game.toMove:side.detail;
   }
   $("playersMove").textContent=TEXT.game.moveLabel(game.moveNumber);
@@ -2354,12 +2345,17 @@ function forkBoardReview(kind="local") {
   clearBoardReview();
   save();closePanels();show();requestAnalysis();
 }
+/** SGF's PB and PW from a game's names, or null when it has none. */
+function namesMetadata(names){
+  return names?.black || names?.white?{blackName:names.black,whiteName:names.white}:null;
+}
 // Everything in the share sheet works on the displayed board: the replayed
 // line and step while replaying, otherwise the live game as it stands.
 function sharedPosition() {
   if(boardReview)return {...variationForSharing(boardReview,game),
     gameId:boardReview.source==="live" ? currentGameId : boardReview.record?.id ?? null};
-  return {snapshot:game,metadata:null,step:game.moves.filter(m=>m.position!=="resign").length,
+  return {snapshot:game,metadata:namesMetadata(recordNames(playersShown())),
+    step:game.moves.filter(m=>m.position!=="resign").length,
     gameId:currentGameId};
 }
 function sharedUrl() {
@@ -2394,7 +2390,7 @@ function openSavedBoard(record) {
     // old URL in the address bar after opening another saved record.
     if(boardReview?.source==="url")clearImportedReviewUrl();
     closePanels();
-    enterBoardReview(record.snapshot,count,"archive",record.sgfMeta,record);
+    enterBoardReview(record.snapshot,count,"archive",record.sgfMeta||namesMetadata(record.names),record);
     $("reviewBack").focus();
   }catch(error){
     $("historySaveNotice").textContent=TEXT.history.showFailed;
@@ -2412,7 +2408,7 @@ function exportSharedSGF(){
 }
 /** A restored game carries on the endgame advice from the estimates kept while it was played. */
 function restoreEndgameAdvice(){
-  endgameAdvisor.reset();
+  endgameAdvisor.reset();resignWatch.reset();
   if(game.status!=="playing" || isFree(game) || isGomoku(game))return;
   let states=[];
   try{states=replayLine(game);}catch{return;}
@@ -2422,7 +2418,16 @@ function restoreEndgameAdvice(){
 function rememberOwnership(board,values){
   try{ownershipStore.remember(currentGameId,board,values);}catch(error){console.warn("Ownership not kept",error);}
 }
-const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,
+// The colours a person played in the shared game: a COM's side is left out, and a watched game has none.
+function playedSides(){
+  const record=boardReview?.source==="archive" ? boardReview.record : null;
+  const live=!boardReview || boardReview.source==="live";
+  const ai=record ? record.mode==="ai" : live && gameMode==="ai";
+  if(!ai)return [BLACK,WHITE];
+  if(record ? record.watch : watching)return [];
+  return [record ? record.humanColor : humanColor];
+}
+const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,playedSides,
   stillColoured:()=>boardReview ? !!boardReview.ownership : game.status==="playing" && !!displayedOwnership});
 function openSharePanel(){
   openPanel("share");
@@ -2435,7 +2440,7 @@ function openSharePanel(){
 $("stepBack").onclick=()=>{
   if(boardReview){setBoardReviewStep(boardReview.step-1);return;}
   if(!game.moves.length)return;
-  try{enterBoardReview(game,game.moves.length-1,"live");}
+  try{enterBoardReview(game,game.moves.length-1,"live",namesMetadata(recordNames(playersShown())));}
   catch{showNotice(TEXT.history.replayFailed);}
 };
 $("stepForward").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
@@ -2504,6 +2509,13 @@ function resumeSelectedReview(){
 $("historyImportFile").onchange=e=>void importHistoryFile(e.target.files?.[0]);
 $("openHistory").onclick=openHistoryPanel;
 $("openShare").onclick=openSharePanel;
+$("scoreStyle").onclick=()=>{openSharePanel();$("sharePlayStyles").scrollIntoView({block:"start"});};
+// One game's 棋風診断 leads on to several games read together, in 履歴.
+function openHistoryStyle(){
+  openPanel("history");
+  historyStyle.start();
+}
+$("sharePlayStyleMore").onclick=openHistoryStyle;
 $("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
 $("seatNotice").onclick=()=>{$("seatNotice").hidden=true;};
 $("copySeatLink").onclick=()=>{
@@ -2544,8 +2556,6 @@ $("closeMode").onclick=()=>{closePanels();$("newGameButton").focus();};
 // The help sheet stacks above any open sheet; a local ? shows one topic of it.
 const {closeHelpPopover}=createHelpSheet({$,getGame:()=>game,setBackgroundInert,closePanels});
 $("newGameButton").onclick=()=>openPanel(room?"online":gameMode);
-$("settleSkip").onclick=()=>settleControl.skip();
-$("settleReplay").onclick=settleControl.replay;
 $("startAi").onclick=()=>{
   if(continueFrom){forkBoardReview("ai");return;}
   // The button is disabled meanwhile, except for 五目並べ, which needs no KataGo.
@@ -2734,7 +2744,12 @@ if(room){
     seenPeerSignins=Number.isInteger(stored.seenPeerSignins)?stored.seenPeerSignins:null;
     game=stored.game;lastPosition=stored.lastPosition;
     const prior=gameLibrary.list().find(r=>r.mode==="online"&&r.roomId===room);
-    if(prior){currentGameId=prior.id;currentRevision=prior.revision;}
+    if(prior){
+      currentGameId=prior.id;currentRevision=prior.revision;
+      // Until the friend's device sends its 表示名 again, the one kept with the game stands.
+      const theirs=myOnlineColor()===BLACK?prior.names?.white:prior.names?.black;
+      peerName=cleanName(theirs);
+    }
     endExpanded=!!game.endProposal;
     if(issuedSide){
       const input=document.querySelector('input[name="onlineSide"][value="'+issuedSide+'"]');
@@ -2799,5 +2814,18 @@ if(!room && params.has("sgf")){
     showNotice(TEXT.history.sharedLoadFailed);
   }
 }
+// The /style page links here to read several saved games together.
+if(!room && params.get("open")==="history-style"){
+  history.replaceState(null,"",location.pathname);
+  openHistoryStyle();
+}
 compactOwnership();
+// An unfinished friend game is offered when the page opens on something else.
+const resumeRoom=room?null:resumableRoom();
+$("friendResume").hidden=!resumeRoom;
+$("friendResumeOpen").onclick=()=>openFriendRoom(resumeRoom);
+$("friendResumeClose").onclick=()=>{
+  try{localStorage.setItem(RESUME_DISMISSED_KEY,resumeRoom);}catch{}
+  $("friendResume").hidden=true;
+};
 show();requestAnalysis();

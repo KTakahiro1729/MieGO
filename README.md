@@ -4,7 +4,7 @@
 
 ## Cloudflareへのデプロイと運用（ブラウザのみ）
 
-このREADMEにデプロイ手順を統合しています。**手元でのターミナル操作、Node.js・Git・Wranglerのインストール、ZIPダウンロード、手動のGit Pushは不要**です。GitHubとCloudflareのWeb画面だけを使用します。GitHubのリポジトリとCloudflare Workers Buildsを連携して、Cloudflare側でビルドと配置を実施します。
+デプロイはGitHubとCloudflareのWeb画面だけでできます。手元でのターミナル操作や、Node.js・Git・Wranglerのインストールは要りません。GitHubのリポジトリとCloudflare Workers Buildsを連携して、Cloudflare側でビルドと配置を実施します。
 
 既に`main`とCloudflare Workers Buildsを連携済みの場合、初回作成を繰り返す必要はありません。
 
@@ -160,7 +160,7 @@ CloudflareのBuild logsで`Browser KataGo worker built`および`KataGo model do
 - 推論結果: 黒視点のOwnership予測（-1〜+1）、KataGoのニューラル目数差、黒の予測勝率。**地合いの推定と「最強」以外のCOMではMCTS探索を行っていません。** Ownershipを勝敗確率と同一視しないでください。
 - ルール: 中国式（互先コミ7.5、KataGoの`chinese`ルール）と日本式（互先コミ6.5、KataGoの`japanese`ルール）に対応し、盤の大きさによらずコミは同じです。置き碁（9路は2〜5子・13路と19路は2〜9子、星に固定配置）はコミ0.5で、中国式のみ置き石数を白に加算します（KataGoの`whiteHandicapBonus=N`と同じ）。コウは簡易コウ（直前の局面に戻る手を禁止）で、例外的な反復局面の完全なルール互換は未検証です。
 - 五目並べのCOMはKataGoを使わず、並びの長さを数える簡単な読みで打ちます。
-- ヒートマップは引き続きブラウザ内で計算します。正式な着手のみP2P同期し、分析結果をサーバーへ送信しません。
+- 地合いの推定はブラウザ内で計算します。友人対局で相手に送るのは確定した着手だけで、推定の結果はサーバーへ送りません。
 
 ## 新規対戦のシート
 
@@ -210,7 +210,7 @@ CloudflareのBuild logsで`Browser KataGo worker built`および`KataGo model do
 
 - 盤下の終局のバーに、AIの目安（「終局はまだまだです」「そろそろ終局です」「終局をご検討ください」）とボタンを表示します。1台・対COMは「採点を始める」→「採点へ進む」、対友人は「終局を提案」し、相手が受け入れると採点に進みます。続けて2回パスしても採点に進みます。
 - 目安はKataGoのOwnership変化が複数の確定着手で落ち着いた場合に出す**参考通知**です。確定した死活・地合いを保証しません。カラーマップが「表示しない」でも目安にはKataGoを使用し、KataGoが使えない場合は「終局は自分で判断してください。目安を出せません」と表示します。
-- 採点に入ると、AIが盤のコピーで勝敗の変わらないところまで打ち進め（決着手順）、取られた石を死石候補にします。対局の棋譜は変わりません。途中で「スキップ」でき、「決着手順を再生」でもう一度見られます（`public/settle-playout.mjs`）。
+- 採点に入ると、AIが盤のコピーでダメを詰め（決着手順、中国式では死石も打って取る）、死石の候補を出します。境目が閉じていない所には打たず、どちらの地にもしません（日本囲碁規約の第八条・第九条に合わせる）。対局の棋譜は変わりません。決着手順は盤に打ち進めずに裏で進め、そのあいだも盤は採点の色で表示します（`public/settle-playout.mjs`）。
 - 死石候補は石をタップして直せます。中国式は面積計算、日本式は地とアゲハマで数えます。納得したら「この計算に同意」で確定し、対友人は2人とも同意すると確定します。採点中でも「対局を再開」で打ち続けられます。
 - **重要:** 小型モデルは生死を保証しないため、死石候補は確定ではありません。投了時は目数を捏造せず、投了による勝敗だけ表示します。
 
@@ -283,7 +283,7 @@ npm run dev
 
 依存関係は`package-lock.json`で固定しています。CIは`npm ci`で、ロックファイルどおりの版だけを導入します。依存を追加・更新するときは`npm install <パッケージ>`を実行し、更新された`package-lock.json`も一緒にコミットしてください。
 
-並行して作業するときの決まりは`CLAUDE.md`、モジュールごとの担当と境界は[`docs/MODULE_BOUNDARIES.md`](docs/MODULE_BOUNDARIES.md)、画面と文言の方針は[`docs/UX_POLICY_DRAFT.md`](docs/UX_POLICY_DRAFT.md)にあります。
+並行して作業するときの決まりは`CLAUDE.md`、モジュールごとの担当と境界は[`docs/MODULE_BOUNDARIES.md`](docs/MODULE_BOUNDARIES.md)、画面と文言の仕様（何がどこにあるか）は[`docs/UX_SPEC.md`](docs/UX_SPEC.md)、その原則（なぜそうするか）は[`docs/UX_PRINCIPLES.md`](docs/UX_PRINCIPLES.md)にあります。
 
 ### 文言の管理
 

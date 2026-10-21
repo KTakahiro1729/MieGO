@@ -20,8 +20,9 @@ export function takeBackTo(state, keep) {
   if(state?.status!=="playing" || !Number.isInteger(keep) || keep<0 || keep>=state.moves.length)
     throw new Error("Nothing to take back");
   let game=replaySteps(state,keep);
-  // Two passes followed by 対局を再開 must come back as a playable position.
-  if(game.status==="scoring")game=resume(game);
+  // Two passes followed by 対局を再開 must come back as a playable position,
+  // with the turn of the side that moved first after it.
+  if(game.status==="scoring")game=resume(game,-state.moves[keep].color);
   // Time spent stays spent: 待った does not give the clock back.
   if(state.clock)game={...game,clock:state.clock};
   // The counter lets reconnecting peers tell a rewound line from a stale one.

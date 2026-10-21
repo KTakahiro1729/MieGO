@@ -3,6 +3,7 @@ import {
   BLACK,
   boardHash,
   handicapOf,
+  initialGame,
   isFree,
   komiOf,
   rulesOf,
@@ -65,7 +66,7 @@ export function saveCheckpoint(storage, room, value) {
 }
 // Actions a peer may only take in its own name, those only the room owner sends,
 // and those of games without a friend.
-const OWN_COLOR_ACTIONS=new Set(["agree","agree_dead","end_offer","end_answer","takeback_request","takeback_answer","time_out"]);
+const OWN_COLOR_ACTIONS=new Set(["agree","agree_dead","end_offer","end_answer","rematch","resume","takeback_request","takeback_answer","time_out"]);
 const OWNER_ACTIONS=new Set(["dead_auto","dead_unavailable"]);
 const SOLO_ACTIONS=new Set(["solo_scoring","solo_score","solo_dead"]);
 /** A peer plays only on its own turn and offers, answers or agrees only for its own color.
@@ -84,12 +85,15 @@ const isOffer=offer=>offer==null || (typeof offer==="object" && isColor(offer.fr
 export function isConsistentSnapshot(game) {
   let replayed;
   try{replayed=replaySteps(game);}catch{return false;}
-  if(boardHash(replayed.board)!==boardHash(game.board) || replayed.next!==game.next ||
+  // A count just resumed gives the turn to the side the resumer asked.
+  const resumed=replayed.status==="scoring" && game.status==="playing";
+  if(boardHash(replayed.board)!==boardHash(game.board) || replayed.next!==game.next && !resumed ||
      replayed.moveNumber!==game.moveNumber || komiOf(replayed)!==komiOf(game) ||
      JSON.stringify(replayed.history)!==JSON.stringify(game.history) ||
      JSON.stringify(replayed.captures)!==JSON.stringify(game.captures))return false;
   if(!game.agreed || typeof game.agreed.black!=="boolean" || typeof game.agreed.white!=="boolean" ||
-     !Array.isArray(game.dead) || !isOffer(game.endProposal) || !isOffer(game.takebackRequest))
+     !Array.isArray(game.dead) || !isOffer(game.endProposal) || !isOffer(game.takebackRequest) ||
+     !isOffer(game.rematchRequest))
     return false;
   if(replayed.status==="finished")return game.status==="finished" && game.result===replayed.result;
   // A loss on time ends the game with no move: the side to move ran out.
@@ -126,12 +130,29 @@ function sameMoves(a,b) {
   const longer = shorter === a ? b : a;
   return shorter.moves.every((move,i) => JSON.stringify(move) === JSON.stringify(longer.moves[i]));
 }
+/** How many times もう一局 has restarted this room's game. */
+export const roundOf = game => Number.isSafeInteger(game?.round) && game.round > 0 ? game.round : 0;
+/** もう一局 in a friend game. The first player's request waits for the other;
+ * the other's request, or two that cross, starts the next game with the same
+ * settings, each player keeping their colour. */
+export function requestRematch(game, color) {
+  if (game.status !== "finished" || !isColor(color)) throw new Error("No game to play again");
+  const from = game.rematchRequest?.from;
+  if (from === color) return game;
+  if (!isColor(from)) return {...game, rematchRequest:{from:color}};
+  return {...initialGame(game), round:roundOf(game) + 1};
+}
 export function reconcileGame(localGame, localRevision, incomingGame, incomingRevision, {localIsOwner=false,localColor=null}={}) {
   if (!Number.isInteger(incomingRevision) || incomingRevision < 0 ||
       !Number.isInteger(localRevision) || localRevision < 0)
     return {kind:"invalid"};
   const incoming = parseGameSnapshot(JSON.stringify(incomingGame));
   if (!incoming || !isConsistentSnapshot(incoming)) return {kind:"conflict"};
+  // もう一局 starts the next game in the room. The side that started it holds the newer one.
+  const localRound = roundOf(localGame), incomingRound = roundOf(incoming);
+  if (incomingRound > localRound && incomingRevision > localRevision)
+    return {kind:"adopt",game:incoming,revision:incomingRevision};
+  if (localRound > incomingRound && localRevision > incomingRevision) return {kind:"send"};
   if (localRevision > 0 && incomingRevision > localRevision &&
       claimsLocalPlayer(localGame, incoming, localColor)) return {kind:"conflict"};
   // A guest that has not received the match yet holds a default empty board;

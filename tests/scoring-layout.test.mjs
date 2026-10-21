@@ -12,7 +12,7 @@ import {availableParallelism} from "node:os";
 const root=fileURLToPath(new URL("../public/",import.meta.url));
 const TYPES={".html":"text/html",".mjs":"text/javascript",".js":"text/javascript",".css":"text/css",
   ".json":"application/json",".wasm":"application/wasm",".svg":"image/svg+xml",".txt":"text/plain"};
-// Portrait phones from docs/UX_POLICY_DRAFT.md §6, then tablet and desktop.
+// Portrait phones from docs/UX_SPEC.md §6, then tablet and desktop.
 const VIEWPORTS=[[320,568],[375,667],[390,844],[430,932],[768,1024],[1280,720]];
 // UX policy §2: the board's size comes first on a portrait screen, so the
 // score box has to fit where the endgame bar was, without shrinking the
@@ -73,7 +73,7 @@ function assertFits(view,phase,where){
   for(const item of view.header)assert.ok(item.bottom<=view.board.top+0.5 || item.right<=view.board.left+0.5 || item.left>=view.board.right-0.5,
     `${at}: the header runs into the board`);
   assert.ok(view.actions.bottom<=view.height+0.5,`${at}: the action row runs off the screen`);
-  // UX policy §1: the score box is not a card, so its frame never adds lines
+  // UX principles §1: the score box is not a card, so its frame never adds lines
   // next to the prisoner pills or the action row.
   assert.equal(view.scoreCard,false,`${at}: the score box is drawn as a card`);
   // UX policy §3.5: text fits its slot; nothing hides behind an ellipsis.
@@ -144,7 +144,6 @@ test("scoring and the result fit above the action row on every screen",{skip,tim
     }
     await step(page,at,"scoring",()=>page.locator("#gamePanel.is-scoring").waitFor());
     const phases=[["決着手順",await layout(page)]];
-    if(await page.locator("#settleSkip").isVisible())await page.locator("#settleSkip").click();
     await step(page,at,"dead-stone check",()=>page.waitForFunction(()=>!document.getElementById("agree").disabled,null,{timeout:60000}));
     phases.push(["死石の確認",await layout(page)]);
     await page.locator("#agree").click();

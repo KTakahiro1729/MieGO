@@ -16,7 +16,7 @@ test("the header reads 新規対戦, share, help, then the settings gear at the 
 
 test("explanations live in the help sheet instead of being scattered",()=>{
   assert.match(sheet,/role="dialog" aria-modal="true" aria-labelledby="helpTitle"/);
-  for(const topic of ["beginner","basics","moves","endgame","scoring","illegal","ownership","rules","local","ai","online","history","about"])
+  for(const topic of ["beginner","endgame","scoring","illegal","ownership","rules","local","ai","online","history","about"])
     assert.ok(topics.has(topic),topic);
   // The long notes that used to sit in settings and the AI options are gone from there.
   const outside=html.replace(sheet,"");
@@ -33,7 +33,8 @@ test("every local help button names an existing topic",()=>{
   // Context-dependent buttons only ever switch between topics that exist.
   assert.match(app,/\$\("modeHelp"\)\.dataset\.help=kind;/);
   for(const kind of ["local","ai","online","history"])assert.ok(topics.has(kind),kind);
-  assert.match(app,/\$\("endHelp"\)\.dataset\.help=isGomoku\(game\)\?"rules":playing && illegalCandidate\?"illegal":"endgame";/);
+  assert.match(app,/if\(view\.help\)\$\("endHelp"\)\.dataset\.help=view\.help;/);
+  for(const topic of ["endgame","illegal"])assert.ok(topics.has(topic),topic);
   assert.match(app,/dataset\.help=gomoku\?"rules":"scoring";/);
   for(const topic of ["rules","scoring"])assert.ok(topics.has(topic),topic);
   // The rules shown above the board are plain text with the usual ? beside them.

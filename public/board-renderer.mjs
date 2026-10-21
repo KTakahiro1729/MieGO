@@ -1,8 +1,10 @@
 import {
   BLACK,
+  countingBoard,
   group,
   isFree,
   isGomoku,
+  isJapanese,
   neighbors,
   SIZE as DEFAULT_SIZE,
   sizeOf,
@@ -17,6 +19,7 @@ import {
   paletteAt,
   prisonerOutline,
   showsOwnership,
+  shownOwnership,
 } from "./territory-view.mjs";
 import {boardTheme} from "./board-theme.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
@@ -81,12 +84,15 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   function paintOwnership(view, gap, pad) {
-    const {game,boardReview,displayedOwnership,palette,opacity} = view;
+    const {game,boardReview,candidate,displayedOwnership,palette,opacity} = view;
     const values = boardReview ? boardReview.ownership : displayedOwnership;
     if(!boardReview && game.status!=="playing")return;
     // An estimate for another board size (e.g. just after switching) is skipped.
     if(!showsOwnership(palette) || !values || values.length!==SIZE*SIZE)return;
-    paintOverlay(values,palette,opacity,gap,pad,true);
+    const shown=boardReview ? boardReview.preview||boardReview.display : candidate||game;
+    // Hidden stones would show through as clear points, so they keep their colour.
+    paintOverlay(shownOwnership(shown.board,values,{japanese:isJapanese(shown) && !view.hideStones}),
+      palette,opacity,gap,pad,true);
   }
 
   // One pixel per intersection, scaled up: smoothed for the estimate,
@@ -174,19 +180,24 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     }
   }
 
-  function paintCountingArea(view,score,gap,pad){
-    const values=score.owned.map(owner=>owner===BLACK?1:owner===WHITE?-1:0);
+  // 日本式 counts territory only: points with a living stone or a filled-in
+  // prisoner stay clear, and a dead stone's point is territory once lifted.
+  function paintCountingArea(view,score,gap,pad,game,fill){
+    const board=countingBoard(game),filled=new Set([...fill.black,...fill.white]);
+    const counted=i=>!isJapanese(game) || !board[i] && !filled.has(i);
+    const values=score.owned.map((owner,i)=>!counted(i)?0:owner===BLACK?1:owner===WHITE?-1:0);
     paintOverlay(values,countingPalette(view.palette),countingOpacity(view.opacity),gap,pad,false);
   }
 
   // Empty points that count for neither side get a small ring (not a dot,
-  // which would read as a star point).
-  function paintNeutralPoints(game,score,gap,pad){
-    const dead=new Set(game.dead||[]);
+  // which would read as a star point). The playout's fill stones count for
+  // nobody under area scoring too, but they are drawn, so they need no ring.
+  function paintNeutralPoints(game,score,kept,gap,pad){
+    const dead=new Set(game.dead||[]),filled=new Set(kept.map(k=>k.position));
     ctx.save();
     ctx.strokeStyle=NEUTRAL_MARK;ctx.lineWidth=Math.max(1.5,gap*.035);
     for(let i=0;i<score.owned.length;i++){
-      if(score.owned[i] || (game.board[i] && !dead.has(i)))continue;
+      if(score.owned[i] || (game.board[i] && !dead.has(i)) || filled.has(i))continue;
       ctx.beginPath();
       ctx.arc(pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap,gap*.13,0,Math.PI*2);
       ctx.stroke();
@@ -496,43 +507,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     if((sparks.length || pops.length || waves.length) && frame===null)frame=requestFrame(()=>{frame=null;draw();});
   }
 
-  /**
-   * 決着手順: KataGo's playout over the real position. Stones it adds are
-   * provisional, drawn as small translucent fill stones; real stones it captured
-   * stay as faint ghosts with a red cross, the way they will be marked dead.
-   */
-  function paintSettle(theme,view,gap,pad) {
-    const {board,base,last,ownership}=view.settle;
-    if(ownership && ownership.length===board.length && showsOwnership(view.palette))
-      paintOverlay(ownership,view.palette,view.opacity,gap,pad,true);
-    paintStarPoints(theme,gap,pad);
-    const r=gap*.44;
-    for(let i=0;i<board.length;i++){
-      const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
-      if(board[i]){
-        if(board[i]===base[i])paintStone(theme,board[i],x,y,r,1);
-        else paintFillStone(theme,board[i],x,y,gap);
-      }else if(base[i]){
-        paintStone(theme,base[i],x,y,r,.28);
-        ctx.save();ctx.strokeStyle="#d95a4e";ctx.lineWidth=3;ctx.beginPath();
-        ctx.moveTo(x-r*.4,y-r*.4);ctx.lineTo(x+r*.4,y+r*.4);
-        ctx.moveTo(x+r*.4,y-r*.4);ctx.lineTo(x-r*.4,y+r*.4);ctx.stroke();ctx.restore();
-      }
-    }
-    if(Number.isInteger(last) && board[last])
-      paintMoveMark(theme,board[last],true,pad+(last%SIZE)*gap,pad+Math.floor(last/SIZE)*gap,gap);
-  }
-
   function draw() {
     const view=getView();
     const {game,boardReview}=view;
-    if(view.settle && !boardReview){
-      SIZE=sizeOf(view.settle.board);
-      const theme=boardTheme(view.boardTheme), d=canvas.width, gap=d/(SIZE+1);
-      paintGrid(theme,d,gap,gap);
-      paintSettle(theme,view,gap,gap);
-      return;
-    }
     const display=boardReview?.display||game;
     SIZE=sizeOf(display.board);
     const theme=boardTheme(view.boardTheme);
@@ -547,9 +524,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const fill=counting?prisonerFill(game,{avoid:new Set(kept.map(k=>k.position))}):null;
     const scoring=counting?scoringRegions(game,prisonersFilled(game)?
       {prisonerPoints:new Set([...fill.black,...fill.white])}:{}):null;
-    if(scoring)paintCountingArea(view,scoring,gap,pad);
+    if(scoring)paintCountingArea(view,scoring,gap,pad,game,fill);
     paintStarPoints(theme,gap,pad);
-    if(scoring)paintNeutralPoints(game,scoring,gap,pad);
+    if(scoring)paintNeutralPoints(game,scoring,kept,gap,pad);
     const live=!boardReview && game.status==="playing";
     if(!live){fading=[];sparks=[];pops=[];waves=[];}
     shownAlpha=[];

@@ -1,5 +1,5 @@
 import {parseSGF} from "./sgf.mjs";
-import {recordName,recordIcon,recordSummary} from "./history-navigation.mjs";
+import {isBlankRecord,recordName,recordIcon,recordSummary} from "./history-navigation.mjs";
 import {recordThumbnailSvg} from "./board-thumbnail.mjs";
 import { TEXT } from "./texts.mjs";
 import { UserError, messageFor } from "./user-error.mjs";
@@ -8,8 +8,9 @@ const STAR='<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" f
 // The library sheet is a file picker and saved-game list. All board/replay
 // controls live on the main board; it never creates a second playing surface.
 // getThumbnailOverlay(record) gives the kept ownership tint of its final board, or null.
+// decorateRow(row,record,item) may add to a drawn row, as 棋風診断 does while picking games.
 export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},getBoardTheme=()=>undefined,
-                                    getThumbnailOverlay=()=>null}) {
+                                    getThumbnailOverlay=()=>null,decorateRow=()=>{}}) {
   function favoriteButton(record) {
     const star=document.createElement("button");
     star.type="button";star.className="icon-button history-favorite";star.innerHTML=STAR;
@@ -26,9 +27,10 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},g
   }
   function renderHistoryList() {
     const list=$("historyList");list.replaceChildren();
-    let records=[];
-    try{records=gameLibrary.list();}catch(error){storageError(error);}
-    $("historyEmpty").hidden=records.length!==0;
+    let records=[],failed=false;
+    try{records=gameLibrary.list().filter(record=>!isBlankRecord(record));}catch(error){failed=true;storageError(error);}
+    // When saving is blocked, storageError says so; 打ち始めると…残ります would not be true.
+    $("historyEmpty").hidden=failed||records.length!==0;
     for(const record of records){
       const item=document.createElement("button");
       item.type="button";item.className="history-list-item";
@@ -55,6 +57,7 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},g
       };
       const row=document.createElement("div");row.className="history-row";
       row.append(item,favoriteButton(record));
+      decorateRow(row,record,item);
       list.append(row);
     }
   }

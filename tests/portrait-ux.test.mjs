@@ -20,11 +20,9 @@ test("endgame choices share exactly one fixed-height horizontal strip",()=>{
   assert.equal(html.split('id="endgameBar"').length-1,1);
   assert.match(css,/\.endgame-bar\{height:48px;min-height:48px;max-height:48px/);
   assert.match(css,/\.endgame-bar \.end-status\{flex:1/);
-  assert.match(app,/endgameHint\(game,endgameAdvisor/);
-  assert.match(app,/\$\("endPropose"\)\.textContent=!room\?TEXT\.endgame\.startScoring:TEXT\.endgame\.propose/);
+  // Which label shows is endgameBarView's (tests/endgame-bar.test.mjs).
   assert.deepEqual([TEXT.endgame.startScoring,TEXT.endgame.propose],["採点を始める","終局を提案"]);
   assert.doesNotMatch(app,/"終局しますか？"/);
-  assert.match(app,/\$\("endAccept"\)\.textContent=!room\?TEXT\.endgame\.goScoring:TEXT\.common\.accept/);
   assert.deepEqual([TEXT.endgame.goScoring,TEXT.common.accept],["採点へ進む","受け入れる"]);
 });
 test("final score is above sticky actions and visible in a compact score area",()=>{
@@ -74,7 +72,7 @@ test("finished view exposes next match and history without hidden menus",()=>{
   // They are one fused button, each half naming how it differs.
   assert.match(html,/<div class="fused next-game">\s*<button id="newMatchSheet" class="secondary"[^>]*><span>新規対戦<\/span><small aria-hidden="true">別の設定で<\/small><\/button>\s*<button id="newMatch" class="primary"[^>]*><span>もう一局<\/span><small aria-hidden="true">同じ設定で<\/small><\/button>\s*<\/div>/);
   assert.match(app,/\$\("newMatchSheet"\)\.hidden=!isFinished/);
-  assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished \|\| !!room/);
+  assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished;/);
   assert.match(app,/\$\("openHistory"\)\.hidden=!isFinished/);
   // The header's share glyph closes the row and opens the share sheet for the game just played.
   const glyph=html.match(/id="shareToggle"[^>]*>\s*(<svg[\s\S]*?<\/svg>)/)[1].replace(/width="23" height="23"/,'width="22" height="22"');
@@ -110,7 +108,7 @@ test("a gold button that cannot be pressed is an empty slot, and ここに打つ
   assert.match(app,/candidate\?TEXT\.common\.playHere:TEXT\.game\.confirmPick/);
 });
 test("solo endgame prompt names the COM only in COM games",()=>{
-  assert.match(app,/localPrompt\?\(unsettled\?TEXT\.endgame\.detailUnsettled:gameMode==="ai"\?TEXT\.endgame\.detailLocalAi:\s*TEXT\.endgame\.detailLocal\)/);
+  // Worked out by endgameBarView (tests/endgame-bar.test.mjs).
   assert.match(TEXT.endgame.detailLocalAi,/COMが終局を承認するわけではありません/);
   assert.doesNotMatch(TEXT.endgame.detailLocal,/COM/);
 });
@@ -119,17 +117,14 @@ test("continue-style choices sit left of the advancing choice, in the bar and wh
   assert.ok(bar.indexOf('id="endDecline"')<bar.indexOf('id="endAccept"'));
   const scoring=html.slice(html.indexOf('id="scoringActions"'),html.indexOf('id="openHistory"'));
   assert.ok(scoring.indexOf('id="resume"')<scoring.indexOf('id="agree"'));
-  // The 決着手順 controls share the scoring row, left of the advancing choice.
-  for(const id of ["settleSkip","settleReplay"])assert.ok(scoring.indexOf(`id="${id}"`)>0 &&
-    scoring.indexOf(`id="${id}"`)<scoring.indexOf('id="agree"'));
 });
 test("only a solo accept is gold; an incoming online offer gets two equal choices",()=>{
-  assert.match(app,/\$\("endAccept"\)\.classList\.toggle\("primary",!room\)/);
+  // Worked out by endgameBarView (tests/endgame-bar.test.mjs).
   // Gold comes from the shared .primary class alone, never a per-button colour.
   assert.doesNotMatch(css,/#endAccept[^{]*\{[^}]*background/);
 });
 test("solo prompt hides the second gold button without shifting the action row",()=>{
-  assert.match(app,/\$\("actionRow"\)\.classList\.toggle\("end-prompt-open",localPrompt\)/);
+  // Worked out by endgameBarView (tests/endgame-bar.test.mjs).
   assert.match(css,/\.action-row\.end-prompt-open #confirm\{visibility:hidden\}/);
   // Opening the prompt drops any provisional stone; tapping the board means "keep playing".
   assert.match(app,/clearProvisional\(\);[\s\S]{0,80}endExpanded=true;show\(\)/);
@@ -138,17 +133,10 @@ test("solo prompt hides the second gold button without shifting the action row",
 });
 test("AI scoring waits for a computing move instead of pausing the AI",()=>{
   // Except while watching, where a COM is nearly always thinking: 採点を始める stops it (com-watch.test.mjs).
-  assert.match(app,/if\(aiThinking && !isWatching\(\)\)\$\("endPropose"\)\.disabled=true;/);
+  // The button waits for it (tests/endgame-bar.test.mjs); a tap that slips through does nothing.
   assert.match(app,/if\(!room\)\{\s*if\(aiThinking\)return;/);
   assert.doesNotMatch(app,/AIは待機しています/);
 });
-test("a disconnected online bar says why its buttons are disabled",()=>{
-  assert.match(app,/const offline=!!room && \(!connected \|\| color===null\);/);
-  assert.match(app,/!playing\?"":offline\?TEXT\.endgame\.offline:/);
-  assert.equal(TEXT.endgame.offline,"相手を待っています");
-  assert.match(app,/\$\(id\)\.disabled=offline;/);
-});
-
 test("leaving a friend's match is confirmed in place, never by a browser dialog",()=>{
   assert.doesNotMatch(app,/[^\w.]confirm\(/);
   assert.doesNotMatch(app,/[^\w.]alert\([^)]/);
