@@ -131,6 +131,8 @@ import { replayLine } from "./ownership-prefetch.mjs";
 import { createReviewPrefetch, createScoreGraph } from "./review-estimates.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
+import { createHistoryStyle } from "./history-style.mjs";
+import { canReadStyle } from "./play-style.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { createHelpSheet } from "./help-sheet.mjs";
@@ -389,7 +391,16 @@ function showEvictionNotice(){
   evictedGames=0;
 }
 let currentGameId=null,currentRevision=null;
+const historyStyle=createHistoryStyle({$,gameLibrary,
+  ownSide:record=>{
+    if(record.mode==="ai")return record.humanColor;
+    const saved=record.mode==="online" ? readCheckpoint(localStorage,record.roomId) : null;
+    return [BLACK,WHITE].includes(saved?.ownerColor) ? playerColor(saved.role,saved.ownerColor) : null;
+  },
+  recall:record=>state=>ownershipStore.recall(record.id,state.board),
+  onChange:()=>renderHistoryList()});
 const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard,getBoardTheme:appearance.boardTheme,
+  decorateRow:historyStyle.decorateRow,
   getThumbnailOverlay:record=>{
     if(!overlayOn())return null;
     const ownership=ownershipStore.recall(record.id,record.snapshot.board);
@@ -1051,6 +1062,8 @@ function show() {
       input.checked=input.value===sideKey(freeColor);
   }
   $("actionRow").classList.toggle("finished-actions",isFinished);
+  // After a game of 囲碁, its 棋風診断 is one tap away, in the share sheet.
+  $("scoreStyle").hidden=!isFinished || !playedSides().some(color=>canReadStyle(game,color));
   // COM同士: 介入する and 一時停止 (再開); stepping in shows × and ここに打つ instead.
   const watchingPlay=spectating && game.status==="playing";
   $("watchToggle").hidden=$("watchIntervene").hidden=!watchingPlay || intervening;
@@ -2404,7 +2417,16 @@ function restoreEndgameAdvice(){
 function rememberOwnership(board,values){
   try{ownershipStore.remember(currentGameId,board,values);}catch(error){console.warn("Ownership not kept",error);}
 }
-const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,
+// The colours a person played in the shared game: a COM's side is left out, and a watched game has none.
+function playedSides(){
+  const record=boardReview?.source==="archive" ? boardReview.record : null;
+  const live=!boardReview || boardReview.source==="live";
+  const ai=record ? record.mode==="ai" : live && gameMode==="ai";
+  if(!ai)return [BLACK,WHITE];
+  if(record ? record.watch : watching)return [];
+  return [record ? record.humanColor : humanColor];
+}
+const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,playedSides,
   stillColoured:()=>boardReview ? !!boardReview.ownership : game.status==="playing" && !!displayedOwnership});
 function openSharePanel(){
   openPanel("share");
@@ -2486,6 +2508,13 @@ function resumeSelectedReview(){
 $("historyImportFile").onchange=e=>void importHistoryFile(e.target.files?.[0]);
 $("openHistory").onclick=openHistoryPanel;
 $("openShare").onclick=openSharePanel;
+$("scoreStyle").onclick=()=>{openSharePanel();$("sharePlayStyles").scrollIntoView({block:"start"});};
+// One game's 棋風診断 leads on to several games read together, in 履歴.
+function openHistoryStyle(){
+  openPanel("history");
+  historyStyle.start();
+}
+$("sharePlayStyleMore").onclick=openHistoryStyle;
 $("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
 $("seatNotice").onclick=()=>{$("seatNotice").hidden=true;};
 $("copySeatLink").onclick=()=>{
@@ -2783,6 +2812,11 @@ if(!room && params.has("sgf")){
   }catch(error){
     showNotice(TEXT.history.sharedLoadFailed);
   }
+}
+// The /style page links here to read several saved games together.
+if(!room && params.get("open")==="history-style"){
+  history.replaceState(null,"",location.pathname);
+  openHistoryStyle();
 }
 compactOwnership();
 // An unfinished friend game is offered when the page opens on something else.
