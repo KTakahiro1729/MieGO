@@ -178,11 +178,11 @@ export function replaySteps(game,through=game.moves.length){
     throw broken();
   let state=initialGame(game);
   for(let i=0;i<through;i++){
-    const {color,position}=game.moves[i];
+    const move=game.moves[i];
     // After a count, the side that moves first is the one the resumer asked.
-    if(state.status==="scoring")state=resume(state,-color);
-    if(color!==state.next && !isFree(state))throw broken();
-    try { state=replayMove(state,{color,position}); }
+    if(state.status==="scoring")state=resume(state,-move.color);
+    if(move.color!==state.next && !isFree(state))throw broken();
+    try { state=replayMove(state,move); }
     catch {throw broken();}
   }
   return state;

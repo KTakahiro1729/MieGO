@@ -1,6 +1,6 @@
-import {BLACK, WHITE, starPoints} from "./core.mjs";
+import {BLACK, WHITE, isJapanese, starPoints} from "./core.mjs";
 import {BOARD_CUSTOM, boardTheme} from "./board-theme.mjs";
-import {ownershipPixel} from "./territory-view.mjs";
+import {ownershipPixel, shownOwnership} from "./territory-view.mjs";
 
 const PAD = 5, SPAN = 80, END = PAD+SPAN;
 const num = v => +v.toFixed(2);
@@ -62,5 +62,8 @@ export function boardThumbnailSvg(board, lastPosition=null, themeName, overlay=n
 export function recordThumbnailSvg(record, themeName, overlay=null) {
   // A trailing pass or resignation leaves no stone to mark.
   const last=record.snapshot.moves.at(-1)?.position;
-  return boardThumbnailSvg(record.snapshot.board,Number.isInteger(last)?last:null,themeName,overlay);
+  // The estimate as the board shows it: closed areas settled, 日本式 stones clear.
+  const board=record.snapshot.board;
+  const shown=overlay && {...overlay,ownership:shownOwnership(board,overlay.ownership,{japanese:isJapanese(record.snapshot)})};
+  return boardThumbnailSvg(board,Number.isInteger(last)?last:null,themeName,shown);
 }
