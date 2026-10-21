@@ -282,8 +282,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     // How far into its breath each side is: black and white take turns.
     const since={[BLACK]:now()%BREATH_MS,[WHITE]:(now()+BREATH_MS/2)%BREATH_MS};
     // How far each breath under way has run, and where its tail is, in lines
-    // from the liberties; a deep group may hold more than one.
-    const reached=t=>(Math.max(0,t)/BREATH_PULL_MS)**2;
+    // from the liberties; a deep group may hold more than one. It sets out
+    // from the tip the moment its circles have closed in.
+    const reached=t=>t>0?tip+(t/BREATH_PULL_MS)**2:0;
     const fronts={[BLACK]:[],[WHITE]:[]};
     if(moving)for(const color of [BLACK,WHITE])for(let k=0;k<2;k++){
       const t=since[color]-BREATH_GATHER_MS+k*BREATH_MS;
