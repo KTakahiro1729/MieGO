@@ -5,10 +5,10 @@ import {source} from "./helpers/source.mjs";
 const html=source("index.html");
 const app=source("app.mjs");
 
-test("every mode stacks header, board, bar with komi, ◁ status ▷, endgame, actions",()=>{
+test("every mode stacks header, board, bar with komi, ◁ endgame ▷, turn, actions",()=>{
   const panel=html.slice(html.indexOf('<section id="gamePanel"'),html.indexOf('<p id="saveStatus"'));
-  const order=['id="board"','id="ownershipLegend"','id="ruleLabel"','id="stepBack"','id="turn"','id="stepForward"',
-    'id="endgameBar"','id="actionRow"','id="reviewPanel"'].map(id=>panel.indexOf(id));
+  const order=['id="board"','id="ownershipLegend"','id="ruleLabel"','id="stepBack"','id="endgameBar"','id="stepForward"',
+    'id="turn"','id="actionRow"','id="reviewPanel"'].map(id=>panel.indexOf(id));
   assert.ok(order.every(at=>at>=0));
   assert.deepEqual([...order].sort((a,b)=>a-b),order);
   assert.ok(html.indexOf("</header>")<html.indexOf('<section id="gamePanel"'));

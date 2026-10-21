@@ -7,19 +7,19 @@ const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
 const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
 const retap=readFileSync(new URL("../public/confirm-retap.mjs",import.meta.url),"utf8");
 const appearance=readFileSync(new URL("../public/appearance-settings.mjs",import.meta.url),"utf8");
-test("move counter is in the status row under the board, not in the endgame strip",()=>{
-  assert.ok(html.indexOf('id="board"')<html.indexOf('id="moveLabel"'));
-  assert.ok(html.indexOf('id="moveLabel"')<html.indexOf('id="endgameBar"'));
+test("move counter and messages are in the turn row under the endgame strip",()=>{
+  assert.ok(html.indexOf('id="board"')<html.indexOf('id="endgameBar"'));
+  assert.ok(html.indexOf('id="endgameBar"')<html.indexOf('id="moveLabel"'));
   const strip=html.slice(html.indexOf('id="endgameBar"'),html.indexOf('id="scoreBox"'));
-  assert.doesNotMatch(strip,/id="moveLabel"|交点をタップして仮置き/);
-  assert.match(strip,/id="endStatus"/);
+  assert.doesNotMatch(strip,/id="moveLabel"|id="endStatus"|交点をタップして仮置き/);
+  const turnRow=html.slice(html.indexOf('id="statusRow"'),html.indexOf('id="actionRow"'));
+  assert.match(turnRow,/id="endStatus"/);
   assert.match(strip,/id="endPropose"/);
   assert.match(strip,/id="endActions"/);
 });
 test("endgame choices share exactly one fixed-height horizontal strip",()=>{
   assert.equal(html.split('id="endgameBar"').length-1,1);
   assert.match(css,/\.endgame-bar\{height:48px;min-height:48px;max-height:48px/);
-  assert.match(css,/\.endgame-bar \.end-status\{flex:1/);
   // Which label shows is endgameBarView's (tests/endgame-bar.test.mjs).
   assert.deepEqual([TEXT.endgame.startScoring,TEXT.endgame.propose],["採点を始める","終局を提案"]);
   assert.doesNotMatch(app,/"終局しますか？"/);
@@ -33,7 +33,7 @@ test("final score is above sticky actions and visible in a compact score area",(
   // The legend stays while counting and explains the counted areas.
   assert.doesNotMatch(css,/\.is-scoring \.ownership-legend[^}]*display:none/);
   assert.match(appearance,/\$\("legendNeutral"\)\.hidden=!counting/);
-  assert.match(app,/\$\("scoreBox"\)\.querySelector\("strong"\)\.textContent=/);
+  assert.match(app,/\$\("scoreTitle"\)\.textContent=/);
   assert.match(app,/\$\("gamePanel"\)\.classList\.toggle\("is-finished",isFinished\)/);
 });
 test("game screen viewport never scrolls and board responds to available height",()=>{
