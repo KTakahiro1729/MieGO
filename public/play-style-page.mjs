@@ -1,12 +1,18 @@
 import {
   BALANCE,
   compatibility,
+  FAR_REASON,
   LET_GO_REASON,
   pairShare,
   readResignReason,
   readStyleLink,
+  readStyleMovesHash,
   typeShare,
 } from "./play-style.mjs";
+import { boardThumbnailSvg } from "./board-thumbnail.mjs";
+import { copyWithFallback } from "./clipboard.mjs";
+import { parseSGF, replaySteps } from "./sgf.mjs";
+import { makeStyleMovesPrompt } from "./sgf-link.mjs";
 import { TEXT } from "./texts.mjs";
 
 // The /style page: one 棋風診断 from a share sheet's link, or the 17 types.
@@ -55,16 +61,63 @@ function evidenceList(found) {
     const balanced = found.type === BALANCE;
     item.append(el("strong", null, balanced ? axis.highName + "・" + axis.lowName :
       letterName(found, i) + (found.ranks?.[i] != null ? " " + T.rank(found.ranks[i]) : "")));
-    // 引き際's reason below 0 is a resignation's timing, from LET_GO_REASON where stones were let go.
+    // 自由/律儀's reason from FAR_REASON is a distance. 引き際's reason below 0 is a
+    // resignation's timing, from LET_GO_REASON where stones were let go.
     const given = found.evidence?.[i];
-    const shown = i !== 3 || given == null ? given : given < 0 ? readResignReason(given) :
-      given >= LET_GO_REASON ? { letGo: given - LET_GO_REASON } : given;
+    const shown = given == null ? given : i === 2 ? (given >= FAR_REASON ? { apart: (given - FAR_REASON) / 10 } : given) :
+      i !== 3 ? given : given < 0 ? readResignReason(given) : given >= LET_GO_REASON ? { letGo: given - LET_GO_REASON } : given;
     const say = T.evidence[i];
     const line = shown == null || !say ? null : typeof say === "function" ? say(shown) : say[shown];
     if (line) item.append(el("span", null, line));
     list.append(item);
   });
   box.append(list);
+  return box;
+}
+
+// あなたらしかった手, from the link's fragment: a board for each, the most like
+// the player first, opening the replay at it, with a question for an AI chat on why.
+function movesSection(found, moves) {
+  const M = T.moves;
+  let snapshot;
+  try { snapshot = parseSGF(moves.sgf).snapshot; } catch { return null; }
+  const picks = moves.picks.filter(pick => pick.step <= snapshot.moves.length &&
+    Number.isInteger(snapshot.moves[pick.step - 1].position)).map((pick, rank) => {
+    const url = new URL("/", location.origin);
+    url.searchParams.set("sgf", moves.sgf);
+    url.searchParams.set("move", String(pick.step));
+    return { ...pick, rank, url: url.href };
+  });
+  if (!picks.length) return null;
+  const box = el("section", "style-moves");
+  box.append(el("h2", null, M.title(moves.com)));
+  const grid = el("div", "style-moves-grid");
+  // One line under both boards says the question was copied, or holds it to copy by hand.
+  const status = el("p", "style-note");
+  status.setAttribute("role", "status");
+  const field = el("textarea", "style-move-fallback");
+  field.readOnly = true;
+  field.hidden = true;
+  field.setAttribute("aria-label", TEXT.share.manualCopy);
+  for (const pick of picks) {
+    const card = el("div", "style-move");
+    const board = el("a", "style-move-board");
+    board.href = pick.url;
+    board.target = "_blank";
+    board.rel = "noopener";
+    board.setAttribute("aria-label", M.view(pick.step));
+    board.innerHTML = boardThumbnailSvg(replaySteps(snapshot, pick.step).board, snapshot.moves[pick.step - 1].position);
+    const ask = el("button", "secondary full", M.ask);
+    ask.type = "button";
+    ask.setAttribute("aria-label", M.askAria(pick.step));
+    ask.onclick = () => void copyWithFallback(makeStyleMovesPrompt({ type: found.type, color: found.color, com: moves.com }, [pick]),
+      status, field, M.copied);
+    card.append(el("p", "style-move-rank", M.ranks[pick.rank]), board,
+      el("p", "style-move-step", M.move(pick.step)),
+      el("p", "style-move-reasons", pick.reasons.map(r => M.reasons[r.axis](r)).join(M.join)), ask);
+    grid.append(card);
+  }
+  box.append(grid, status, field, el("p", "style-note", M.criterion));
   return box;
 }
 
@@ -92,6 +145,9 @@ function renderResult(found) {
   T.axes.forEach((axis, i) => bars.append(axisRow(axis, found.type === BALANCE ? null : found.type[i], found.leans?.[i])));
   box.append(bars);
   if (found.ranks || found.evidence) box.append(evidenceList(found));
+  const moves = readStyleMovesHash(location.hash);
+  const shown = moves && movesSection(found, moves);
+  if (shown) box.append(shown);
   box.append(el("p", "style-note", found.games > 1 ? T.pooled(found.games) : T.oneGame));
   if (found.ranks || typeShare(found.type) != null) box.append(el("p", "style-note", T.peopleSource));
   box.hidden = false;
@@ -140,7 +196,9 @@ function renderCompat(found) {
     const copy = el("button", "secondary full", C.copyLink);
     copy.type = "button";
     copy.onclick = async () => {
-      try { await navigator.clipboard.writeText(location.href); status.textContent = C.copied; } catch { status.textContent = location.href; }
+      // The link to send carries the type alone, not the game in its fragment.
+      const link = location.href.split("#")[0];
+      try { await navigator.clipboard.writeText(link); status.textContent = C.copied; } catch { status.textContent = link; }
     };
     const mine = el("a", "style-cta secondary", C.matchMine);
     mine.href = "/?open=history-style&with=" + found.type + (found.leans ? "," + found.leans.join(",") : "");

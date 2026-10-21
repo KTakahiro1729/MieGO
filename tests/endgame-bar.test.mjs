@@ -104,7 +104,8 @@ test("the help button explains the rules for 五目並べ and an illegal preview
 test("the COM's offer is answered like a friend's: two equal choices, and no pass in it",()=>{
   const offered={...newGame(),endProposal:{from:WHITE,atMove:0}};
   const incoming=bar({game:offered});
-  assert.equal(incoming.text.endStatus,TEXT.endgame.comProposed);
+  // The offer reads on the COM's side of the turn row, which stays so the COM can be changed.
+  assert.equal(incoming.text.endStatus,"");
   assert.deepEqual([incoming.text.endAccept,incoming.text.endDecline],[TEXT.common.accept,TEXT.common.keepPlaying]);
   assert.deepEqual(incoming.classes.endAccept,{primary:false});
   assert.equal(incoming.hidden.endAccept,false);
@@ -117,12 +118,10 @@ test("the COM's offer is answered like a friend's: two equal choices, and no pas
   assert.equal(declined.text.endStatus,TEXT.endgame.comDeclined);
 });
 
-test("while watching, the bar says when a COM would offer to end a lost game",()=>{
-  assert.equal(bar({watching:true,resignWish:WHITE}).text.endStatus,TEXT.endgame.wantsEnd("W"));
+test("while watching, a pass is what the bar reports",()=>{
   assert.equal(bar({watching:true}).text.endStatus,"");
-  // A pass just played is still what the bar reports.
   const passed=play(newGame(),null);
-  assert.equal(bar({game:passed,watching:true,resignWish:WHITE}).text.endStatus,TEXT.endgame.passedWatch("B"));
+  assert.equal(bar({game:passed,watching:true}).text.endStatus,TEXT.endgame.passedWatch("B"));
 });
 
 // A record whose last stone brought back an earlier board, Black to move both times.
