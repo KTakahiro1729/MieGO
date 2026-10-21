@@ -4,6 +4,7 @@ import {newGame,play,BLACK,WHITE} from "../public/core.mjs";
 import {
   BALANCE,
   compatibility,
+  FAR_REASON,
   LET_GO_REASON,
   MAX_POOLED,
   MIN_MOVES,
@@ -48,6 +49,18 @@ test("each player's style is read from their own moves",()=>{
   assert.match(white.type,/^.LRQ$/,"low, next to the last move, and resigned");
   assert.equal(black.type[3],"T","the side that did not let go");
   for(const {type} of [black,white])assert.ok(TEXT.playStyle.types[type],"every type has a name");
+});
+
+test("自由/律儀 reads how far quiet moves stand from the opponent's stones",()=>{
+  const game=highAndLow();
+  const black=playStyle(game,BLACK).score.shares[2],white=playStyle(game,WHITE).score.shares[2];
+  assert.equal(white,FAR_REASON+10,"every White move touches a Black stone");
+  assert.ok(black>FAR_REASON+30,"Black opens away from White's stones");
+  const read=readStyleLink(styleLink(playStyle(game,WHITE)).replace(/^[^?]*/,""));
+  assert.equal(read.evidence[2],FAR_REASON+10);
+  const say=TEXT.playStyle.evidence[2];
+  assert.equal(say({apart:1}),"序盤〜中盤の手が、相手の石から平均1.0路");
+  assert.equal(say(65),"相手の手から2路以内への応手が65%","a link made before still reads");
 });
 
 test("there is no style for too few moves, 五目並べ or a free board",()=>{

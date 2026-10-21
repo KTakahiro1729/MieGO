@@ -9,7 +9,7 @@ import {leadFromOwnership} from "./score-graph.mjs";
 // flavour, not a verdict on the player.
 //   A 攻め / G 守り   attack and invasion against reinforcement (the COM's 戦い方)
 //   H 模様 / L 実利   the 4th line and above against the 2nd and 3rd (序盤)
-//   F 自由 / R 律儀   playing away from the opponent's last move or next to it
+//   F 自由 / R 律儀   early quiet moves away from the opponent's stones or close to them
 //   T 粘り強い / Q 潔い  playing on 10 points behind, or resigning (the sooner the more) and passing first
 
 // The middle of each axis, so that players split about evenly between the two
@@ -17,13 +17,13 @@ import {leadFromOwnership} from "./score-graph.mjs";
 //   attack: share of moves with attack >= 0.6, used where no ownership was kept
 //   stance: (attack >= 0.6 + invasion >= 0.5)/2 - reinforcement >= 0.3, per move
 //   low: share of the opening moves (2nd line and up) on the 2nd or 3rd line
-//   near: share of replies within two lines of the opponent's last move
+//   apart: per quiet move (see APART), how far from the opponent's stones
 // 9路: a neutral COM (normal strength, all axes ふつう) over 48 sides of self-play.
-const NEUTRAL_SMALL = Object.freeze({attack:0.341, stance:-0.078, low:0.713, near:0.44});
+const NEUTRAL_SMALL = Object.freeze({apart:1.413, attack:0.341, stance:-0.078, low:0.713});
 // 13路 and 19路: people, over 7,401 sides of even 19路 games on the Fox server,
 // 15級 to 3段 alike (the stance needs ownership, which those games lack, so it
-// stays the COM's). People answer locally far more often than the COM does.
-const NEUTRAL_LARGE = Object.freeze({attack:0.224, stance:-0.078, low:0.566, near:0.654});
+// stays the COM's); apart is the median over 32,854 sides of the same ranks.
+const NEUTRAL_LARGE = Object.freeze({apart:1.462, attack:0.224, stance:-0.078, low:0.566});
 const neutralFor = state => state.board.length<=81 ? NEUTRAL_SMALL : NEUTRAL_LARGE;
 const OPENING = 16;
 // Fewer own moves than this reads nothing.
@@ -32,6 +32,20 @@ export const MIN_MOVES = 10;
 export const BALANCE = "BLNC";
 export const PLAY_STYLE_RE = /^(?:[AG][HL][FR][TQ]|BLNC)$/;
 const BEHIND = 10;
+// 自由/律儀 reads the own moves that attack nothing while at least APART.empty of
+// the board is empty: how far each is from the nearest opponent stone, in lines,
+// counting APART.far and more as APART.far. Answering the opponent's last move
+// nearby, as this axis read before, was mostly strength: on Fox the share of
+// 自由 rose from 22% at 15級 to 88% at 9段 (rank correlation 0.46, 21% of the
+// variance between ranks). Distance from the opponent's stones correlates 0.01
+// with rank (1.8% between ranks), and within a rank a player's 5 games agree
+// with 5 others more (0.76 against 0.58). Leaving out attacking moves keeps it
+// apart from 攻め/守り (-0.04 within a rank; -0.37 with them). Halved, it
+// spreads among people about as replies did.
+const APART = Object.freeze({empty:0.6, far:4, scale:0.5});
+// The /style page's reason for 自由/律儀: FAR_REASON + ten times the mean distance.
+// Below it, a link made before reads the share of replies within two lines, in percent.
+export const FAR_REASON = 2000;
 // The most games one 棋風診断 reads together.
 export const MAX_POOLED = 20;
 
@@ -125,9 +139,19 @@ function letGoPoints(states, moves, color, recall) {
   return [...lastOf.values()].map(touch=>touch.mean);
 }
 
+/** Lines from `point` to the nearest stone of the opponent of `color`, up to APART.far. */
+function nearestOpponent(board, point, color) {
+  const size=Math.round(Math.sqrt(board.length)), x=point%size, y=Math.floor(point/size);
+  let far=APART.far;
+  board.forEach((stone,at)=>{
+    if(stone===-color)far=Math.min(far,Math.max(Math.abs(at%size-x),Math.abs(Math.floor(at/size)-y)));
+  });
+  return far;
+}
+
 /** One side's tallies over one game, or null for too few moves. */
 function tallyMoves(states, moves, color, recall, resigned=false) {
-  let count=0, stance=0, attack=0, attacks=0, opening=0, height=0, lows=0, replies=0, tenuki=0, nears=0, behind=0;
+  let count=0, stance=0, attack=0, attacks=0, opening=0, height=0, lows=0, quiet=0, tenuki=0, apart=0, behind=0;
   moves.forEach((move,i)=>{
     const state=states[i];
     if(move.color!==color || !Number.isInteger(move.position) || !state)return;
@@ -144,7 +168,10 @@ function tallyMoves(states, moves, color, recall, resigned=false) {
     const line=lineOf(move.position,Math.round(Math.sqrt(state.board.length)));
     // Each move is read against its own board's middle, so games of two sizes pool.
     if(i<OPENING && line>1){opening++; lows+=line<=3; height+=NEUTRAL.low-(line<=3);}
-    if(Number.isInteger(state.moves.at(-1)?.position)){replies++; nears+=f.tenuki<0; tenuki+=NEUTRAL.near-(f.tenuki<0);}
+    if(f.attack<0.3 && state.board.filter(v=>v===0).length>=APART.empty*state.board.length){
+      const far=nearestOpponent(state.board,move.position,color);
+      quiet++; apart+=far; tenuki+=(far-NEUTRAL.apart)*APART.scale;
+    }
     const lead=leadFromOwnership(state,ownership);
     if(lead!==null && lead*color<=-BEHIND)behind++;
   });
@@ -162,7 +189,7 @@ function tallyMoves(states, moves, color, recall, resigned=false) {
     reason=resignReason(deficit,late);
   }
   const letGo=letGoPoints(states,moves,color,recall);
-  return {count,stance,attack,attacks,opening,height,lows,replies,tenuki,nears,grit,reason,letGo};
+  return {count,stance,attack,attacks,opening,height,lows,quiet,tenuki,apart,grit,reason,letGo};
 }
 
 /**
@@ -172,12 +199,13 @@ function tallyMoves(states, moves, color, recall, resigned=false) {
  */
 function scoreTallies(tallies) {
   const sum=key=>tallies.reduce((total,tally)=>total+tally[key],0);
-  const opening=sum("opening"), replies=sum("replies");
+  const opening=sum("opening"), quiet=sum("quiet");
   return {stance:sum("stance")/sum("count"),attack:sum("attack")/sum("count"),height:opening ? sum("height")/opening : 0,
-    tenuki:replies ? sum("tenuki")/replies : 0,grit:withLetGo(sum("grit")/tallies.length,tallies.flatMap(tally=>tally.letGo)),
-    // What the /style page shows as the reasons: shares of the player's own moves, in percent.
-    shares:[sum("attacks")/sum("count"),opening ? sum("lows")/opening : null,replies ? sum("nears")/replies : null]
-      .map(v=>v===null ? null : Math.round(v*100)).concat(tallies.length===1 ? tallies[0].reason ?? letGoReason(tallies[0].letGo) : null)};
+    tenuki:quiet ? sum("tenuki")/quiet : 0,grit:withLetGo(sum("grit")/tallies.length,tallies.flatMap(tally=>tally.letGo)),
+    // What the /style page shows as the reasons: shares of the player's own moves, in percent,
+    // and how far from the opponent's stones (FAR_REASON).
+    shares:[sum("attacks")/sum("count"),opening ? sum("lows")/opening : null]
+      .map(v=>v===null ? null : Math.round(v*100)).concat(quiet ? FAR_REASON+Math.round(sum("apart")/quiet*10) : null,tallies.length===1 ? tallies[0].reason ?? letGoReason(tallies[0].letGo) : null)};
 }
 
 // Letting weak stones go early is 潔い, reaching for them till they are gone
@@ -198,7 +226,7 @@ const letGoReason = points => points.length<MIN_LET_GO ? null : LET_GO_REASON+Ma
 const letter = (value, high, low) => value>=0 ? high : low;
 // Within half a standard deviation of people on the first three axes (Fox, as PEOPLE).
 // 引き際 is in the middle with no resignation, playing on or passing first, and letting go as most do.
-const MIDDLE = Object.freeze({attack:0.040, height:0.104, tenuki:0.038, grit:0.25});
+const MIDDLE = Object.freeze({attack:0.040, height:0.104, tenuki:0.039, grit:0.25});
 const balanced = score => Math.abs(score.attack)<MIDDLE.attack && Math.abs(score.height)<MIDDLE.height &&
   Math.abs(score.tenuki)<MIDDLE.tenuki && Math.abs(score.grit)<=MIDDLE.grit;
 const typeOf = score => balanced(score) ? BALANCE : letter(score.stance,"A","G")+letter(score.height,"H","L")+
@@ -265,14 +293,15 @@ export function reportPlayStyles(key, snapshot, styles, send=globalThis.navigato
   }catch{return false;}
 }
 
-// Where people stand on each axis, every 2.5%: the first three over 7,401
-// sides of even 19路 games on the Fox server, 攻め read by attacking alone;
+// Where people stand on each axis, every 2.5%: 攻め and 模様 over 7,401
+// sides of even 19路 games on the Fox server, 攻め read by attacking alone,
+// and 自由 over 32,854 sides of the same ranks (15級 to 3段);
 // 引き際 put together from the resignations, playing on and LET_GO below.
 const PEOPLE = Object.freeze({
   attack:[-0.224,-0.153,-0.127,-0.112,-0.098,-0.088,-0.078,-0.071,-0.064,-0.057,-0.052,-0.045,-0.04,-0.035,-0.03,-0.024,-0.02,-0.015,-0.01,-0.005,-0.001,0.004,0.009,0.014,0.019,0.024,0.028,0.034,0.04,0.045,0.05,0.057,0.063,0.07,0.077,0.085,0.096,0.109,0.126,0.155,0.519],
   grit:[-1,-1,-0.983,-0.942,-0.896,-0.85,-0.793,-0.739,-0.683,-0.631,-0.569,-0.506,-0.483,-0.448,-0.4,-0.35,-0.318,-0.275,-0.2,-0.133,-0.05,0,0,0,0,0,0,0,0.083,0.175,0.261,0.343,0.45,1,1,1,1,1,1,1,1],
   height:[-0.434,-0.309,-0.309,-0.309,-0.309,-0.184,-0.184,-0.184,-0.184,-0.184,-0.184,-0.184,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.005,0.066,0.066,0.066,0.066,0.066,0.066,0.066,0.066,0.191,0.191,0.191,0.191,0.191,0.191,0.316,0.316,0.316,0.441,0.566],
-  tenuki:[-0.346,-0.137,-0.114,-0.101,-0.091,-0.082,-0.073,-0.066,-0.06,-0.054,-0.048,-0.043,-0.038,-0.034,-0.03,-0.025,-0.02,-0.016,-0.013,-0.008,-0.004,0.001,0.005,0.01,0.015,0.019,0.025,0.029,0.034,0.039,0.045,0.051,0.058,0.065,0.072,0.08,0.091,0.104,0.124,0.154,0.654],
+  tenuki:[-0.231,-0.113,-0.092,-0.081,-0.071,-0.064,-0.057,-0.052,-0.047,-0.042,-0.038,-0.034,-0.029,-0.025,-0.022,-0.018,-0.015,-0.011,-0.007,-0.003,0,0.003,0.007,0.01,0.014,0.019,0.023,0.027,0.032,0.036,0.042,0.047,0.054,0.061,0.069,0.08,0.093,0.112,0.142,0.204,1.169],
 });
 
 /** The share of people below `value`; a value many share sits in the middle of them. */
@@ -369,7 +398,7 @@ export function readStyleLink(search) {
   // A rank may be missing (null) where people were not measured, but not all of them.
   const ranked=ints(query.get("p"),v=>v>=1 && v<=50);
   const ranks=ranked?.length===4 && ranked.some(v=>v!==null) ? ranked : null;
-  const shown=ints(query.get("e"),v=>v>=-999999 && v<=LET_GO_REASON+100);
+  const shown=ints(query.get("e"),v=>v>=-999999 && v<=FAR_REASON+10*APART.far);
   const games=Number(query.get("n"));
   const partner=PLAY_STYLE_RE.test(query.get("u") ?? "") ? {type:query.get("u"),leans:four("ul",v=>Math.abs(v)<=100)} : null;
   return {type,color,leans,ranks,evidence:shown?.length===4 ? shown : null,
