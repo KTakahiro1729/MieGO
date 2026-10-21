@@ -681,8 +681,6 @@ body{overflow:hidden}
   clip:rect(0,0,0,0)!important;overflow:hidden!important;white-space:nowrap!important
 }
 
-.review-feedback{position:absolute;bottom:calc(100% + 4px);left:4px;right:4px;margin:0 auto;padding:5px 10px;width:max-content;max-width:calc(100% - 8px);border-radius:var(--radius-sm);background:var(--slate-29);border:1px solid var(--sand-47);color:var(--gold-88);font-size:var(--font-small);line-height:1.5;z-index:5}
-.review-feedback[hidden]{display:none}
 
 /* Forbidden points are not marked in advance; the turn row displays the reason. */
 .action-row #confirm{font-size:var(--font-body)}

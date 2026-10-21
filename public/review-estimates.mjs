@@ -97,5 +97,7 @@ export function createScoreGraph({$, getReview, getGame, isWatching, recall, gam
     const step=near ?? stepAt(x,rect.width,count);
     if(step!==review.step)setStep(step);
   }
-  return {pick,render,shown};
+  // The marked turning points of the line drawn last, for ドパガキモード's ドン！.
+  const marks=()=>scoreGraph?.marks||[];
+  return {marks,pick,render,shown};
 }
