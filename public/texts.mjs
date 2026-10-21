@@ -334,11 +334,11 @@ export const TEXT = {
     },
     // A character's note fits one line at 360px; the help says more.
     characters: {
-      plain: { name: "素直", note: "好みを持たず、まっすぐに打ちます。" },
-      steady: { name: "石橋", note: "守りを固めて手堅く打ちます。無理な戦いはしません。" },
-      raider: { name: "荒らし屋", note: "相手の地に飛び込み、低く打って地を稼ぎます。" },
-      brawler: { name: "喧嘩屋", note: "相手の石のすぐ近くで受けて立ち、攻めにきます。" },
-      wide: { name: "大場好き", note: "相手の石から離れて、広い場所へ向かいます。" },
+      plain: { name: "まっすぐ", note: "好みを持たず、素直に打ちます。" },
+      thick: { name: "どっしり", note: "高く構え、相手の石に寄って受けます。" },
+      raider: { name: "ちゃっかり", note: "低く打って、相手の地からも稼ぎます。" },
+      brawler: { name: "ぐいぐい", note: "相手の石のすぐ近くで、攻めにきます。" },
+      wide: { name: "のびのび", note: "相手の石から離れて、広い場所へ向かいます。" },
       custom: { name: "カスタム", note: "打ち方を自分で選びます。" },
     },
     stanceStops: { low: "守る", mid: "ふつう", high: "攻め込む" },
@@ -1002,7 +1002,7 @@ export const TEXT = {
     rulesOptions: "ルールの追加設定",
     // Under the COMのキャラ tab while watching: each COM has its own character.
     watchStrengthValue: "COMごと",
-    // Under the COMのキャラ tab for one COM: its strength and character, e.g. やさしい・石橋.
+    // Under the COMのキャラ tab for one COM: its strength and character, e.g. やさしい・どっしり.
     comValue: (strength, character) => strength + "・" + character,
     setupTabs: "対局の設定",
     // Beside each choice under the 盤, ルール and 自分の石 tabs; two lines at most at 320px.

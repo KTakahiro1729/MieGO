@@ -8,18 +8,20 @@ import {TEXT} from "./texts.mjs";
 // matched against each other (docs/AI_PERSONALITIES.md). Picking one sets
 // every axis; カスタム keeps the player's own values. Axes a character leaves
 // out stay at 50. 終局の提案 (kept as resign) is not a style of play but when
-// the COM offers to end a lost game; it starts at 0, playing every game out.
+// the COM offers to end a lost game; each character sets it too, and an
+// unset one plays every game out (0).
 export const COM_AXES = Object.freeze([...STYLE_AXES, "resign"]);
 const AXIS_DEFAULT = Object.freeze({resign:0});
 const axisDefault = axis => AXIS_DEFAULT[axis] ?? 50;
 const define = (style={}) => Object.freeze(
   Object.fromEntries(COM_AXES.map(axis=>[axis,style[axis] ?? axisDefault(axis)])));
 export const AI_CHARACTERS = Object.freeze({
-  plain: define(),
-  steady: define({stance:0}),
-  raider: define({height:0, stance:100}),
-  brawler: define({stance:100, tenuki:0}),
-  wide: define({height:100, tenuki:100}),
+  // 終局の提案 fits each one's temper: the fighters play on, the easygoing ones offer early.
+  plain: define({resign:50}),
+  thick: define({height:100, resign:0, tenuki:0}),
+  raider: define({height:0, resign:50, stance:100}),
+  brawler: define({resign:0, stance:100, tenuki:0}),
+  wide: define({height:100, resign:100, tenuki:100}),
 });
 export const CUSTOM_CHARACTER = "custom";
 export const DEFAULT_AI_CHARACTER = "plain";
@@ -34,11 +36,12 @@ export function normalizeCom(com={}, fallbackStrength="strong") {
     ...Object.fromEntries(COM_AXES.map(axis=>[axis,step(values[axis],axisDefault(axis))]))};
 }
 
-/** The character whose style a COM matches exactly, at any strength, or カスタム. */
+/** The character whose style a COM matches exactly, at any strength, or カスタム.
+ * With no 終局の提案 of its own, the style alone decides. */
 export function characterOf(com) {
-  const clean=normalizeCom(com);
+  const clean=normalizeCom(com),axes=com?.resign==null ? STYLE_AXES : COM_AXES;
   const found=Object.entries(AI_CHARACTERS).find(([,c])=>
-    COM_AXES.every(axis=>c[axis]===clean[axis]));
+    axes.every(axis=>c[axis]===clean[axis]));
   return found ? found[0] : CUSTOM_CHARACTER;
 }
 
@@ -59,15 +62,23 @@ export function pickCharacter(com, key) {
   return {...normalizeCom(com),character:CUSTOM_CHARACTER};
 }
 
+// Characters that left the list and the one each now reads as: ひよこ, 本気 and
+// 名人 were the neutral style at 入門, つよい and 最強.
+const RENAMED_CHARACTERS = Object.freeze({
+  chick:"plain",
+  master:"plain",
+  serious:"plain",
+});
+
 /** A saved COM, including saves from before characters (strength, 侵入度 and 補強度
- * alone), before 侵入度 joined 攻守 and before strength left the characters
- * (ひよこ, 本気 and 名人 were the neutral style at 入門, つよい and 最強): each
- * reads as the character it matches, or カスタム, keeping its strength. */
+ * alone), before 侵入度 joined 攻守, before strength left the characters and
+ * before 終局の提案: each reads as the character it names or matches, or
+ * カスタム, keeping its strength. */
 export function readCom(value, fallbackStrength="strong") {
   const values=normalizeCom(value ?? {},fallbackStrength);
-  const key=value?.character;
+  const key=RENAMED_CHARACTERS[value?.character] ?? value?.character;
   if(key===CUSTOM_CHARACTER)return {...values,character:CUSTOM_CHARACTER};
-  return pickCharacter(values,Object.hasOwn(AI_CHARACTERS,key) ? key : characterOf(values));
+  return pickCharacter(values,Object.hasOwn(AI_CHARACTERS,key) ? key : characterOf(value?.resign==null ? {...values,resign:undefined} : values));
 }
 
 /** Replaces one value of a COM. A new strength keeps the character; any other

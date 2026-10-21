@@ -98,7 +98,7 @@ test("each COM of a watched game plays with its own character",()=>{
   assert.deepEqual([...between('id="comBlackStrengthRow"','</div>').matchAll(/<small>([^<]+)<\/small>/g)].map(m=>m[1]),
     ["beginner","easy","normal","strong","strongest"].map(key=>TEXT.ai.strengths[key]));
   assert.deepEqual([...cards[0].matchAll(/<option value="([a-z]+)"/g)].map(m=>m[1]),
-    ["plain","steady","raider","brawler","wide","custom"]);
+    ["plain","thick","raider","brawler","wide","custom"]);
   assert.match(body("syncWatchSliderRows"),/\$\("watchAiOptions"\)\.hidden=!two;\s*\$\("aiOneCom"\)\.hidden=two;/);
   // The COM left playing after a take-over keeps its own settings.
   assert.match(body("takeOverWatchedGame"),/=watchAi\[color===BLACK\?"white":"black"\]/);

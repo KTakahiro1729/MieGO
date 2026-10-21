@@ -60,7 +60,7 @@ test("the COM is a strength, then six characters with notes, then カスタム's
   // カスタム's rows follow the list directly, with no card around them.
   assert.match(advanced,/<fieldset id="aiCustom" class="ai-advanced com-rows" hidden>\s*<legend class="visually-hidden">/);
   assert.deepEqual([...sheet.matchAll(/name="aiCharacter" value="(\w+)"/g)].map(m=>m[1]),
-    ["plain","steady","raider","brawler","wide","custom"]);
+    ["plain","thick","raider","brawler","wide","custom"]);
   assert.equal((between(sheet,'id="aiCharacterChoices"','</fieldset>').match(/<small class="choice-note">/g)||[]).length,6);
   // Strength is a slider of five stops, weakest first, each with its note.
   assert.match(sheet,/<input id="aiStrength" type="range" min="0" max="4" step="1"/);
