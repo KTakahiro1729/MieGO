@@ -14,19 +14,21 @@ import {
  * dead-stone job: `jobCurrent(id)` tells whether a playout still belongs to it,
  * `onUnavailable()` hears that KataGo could not settle the board, and
  * `onSettled(run)` receives a finished playout ({dead, positions, taps, ...}).
- * The board keeps the real position and one estimate while it runs, so the
- * territory colours stay as they were: `knownOwnership(board)` is an estimate
- * already kept for the board, else KataGo's first answer is shown.
+ * The board meanwhile shows the count with the stones an estimate already calls
+ * dead (`knownOwnership(board)`, kept for the board, else KataGo's first
+ * answer), so once the result is in only the stones and dame it adds change.
  */
 export function createSettleControl({getGame, isReviewing, post, show, draw, jobCurrent, onUnavailable, onSettled,
   knownOwnership=()=>null}) {
   let settle=null;
+  /** The stones an estimate calls dead, sorted; null if it does not fit the board. */
+  function deadBy(ownership) {
+    try { return [...suggestDeadStones(getGame(),ownership)].sort((a,b)=>a-b); } catch { return null; }
+  }
   function start(id) {
     const game=getGame();
-    const known=knownOwnership(game.board);
-    // Only shown: the dead stones come from KataGo's own answers.
-    const shown=known?.length===game.board.length && known.every(Number.isFinite) ? known : null;
-    settle={id,state:settleStart(game),positions:[],ownership:null,initialOwnership:null,shown,
+    settle={id,state:settleStart(game),positions:[],ownership:null,initialOwnership:null,
+      shownDead:deadBy(knownOwnership(game.board)),
       limit:settleMax(sizeOf(game.board))};
     post({id,kind:"settle",state:settle.state});
   }
@@ -46,7 +48,7 @@ export function createSettleControl({getGame, isReviewing, post, show, draw, job
     settle.ownership=result.ownership;
     if(!settle.initialOwnership){
       settle.initialOwnership=result.ownership;
-      if(!settle.shown){settle.shown=result.ownership;show();}
+      if(!settle.shownDead){settle.shownDead=deadBy(result.ownership);show();}
     }
     if(settle.state.status!=="playing" || settle.positions.length>=settle.limit)return finish();
     const position=pickSettleMove(settle.state,result.policy,settle.initialOwnership);
@@ -83,11 +85,11 @@ export function createSettleControl({getGame, isReviewing, post, show, draw, job
   }
   /** A playout is running. */
   const busy=()=>!!settle;
-  /** What the board shows during a playout: the real stones under one estimate. */
+  /** The playout in progress: its moves for the text, and the dead stones the board shows meanwhile. */
   function view() {
     const game=getGame();
     if(!settle || isReviewing() || game.status!=="scoring")return null;
-    return {moves:settle.positions.length,ownership:settle.shown};
+    return {moves:settle.positions.length,dead:settle.shownDead||[]};
   }
   return {busy,receive,start,tap,view};
 }

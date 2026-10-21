@@ -350,30 +350,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     if((sparks.length || pops.length || waves.length) && frame===null)frame=requestFrame(()=>{frame=null;draw();});
   }
 
-  /**
-   * 決着手順: the playout runs out of sight, so the board keeps the real stones
-   * under the one estimate it shows until the dead stones are marked.
-   */
-  function paintSettle(theme,view,gap,pad) {
-    const {board}=view.game, {ownership}=view.settle;
-    if(ownership && ownership.length===board.length && showsOwnership(view.palette))
-      paintOverlay(ownership,view.palette,view.opacity,gap,pad,true);
-    paintStarPoints(theme,gap,pad);
-    const r=gap*.44;
-    for(let i=0;i<board.length;i++)
-      if(board[i])paintStone(theme,board[i],pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap,r,1);
-  }
-
   function draw() {
     const view=getView();
     const {game,boardReview}=view;
-    if(view.settle && !boardReview){
-      SIZE=sizeOf(game.board);
-      const theme=boardTheme(view.boardTheme), d=canvas.width, gap=d/(SIZE+1);
-      paintGrid(theme,d,gap,gap);
-      paintSettle(theme,view,gap,gap);
-      return;
-    }
     const display=boardReview?.display||game;
     SIZE=sizeOf(display.board);
     const theme=boardTheme(view.boardTheme);

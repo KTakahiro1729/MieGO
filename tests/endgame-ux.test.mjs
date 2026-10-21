@@ -9,6 +9,8 @@ const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
 test("the playout stays off the board: no pause between its moves, no 再生 and no スキップ",()=>{
   const html=readFileSync(new URL("../src/index.template.html",import.meta.url),"utf8");
   assert.doesNotMatch(settle,/setTimeout|replay|skip/);
+  // The board shows the count of the real position meanwhile, not a playout view.
+  assert.doesNotMatch(app,/settle:settleControl\.view\(\)/);
   assert.doesNotMatch(html,/settleSkip|settleReplay/);
   assert.equal(TEXT.scoring.settleSkip,undefined);
   assert.equal(TEXT.scoring.settleReplay,undefined);

@@ -618,7 +618,7 @@ const boardRenderer = createBoardRenderer({
     burst:dopa.level(),
     candidate,
     displayedOwnership,
-    game,
+    game:shownGame(),
     hideStones:hidingStones(),
     humanTurn:isHumanTurn(),
     illegalCandidate,
@@ -627,10 +627,14 @@ const boardRenderer = createBoardRenderer({
     opacity:appearance.opacity(),
     palette:shownPalette(),
     sampleStones:appearance.editingBoard(),
-    settle:settleControl.view(),
   })
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
+/** While KataGo settles the dead stones, the board counts with the ones an estimate already gives. */
+function shownGame() {
+  const playout=settleControl.view();
+  return playout && !game.dead.length ? {...game,dead:playout.dead} : game;
+}
 // 待った: one shared board undoes the latest move; AI and friend games undo
 // the player's own latest move together with any reply after it.
 const takebackOptions = () => room ? {color:myOnlineColor(),scope:"own"} :
