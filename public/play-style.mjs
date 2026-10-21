@@ -26,14 +26,16 @@ const OPENING = 16;
 export const MIN_MOVES = 10;
 export const PLAY_STYLE_RE = /^[AG][HL][FR][TQ]$/;
 const BEHIND = 10;
+// The most games one 棋風診断 reads together.
+export const MAX_POOLED = 20;
 
 const lineOf = (point, size) => {
   const x=point%size, y=Math.floor(point/size);
   return Math.min(x,y,size-1-x,size-1-y)+1;
 };
 
-/** Each axis below 0 for the second letter, at or above 0 for the first. */
-function scoreMoves(states, moves, color, recall) {
+/** One side's tallies over one game, or null for too few moves. */
+function tallyMoves(states, moves, color, recall) {
   let count=0, stance=0, opening=0, low=0, replies=0, near=0, behind=0;
   moves.forEach((move,i)=>{
     const state=states[i];
@@ -56,27 +58,65 @@ function scoreMoves(states, moves, color, recall) {
   const firstPass=moves.find(m=>m.position===null)?.color;
   const grit=moves.some(m=>m.color===color && m.position==="resign") ? -1 :
     behind/count>=0.2 ? 1 : firstPass===color ? -0.5 : firstPass===-color ? 0.5 : 0;
-  return {stance:stance/count,height:opening ? NEUTRAL.low-low/opening : 0,
-    tenuki:replies ? NEUTRAL.near-near/replies : 0,grit};
+  return {count,stance,opening,low,replies,near,grit};
+}
+
+/**
+ * Each axis below 0 for the second letter, at or above 0 for the first.
+ * Several games pool their moves, so a longer game counts for more; 引き際,
+ * read once a game, is their mean.
+ */
+function scoreTallies(tallies) {
+  const sum=key=>tallies.reduce((total,tally)=>total+tally[key],0);
+  const opening=sum("opening"), replies=sum("replies");
+  return {stance:sum("stance")/sum("count"),height:opening ? NEUTRAL.low-sum("low")/opening : 0,
+    tenuki:replies ? NEUTRAL.near-sum("near")/replies : 0,grit:sum("grit")/tallies.length};
 }
 
 const letter = (value, high, low) => value>=0 ? high : low;
+const typeOf = score => letter(score.stance,"A","G")+letter(score.height,"H","L")+
+  letter(score.tenuki,"F","R")+letter(score.grit,"T","Q");
+
+/** One side's tallies over one game, kept to read again with other games; null when too short. */
+export function styleTally(snapshot, color, {through=snapshot.moves.length, recall=()=>null}={}) {
+  if(isGomoku(snapshot) || isFree(snapshot))return null;
+  const shown=snapshot.moves.slice(0,through);
+  if(snapshot.moves[through]?.position==="resign")shown.push(snapshot.moves[through]);
+  return tallyMoves(replayLine({...snapshot,moves:shown}),shown,color,recall);
+}
 
 /**
  * The play style of `color` over the first `through` moves of `snapshot`
  * (a resignation right after them counts), or null for 五目並べ, a free board
  * or too few moves. `recall(state)` gives a position's kept ownership, if any.
  */
-export function playStyle(snapshot, color, {through=snapshot.moves.length, recall=()=>null}={}) {
-  if(isGomoku(snapshot) || isFree(snapshot))return null;
-  const shown=snapshot.moves.slice(0,through);
-  if(snapshot.moves[through]?.position==="resign")shown.push(snapshot.moves[through]);
-  const states=replayLine({...snapshot,moves:shown});
-  const score=scoreMoves(states,shown,color,recall);
-  if(!score)return null;
-  const type=letter(score.stance,"A","G")+letter(score.height,"H","L")+
-    letter(score.tenuki,"F","R")+letter(score.grit,"T","Q");
-  return {color:color===BLACK ? "B" : "W",type,score};
+export function playStyle(snapshot, color, options) {
+  const tally=styleTally(snapshot,color,options);
+  if(!tally)return null;
+  const score=scoreTallies([tally]);
+  return {color:color===BLACK ? "B" : "W",type:typeOf(score),score};
+}
+
+/** Whether `color`'s moves in `snapshot` are enough for a 棋風診断. */
+export const canReadStyle = (snapshot, color) => {
+  if(isGomoku(snapshot) || isFree(snapshot))return false;
+  return snapshot.moves.filter(m=>m.color===color && Number.isInteger(m.position)).length>=MIN_MOVES;
+};
+
+/**
+ * One play style over several games, each {snapshot, color, recall}: the
+ * same person's sides, read together. Games too short to read are left out;
+ * null when none is left.
+ */
+export const pooledPlayStyle = games =>
+  poolTallies(games.map(({snapshot,color,recall})=>styleTally(snapshot,color,{recall})));
+
+/** The same from each game's styleTally. */
+export function poolTallies(found) {
+  const tallies=found.filter(Boolean);
+  if(!tallies.length)return null;
+  const score=scoreTallies(tallies);
+  return {type:typeOf(score),score,games:tallies.length};
 }
 
 /** What /api/stat counts for one shown 棋風診断: no player, game or device is named. */
@@ -103,13 +143,13 @@ export const leanings = ({stance,height,tenuki,grit}) =>
   [lean(stance*2),lean(height*2),lean(tenuki*2),lean(grit)];
 
 /** The /style page for one player's style: its type, colour and leanings. */
-export function styleLink({type,color,score}) {
+export function styleLink({type,color,score,games}) {
   // Every part is letters, digits, "-" or ",", so nothing needs escaping.
   return "/style?t="+type+(color==="B" || color==="W" ? "&c="+color : "")+
-    (score ? "&s="+leanings(score).join(",") : "");
+    (score ? "&s="+leanings(score).join(",") : "")+(games>1 ? "&n="+games : "");
 }
 
-/** What a /style URL asks for: a known type, or null, with its colour and leanings if valid. */
+/** What a /style URL asks for: a known type, or null, with its colour, leanings and games if valid. */
 export function readStyleLink(search) {
   const query=new URLSearchParams(search);
   const type=query.get("t");
@@ -117,5 +157,6 @@ export function readStyleLink(search) {
   const color=["B","W"].includes(query.get("c")) ? query.get("c") : null;
   const values=(query.get("s") ?? "").split(",").map(Number);
   const leans=values.length===4 && values.every(v=>Number.isInteger(v) && Math.abs(v)<=100) ? values : null;
-  return {type,color,leans};
+  const games=Number(query.get("n"));
+  return {type,color,leans,games:Number.isInteger(games) && games>1 && games<=MAX_POOLED ? games : 1};
 }

@@ -44,7 +44,7 @@ function renderResult(found) {
     el("p", "style-catch", type.catch), el("p", "style-text", type.text));
   const bars = el("div", "style-bars");
   T.axes.forEach((axis, i) => bars.append(axisRow(axis, found.type[i], found.leans?.[i])));
-  box.append(bars, el("p", "style-note", T.oneGame));
+  box.append(bars, el("p", "style-note", found.games > 1 ? T.pooled(found.games) : T.oneGame));
   box.hidden = false;
   $("styleIntro").hidden = true;
   document.title = T.pageTitle(found.type);

@@ -409,10 +409,19 @@
           <label for="historyImportFile" class="secondary accent-outline history-import-label">{{history.importSgf}}</label>
           <input id="historyImportFile" type="file" accept=".sgf,application/x-go-sgf,text/plain" aria-label="{{history.importSgf}}">
         </div>
+        <button id="historyStyle" class="secondary full history-style-button" type="button">{{playStyle.historyButton}}</button>
       </section>
       <section id="historySetup" class="settings-section history-setup" hidden>
         <p class="explanation">{{history.intro}}</p>
         <p id="historySaveNotice" class="invite-status history-notice" role="status" aria-live="polite"></p>
+        <div id="historyStyleBar" class="history-style-bar" hidden>
+          <p class="choice-note">{{playStyle.historyPick}}</p>
+          <p id="historyStyleResult" class="history-style-result" role="status" aria-live="polite"></p>
+          <div class="history-style-actions">
+            <button id="historyStyleCancel" class="secondary" type="button">{{playStyle.historyCancel}}</button>
+            <button id="historyStyleOpen" class="primary" type="button" disabled>{{playStyle.historyOpen}}</button>
+          </div>
+        </div>
         <div id="historyList" class="history-list"></div>
         <p id="historyEmpty" class="history-empty" hidden>{{history.empty}}</p>
       </section>

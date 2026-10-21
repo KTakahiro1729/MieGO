@@ -548,6 +548,14 @@ export const TEXT = {
     sideLabel: color => color === "B" ? "黒番" : "白番",
     shareSheetNote: "打った人ごとの診断です。ページで説明と4つの軸を見られます。",
     openPage: "診断ページを開く",
+    // 履歴: several saved games read together.
+    historyButton: "履歴からまとめて棋風診断",
+    historyPick: "まとめる対局で、自分が打った石を選んでください。最近のCOMや友人との対局は選んであります。",
+    historyOpen: "診断を見る",
+    historyNone: "石を選ぶと、ここに診断が出ます。",
+    historyResult: (type, name, games) => type + " " + name + "（" + games + "局のまとめ）",
+    historyCancel: "やめる",
+    pooled: games => "選んだ" + games + "局をまとめて測りました。局が多いほど結果は安定します。",
     axes: [
       { high: "A", low: "G", highName: "攻め", lowName: "守り",
         about: "相手の石を攻める・相手の勢力圏に入る手と、自分の弱い石を補う手のどちらが多いか" },

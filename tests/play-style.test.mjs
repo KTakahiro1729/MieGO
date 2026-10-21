@@ -1,7 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {newGame,play,BLACK,WHITE} from "../public/core.mjs";
-import {playStyle,statPayload,reportPlayStyles,MIN_MOVES,styleLink,readStyleLink} from "../public/play-style.mjs";
+import {
+  MAX_POOLED,
+  MIN_MOVES,
+  playStyle,
+  pooledPlayStyle,
+  readStyleLink,
+  reportPlayStyles,
+  statPayload,
+  styleLink
+} from "../public/play-style.mjs";
+import {createHistoryStyle} from "../public/history-style.mjs";
+import {installDom} from "./helpers/fake-dom.mjs";
 import {renderStylePage} from "../scripts/build-html.mjs";
 import {readFileSync} from "node:fs";
 import {TEXT} from "../public/texts.mjs";
@@ -72,7 +83,7 @@ test("a player's /style link carries the type, colour and how far each axis lean
   assert.equal(read.color,"W");
   assert.equal(read.leans.length,4);
   assert.ok(read.leans.every(v=>Math.abs(v)<=100));
-  assert.deepEqual(readStyleLink("?t=AHFT"),{type:"AHFT",color:null,leans:null});
+  assert.deepEqual(readStyleLink("?t=AHFT"),{type:"AHFT",color:null,leans:null,games:1});
   assert.equal(readStyleLink("?t=XXXX"),null);
   assert.equal(readStyleLink("?t=AHFT&s=1,2,3,999").leans,null,"out-of-range leanings are dropped");
 });
@@ -94,4 +105,68 @@ test("whoever passes first lets go first (潔い); the other kept going (粘り�
   state=play(state,null);
   assert.equal(playStyle(state,WHITE).type[3],"Q");
   assert.equal(playStyle(state,BLACK).type[3],"T");
+});
+
+test("several games read together give one style, leaving out games too short to read",()=>{
+  const game=highAndLow(),short={...game,moves:game.moves.slice(0,6)};
+  const one=playStyle(game,BLACK);
+  const pooled=pooledPlayStyle([{snapshot:game,color:BLACK},{snapshot:game,color:BLACK},{snapshot:short,color:BLACK}]);
+  assert.equal(pooled.games,2);
+  assert.equal(pooled.type,one.type);
+  assert.deepEqual(pooled.score,one.score,"the same game twice reads as once");
+  // 引き際 is a mean over games: one resigned and one played on is neither.
+  const mixed=pooledPlayStyle([{snapshot:game,color:WHITE},{snapshot:game,color:BLACK}]);
+  assert.ok(mixed.score.grit>-1 && mixed.score.grit<1);
+  assert.equal(pooledPlayStyle([{snapshot:short,color:BLACK}]),null);
+  // The page says how many games it read.
+  const link=styleLink(pooled);
+  assert.match(link,/&n=2$/);
+  assert.equal(readStyleLink(link.slice(link.indexOf("?"))).games,2);
+  assert.equal(readStyleLink("?t=AHFT&n="+(MAX_POOLED+1)).games,1);
+  assert.equal(readStyleLink("?t=AHFT").games,1);
+  assert.doesNotMatch(styleLink(one),/&n=/);
+});
+
+test("in 履歴, the person's own side in recent games is picked and can be changed",t=>{
+  const dom=installDom({width:390,height:844});
+  t.after(dom.restore);
+  for(const id of ["historyStyle","historyStyleCancel","historyStyleOpen"])dom.document.add("button",id);
+  dom.document.add("div","historyStyleBar").hidden=true;
+  dom.document.add("p","historyStyleResult");
+  const game=highAndLow();
+  const records=[
+    {id:"com-game",mode:"ai",humanColor:WHITE,snapshot:game},
+    {id:"watched",mode:"ai",watch:true,humanColor:BLACK,snapshot:game},
+    {id:"one-device",mode:"local",snapshot:game},
+  ];
+  const opened=[];
+  const style=createHistoryStyle({$:dom.$,gameLibrary:{list:()=>records},
+    ownSide:record=>record.mode==="ai" ? record.humanColor : null,open:url=>opened.push(url)});
+  const rows=()=>records.map(record=>{
+    const row=dom.document.createElement("div"),item=dom.document.createElement("button");
+    row.append(item);style.decorateRow(row,record,item);
+    return {row,item,sides:row.children[1]?.children ?? []};
+  });
+  assert.equal(rows()[0].sides.length,0,"nothing is added until picking starts");
+  dom.$("historyStyle").click();
+  assert.equal(dom.$("historyStyleBar").hidden,false);
+  let [com,watched,local]=rows();
+  assert.deepEqual(com.sides.map(chip=>chip.getAttribute("aria-pressed")),["true"],"only the COM game's own side, picked");
+  assert.equal(watched.sides.length,0,"a watched game has no side of theirs");
+  assert.ok(watched.row.classList.contains("is-unreadable"));
+  assert.deepEqual(local.sides.map(chip=>chip.getAttribute("aria-pressed")),["false","false"],"either side may be theirs");
+  const white=playStyle(game,WHITE);
+  assert.match(dom.$("historyStyleResult").textContent,new RegExp("^"+white.type+" .*1局"));
+  local.sides[1].click();
+  [com,watched,local]=rows();
+  assert.equal(local.sides[1].getAttribute("aria-pressed"),"true");
+  assert.match(dom.$("historyStyleResult").textContent,/2局/);
+  dom.$("historyStyleOpen").click();
+  assert.match(opened[0],/^\/style\?t=[AG]LRQ&s=.*&n=2$/);
+  // Tapping a picked row's own button lets it go.
+  com.item.click();
+  assert.match(dom.$("historyStyleResult").textContent,/1局/);
+  dom.$("historyStyleCancel").click();
+  assert.equal(dom.$("historyStyleBar").hidden,true);
+  assert.equal(rows()[0].sides.length,0);
 });

@@ -127,6 +127,7 @@ import {
 } from "./score-graph.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
+import { createHistoryStyle } from "./history-style.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { createHelpSheet } from "./help-sheet.mjs";
@@ -367,7 +368,16 @@ function showEvictionNotice(){
   evictedGames=0;
 }
 let currentGameId=null,currentRevision=null;
+const historyStyle=createHistoryStyle({$,gameLibrary,
+  ownSide:record=>{
+    if(record.mode==="ai")return record.humanColor;
+    const saved=record.mode==="online" ? readCheckpoint(localStorage,record.roomId) : null;
+    return [BLACK,WHITE].includes(saved?.ownerColor) ? playerColor(saved.role,saved.ownerColor) : null;
+  },
+  recall:record=>state=>ownershipStore.recall(record.id,state.board),
+  onChange:()=>renderHistoryList()});
 const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard,getBoardTheme:appearance.boardTheme,
+  decorateRow:historyStyle.decorateRow,
   getThumbnailOverlay:record=>{
     if(!overlayOn())return null;
     const ownership=ownershipStore.recall(record.id,record.snapshot.board);
