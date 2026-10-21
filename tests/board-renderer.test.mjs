@@ -9,6 +9,7 @@ import {
   BREATH_TRAIL_MS,
   breathDelay,
   BURST_MS,
+  CAPTURE_DIM_MS,
   CAPTURE_FADE_MS,
   CAPTURE_STEP_MS,
   PREVIEW_CAPTURED_ALPHA,
@@ -401,7 +402,7 @@ test("盤の線 breathes each group of a side a little apart, holding a shared l
   assert.equal(dotAt(200,250),undefined);
 });
 
-test("with 盤の線 on, a captured group is cut from its last liberty out, each stone fading as the cut reaches it",()=>{
+test("with 盤の線 on, a taken group greys from its last liberty out, each stone dimming as the grey reaches it",()=>{
   const game=newGame();
   // White (1,1)-(2,1) in atari, its last liberty (3,1).
   for(const p of [at(1,0),at(2,0),at(0,1),at(1,2),at(2,2)])game.board[p]=BLACK;
@@ -414,9 +415,10 @@ test("with 盤の線 on, a captured group is cut from its last liberty out, each
     draw();
     shown=play(game,at(3,1));
     const ghost=x=>calls.find(c=>c.kind==="arc"&&c.args[2]===22&&c.args[0]===x&&c.args[1]===100);
-    // What is drawn along the row from the dead stones to the placed one;
-    // 仮置き時 draws no live lines over it once the stone is placed.
-    const cutLine=()=>linkStones!=="candidate"?null:calls.filter(c=>c.kind==="line"&&c.args[1]===100&&c.args[0]>=100&&c.args[0]<200);
+    // Where the line along the row from the dead stones to the placed one
+    // ends, by colour; 仮置き時 draws no live lines over it once the stone is played.
+    const row=style=>calls.filter(c=>c.kind==="line"&&c.args[1]===100&&c.args[0]>=100&&c.args[0]<200&&
+      (style==="grey")===(c.style==="rgb(128,124,118)")).map(c=>c.args[0]);
     const at_=ms=>{time=ms;calls.length=0;draw();};
     at_(0);
     assert.equal(ghost(150)?.alpha,1);
@@ -425,21 +427,23 @@ test("with 盤の線 on, a captured group is cut from its last liberty out, each
       assert.equal(ghost(100)?.alpha,.5,"both at once, as without 盤の線");
       continue;
     }
-    assert.ok(cutLine()?.some(c=>c.args[0]===150)??true,"the line through the group is still there");
-    // The stone next to the filled liberty goes first, the one behind it a step later.
-    at_(CAPTURE_STEP_MS+CAPTURE_FADE_MS/2);
+    // The stone next to the filled liberty dims first, the one behind it a step later.
+    at_(CAPTURE_STEP_MS+CAPTURE_DIM_MS/2);
     assert.equal(ghost(150)?.alpha,.5);
     assert.equal(ghost(100)?.alpha,1,"not reached yet");
-    at_(CAPTURE_STEP_MS*1.5);
-    const left=cutLine()?.map(c=>c.args[0]);
-    assert.ok(!left || left.length && left.every(x=>x<=125+1e-9),"cut back past the first stone");
-    at_(CAPTURE_STEP_MS*2+CAPTURE_FADE_MS);
+    if(linkStones==="candidate"){
+      at_(CAPTURE_STEP_MS*1.5);
+      assert.deepEqual(row("grey").sort(),[125,150],"grey to the first stone and half way on");
+      assert.deepEqual(row("air"),[100],"its colour still beyond");
+    }
+    at_(CAPTURE_STEP_MS*2+CAPTURE_DIM_MS);
     assert.equal(ghost(100),undefined);
-    assert.equal(cutLine()?.length??0,0,"and the line is gone");
+    at_(CAPTURE_STEP_MS*2.5+CAPTURE_DIM_MS);
+    if(linkStones==="candidate")assert.deepEqual(row("grey").concat(row("air")),[],"and the line has dimmed away");
   }
 });
 
-test("with 盤の線 on, the cut runs while the taking move is only placed, and playing it fades the faint stones out",()=>{
+test("with 盤の線 on, the grey runs while the taking move is only placed, and playing it fades the faint stones out",()=>{
   const game=newGame();
   for(const p of [at(1,0),at(2,0),at(0,1),at(1,2),at(2,2)])game.board[p]=BLACK;
   game.board[at(1,1)]=WHITE;game.board[at(2,1)]=WHITE;
@@ -453,17 +457,17 @@ test("with 盤の線 on, the cut runs while the taking move is only placed, and 
   draw();
   candidate={board:played.board,moves:played.moves};
   at_(0);
-  assert.equal(ghost(150)?.alpha,1,"full until the cut reaches it");
-  at_(CAPTURE_STEP_MS+CAPTURE_FADE_MS/2);
-  assert.ok(Math.abs(ghost(150).alpha-(1+PREVIEW_CAPTURED_ALPHA)/2)<1e-9,"fading toward faint");
+  assert.equal(ghost(150)?.alpha,1,"full until the grey reaches it");
+  at_(CAPTURE_STEP_MS+CAPTURE_DIM_MS/2);
+  assert.ok(Math.abs(ghost(150).alpha-(1+PREVIEW_CAPTURED_ALPHA)/2)<1e-9,"dimming toward faint");
   assert.equal(ghost(100)?.alpha,1,"not reached yet");
-  at_(CAPTURE_STEP_MS*2+CAPTURE_FADE_MS);
+  at_(CAPTURE_STEP_MS*2+CAPTURE_DIM_MS);
   for(const x of [100,150])assert.equal(ghost(x)?.alpha,PREVIEW_CAPTURED_ALPHA,"and stays faint while placed");
-  // Played: no second cut, the faint stones fade out together.
+  // Played: no second grey, the faint stones fade out together.
   candidate=null;shown=played;
-  at_(2000);
-  at_(2000+CAPTURE_FADE_MS/2);
+  at_(5000);
+  at_(5000+CAPTURE_FADE_MS/2);
   for(const x of [100,150])assert.ok(Math.abs(ghost(x)?.alpha-PREVIEW_CAPTURED_ALPHA/2)<1e-9);
-  at_(2000+CAPTURE_FADE_MS);
+  at_(5000+CAPTURE_FADE_MS);
   assert.equal(ghost(100),undefined);
 });

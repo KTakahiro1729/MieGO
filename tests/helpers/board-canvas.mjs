@@ -1,7 +1,7 @@
 import {createBoardRenderer} from "../../public/board-renderer.mjs";
 
 // A board renderer over a 2D context that records what it paints: each
-// fillRect, arc, lineTo and drawImage with the alpha at that moment, the text of each
+// fillRect, arc, lineTo (with its stroke style) and drawImage with the alpha at that moment, the text of each
 // fillText, and the last pixels put into the ownership overlay.
 export function recordingBoard(getView,{width=500,...options}={}) {
   const calls=[],labels=[],stack=[];
@@ -11,7 +11,7 @@ export function recordingBoard(getView,{width=500,...options}={}) {
     set globalAlpha(value){alpha=value;},
     save(){stack.push(alpha);},restore(){alpha=stack.pop();},
     clearRect(){},beginPath(){},closePath(){},clip(){},moveTo(){},
-    lineTo(...args){calls.push({kind:"line",args,alpha});},stroke(){},setLineDash(){},fill(){},
+    lineTo(...args){calls.push({kind:"line",args,alpha,style:this.strokeStyle});},stroke(){},setLineDash(){},fill(){},
     fillRect(...args){calls.push({kind:"rect",args,alpha});},
     arc(...args){calls.push({kind:"arc",args,alpha});},
     fillText(text){labels.push(text);},

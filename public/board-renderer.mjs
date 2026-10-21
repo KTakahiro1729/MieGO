@@ -43,14 +43,16 @@ export const BREATH_MS=4000, BREATH_GATHER_MS=900, BREATH_DRAW_MS=900, BREATH_TR
 // ratio keep neighbouring groups well apart, and a group keeps its delay
 // until a stone before its first joins it.
 export const breathDelay=first=>(first*.6180339887%1)*BREATH_STAGGER_MS;
-// 盤の線 on, a group a move takes dies from its last liberty out: the line
-// through it is cut at the stone that fills that liberty and the cut runs
-// one stone further each CAPTURE_STEP_MS (quicker in a long group, so it
-// takes at most CAPTURE_SPREAD_MS), each stone fading as the cut reaches it.
-// It runs while the move is only placed, the stones fading to
+// 盤の線 on, a group a move takes dies from its last liberty out: grey,
+// air no longer, runs from the stone that fills that liberty along the line
+// through the group, one stone further each CAPTURE_STEP_MS (quicker in a
+// long group, so it takes at most CAPTURE_SPREAD_MS), and each stone it
+// reaches dims over CAPTURE_DIM_MS; once all of it is grey the line dims too.
+// It runs while the move is only placed, the stones dimming to
 // PREVIEW_CAPTURED_ALPHA; once played they fade out from there as any
-// capture does. A move played without being placed first is cut as it is played.
-export const CAPTURE_STEP_MS=160, CAPTURE_SPREAD_MS=560, PREVIEW_CAPTURED_ALPHA=.4;
+// capture does. A move played without being placed first dims as it is played.
+export const CAPTURE_STEP_MS=320, CAPTURE_SPREAD_MS=1280, CAPTURE_DIM_MS=480, PREVIEW_CAPTURED_ALPHA=.4;
+const DEAD_AIR="rgb(128,124,118)";
 const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 // ドパガキモード: sparks fly from each taken stone, and a "+N" rises over them, for this long.
 export const BURST_MS=900;
@@ -463,7 +465,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   // A live move that removed stones starts them fading from the alpha they were last shown at.
-  // With 盤の線 on (cut) they fade one after another from the placed stone out, under the cut line.
+  // With 盤の線 on (cut) they dim one after another from the placed stone out, as the grey reaches them.
   // ドパガキモード ("on") also rings out from the placed stone and sends
   // rainbow sparks out of each taken one, more and farther the more were taken.
   function noteCaptures(game,live,burst,cut) {
@@ -477,12 +479,13 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       if(before.board[i] && !game.board[i] && before.alpha[i])taken.push(i);
       if(burst==="on" && !before.board[i] && game.board[i])waves.push({x:i%SIZE,y:Math.floor(i/SIZE),start});
     }
-    // Stones already cut while the move was placed only fade from there.
+    // Stones already dimmed while the move was placed only fade from there.
     const placed=game.moves.at(-1)?.position, whole=taken.filter(i=>before.alpha[i]===1);
     const cutting=cut && whole.length===taken.length && taken.length && Number.isInteger(placed);
     const cutAt=cutting?cutFrom(before.board,placed,taken,start):null;
     for(const i of taken)
-      fading.push({position:i,color:before.board[i],from:before.alpha[i],start,delay:cutAt?cutAt(i):0});
+      fading.push({position:i,color:before.board[i],from:before.alpha[i],start,
+        delay:cutAt?cutAt(i):0,duration:cutAt?CAPTURE_DIM_MS:CAPTURE_FADE_MS});
     if(burst!=="on" || !taken.length)return;
     const each=Math.max(3,Math.min(BURST_SPARKS,Math.floor(BURST_LIMIT/taken.length)));
     const reach=Math.min(4,1.4+taken.length*.2);
@@ -497,17 +500,17 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
   function paintFading(theme,gap,pad) {
     const time=now();
-    fading=fading.filter(f=>time-f.start-f.delay<CAPTURE_FADE_MS);
+    fading=fading.filter(f=>time-f.start-f.delay<f.duration);
     for(const f of fading)
       paintStone(theme,f.color,pad+(f.position%SIZE)*gap,pad+Math.floor(f.position/SIZE)*gap,gap*.44,
-        f.from*Math.min(1,1-(time-f.start-f.delay)/CAPTURE_FADE_MS));
+        f.from*Math.min(1,1-(time-f.start-f.delay)/f.duration));
     if(fading.length && frame===null)frame=requestFrame(()=>{frame=null;draw();});
   }
 
-  // How faint each stone the placed move would take is shown: with the cut
-  // running, full until the cut reaches it and then fading to
+  // How faint each stone the placed move would take is shown: with the grey
+  // running, full until the grey reaches it and then dimming to
   // PREVIEW_CAPTURED_ALPHA; otherwise that at once. A new placement starts
-  // its own cut and drops the last one's.
+  // its own grey and drops the last one's.
   function previewCapture(display,candidate,cut) {
     const placed=candidate?.moves.at(-1)?.position;
     if(previewCut?.board!==candidate?.board){
@@ -521,15 +524,15 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     if(!previewCut?.delay)return ()=>PREVIEW_CAPTURED_ALPHA;
     const time=now()-previewCut.start;
     return i=>{
-      const t=Math.min(1,Math.max(0,(time-previewCut.delay(i))/CAPTURE_FADE_MS));
+      const t=Math.min(1,Math.max(0,(time-previewCut.delay(i))/CAPTURE_DIM_MS));
       if(t<1 && frame===null)frame=requestFrame(()=>{frame=null;draw();});
       return 1-(1-PREVIEW_CAPTURED_ALPHA)*t;
     };
   }
 
-  // The line through the groups a move took, in lines from the stone that
-  // filled their last liberty: from there it is cut one stone at a time, and
-  // each stone starts fading when the cut reaches its middle.
+  // The line through the groups a move takes, in lines from the stone that
+  // fills their last liberty: from there it turns grey one stone at a time,
+  // and each stone starts dimming when the grey reaches its middle.
   function cutFrom(board,placed,taken,start,preview=false) {
     const dead=new Set(taken), depth=new Map([[placed,0]]);
     let front=[placed];
@@ -546,25 +549,27 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         const [a,b]=depth.get(n)<=depth.get(s)?[n,s]:[s,n];
         lines.push({a,b,from:depth.get(a),to:depth.get(b),color:board[s],liberty:n===placed});
       }
-    cuts.push({lines,start,step,end:Math.max(...depth.values())+1,preview});
+    // All of it is grey once the grey is half a line past the deepest stone.
+    cuts.push({lines,start,step,grey:(Math.max(...depth.values())+.5)*step,preview});
     return i=>depth.get(i)*step;
   }
-  // A captured group's line stays solid where the cut has not reached, the
-  // stretch to its last liberty flared like any line to a liberty.
+  // A taken group's line keeps its side's colour where the grey has not
+  // reached, the stretch to its last liberty flared like any line to a liberty.
   function paintCuts(view,gap,pad) {
     const time=now(), palette=countingPalette(view.palette);
-    cuts=cuts.filter(c=>time-c.start<c.end*c.step);
+    cuts=cuts.filter(c=>time-c.start<c.grey+CAPTURE_DIM_MS);
     const width=Math.max(2,gap*.08), flare=gap*.14, edge=1-.44;
     const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
     ctx.save();
     ctx.lineCap="round";
     for(const c of cuts){
       const reached=(time-c.start)/c.step;
+      ctx.globalAlpha=1-Math.max(0,time-c.start-c.grey)/CAPTURE_DIM_MS;
       for(const line of c.lines){
         const [ax,ay]=xy(line.a),[bx,by]=xy(line.b);
         const along=(u,v)=>{if(v>u){ctx.moveTo(ax+(bx-ax)*u,ay+(by-ay)*u);ctx.lineTo(ax+(bx-ax)*v,ay+(by-ay)*v);}};
         ctx.save();
-        ctx.strokeStyle=`rgb(${paletteAt(line.color===BLACK?1:-1,palette).join(",")})`;
+        const air=`rgb(${paletteAt(line.color===BLACK?1:-1,palette).join(",")})`;
         ctx.lineWidth=width;
         if(line.liberty){
           const at=(u,side)=>[ax+(bx-ax)*u+(ay-by)/gap*side,ay+(by-ay)*u+(bx-ax)/gap*side];
@@ -575,13 +580,12 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
           ctx.lineWidth=flare;ctx.lineCap="butt";
         }
         // A point u along the line is min(from+u, to+1-u) lines from the
-        // placed stone; what the cut has passed is gone, and the placed
+        // placed stone; what the grey has reached is grey, and the placed
         // stone itself is never drawn over.
-        const middle=Math.min(1,Math.max(0,(line.to+1-line.from)/2));
-        ctx.beginPath();
-        along(Math.max(line.liberty?.44:0,reached-line.from),middle);
-        along(middle,Math.min(1,line.to+1-reached));
-        ctx.stroke();
+        const middle=Math.min(1,Math.max(0,(line.to+1-line.from)/2)), first=line.liberty?.44:0;
+        const near=Math.max(first,Math.min(middle,reached-line.from)), far=Math.max(middle,Math.min(1,line.to+1-reached));
+        ctx.strokeStyle=DEAD_AIR;ctx.beginPath();along(first,near);along(far,1);ctx.stroke();
+        ctx.strokeStyle=air;ctx.beginPath();along(near,middle);along(middle,far);ctx.stroke();
         ctx.restore();
       }
     }
@@ -650,7 +654,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const live=!boardReview && game.status==="playing";
     if(!live){fading=[];cuts=[];previewCut=null;sparks=[];pops=[];waves=[];}
     shownAlpha=[];
-    // The cut shows with 盤の線 on, whether always or 仮置き時.
+    // The grey shows with 盤の線 on, whether always or 仮置き時.
     const cut=live && !!view.linkStones && view.linkStones!=="off" && !view.hideStones;
     paintStones(theme,view,display,gap,pad,cut);
     noteCaptures(game,live,view.burst,cut);
