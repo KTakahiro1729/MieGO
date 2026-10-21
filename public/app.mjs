@@ -325,6 +325,7 @@ const settleControl = createSettleControl({
   show,
   draw,
   jobCurrent:id=>deadEvaluation?.id===id && scoringJobCurrent(deadEvaluation),
+  knownOwnership:board=>ownershipStore.recall(currentGameId,board),
   onUnavailable() {
     deadEvaluation=null;reviewUnavailable();
   },
@@ -332,7 +333,6 @@ const settleControl = createSettleControl({
     const job=deadEvaluation;
     deadEvaluation=null;
     if(!scoringJobCurrent(job)){show();return;}
-    settleControl.keep({positions:run.positions,board:run.state.board,initialOwnership:run.initialOwnership});
     apply(scoringReviewAction("dead_auto",{positions:run.dead,playout:run.positions}));
     // Stones tapped during the playout are corrections to its result, applied on top of it.
     for(const position of run.taps||[])
@@ -621,7 +621,7 @@ const boardRenderer = createBoardRenderer({
     burst:dopa.level(),
     candidate,
     displayedOwnership,
-    game,
+    game:shownGame(),
     hideStones:hidingStones(),
     humanTurn:isHumanTurn(),
     illegalCandidate,
@@ -630,10 +630,14 @@ const boardRenderer = createBoardRenderer({
     opacity:appearance.opacity(),
     palette:shownPalette(),
     sampleStones:appearance.editingBoard(),
-    settle:settleControl.view(),
   })
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
+/** While KataGo settles the dead stones, the board counts with the ones an estimate already gives. */
+function shownGame() {
+  const playout=settleControl.view();
+  return playout && !game.dead.length ? {...game,dead:playout.dead} : game;
+}
 // 待った: one shared board undoes the latest move; AI and friend games undo
 // the player's own latest move together with any reply after it.
 const takebackOptions = () => room ? {color:myOnlineColor(),scope:"own"} :
@@ -1047,13 +1051,7 @@ function show() {
   $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:
     scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
   const playout=settleControl.view();
-  $("settleSkip").hidden=!playout;
-  // While counting, the action row holds 死石の確認に戻る instead.
-  const counting=scoringStepOf(game)==="count";
-  $("settleReplay").hidden=!!playout || !isScoring || !settleControl.current() || counting;
-  $("scoreInstruction").textContent=playout?
-    (playout.finished?(playout.cut?TEXT.scoring.settleCut(playout.moves):TEXT.scoring.settleDone(playout.moves)):
-      TEXT.scoring.settling(playout.moves)):
+  $("scoreInstruction").textContent=playout?TEXT.scoring.settling(playout.moves):
     isFinished?
     (endedEarly(game.result)?TEXT.scoring.finishedResign:
       gomoku?(game.result==="0"?TEXT.scoring.finishedGomokuDraw:TEXT.scoring.finishedGomoku):
@@ -1157,15 +1155,11 @@ function apply(action, remote=false, isAiMove=false) {
     } else if(action.type==="dead_auto" || action.type==="dead_unavailable") {
       if(!canApplyAutomatedReview(game,deadReviewTouched,action))return;
       if(action.type==="dead_auto")game=setDeadCandidates(game,action.positions);
-      // The friend who ran the playout sends it along, so both boards can replay it.
-      // Its stones on the empty points close the borders for the count.
+      // The friend who ran the playout sends it along: its stones on the empty
+      // points close the borders for the count.
       const frames=action.type==="dead_auto" && Array.isArray(action.playout) ?
         replayPlayout(game,action.playout) : null;
       game=withPlayoutFill(game,frames?.at(-1).board);
-      if(frames) {
-        settleControl.keep({positions:[...action.playout],board:frames.at(-1).board});
-        if(remote)setTimeout(settleControl.replay,0);
-      }
       deadReview=action.type==="dead_unavailable"?"unavailable":
         action.positions.length?"complete":"none";
     }
@@ -1235,7 +1229,8 @@ function apply(action, remote=false, isAiMove=false) {
     const good=action.type==="move" && !remote && !isAiMove && !isFree(before) &&
       positionPolicy?.number===before.moveNumber && positionPolicy.hash===boardHash(before.board) &&
       goodMove(positionPolicy.policy,before.board,action.position);
-    if(cue)sound.play(cue,cheer?.kind==="capture"?{count:cheer.count}:undefined);
+    // ドパガキモード's voices grow with the capture, and cheer only a win.
+    if(cue)sound.play(cue,cheer??undefined);
     if(good)sound.play("good");
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
@@ -1679,6 +1674,24 @@ function resumeModeGame(mode) {
   game=savedGame(mode);resetPositionState();
   save();closePanels();show();requestAnalysis();
 }
+// The room whose 友人対局に戻る was closed is not offered again.
+const RESUME_DISMISSED_KEY="miego-friend-resume-dismissed";
+// The server forgets a room a week after it was made.
+const ROOM_LIFETIME_MS=7*24*60*60*1000;
+/** The newest friend game on this device, when it is unfinished and this browser still holds its seat. */
+function resumableRoom(){
+  let record=null,dismissed=null;
+  try{record=gameLibrary.list().find(r=>r.mode==="online");dismissed=localStorage.getItem(RESUME_DISMISSED_KEY);}catch{}
+  if(!record || record.roomId===room || record.roomId===dismissed)return null;
+  if(!(Date.now()-Date.parse(record.updatedAt)<ROOM_LIFETIME_MS))return null;
+  const stored=readCheckpoint(localStorage,record.roomId);
+  return stored?.session && stored.game.status!=="finished"?record.roomId:null;
+}
+/** Reopens a friend room the way its address does: the saved seat rejoins and reconnects. */
+function openFriendRoom(target){
+  save();
+  location.assign(roomUrl(location.origin,target));
+}
 /**
  * The 新規対戦 sheet's way back, shown in every mode at the same place: the
  * unfinished saved game of the chosen offline mode when another mode is on the
@@ -1687,7 +1700,10 @@ function resumeModeGame(mode) {
 function returnTarget(kind) {
   // A finished game has nothing to continue, so the button names the board instead.
   const current={mode:null,label:!boardReview && game.status==="finished"?TEXT.history.returnBoard:TEXT.history.returnCurrent};
-  // Friend rooms reopen from the saved games.
+  if(kind==="online" && !room){
+    const target=resumableRoom();
+    if(target)return {mode:null,room:target,label:TEXT.online.resumeOpen};
+  }
   if(kind==="history" || kind==="online" || kind===(room?"online":gameMode))return current;
   let record=null;
   try{record=gameLibrary.active(kind);}catch{}
@@ -1700,6 +1716,7 @@ function syncReturnButton(kind) {
 }
 $("returnToGame").onclick=()=>{
   const target=returnTarget(newGameModeKind());
+  if(target.room){openFriendRoom(target.room);return;}
   if(target.mode){resumeModeGame(target.mode);return;}
   if(boardReview){clearBoardReview();show();requestAnalysis();}
   closePanels();$("newGameButton").focus();
@@ -2473,8 +2490,6 @@ $("closeMode").onclick=()=>{closePanels();$("newGameButton").focus();};
 // The help sheet stacks above any open sheet; a local ? shows one topic of it.
 const {closeHelpPopover}=createHelpSheet({$,getGame:()=>game,setBackgroundInert,closePanels});
 $("newGameButton").onclick=()=>openPanel(room?"online":gameMode);
-$("settleSkip").onclick=()=>settleControl.skip();
-$("settleReplay").onclick=settleControl.replay;
 $("startAi").onclick=()=>{
   if(continueFrom){forkBoardReview("ai");return;}
   // The button is disabled meanwhile, except for 五目並べ, which needs no KataGo.
@@ -2729,4 +2744,12 @@ if(!room && params.has("sgf")){
   }
 }
 compactOwnership();
+// An unfinished friend game is offered when the page opens on something else.
+const resumeRoom=room?null:resumableRoom();
+$("friendResume").hidden=!resumeRoom;
+$("friendResumeOpen").onclick=()=>openFriendRoom(resumeRoom);
+$("friendResumeClose").onclick=()=>{
+  try{localStorage.setItem(RESUME_DISMISSED_KEY,resumeRoom);}catch{}
+  $("friendResume").hidden=true;
+};
 show();requestAnalysis();

@@ -91,7 +91,6 @@ export function createDopaMode({ $, stage, frame, graph, score, reducedMotion = 
     store(DOPA_KEY, level);
   }
   toggle.onchange = e => setLevel(e.target.checked ? "on" : "off");
-  $("resetAppearance").addEventListener?.("click", () => setLevel("off"));
 
   function shake(name) {
     frame.classList.remove("dopa-shake", "dopa-quake");

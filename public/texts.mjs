@@ -162,10 +162,6 @@ export const TEXT = {
     reviewUnavailable: "死石をタップで指定してください。自動判定なし",
     reviewChecking: "死石を確認しています…",
     settling: moves => "石をタップで修正。ダメを詰め中（" + moves + "手）",
-    settleCut: moves => "上限の" + moves + "手で停止。死石の候補を示します",
-    settleDone: moves => moves ? moves + "手でダメ詰め。死石の候補を示します" : "詰めるダメがなく、そのまま判定します",
-    settleSkip: "スキップ",
-    settleReplay: "決着手順を再生",
     // Each row: { area, detail, total } from scoreRows.
     breakdown: (black, white) => "黒：" + (black.detail ? black.detail + "＝" : "") + black.total +
       "\n白：" + (white.detail ? white.detail + "＝" : "") + white.total,
@@ -422,6 +418,9 @@ export const TEXT = {
     mismatch: "ページを開き直してください。相手と盤面が食い違い、対局を止めています。",
     peerOutOfSync: "そのままお待ちください。相手の操作を反映できず、盤面を合わせ直しています。",
     connected: "相手とつながっています",
+    // Opening miego.fun/ again while a friend game is unfinished on this device.
+    resumeNotice: "終わっていない友人対局があります。",
+    resumeOpen: "友人対局に戻る",
     // もう一局 in a friend game starts once both players press it.
     rematchOffered: "「もう一局」を押すと始まります。相手がもう一局を申し込みました。",
     rematchWaiting: "相手を待っています",
@@ -810,7 +809,7 @@ export const TEXT = {
     online: {
       summary: "対友人",
       items: [
-        "<strong>ページを閉じてしまった</strong>：同じブラウザなら、開き直すだけで続きから打てます。別の端末では「別の端末で続ける」のリンクを使います。",
+        "<strong>ページを閉じてしまった</strong>：同じブラウザなら、開き直して「友人対局に戻る」を押すと続きから打てます。別の端末では「別の端末で続ける」のリンクを使います。",
       ],
     },
     history: {
