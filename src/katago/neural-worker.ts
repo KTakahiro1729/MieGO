@@ -135,8 +135,24 @@ async function runNetwork(state: unknown) {
     if (output) for (const t of Object.values(output)) t.dispose();
   }
 }
+/**
+ * The ownership shown on the board, read with each side to move and averaged.
+ * The small network reads the same board less surely when the side ahead is
+ * to move: on a won 19x19 board the empty points averaged 0.71 that way and
+ * 0.98 the other, whichever colour was ahead. One reading per position made
+ * the colours swing with every move; the average does not depend on whose
+ * turn it is. 最強's network plays only, so it is read once.
+ */
+async function shownOwnership(state: unknown, ownership: number[]) {
+  if (strong) return ownership;
+  const turned = { ...(state as { next: number }), next: -(state as { next: number }).next };
+  const other = (await runNetwork(turned)).ownership;
+  return ownership.map((v, i) => (v + other[i]) / 2);
+}
 async function evaluate(state: unknown) {
-  const { area, policy, ownership, evaled } = await runNetwork(state);
+  const reading = await runNetwork(state);
+  const { area, policy, evaled } = reading;
+  const ownership = await shownOwnership(state, reading.ownership);
   if (ownership.length !== area || ownership.some(v => !Number.isFinite(v))
     || !Number.isFinite(evaled.blackScoreLead) || !Number.isFinite(evaled.blackWinProb)) {
     throw new Error("Invalid KataGo neural network output");
@@ -152,8 +168,11 @@ async function evaluate(state: unknown) {
   };
 }
 /** Policy for the next move; the settle playout (決着手順) asks the same way. */
-async function evaluateMovePolicy(state: unknown, settle = false) {
-  const { area, policy, pass, ownership, evaled } = await runNetwork(state);
+async function evaluateMovePolicy(state: unknown, settle = false, shown = false) {
+  const reading = await runNetwork(state);
+  const { area, policy, pass, evaled } = reading;
+  // A COM's move also colours the board; the settle playout and 最強's read do not.
+  const ownership = shown ? await shownOwnership(state, reading.ownership) : reading.ownership;
   if (!policy || !pass.length)
     throw new Error("KataGo returned an unexpected policy shape");
   if (!policy.every(Number.isFinite) || !Number.isFinite(pass[0]))
@@ -232,7 +251,7 @@ async function drain() {
         await prepare();
         if (newest) continue; // superseded while the model was initializing
         const result: Record<string, unknown> = next.kind === "move" || next.kind === "settle"
-          ? await evaluateMovePolicy(next.state, next.kind === "settle") : await evaluate(next.state);
+          ? await evaluateMovePolicy(next.state, next.kind === "settle", next.kind === "move") : await evaluate(next.state);
         // 最強 reads only when the side to move is behind, deeper the further behind.
         const state = next.state as ReadState;
         if (strong && next.kind === "move" && next.read) {
