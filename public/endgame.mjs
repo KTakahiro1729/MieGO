@@ -45,7 +45,7 @@ export class EndgameAdvisor {
     this.held = false;
     this.fresh = 0;
   }
-  /** 打ち続ける: the player sees something left to play. The strongest advice
+  /** 対局を続ける: the player sees something left to play. The strongest advice
    * comes back once it has been played and the board reads settled again,
    * a full window of new readings after this call. */
   hold() {

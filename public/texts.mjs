@@ -31,7 +31,7 @@ export const TEXT = {
     scoring: "採点中",
     accept: "受け入れる",
     withdraw: "取り下げる",
-    keepPlaying: "打ち続ける",
+    keepPlaying: "対局を続ける",
     playHere: "ここに打つ",
     takeback: "待った",
     resign: "投了",
@@ -108,8 +108,8 @@ export const TEXT = {
     askLocal: "採点を始めますか？",
     propose: "終局を提案",
     startScoring: "採点を始める",
-    goScoring: "採点へ進む",
-    detailIncoming: "受け入れると採点に進みます。打ち続けることもできます。",
+    goScoring: "採点を始める",
+    detailIncoming: "受け入れると採点に進みます。対局を続けることもできます。",
     // 対COM: 採点を始める is the player's pass, and the COM's pass starts the count.
     passToEnd: "パスする",
     detailLocalAi: "あなたがパスし、COMもパスしたら採点に入ります。COMが打てば対局は続きます。",
@@ -119,7 +119,7 @@ export const TEXT = {
     // While watching (or without KataGo), the count is the viewer's decision alone.
     detailWatchScoring: "あなたの判断で採点へ進みます。COMが終局を承認するわけではありません。",
     detailLocal: "採点に進み、死石を確認します。対局の再開もできます。",
-    detailUnsettled: "まだ決まっていない所は、どちらの地にもなりません。打ち続けることもできます。",
+    detailUnsettled: "まだ決まっていない所は、どちらの地にもなりません。対局を続けることもできます。",
     detailWaiting: "相手の返答待ちです。提案は取り下げられます。",
     detailOnline: "終局はいつでも提案できます。パスとは別の操作です。",
     detailOffline: "採点はいつでも始められます。パスとは別の操作です。",
@@ -132,7 +132,7 @@ export const TEXT = {
     // While watching, nobody is asked to pass: the line only says what happened.
     passedWatch: c => color(c) + "がパス。次もパスなら採点へ",
     wantsResign: c => color(c) + "が投了したがっています",
-    // The COM's pass opens the same question as 採点を始める; 採点へ進む is the player's pass.
+    // The COM's pass opens the same question as the bar's 採点を始める; answering 採点を始める is the player's pass.
     askAiPassed: "COMがパスしました\n採点を始めますか？",
     // 同一局面反復 (日本囲碁規約 第十二条): both sides may end the game as no result.
     repeated: "同じ局面がくり返されています",
@@ -140,11 +140,11 @@ export const TEXT = {
     proposeVoid: "無勝負を提案",
     askVoid: "無勝負にしますか？",
     voidProposed: "無勝負が提案されました",
-    detailRepeated: "三劫などで同じ局面がくり返されたら、双方の同意で無勝負にできます。打ち続けることもできます。",
-    detailVoidIncoming: "受け入れると無勝負で終わります。打ち続けることもできます。",
+    detailRepeated: "三劫などで同じ局面がくり返されたら、双方の同意で無勝負にできます。対局を続けることもできます。",
+    detailVoidIncoming: "受け入れると無勝負で終わります。対局を続けることもできます。",
     detailVoidAi: "COMは無勝負に同意します。勝ち負けは付きません。",
     detailVoidLocal: "2人とも同意したら押してください。勝ち負けは付きません。",
-    detailAiPassed: "採点へ進むと、あなたもパスして死石の確認に入ります。打ち続けることもできます。",
+    detailAiPassed: "採点を始めると、あなたもパスして死石の確認に入ります。対局を続けることもできます。",
     declinedByPeer: "相手が終局を見送りました",
     withdrawnByPeer: "相手が提案を取り下げました",
     cancelledByMove: "相手の着手で提案は消えました",

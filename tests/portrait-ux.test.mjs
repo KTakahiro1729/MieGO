@@ -23,7 +23,7 @@ test("endgame choices share exactly one fixed-height horizontal strip",()=>{
   // Which label shows is endgameBarView's (tests/endgame-bar.test.mjs).
   assert.deepEqual([TEXT.endgame.startScoring,TEXT.endgame.propose],["採点を始める","終局を提案"]);
   assert.doesNotMatch(app,/"終局しますか？"/);
-  assert.deepEqual([TEXT.endgame.goScoring,TEXT.common.accept],["採点へ進む","受け入れる"]);
+  assert.deepEqual([TEXT.endgame.goScoring,TEXT.common.accept],["採点を始める","受け入れる"]);
 });
 test("final score is above sticky actions and visible in a compact score area",()=>{
   assert.ok(html.indexOf('id="scoreBox"')<html.indexOf('id="actionRow"'));
