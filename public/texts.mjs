@@ -627,12 +627,14 @@ export const TEXT = {
     historyEmpty: "まとめられる対局が履歴にまだありません。囲碁で10手以上打つと、ここで選べるようになります。",
     historyResult: (type, name, games) => type + " " + name + "（" + games + "局のまとめ）",
     historyCancel: "やめる",
-    // あなたらしかった手 (styleMoves) under each type in the share sheet: each opens
-    // the replay at that move. Reasons are per axis, by which way the move leaned.
+    // あなたらしかった手 (styleMoves) on the /style page, from its link's fragment:
+    // a board for each, opening the replay at it, and a question for an AI chat.
+    // Reasons are per axis, by which way the move leaned.
     moves: {
       title: com => com ? "この打ち手らしかった手" : "あなたらしかった手",
+      ranks: ["1番らしい手", "2番目"],
       move: step => step + "手目",
-      open: "棋譜で見る",
+      view: step => step + "手目を棋譜で見る",
       reasons: [
         r => r.high ? (r.attack && r.invasion ? "相手の勢力圏に入って攻める手" : r.attack ? "相手の石を攻める手" : "相手の勢力圏に入る手") :
           "自分の弱い石を補う手",
@@ -641,10 +643,10 @@ export const TEXT = {
           r.far <= 1 ? "相手の石に接する手" : "相手の石から" + r.far + "路の近い手",
       ],
       join: "・",
-      ask: com => com ? "なぜこの打ち手らしい？" : "なぜ私らしい？",
-      askNote: "2手の棋譜URLをコピーして、チャットAIに聞く",
-      copied: "コピーしました。チャットAIに貼り付けてください。",
-      criterion: "その型の向きにいちばん寄った手を、目立つ軸ほど重く数えて選びました。アタリを逃げる・取り返すだけの手は除き、2手は離れた場面から選びます。",
+      ask: "理由を聞く",
+      askAria: step => step + "手目がなぜらしいか、チャットAIへの質問をコピー",
+      copied: "質問をコピーしました。チャットAIに貼り付けてください。",
+      criterion: "型の向きにいちばん寄った手を、目立つ軸ほど重く数えて選びました。アタリを逃げる・取り返すだけの手は除き、2手は離れた場面から選びます。盤を押すと棋譜が開きます。",
     },
     // Each type's text speaks of one game; read together, it speaks of the games picked.
     pooledText: text => text.replace(/^この一局では、/, "選んだ対局では、"),
@@ -874,15 +876,15 @@ export const TEXT = {
     ],
     handoffGuide: href => "詳細仕様: " + href,
     // あなたらしかった手 (makeStyleMovesPrompt).
-    styleIntro: (side, type, name, com) => "囲碁アプリMieGOの棋風診断で、" + (com ? "COM（" + side + "）" : "私（" + side + "）") +
+    styleIntro: (side, type, name, com) => "囲碁アプリMieGOの棋風診断で、" + (com ? "COM" : "私") + (side ? "（" + side + "）" : "") +
       "の打ち方は「" + type + " " + name + "」と出ました。",
     styleTypeText: text => "タイプの説明：" + text,
     styleAxesHeading: "診断の4つの軸（左が1文字目、右が2文字目）：",
     styleAxis: axis => "・" + axis.high + " " + axis.highName + " / " + axis.low + " " + axis.lowName + "：" + axis.about,
     styleMovesHeading: com => "診断が「" + (com ? "この打ち手らしかった手" : "あなたらしかった手") + "」として選んだ手です。",
-    styleMove: (n, step, reasons) => n + ". " + step + "手目（" + reasons + "）",
+    styleMove: (rank, step, reasons) => rank + "：" + step + "手目（" + reasons + "）",
     styleBoard: "打つ直前の盤面（◇=その手を打った場所。●=黒、○=白、・=空点。上の行から下の行へ）：",
-    styleAsk: com => "それぞれの手が、なぜこの棋風" + (com ? "らしい" : "の私らしい") +
+    styleAsk: (com, many) => (many ? "それぞれの手" : "この手") + "が、なぜこの棋風" + (com ? "らしい" : "の私らしい") +
       "のかを、盤面と4つの軸に沿って説明してください。あわせて、同じ場面でほかに考えられた手を1つ挙げ、比べてください。",
     styleUrlNote: "棋譜URLの sgf はURLエンコードされた標準SGF、move はその手を打った直後の手数です。URLを開けない場合は sgf をデコードして読んでください。",
     copiedForAi: "コピーしました。チャットAIに貼り付けてください。",

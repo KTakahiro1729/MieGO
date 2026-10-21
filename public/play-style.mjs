@@ -312,7 +312,7 @@ const LEAN_KEYS = ["stance","height","tenuki"];
 
 /**
  * Up to STYLE_MOVES of `color`'s moves that are most like `style` (from
- * playStyle, read with the same options), in order of play: each
+ * playStyle, read with the same options), the most like it first: each
  * {step, reasons}, step being the move's number (the replay step showing it)
  * and reasons [{axis, high, ...what the move did}] strongest first.
  */
@@ -334,7 +334,7 @@ export function styleMoves(snapshot, color, style, options) {
     for(const axis of [0,1,2]){
       const high=best(leans.map(lean=>[lean,toward(lean,axis,true)]));
       const low=high && best(leans.filter(lean=>apart(lean,high)).map(lean=>[lean,toward(lean,axis,false)]));
-      if(low)return [pick(high,[reason(high,axis,true)]),pick(low,[reason(low,axis,false)])].sort((a,b)=>a.step-b.step);
+      if(low)return [pick(high,[reason(high,axis,true)]),pick(low,[reason(low,axis,false)])];
     }
     return [];
   }
@@ -351,7 +351,41 @@ export function styleMoves(snapshot, color, style, options) {
   const main=reasonsOf(first)[0].axis;
   const second=best(leans.filter(lean=>apart(lean,first))
     .map(lean=>[lean,sum(parts(lean).map((part,axis)=>axis===main ? part/2 : part))]));
-  return [first,second].filter(Boolean).sort((a,b)=>a.i-b.i).map(lean=>pick(lean,reasonsOf(lean)));
+  return [first,second].filter(Boolean).map(lean=>pick(lean,reasonsOf(lean)));
+}
+
+// The /style page shows them from the link's fragment, which never reaches the
+// server: k= each pick as its step and reasons, the strongest first, and sgf= the game.
+// A reason is its side's letter with what the move did: A with a (attacked),
+// i (invaded) or b (both), G (reinforced), H or L with the line, F or R with
+// the lines to the nearest opponent stone.
+const reasonToken = r => r.axis===0 ? (r.high ? "A"+(r.attack && r.invasion ? "b" : r.attack ? "a" : "i") : "G") :
+  (r.axis===1 ? (r.high ? "H" : "L")+r.line : (r.high ? "F" : "R")+r.far);
+const REASON_RE = /^(?:A[abi]|G|[HL]\d{1,2}|[FR][1-4])$/;
+function readReason(token) {
+  const axis="AGHLFR".indexOf(token[0])>>1, high="AHF".includes(token[0]), value=Number(token.slice(1));
+  return {axis,high,attack:"ab".includes(token[1] ?? "-"),invasion:"ib".includes(token[1] ?? "-"),
+    reinforcement:token==="G",line:axis===1 ? value : null,far:axis===2 ? value : null};
+}
+
+/** The fragment carrying `picks` (from styleMoves) and their game's SGF to the /style page; "" for none. */
+export function styleMovesHash(picks, sgf, com=false) {
+  if(!picks?.length || !sgf)return "";
+  return "#k="+picks.map(pick=>pick.step+"_"+pick.reasons.map(reasonToken).join(".")).join(",")+
+    (com ? "&com=1" : "")+"&sgf="+encodeURIComponent(sgf);
+}
+
+/** The picks, SGF and whether a COM played them from a /style fragment, or null. */
+export function readStyleMovesHash(hash) {
+  const query=new URLSearchParams((hash ?? "").replace(/^#/,""));
+  const sgf=query.get("sgf"), given=query.get("k");
+  if(!sgf || !given)return null;
+  const picks=given.split(",").slice(0,STYLE_MOVES).map(part=>{
+    const [step,reasons=""]=part.split("_"), tokens=reasons.split(".");
+    return /^[1-9]\d{0,3}$/.test(step) && tokens.every(token=>REASON_RE.test(token)) ?
+      {step:Number(step),reasons:tokens.map(readReason)} : null;
+  });
+  return picks.every(Boolean) ? {picks,sgf,com:query.get("com")==="1"} : null;
 }
 
 /** What /api/stat counts for one shown 棋風診断: no player, game or device is named. */
