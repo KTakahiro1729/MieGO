@@ -81,6 +81,7 @@ import {
   createSoundEffects,
   DOPA_VOICES,
   moveSound,
+  proposalArrived,
 } from "./sound.mjs";
 import {
   createDopaMode,
@@ -203,6 +204,8 @@ let linkKey=inviteKey;
 let ownerColor=null,onlineSession=null,guestInviteKey=null,issuedSide=null,onlineRevision=0;
 // The other seat's count of sign-ins on another device that this player has seen.
 let seenPeerSignins=null;
+// The room whose friend this page has already rung in.
+let peerMetRoom=null;
 let p2pTransport;
 const myOnlineColor=()=>ownerColor===null?null:playerColor(p2pRole,ownerColor);
 const currentSideSelection=()=>document.querySelector('input[name="onlineSide"]:checked')?.value||"random";
@@ -1228,6 +1231,8 @@ function apply(action, remote=false, isAiMove=false) {
     // ドパガキモード's voices grow with the capture, and cheer only a win.
     if(cue)sound.play(cue,cheer??undefined);
     if(good)sound.play("good");
+    // A question for this player: the friend's もう一局, end or 待った, or the COM's pass.
+    if(remote && proposalArrived(before,game) || isAiMove && endExpanded)sound.play("offer");
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
        (action.type==="rematch" && game.status==="playing") ||
@@ -1759,6 +1764,9 @@ p2pTransport=createP2PTransport({
   onSync:onPeerSync,
   onAction:action=>apply(action,true),
   onConnected:()=>{
+    // The friend who opened the invite arrives: once per room, before the first move.
+    if(p2pRole==="owner" && peerMetRoom!==room && game.moveNumber===0)sound.play("offer");
+    peerMetRoom=room;
     connected=true;reconnecting=false;$("netStatus").textContent=TEXT.online.connected;
     // A failed retry left 電波やWi-Fiを確認して…, which no longer applies once the peers meet again.
     if($("saveStatus").textContent===TEXT.online.retrying)$("saveStatus").hidden=true;
