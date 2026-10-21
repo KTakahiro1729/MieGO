@@ -71,3 +71,23 @@ test("every row under the board has a fixed height, so the board never changes s
   assert.match(css,/\.action-row,\.review-panel\{box-sizing:border-box;\s*height:calc\(var\(--action-h\) \+ var\(--action-pad-top\) \+ max\(6px,env\(safe-area-inset-bottom\)\)\)\}/);
   assert.match(css,/\.endgame-bar\{height:48px/);
 });
+
+test("a fused group's end members round their own corners, counting only visible members",()=>{
+  // Safari may drop the group's clip while a member's pressed filter changes.
+  assert.match(css,/\.fused>:nth-child\(1 of :not\(\[hidden\]\)\),\.fused>label:nth-child\(1 of :not\(\[hidden\]\)\)>span\{border-top-left-radius/);
+  assert.match(css,/\.fused>:nth-last-child\(1 of :not\(\[hidden\]\)\),\.fused>label:nth-last-child\(1 of :not\(\[hidden\]\)\)>span\{border-top-right-radius/);
+  assert.doesNotMatch(css,/\.fused>label:(first|last|only)-child/);
+});
+
+test("a disabled gold member of a fused group rests as an empty slot, not a greyed gold tile",()=>{
+  // Comes after .fused>.primary's gold fill so it wins, and drops .primary:disabled's own dashed edge.
+  const at=css.indexOf(".fused>.primary:disabled{background:var(--slate-17);border:0}");
+  assert.ok(at>css.indexOf(".fused>.primary{background:"));
+});
+
+test("a fused group does not clip its members, so its corners keep the edge's width",()=>{
+  // A clip over the members' own rounded corners antialiases them twice.
+  assert.doesNotMatch(css.match(/\.fused\{display:flex;[^}]*\}/)[0],/overflow/);
+  // Unclipped, a gold member's glow would spread over its neighbours.
+  assert.match(css,/\.fused>\.primary\{[^}]*box-shadow:none/);
+});
