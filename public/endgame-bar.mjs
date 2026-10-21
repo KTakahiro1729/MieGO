@@ -60,8 +60,8 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
     endgameHint(game,advisor,{unavailable:fallbackMode});
   const passed=playing && !offer && !localPrompt && !offline ?
     passNotice({game,room,gameMode,watching,color}) : null;
-  // Scoring an unsettled board leaves the rest to the playout's first-instinct moves,
-  // which can swing the result: the same question then keeps the advice above it.
+  // Scoring an unsettled board counts its open areas for nobody (the playout only fills
+  // dame): the same question then keeps the advice above it.
   const unsettled=localPrompt && hint===TEXT.endgame.playing;
   const aiPassed=localPrompt && aiPassAsks;
   let status=!playing?"":offline?TEXT.endgame.offline:

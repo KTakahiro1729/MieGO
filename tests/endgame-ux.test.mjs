@@ -45,9 +45,9 @@ test("a playout runs to two passes, with no stop to carry it on",()=>{
   assert.equal(TEXT.scoring.settleExtend,undefined);
   assert.match(settle,/limit:settleMax\(sizeOf\(game\.board\)\)/);
 });
-test("starting scoring before the board has settled says the result can still swing",()=>{
+test("starting scoring before the board has settled says open areas count for nobody",()=>{
   // Worked out by endgameBarView (tests/endgame-bar.test.mjs).
-  assert.match(TEXT.endgame.detailUnsettled,/結果が大きく動く/);
+  assert.match(TEXT.endgame.detailUnsettled,/どちらの地にもなりません/);
 });
 test("the COM's pass opens the same question as 採点を始める, and 採点へ進む is the player's pass",()=>{
   assert.match(TEXT.endgame.askAiPassed,/採点を始めますか？$/);

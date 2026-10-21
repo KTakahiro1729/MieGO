@@ -49,7 +49,7 @@ export function createSettleControl({getGame, isReviewing, post, show, draw, job
     settle.ownership=result.ownership;
     settle.initialOwnership??=result.ownership;
     if(settle.state.status!=="playing" || settle.positions.length>=settle.limit)return finish();
-    const position=pickSettleMove(settle.state,result.policy,result.passLogit,result.ownership);
+    const position=pickSettleMove(settle.state,result.policy,settle.initialOwnership);
     const step=settle.skip || reducedMotion()?0:stepMs();
     const wait=Math.max(0,settle.shownAt+step-performance.now());
     settle.timer=setTimeout(()=>{
