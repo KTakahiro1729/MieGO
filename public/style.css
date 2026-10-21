@@ -429,19 +429,22 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 /* At 320px both names fit on one line only one size down. */
 @media (max-width:340px){.new-game-actions>button,.new-game-actions .primary.full{font-size:var(--font-small)}}
 /* この対局の打ち手: a row per colour, no cards or rules between them; only the controls have edges. */
-.seat-row{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:center;gap:8px;margin-top:14px}
+.seat-row{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:center;gap:var(--space-md);margin-top:var(--space-lg)}
 .seat-color{display:flex;align-items:center;gap:7px;font-weight:var(--weight-medium)}
 .seat-choices span{padding:11px 8px}
-.seat-com{margin:8px 0 0 56px}
+.seat-com{margin-top:var(--space-md)}
 .seat-com[hidden]{display:none}
-.seat-note,.seat-summary{margin:6px 0 0;font-size:var(--font-small);line-height:1.6;color:var(--muted)}
-.seat-summary{margin-top:18px}
-.seat-actions{display:flex;gap:8px;margin-top:14px}
-/* カスタム's strength and style under its character, and 観戦's speed: label and choices on one row, as in 新規対戦's COM cards. */
-.seat-custom,.seat-speed{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;margin-top:10px}
+.seat-note,.seat-summary{margin:var(--space-sm) 0 0;font-size:var(--font-small);line-height:1.6;color:var(--muted)}
+/* What この打ち手で続ける does stays in sight above the buttons while カスタム's rows scroll, as 新規対戦's start row does. */
+.seat-panel .seat-actions{--pad:var(--sheet-pad-bottom,22px);position:sticky;bottom:calc(-1 * var(--pad));z-index:1;
+  display:flex;flex-wrap:wrap;gap:var(--space-md);margin:var(--space-lg) 0 calc(-1 * var(--pad));padding:var(--space-lg) 0 var(--pad);background:var(--slate-23);box-shadow:0 -10px 12px -4px var(--slate-23)}
+.seat-actions>.seat-summary{flex-basis:100%;margin:0}
+/* カスタム's strength and style under its character, and 観戦's speed, in 新規対戦's COM card grid. The sheet is
+   never much wider than 390px, so カスタム's labels always go above their choices, as on a phone, and 勢力を作る fits. */
+.seat-custom,.seat-speed{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-md) var(--space-lg);align-items:center;margin-top:var(--space-md)}
+.seat-custom>.com-label,.seat-custom>.com-choices{grid-column:1/-1}
 .seat-custom[hidden],.seat-speed[hidden]{display:none}
-.seat-speed{margin-top:16px}
-@media(max-width:400px){.seat-custom>.com-label,.seat-custom>.com-choices{grid-column:1/-1}}
+.seat-speed{margin-top:var(--space-lg)}
 /* A confirmation note under 今の対局を続ける takes the whole row under both buttons. */
 .new-game-actions>.armed-note{flex-basis:100%;order:1}
 /* When the COM failed to load, the note under the disabled start button names what still works;
