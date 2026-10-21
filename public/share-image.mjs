@@ -74,8 +74,8 @@ function paintStone(ctx,theme,color,x,y,r) {
   ctx.strokeStyle=look.rim;ctx.lineWidth=1.2;ctx.stroke();
 }
 
-// What the colours mean: a titled bar from White's area (left, with a white
-// stone) to Black's (right, with a black stone), over the board colour.
+// What the colours mean: a titled bar from Black's area (left, with a black
+// stone) to White's (right, with a white stone), over the board colour.
 function paintLegend(ctx,u,center,y,{palette,opacity,theme},muted) {
   const look=boardTheme(theme),w=220*u,h=8*u,x=center-w/2,steps=48;
   ctx.font="500 "+Math.round(14*u)+"px "+GOTHIC;ctx.fillStyle=muted;
@@ -84,16 +84,16 @@ function paintLegend(ctx,u,center,y,{palette,opacity,theme},muted) {
   ctx.beginPath();ctx.roundRect?.(x,y-h/2,w,h,h/2);ctx.clip();
   ctx.fillStyle="rgb("+look.surface.join(",")+")";ctx.fillRect(x,y-h/2,w,h);
   for(let i=0;i<steps;i++) {
-    const [r,g,b,a]=ownershipPixel(i/(steps-1)*2-1,palette,opacity);
+    const [r,g,b,a]=ownershipPixel(1-i/(steps-1)*2,palette,opacity);
     ctx.fillStyle="rgba("+r+","+g+","+b+","+(a/255).toFixed(3)+")";
     ctx.fillRect(x+w*i/steps,y-h/2,w/steps+1,h);
   }
   ctx.restore();
   ctx.textBaseline="middle";
-  paintStone(ctx,look,"W",x-18*u,y,8*u);
-  ctx.fillStyle=muted;ctx.textAlign="right";ctx.fillText(TEXT.common.whiteArea,x-34*u,y);
-  paintStone(ctx,look,"B",x+w+18*u,y,8*u);
-  ctx.fillStyle=muted;ctx.textAlign="left";ctx.fillText(TEXT.common.blackArea,x+w+34*u,y);
+  paintStone(ctx,look,"B",x-18*u,y,8*u);
+  ctx.fillStyle=muted;ctx.textAlign="right";ctx.fillText(TEXT.common.blackArea,x-34*u,y);
+  paintStone(ctx,look,"W",x+w+18*u,y,8*u);
+  ctx.fillStyle=muted;ctx.textAlign="left";ctx.fillText(TEXT.common.whiteArea,x+w+34*u,y);
   ctx.textBaseline="alphabetic";
 }
 

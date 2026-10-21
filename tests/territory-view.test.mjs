@@ -50,6 +50,8 @@ test("neutral is completely transparent and inputs are clamped",()=>{
     assert.match(gradient,/^linear-gradient\(90deg,rgba\(/);
     assert.match(gradient,/,0\) 50%,/,"neutral centre is transparent");
   }
+  // Black's end on the left, as everywhere both sides are shown.
+  assert.match(paletteGradient("mono",1),/^linear-gradient\(90deg,rgba\(22,26,34,1\) 0%,.*rgba\(246,249,255,1\) 100%\)$/);
   for(const opacity of [0,.3,1,2,-1,NaN])assert.equal(ownershipPixel(0,"mono",opacity)[3],0);
   assert.equal(ownershipAlpha(3,2),1);
   assert.equal(ownershipAlpha(NaN,1),0);
@@ -89,16 +91,16 @@ test("colour-map choices: presets, custom and hiding the overlay; old choices mi
   assert.match(html,/name="opacityShape" value="V"/);
   assert.match(html,/name="opacityShape" value="U"/);
 });
-test("counting legend shows White's area, a neutral ring and Black's area in the chosen map",()=>{
+test("counting legend shows Black's area, a neutral ring and White's area in the chosen map",()=>{
   assert.equal(countingPalette("none"),"mono");
   assert.equal(countingPalette("custom"),"custom");
   assert.equal(countingOpacity(.1),.5);
   assert.equal(countingOpacity(.8),.8);
   const css=countingGradient("greenPurple",.8);
   assert.match(css,/^radial-gradient\(/);
-  assert.match(css,/rgba\(0,179,115,0\.8\) 0 33%/);
+  assert.match(css,/rgba\(202,105,200,0\.8\) 0 33%/);
   assert.match(css,/transparent 33% 67%/);
-  assert.match(css,/rgba\(202,105,200,0\.8\) 67% 100%/);
+  assert.match(css,/rgba\(0,179,115,0\.8\) 67% 100%/);
 });
 test("the endgame advisor counts as settled exactly what is drawn in the settled colour",async()=>{
   assert.match(source("endgame.mjs"),/OWNERSHIP_BANDS\.SETTLED/);
