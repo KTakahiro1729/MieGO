@@ -41,6 +41,11 @@ export const ENDGAME_SWING = Object.freeze({near:2, ready:1, window:2});
  * alone (≤2) holds only from 75-80% and keeps going off again. It is advice
  * only: the COM's pass and its offer to end still read the swing. */
 export const ENDGAME_SETTLED_SHARE = 0.7;
+/** 序盤 (布石) is staking out the board before the fights; it is over once this
+ * share of the board reads settled. On 9x9 COM同士 games that is around move
+ * 15-20, a quarter to a third of the game. The opening does not come back, so
+ * the advisor keeps it over until the next game. */
+export const OPENING_SETTLED_SHARE = 0.2;
 export class EndgameAdvisor {
   constructor() { this.reset(); }
   reset() {
@@ -51,6 +56,7 @@ export class EndgameAdvisor {
     this.held = false;
     this.fresh = 0;
     this.mostlySettled = false;
+    this.opened = false;
   }
   /** 対局を続ける: the player sees something left to play. The strongest advice
    * comes back once it has been played and the board reads settled again,
@@ -81,8 +87,9 @@ export class EndgameAdvisor {
     if (this.previous && state.moveNumber - this.previous.move > 3) this.swings = [];
     const values = shownOwnership(state.board, ownership);
     // The raw estimate, stones included, so 日本式 (no colour on live stones) reads the same.
-    this.mostlySettled = ownership.filter(v => Math.abs(v) >= OWNERSHIP_BANDS.SETTLED).length >=
-      ownership.length * ENDGAME_SETTLED_SHARE;
+    const settled = ownership.filter(v => Math.abs(v) >= OWNERSHIP_BANDS.SETTLED).length;
+    this.mostlySettled = settled >= ownership.length * ENDGAME_SETTLED_SHARE;
+    this.opened ||= settled >= ownership.length * OPENING_SETTLED_SHARE;
     const same = this.recent.findLast(r => r.next === state.next && state.moveNumber - r.move <= 4);
     if (same) {
       const swing = values.reduce((s,v,i)=>s+Math.abs(v-same.values[i]),0)/2/(state.moveNumber-same.move);

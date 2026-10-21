@@ -98,9 +98,10 @@ export const TEXT = {
     playing: "終局はまだまだです",
     near: "そろそろ終局です",
     ready: "終局してよさそうです",
-    // The ends of the meter under 終局を提案.
-    stageFrom: "序盤",
-    stageTo: "終盤",
+    // The steps of the meter under 終局を提案; the current one lights.
+    stageEnd: "終",
+    stageMiddle: "中",
+    stageOpening: "序",
     unavailable: "終局は自分で判断してください。目安を出せません",
     gomoku: "縦・横・斜めに5つ並べたら勝ち",
     free: "交点をタップして置く・取り除く・色を替える",
