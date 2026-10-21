@@ -81,7 +81,6 @@ export const TEXT = {
 
   dopa: {
     bigWin: "圧勝！",
-    don: "ドン！",
     win: "勝利！",
   },
 
@@ -919,7 +918,7 @@ export const TEXT = {
     sound: "効果音",
     soundNote: "石を打つ・取る、秒読み、終局で鳴らします",
     dopa: "ドパガキモード",
-    dopaNote: "打つ・取る・勝つ、良い手、振り返りの勝負どころ、秒読みを派手にします",
+    dopaNote: "打つ・取る・勝つ、良い手、秒読みを派手にします",
     board: "碁盤",
     linkStones: "呼吸点とつながった石",
     linkStonesNote: "縦横に隣り合う同じ色の石は、取られるときも一緒です",

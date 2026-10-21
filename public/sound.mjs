@@ -256,11 +256,6 @@ export const DOPA_VOICES = {
     tone(ctx, bus, at + .1, { frequency: 1760, gain: .14, length: .12 });
     wave(ctx, bus, at + .1, { type: "square", frequency: 1760, gain: .025, length: .1 });
   },
-  don(ctx, out, at) {
-    const bus = limited(ctx, out);
-    boom(ctx, bus, at, { gain: .55, length: .8 });
-    knock(ctx, bus, at, { frequency: 120, gain: .3, length: .35 });
-  },
   end(ctx, out, at, detail) {
     if (detail?.kind !== "win") return CALM_VOICES.end(ctx, out, at);
     const bus = limited(ctx, out);
