@@ -215,3 +215,16 @@ test("a dead group in atari inside a closed area does not hold back the advice",
   for(const moveNumber of [40,41,42])stage=advisor.observe({...newGame(),board,moveNumber},ownership);
   assert.equal(stage,"ready");
 });
+
+test("そろそろ also lights once most of the board reads settled, without touching the COM's stage",()=>{
+  const g=newGame(),advisor=new EndgameAdvisor();
+  // 56 of 81 points settled (69%): the swing has nothing to compare yet, so still まだまだ.
+  advisor.observe(g,Array.from({length:81},(_,i)=>i<56?1:0));
+  assert.equal(endgameHint(g,advisor),TEXT.endgame.playing);
+  // 57 of 81 (70%): そろそろ, while the stage the COM passes and offers by stays as it was.
+  advisor.observe({...g,moveNumber:1},Array.from({length:81},(_,i)=>i<57?1:0));
+  assert.equal(advisor.stage,"playing");
+  assert.equal(endgameHint({...g,moveNumber:1},advisor),TEXT.endgame.near);
+  advisor.reset();
+  assert.equal(advisor.mostlySettled,false);
+});
