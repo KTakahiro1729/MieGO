@@ -21,9 +21,17 @@ export function legalAiMoves(state) {
 }
 
 // つよい samples at a low temperature (0.38), where a full ±3 decided most
-// moves and a styled COM almost never beat the neutral one; a quarter of it
-// still changes about one move in seven.
-const STRONG_STYLE_SCALE = 0.25;
+// moves and a styled COM almost never beat the neutral one.
+const STRONG_STYLE_SCALE = 1;
+// A style shows in full where KataGo sees several good moves, and fades out
+// where one move stands out (its policy share from CALM_LOW to CALM_HIGH) or
+// the board has settled: there a taste costs games and shows little.
+const CALM_LOW = 0.4, CALM_HIGH = 0.8;
+/** How far a style may pull at this move, 0..1. */
+export function styleRoom(topShare, endgameStage="playing") {
+  if(canConsiderAiPass(endgameStage))return 0;
+  return clamp((CALM_HIGH-topShare)/(CALM_HIGH-CALM_LOW),0,1);
+}
 export function scorePolicyCandidates(state, logits, ownership, options={}) {
   if(!logits || logits.length!==state.board.length)throw new Error("Invalid KataGo policy logits");
   const legal=legalAiMoves(state).filter(p=>Number.isFinite(logits[p]));
@@ -36,7 +44,9 @@ export function scorePolicyCandidates(state, logits, ownership, options={}) {
   // harder than one with one.
   const values={...options,stance:stanceOf(options)};
   const lean=STYLE_AXES.map(axis=>(bounded(values[axis] ?? 50)-50)/50);
-  const scale=3/(lean.filter(Boolean).length || 1) * (options.allMoves ? 1 : STRONG_STYLE_SCALE);
+  const topShare=1/legal.reduce((sum,p)=>sum+Math.exp(logits[p]-best),0);
+  const scale=3/(lean.filter(Boolean).length || 1) * (options.allMoves ? 1 : STRONG_STYLE_SCALE) *
+    styleRoom(topShare,options.endgameStage) * (options.styleScale ?? 1);
   const weights=Object.fromEntries(STYLE_AXES.map((axis,i)=>[axis,lean[i]*scale]));
   return legal.filter(p=>logits[p]>=best-window).map(position=>{
     const f=personalityFeatures(state,position,ownership);
@@ -74,8 +84,21 @@ export function choosePolicyMove(state, logits, passLogit, options={}) {
   const position=pickPolicyMove(state,logits,passLogit,options);
   return answersPass(state,position,options.ownership,options.endgameStage) ? null : position;
 }
+// What a style costs is given back, so a character wins about as often as the
+// neutral COM at its strength (docs/AI_PERSONALITIES.md): a weakened level
+// draws as many moves as one STYLE_KYU_BOOST kyu stronger, and つよい samples
+// at STYLE_TEMPERATURE of its temperature, with its style's pull scaled alike
+// so the style weighs as much against the policy as before.
+const STYLE_KYU_BOOST = 1.5, STYLE_TEMPERATURE = 0.8;
+const hasStyle = options => {
+  const values={...options,stance:stanceOf(options)};
+  return STYLE_AXES.some(axis=>bounded(values[axis] ?? 50)!==50);
+};
 function pickPolicyMove(state, logits, passLogit, options) {
   const weakened=Number.isFinite(AI_STRENGTHS[options.strength]?.kyu);
+  if(hasStyle(options) && options.strength!=="strongest") options=weakened
+    ? {...options,kyuBoost:STYLE_KYU_BOOST}
+    : {...options,temperature:(Number(options.temperature) || 0.4)*STYLE_TEMPERATURE,styleScale:STYLE_TEMPERATURE};
   const candidates=scorePolicyCandidates(state,logits,options.ownership,
     {...options,allMoves:weakened});
   if(!candidates.length)return null;

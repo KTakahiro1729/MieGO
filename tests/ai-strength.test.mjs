@@ -114,3 +114,10 @@ test("最強 plays 9路 with the 9x9 network and larger boards with the b18 netw
     assert.match(network.sha256,/^[0-9a-f]{64}$/);
   }
 });
+
+test("kyuBoost draws as many moves as a level that many kyu stronger",()=>{
+  const candidates=Array.from({length:60},(_,i)=>({position:i,raw:-i/10,score:-i/10}));
+  const picks=options=>Array.from({length:40},(_,i)=>pickWeakenedMove(candidates,-Infinity,{state:newGame(),random:seeded(i),...options}));
+  assert.deepEqual(picks({strength:"easy",kyuBoost:8}),picks({strength:"normal"}));
+  assert.notDeepEqual(picks({strength:"easy"}),picks({strength:"normal"}));
+});

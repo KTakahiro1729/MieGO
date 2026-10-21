@@ -25,7 +25,7 @@ export const DEFAULT_AI_STRENGTH = "beginner";
 // つよい. At 3 a styled COM won 42-53% against the neutral one at ふつう and
 // 0-8% at つよい; at 1 every character is within reach of even
 // (docs/AI_PERSONALITIES.md).
-export const STYLE_SLACK = 1;
+export const STYLE_SLACK = 3;
 // Saved games from before strength levels existed used the full policy.
 export const normalizeStrength = (value, fallback="strong") =>
   Object.hasOwn(AI_STRENGTHS,value) ? value : fallback;
@@ -60,8 +60,10 @@ function softmax(values) {
  */
 export function pickWeakenedMove(candidates, passLogit, options={}) {
   if(!candidates.length)return null;
-  const kyu=AI_STRENGTHS[options.strength]?.kyu;
-  if(!Number.isFinite(kyu))throw new Error("Unknown weakened AI strength");
+  const level=AI_STRENGTHS[options.strength]?.kyu;
+  if(!Number.isFinite(level))throw new Error("Unknown weakened AI strength");
+  // A styled COM plays a few kyu stronger to make up for its taste (ai-opponent.mjs).
+  const kyu=level-(options.kyuBoost || 0);
   const random=options.random || Math.random;
   const hasPass=Number.isFinite(passLogit);
   const passOk=!!options.passAllowed && hasPass;
