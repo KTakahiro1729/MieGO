@@ -90,7 +90,7 @@ import {
   goodMove,
 } from "./dopa-mode.mjs";
 import { choosePolicyMove, createResignWatch } from "./ai-opponent.mjs";
-import { gomokuMove } from "./gomoku.mjs";
+import { gomokuMove } from "./gomoku-ai.mjs";
 import { cleanName, createPlayerName } from "./player-name.mjs";
 import { playerSides, recordNames, stoneMark } from "./player-row.mjs";
 import { createSeatSheet, seatsOf } from "./seat-sheet.mjs";
@@ -804,7 +804,7 @@ function requestGomokuTurn() {
   const id=pending;
   aiThinking=true;
   aiJob={id,number:game.moveNumber,hash:boardHash(game.board),at:performance.now()};
-  $("aiMatchStatus").textContent=TEXT.ai.playingGomoku;
+  $("aiMatchStatus").textContent=TEXT.ai.playingGomoku(TEXT.ai.strengths[comToMove().strength]);
   show();
   const job=aiJob;
   setTimeout(()=>{
@@ -812,7 +812,8 @@ function requestGomokuTurn() {
     aiThinking=false;aiJob=null;
     if(!isAiTurn() || game.moveNumber!==job.number || boardHash(game.board)!==job.hash){show();return;}
     lastWatchMoveAt=performance.now();
-    submitMove(gomokuMove(game.board,game.next,Math.random,{forbidden:hasGomokuForbidden(game)}),true);
+    submitMove(gomokuMove(game.board,game.next,Math.random,
+      {forbidden:hasGomokuForbidden(game),strength:comToMove().strength}),true);
   },AI_REPLY_MS);
 }
 /** The automatic dead-stone job still belongs to the position on the board. */
