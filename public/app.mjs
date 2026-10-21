@@ -39,7 +39,7 @@ import {
 } from "./core.mjs";
 import { replayPlayout } from "./settle-playout.mjs";
 import { createSettleControl } from "./settle-control.mjs";
-import { EndgameAdvisor } from "./endgame.mjs";
+import { EndgameAdvisor, endingNear } from "./endgame.mjs";
 import { endgameBarView } from "./endgame-bar.mjs";
 import {
   BYOYOMI_CHOICES,
@@ -134,7 +134,7 @@ import { createReviewPrefetch, createScoreGraph } from "./review-estimates.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { createHistoryStyle } from "./history-style.mjs";
-import { canReadStyle, readStyleLink } from "./play-style.mjs";
+import { canReadStyle, playStyleShown, readStyleLink } from "./play-style.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { createHelpSheet } from "./help-sheet.mjs";
@@ -269,7 +269,7 @@ const playerName = createPlayerName({$,onChange:()=>{
 }});
 // 効果音: off until the 設定 sheet turns them on. ドパガキモード swaps in louder voices.
 const sound = createSoundEffects({$,voices:()=>dopa.level()==="off"?CALM_VOICES:DOPA_VOICES});
-const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),graph:$("reviewGraph"),
+const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),
   score:()=>$("scoreTitle")});
 // Whom ドパガキモード cheers for a win: the player's own colour, or either side
 // when watching the COMs or sharing one board.
@@ -475,9 +475,10 @@ function peerAgreed() {
   return game.agreed[theirs] && !game.agreed[mine];
 }
 // A pass is a move, against a COM too; ending the game is an offer, which the
-// COM makes or answers when the board has settled or when it sees the game lost.
+// COM makes when the board has settled and accepts from そろそろ, as もう終盤
+// under the button shows it (endgame.mjs), or either when it sees the game lost.
 const comEnds = color => endgameAdvisor.stage==="ready" && !endgameAdvisor.held || resignWatch.lost(color);
-const comAcceptsEnd = color => endgameAdvisor.stage==="near" || comEnds(color);
+const comAcceptsEnd = color => endingNear(endgameAdvisor) || comEnds(color);
 // The COM moves only once an offer on the board is answered.
 const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" && !game.endProposal &&
   (watching ? !intervening : game.next === -humanColor);
@@ -1586,6 +1587,14 @@ $("endAccept").onclick=()=>{
   if(!room && endExpanded && !game.endProposal && repeatedPosition(game)>0){
     apply({type:"void",number:game.moveNumber,before:boardHash(game.board)});return;
   }
+  // After the COM declined, それでも採点 scores on the player's own judgement, as without KataGo.
+  if(!room && !endExpanded && !game.endProposal && gameMode==="ai" && !watching &&
+     endNotice?.text===TEXT.endgame.comDeclined && endNotice.number===game.moveNumber &&
+     endNotice.hash===boardHash(game.board)){
+    if(aiThinking)return;
+    apply({type:"solo_scoring",number:game.moveNumber,before:boardHash(game.board)});
+    return;
+  }
   if(!room && endExpanded && !game.endProposal){
     // 対COM, the player's offer is an offer, as with a friend, not a pass: the COM
     // answers it at once, and a 対局を続ける leaves the board and the turn as they were.
@@ -2033,7 +2042,8 @@ SETUP_TABS.forEach((key,index)=>{
 // A tab whose setting the chosen mode does not use is greyed out; its panel still opens.
 function syncSetupValues() {
   const kind=newGameModeKind(),watch=kind==="ai" && watchChoice;
-  $("setupTabSide").classList.toggle("is-unused",kind==="local" || watch);
+  // 自分の石 also holds the 置き石 choice, which every mode of 囲碁 uses.
+  $("setupTabSide").classList.toggle("is-unused",(kind==="local" || watch) && !handicapInUse());
   // While watching, the tab still holds each COM's card.
   $("setupTabStrength").classList.toggle("is-unused",kind!=="ai");
   // 時間 holds the clock and 観戦's speed; a free board uses neither.
@@ -2050,6 +2060,7 @@ function syncSetupTabValues() {
     // ここから打つ fixes 盤 and ルール to the record's, so those still show the value.
     const fixed=continueFrom && (key==="Board" || key==="Rules");
     if(key==="Time" && !tab.classList.contains("is-unused")){$("setupValueTime").textContent=timeTabValue();continue;}
+    if(key==="Side" && handicapInUse()){$("setupValueSide").textContent=sideTabValue(checked);continue;}
     if(key==="Strength" && !tab.classList.contains("is-unused")){
       $("setupValueStrength").textContent=editsWatchAi()?TEXT.newGame.watchStrengthValue:
         TEXT.newGame.comValue(TEXT.ai.strengths[nextAiCom.strength],characterLabel(nextAiCom.character));
@@ -2059,6 +2070,17 @@ function syncSetupTabValues() {
   }
 }
 $("newGameSetup").addEventListener("change",syncSetupTabValues);
+// 置き石 can be chosen unless the rules take none or ここから打つ keeps the record's stones.
+function handicapInUse() {
+  return gameRules!=="gomoku" && gameRules!=="free" && !continueFrom?.line;
+}
+// The side, when the mode picks one, then the 置き石 count; 互先 alone when no side is picked.
+function sideTabValue(checked) {
+  const kind=newGameModeKind(),picks=kind==="online" || kind==="ai" && !watchChoice;
+  const side=picks && checked?checked.nextElementSibling.textContent.trim():"";
+  const handicap=Number($("handicap").value);
+  return [side,handicap?TEXT.handicap.stones(handicap):side?"":TEXT.handicap.evenShort].filter(Boolean).join(" · ");
+}
 // 観戦 shows its speed; the other modes their clock.
 function timeTabValue() {
   if(newGameModeKind()==="ai" && watchChoice)return TEXT.newGame.watchSpeeds[watchSpeed];
@@ -2350,12 +2372,10 @@ function setBoardReviewStep(step) {
   if(!Number.isInteger(step)||step<0||step>snapshot.moves.length)return;
   try{
     const display=replaySteps(snapshot,step);
-    const moved=step!==boardReview.step;
     boardReview.display=display;boardReview.step=step;
     boardReview.preview=null;boardReview.previewPosition=null;
     reviewNotice("");
     show();requestReviewOwnership();
-    if(moved && scoreGraph.shown() && scoreGraph.marks().includes(step)){dopa.don();sound.play("don");}
   }catch(error){reviewNotice(TEXT.history.replayFailed);}
 }
 function clearBoardReview() {
@@ -2973,7 +2993,7 @@ if(!room && params.get("open")==="history-style"){
   const [type,...leans]=(params.get("with") ?? "").split(",");
   stylePartner=readStyleLink("?t="+type+"&s="+leans.join(","));
   history.replaceState(null,"",location.pathname);
-  openHistoryStyle();
+  if(playStyleShown())openHistoryStyle();
 }
 compactOwnership();
 // An unfinished friend game is offered when the page opens on something else.

@@ -73,6 +73,8 @@ button:disabled{opacity:.36;cursor:default}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--gold-85);outline-offset:2px}
 button:hover:not(:disabled){border-color:var(--slate-60)}
 [hidden],.hidden{display:none!important}
+/* Production leaves 棋風診断 out (scripts/build-html.mjs). */
+[data-no-play-style] :is(#scoreStyle,#sharePlayStyles,#historyStyle,#historyStyleBar){display:none!important}
 .app-shell{min-height:100dvh;max-width:1100px;margin:0 auto}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;height:68px;padding:8px 18px}
 .brand{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:var(--font-display);letter-spacing:.2px;font-weight:var(--weight-bold);white-space:nowrap}
@@ -269,9 +271,6 @@ select:disabled{opacity:.45}
 /* The shout's outline is painted under its fill: CJK fonts build a glyph from overlapping strokes, and an outline on top traces every one of them. */
 .dopa-shout{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);font-size:clamp(40px,16cqw,96px);font-weight:var(--weight-bold);color:var(--gold-85);-webkit-text-stroke:4px var(--gold-38);paint-order:stroke fill;text-shadow:0 4px 0 var(--gold-38),0 8px 24px var(--black-a67);animation:dopa-shout 2.4s ease-out forwards;white-space:nowrap}
 @keyframes dopa-shout{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}28%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
-.dopa-don{top:30%;animation-duration:.9s}
-#reviewGraph.dopa-bounce .score-graph-mark.is-current{transform-box:fill-box;transform-origin:center;animation:dopa-bounce .5s ease-out}
-@keyframes dopa-bounce{0%,100%{transform:scale(1)}35%{transform:scale(2.6)}65%{transform:scale(.8)}}
 .player .clock-time.dopa-hurry{display:inline-block;font-size:var(--font-display);font-weight:var(--weight-bold);line-height:1}
 .board-frame.dopa-pulse::after{content:"";position:absolute;inset:-3px;border-radius:inherit;pointer-events:none;z-index:4;box-shadow:0 0 0 3px var(--ember-67),0 0 26px var(--ember-67);opacity:0;animation:dopa-pulse 1s ease-in-out infinite}
 @keyframes dopa-pulse{50%{opacity:1}}
@@ -810,10 +809,8 @@ body{overflow:hidden}
    button turns gold at the last one (終局をご検討ください). */
 #endPropose{display:grid;place-items:center;align-content:center;gap:4px;padding:4px 12px}
 /* 序盤 and 終盤 name its two ends. */
-.end-stage{display:flex;align-items:center;gap:6px}
+.end-stage{display:block;font-size:var(--font-caption);line-height:1;color:var(--gold);font-weight:var(--weight-bold);text-shadow:0 0 6px var(--gold-85-a40)}
 .end-stage[hidden]{display:none}
-.end-stage i{flex:none;font-style:normal;font-size:var(--font-caption);line-height:1;color:var(--slate-46);font-weight:var(--weight-regular)}
-.end-stage[data-stage="1"] i:nth-of-type(1),.end-stage[data-stage="2"] i:nth-of-type(2),.end-stage[data-stage="3"] i:nth-of-type(3),.end-stage[data-stage="4"] i:nth-of-type(3){color:var(--gold);font-weight:var(--weight-bold);text-shadow:0 0 6px var(--gold-85-a40)}
 #endPropose:has(.end-stage[data-stage="4"]:not([hidden])){border-color:var(--accent-edge);color:var(--accent-text)}
 .endgame-bar .end-action[hidden]{display:none!important}
 /* The bar asks this player for a decision (an offer, the other side's pass,

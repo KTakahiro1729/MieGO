@@ -19,7 +19,7 @@ export function endgameHint(state,advisor,{unavailable=false}={}) {
   // Three steps. After the player chose to keep playing, the milder one
   // stands in for the strongest until the board has settled again.
   if(advisor.stage==="ready" && !advisor.held)return ENDGAME_HINTS.ready;
-  if(advisor.stage==="ready" || advisor.stage==="near" || advisor.mostlySettled)return ENDGAME_HINTS.near;
+  if(endingNear(advisor))return ENDGAME_HINTS.near;
   return ENDGAME_HINTS.playing;
 }
 /** The advice reads the feel of the position, not move or stone counts: how
@@ -46,6 +46,17 @@ export const ENDGAME_SETTLED_SHARE = 0.7;
  * 15-20, a quarter to a third of the game. The opening does not come back, so
  * the advisor keeps it over until the next game. */
 export const OPENING_SETTLED_SHARE = 0.2;
+/** そろそろ, もう終盤 under 終局を提案, is also when the COM accepts the player's offer to end:
+ * a stone moves at most 2 points and this share of the board reads settled, or
+ * ENDGAME_SETTLED_SHARE reads settled whatever the swing. The share keeps a calm
+ * moment in the middle game (a swing of 2 or less turns up from a quarter of the
+ * way in) from showing もう終盤. On 9x9 COM同士 games it holds from about 20 moves
+ * before the end, where the COM's own offer ("ready": a stone moves at most
+ * 1 point) holds from about 3. */
+export const ENDGAME_ACCEPT_SHARE = 0.6;
+/** Whether the board reads as そろそろ: what shows もう終盤, and what the COM accepts an offer at. */
+export const endingNear = advisor => advisor.stage !== "playing" &&
+  (advisor.settledShare ?? 0) >= ENDGAME_ACCEPT_SHARE || !!advisor.mostlySettled;
 export class EndgameAdvisor {
   constructor() { this.reset(); }
   reset() {
@@ -57,7 +68,9 @@ export class EndgameAdvisor {
     this.fresh = 0;
     this.mostlySettled = false;
     this.opened = false;
+    this.settledShare = 0;
   }
+
   /** 対局を続ける: the player sees something left to play. The strongest advice
    * comes back once it has been played and the board reads settled again,
    * a full window of new readings after this call. */
@@ -87,9 +100,9 @@ export class EndgameAdvisor {
     if (this.previous && state.moveNumber - this.previous.move > 3) this.swings = [];
     const values = shownOwnership(state.board, ownership);
     // The raw estimate, stones included, so 日本式 (no colour on live stones) reads the same.
-    const settled = ownership.filter(v => Math.abs(v) >= OWNERSHIP_BANDS.SETTLED).length;
-    this.mostlySettled = settled >= ownership.length * ENDGAME_SETTLED_SHARE;
-    this.opened ||= settled >= ownership.length * OPENING_SETTLED_SHARE;
+    this.settledShare = ownership.filter(v => Math.abs(v) >= OWNERSHIP_BANDS.SETTLED).length / ownership.length;
+    this.mostlySettled = this.settledShare >= ENDGAME_SETTLED_SHARE;
+    this.opened ||= this.settledShare >= OPENING_SETTLED_SHARE;
     const same = this.recent.findLast(r => r.next === state.next && state.moveNumber - r.move <= 4);
     if (same) {
       const swing = values.reduce((s,v,i)=>s+Math.abs(v-same.values[i]),0)/2/(state.moveNumber-same.move);

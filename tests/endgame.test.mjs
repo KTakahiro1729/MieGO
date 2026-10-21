@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { newGame, play, proposeEnd, answerEndProposal, beginSoloScoring, finalizeSoloScore, agreeScore, BLACK, WHITE, at } from "../public/core.mjs";
-import { EndgameAdvisor, endgameHint } from "../public/endgame.mjs";
+import { ENDGAME_ACCEPT_SHARE, EndgameAdvisor, endgameHint, endingNear } from "../public/endgame.mjs";
 import { TEXT } from "../public/texts.mjs";
 
 test("end offer consumes no turn, move number or passes", () => {
@@ -91,7 +91,7 @@ test("advice with no valid NN estimate is not reported as 'not near endgame'",()
   advisor.observe(g,Array(81).fill(0));
   assert.equal(endgameHint(g,advisor),"終局はまだまだです");
   assert.equal(endgameHint({...g,moveNumber:5},advisor),"終局の目安を更新中");
-  advisor.stage="near";
+  advisor.stage="near";advisor.settledShare=ENDGAME_ACCEPT_SHARE;
   assert.equal(endgameHint(g,advisor),"そろそろ終局です");
   advisor.stage="ready";
   assert.equal(endgameHint(g,advisor),"終局してよさそうです");
@@ -241,4 +241,15 @@ test("the opening is over once a fifth of the board reads settled, and stays ove
   assert.equal(advisor.opened,true);
   advisor.reset();
   assert.equal(advisor.opened,false);
+});
+
+test("the COM accepts an offer to end from そろそろ, as もう終盤 shows it, but not in a calm middle game",()=>{
+  const at=(stage,settledShare,mostlySettled=false)=>endingNear({stage,settledShare,mostlySettled});
+  assert.equal(at("near",ENDGAME_ACCEPT_SHARE),true);
+  assert.equal(at("ready",ENDGAME_ACCEPT_SHARE),true);
+  // A swing of 2 or less with most of the board still open is a pause, not the end.
+  assert.equal(at("near",ENDGAME_ACCEPT_SHARE-0.01),false);
+  // Most of the board settled, while a stone still moves more than 2 points.
+  assert.equal(at("playing",0.7,true),true);
+  assert.equal(at("playing",0.69),false);
 });

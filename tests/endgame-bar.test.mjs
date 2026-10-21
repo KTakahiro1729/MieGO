@@ -27,15 +27,16 @@ test("the meter on the end button never claims 'not yet' until KataGo has evalua
   assert.equal(playing.attributes.endStage["data-stage"],"1");
 });
 
-test("the meter lights 序 in the opening, 中 after it, and 終 from そろそろ",()=>{
+test("the stage reads まだ序盤 in the opening, いま中盤 after it, もう終盤 from そろそろ, and そろそろどう？ at the end",()=>{
   const stage=advisor=>bar({advisor:{previous:{move:0},held:false,...advisor}}).attributes.endStage["data-stage"];
   assert.equal(stage({stage:"playing"}),"1");
   assert.equal(stage({stage:"playing",opened:true}),"2");
   assert.equal(stage({stage:"playing",mostlySettled:true}),"3");
-  assert.equal(stage({stage:"near"}),"3");
+  assert.equal(stage({stage:"near",settledShare:1}),"3");
   // 終局してよさそう keeps 終 and also marks the button (style.css).
   assert.equal(stage({stage:"ready"}),"4");
-  assert.deepEqual([TEXT.endgame.stageOpening,TEXT.endgame.stageMiddle,TEXT.endgame.stageEnd],["序","中","終"]);
+  assert.equal(bar({advisor:{previous:{move:0},held:false,stage:"ready"}}).text.endStage,"そろそろどう？");
+  assert.deepEqual(TEXT.endgame.stages,["まだ序盤","いま中盤","もう終盤","そろそろどう？"]);
 });
 test("after one pass the bar says who passed, and asks for the second when it is this player's",()=>{
   const passed=play(newGame(),null);
@@ -58,10 +59,10 @@ test("採点を始める waits for a computing move, except while watching",()=>
 });
 
 test("the solo prompt asks to score, and against the COM it offers the end, not a pass",()=>{
-  const prompt=bar({endExpanded:true,advisor:{previous:{move:0},stage:"near"}});
+  const prompt=bar({endExpanded:true,advisor:{previous:{move:0},stage:"near",settledShare:1}});
   assert.equal(prompt.text.endStatus,TEXT.endgame.askCom);
   assert.equal(prompt.text.endDetail,TEXT.endgame.detailLocalAi);
-  assert.equal(bar({endExpanded:true,gameMode:"local",advisor:{previous:{move:0},stage:"near"}}).text.endDetail,
+  assert.equal(bar({endExpanded:true,gameMode:"local",advisor:{previous:{move:0},stage:"near",settledShare:1}}).text.endDetail,
     TEXT.endgame.detailLocal);
   assert.deepEqual(prompt.classes.actionRow,{"end-prompt-open":true});
   assert.equal(prompt.classes.endgameBar["is-asking"],true);
@@ -69,7 +70,7 @@ test("the solo prompt asks to score, and against the COM it offers the end, not 
   assert.equal(bar({endExpanded:true,gameMode:"local"}).text.endProposeLabel,TEXT.endgame.startScoring);
   // On one board, while watching or without KataGo, the count is the viewer's own decision.
   assert.equal(bar({endExpanded:true,gameMode:"local"}).text.endAccept,TEXT.endgame.goScoring);
-  const watched=bar({endExpanded:true,watching:true,advisor:{previous:{move:0},stage:"near"}});
+  const watched=bar({endExpanded:true,watching:true,advisor:{previous:{move:0},stage:"near",settledShare:1}});
   assert.deepEqual([watched.text.endAccept,watched.text.endDetail],[TEXT.endgame.goScoring,TEXT.endgame.detailWatchScoring]);
   assert.equal(bar({endExpanded:true,fallbackMode:true}).text.endAccept,TEXT.endgame.goScoring);
   assert.equal(bar().text.endDetail,TEXT.endgame.detailAi);
@@ -127,6 +128,11 @@ test("the COM's offer is answered like a friend's: two equal choices, and no pas
   const game=newGame();
   const declined=bar({notices:[{number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.comDeclined}]});
   assert.equal(declined.text.endStatus,TEXT.endgame.comDeclined);
+  // The player may still score on their own judgement; offering again is not asked.
+  assert.deepEqual([declined.hidden.endAccept,declined.hidden.endPropose,declined.hidden.endDecline],[false,true,true]);
+  assert.equal(declined.text.endAccept,TEXT.endgame.forceScoring);
+  assert.deepEqual(declined.classes.endAccept,{primary:false});
+  assert.equal(declined.text.endDetail,TEXT.endgame.detailComDeclined);
 });
 
 test("while watching, a pass is what the bar reports",()=>{

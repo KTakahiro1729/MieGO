@@ -81,7 +81,6 @@ export const TEXT = {
 
   dopa: {
     bigWin: "圧勝！",
-    don: "ドン！",
     win: "勝利！",
   },
 
@@ -98,10 +97,8 @@ export const TEXT = {
     playing: "終局はまだまだです",
     near: "そろそろ終局です",
     ready: "終局してよさそうです",
-    // The steps of the meter under 終局を提案; the current one lights.
-    stageEnd: "終",
-    stageMiddle: "中",
-    stageOpening: "序",
+    // The stage under 終局を提案, in four steps; the last also marks the button.
+    stages: ["まだ序盤", "いま中盤", "もう終盤", "そろそろどう？"],
     unavailable: "終局は自分で判断してください。目安を出せません",
     gomoku: "縦・横・斜めに5つ並べたら勝ち",
     free: "交点をタップして置く・取り除く・色を替える",
@@ -122,6 +119,9 @@ export const TEXT = {
     detailUnsettledAi: "COMが受ければ採点に入ります。まだ決まっていない所は、どちらの地にもなりません。",
     detailAi: "終局はいつでも提案できます。パスとは別の操作です。",
     comDeclined: "COMが終局を見送りました",
+    // After the COM declined, the player may still score on their own judgement.
+    forceScoring: "それでも採点",
+    detailComDeclined: "COMはまだ打つ所があると見ています。それでも採点すると、あなたの判断で死石の確認に進みます。",
     // While watching (or without KataGo), the count is the viewer's decision alone.
     detailWatchScoring: "あなたの判断で採点へ進みます。COMが終局を承認するわけではありません。",
     detailLocal: "採点に進み、死石を確認します。対局の再開もできます。",
@@ -404,6 +404,8 @@ export const TEXT = {
   handicap: {
     label: "置き石",
     even: "なし（互先）",
+    // Under the 自分の石 tab when no side is picked (対局者が2人, 観戦).
+    evenShort: "互先",
     stones: n => n + "子",
     noteAi: "あなたが黒、COMが白です。置き石が先手の代わりなので、白が先に打ちます。",
     noteOnline: "黒を持つ側が置き石を受けます。置き石が先手の代わりなので、白が先に打ちます。",
@@ -916,7 +918,7 @@ export const TEXT = {
     sound: "効果音",
     soundNote: "石を打つ・取る、秒読み、終局で鳴らします",
     dopa: "ドパガキモード",
-    dopaNote: "打つ・取る・勝つ、良い手、振り返りの勝負どころ、秒読みを派手にします",
+    dopaNote: "打つ・取る・勝つ、良い手、秒読みを派手にします",
     board: "碁盤",
     linkStones: "呼吸点とつながった石",
     linkStonesNote: "縦横に隣り合う同じ色の石は、取られるときも一緒です",
