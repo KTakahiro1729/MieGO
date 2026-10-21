@@ -569,6 +569,7 @@ export const TEXT = {
     sidePrompt: "自分の石",
     shareSheetNote: "打った人ごとの、この一局の診断です。ページで説明と4つの軸を見られます。履歴の対局をまとめて診断すると、結果が安定します。",
     openPage: "診断ページを開く",
+    openPageCom: "COMの打ち方です。診断ページを開く",
     shareNone: "この対局はまだ診断できません。囲碁で、打った人がそれぞれ10手以上打つと出ます。",
     // 履歴: several saved games read together.
     historyButton: "履歴からまとめて棋風診断",

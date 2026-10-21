@@ -1067,7 +1067,7 @@ function show() {
   if(free)for(const id of ["resign","pass","confirm"])$(id).hidden=true;
   $("actionRow").classList.toggle("finished-actions",isFinished);
   // After a game of 囲碁, its 棋風診断 is one tap away, in the share sheet.
-  $("scoreStyle").hidden=!isFinished || !playedSides().some(color=>canReadStyle(game,color));
+  $("scoreStyle").hidden=!isFinished || ![...playedSides(),...watchedSides()].some(color=>canReadStyle(game,color));
   // COM同士: 介入する and 一時停止 (再開); stepping in shows × and ここに打つ instead.
   const watchingPlay=spectating && game.status==="playing";
   $("watchToggle").hidden=$("watchIntervene").hidden=!watchingPlay || intervening;
@@ -2432,15 +2432,17 @@ function rememberOwnership(board,values){
   try{ownershipStore.remember(currentGameId,board,values);}catch(error){console.warn("Ownership not kept",error);}
 }
 // The colours a person played in the shared game: a COM's side is left out, and a watched game has none.
-function playedSides(){
+function sharedGameSides(){
   const record=boardReview?.source==="archive" ? boardReview.record : null;
   const live=!boardReview || boardReview.source==="live";
   const ai=record ? record.mode==="ai" : live && gameMode==="ai";
-  if(!ai)return [BLACK,WHITE];
-  if(record ? record.watch : watching)return [];
-  return [record ? record.humanColor : humanColor];
+  if(!ai)return {played:[BLACK,WHITE],watched:[]};
+  if(record ? record.watch : watching)return {played:[],watched:[BLACK,WHITE]};
+  return {played:[record ? record.humanColor : humanColor],watched:[]};
 }
-const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,playedSides,
+function playedSides(){return sharedGameSides().played;}
+function watchedSides(){return sharedGameSides().watched;}
+const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,playedSides,watchedSides,
   stillColoured:()=>boardReview ? !!boardReview.ownership : game.status==="playing" && !!displayedOwnership});
 function openSharePanel(){
   openPanel("share");
