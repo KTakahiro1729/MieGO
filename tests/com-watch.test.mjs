@@ -111,8 +111,9 @@ test("a watched game that nobody is computing a move for asks for it again",()=>
   assert.match(app,/aiJob=\{id,number:game\.moveNumber,hash:boardHash\(game\.board\),strong,at:performance\.now\(\)\};/);
 });
 
-test("a watched COM that would resign plays on, and a resigned game keeps its territory",()=>{
-  assert.match(body("finishAiMove"),/if\(resigns && !watching\)\{submitMove\("resign",true\);return;\}/);
-  assert.match(body("finishAiMove"),/if\(resigns\)resignWish=game\.next;/);
+test("a COM that sees its game lost offers to end, a watched one plays on, and a resigned game keeps its territory",()=>{
+  assert.doesNotMatch(body("finishAiMove"),/submitMove\("resign",true\)/);
+  assert.match(body("finishAiMove"),/if\(watching\)\{if\(lost\)resignWish=game\.next;/);
+  assert.match(body("finishAiMove"),/else if\(!comOfferDeclined && game\.passes===0 && comEnds\(game\.next\)\)\{/);
   assert.match(body("requestAnalysis"),/if\(showsEndedTerritory\(game\)\)requestOwnership\(\);/);
 });

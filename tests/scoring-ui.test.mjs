@@ -40,7 +40,9 @@ test("無勝負: one board and the COM end at once, a friend is asked, and a wat
   assert.match(app,/apply\(\{type:"end_offer",color,\.\.\.kind,/);
   assert.match(app,/if\(isAiMove && watching && repeatedPosition\(game\)>=2\)\{stopAiTurn\(\);game=voidGame\(game\);\}/);
 });
-test("対COM, 採点を始める is the player's pass and waits for the COM's",()=>{
-  assert.match(app,/if\(gameMode==="ai" && !watching && !fallbackMode\)\{\n      if\(!isHumanTurn\(\)\)return;\n      endExpanded=false;askedComToEnd=game\.moveNumber\+1;submitMove\(null\);return;/);
-  assert.match(app,/askedComToEnd===before\.moveNumber && action\.position!==null/);
+test("対COM, the player's offer is answered at once and costs no move",()=>{
+  assert.match(app,/const accept=comAcceptsEnd\(-humanColor\);\n      apply\(\{type:"end_offer",color,/);
+  assert.match(app,/apply\(\{type:"end_answer",color:-humanColor,accept,proposalFrom:color,/);
+  assert.match(app,/text:TEXT\.endgame\.comDeclined/);
+  assert.doesNotMatch(app,/askedComToEnd|submitMove\(null\);return;/);
 });
