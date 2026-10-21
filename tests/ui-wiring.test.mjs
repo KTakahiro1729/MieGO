@@ -34,6 +34,9 @@ test("endgame advice never claims 'not yet' until KataGo has evaluated a positio
 test("when KataGo fails, the 対COM tab names the modes that work without it",()=>{
   assert.match(app,/\$\("startAiNote"\)\.hidden=!\(needsKatago && fallbackMode\)/);
   assert.match(html,/id="startAiNote"[^>]*hidden>[^<]*「1台で打つ」と「対友人」/);
+  // The note sits beside the start buttons of every mode, so it follows the 対COM section's visibility.
+  assert.match(html,/id="aiSetup"[\s\S]*?<\/section>\s*<p id="startAiNote"/);
+  assert.match(css,/#aiSetup\[hidden\]~\.start-note\{display:none\}/);
 });
 test("iOS neither zooms into the manual copy fields nor on a double tap of a button",()=>{
   // Safari zooms into a focused field under 16px; manipulation drops the double-tap zoom only.
@@ -49,5 +52,10 @@ test("states that only screen readers heard are also shown in the notice",()=>{
 test("a friend game's status line says what it waits for, and the sheet the check opened closes",()=>{
   assert.match(app,/async function joinRoom\(\)\{[\s\S]*?\$\("netStatus"\)\.textContent=TEXT\.online\.waitingConnection;\n  try\{/);
   assert.match(app,/callback:token=>\{if\(opened\)closePanels\(\);resolve\(token\);\}/);
-  assert.match(app,/onConnected:\(\)=>\{[\s\S]*?TEXT\.online\.requestFailed\)\$\("saveStatus"\)\.hidden=true;/);
+  assert.match(app,/onConnected:\(\)=>\{[\s\S]*?TEXT\.online\.retrying\)\$\("saveStatus"\)\.hidden=true;/);
+});
+test("a dropped friend game says it reconnects by itself, and the opponent's line leaves the connection to the status line",()=>{
+  assert.match(app,/room && !connected\?\(reconnecting\?TEXT\.game\.reconnecting:TEXT\.game\.waitingOpponent\)/);
+  assert.match(app,/showNotice\(error\.retrying\?TEXT\.online\.retrying:/);
+  assert.doesNotMatch(app,/side\.name===TEXT\.game\.opponent\?\$\("netStatus"\)/);
 });
