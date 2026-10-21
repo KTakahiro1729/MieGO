@@ -142,8 +142,11 @@ svg.size-icon{stroke-width:var(--stroke-grid)}
 .player-detail{display:flex;align-items:center;gap:5px;font-size:var(--font-small);line-height:16px;color:var(--muted);white-space:nowrap;max-width:100%}
 .player.white .player-detail{flex-direction:row-reverse}
 .player-detail-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.player-stone{flex:none;width:14px;height:14px;box-sizing:border-box;border-radius:var(--radius-round);background:radial-gradient(circle at 32% 28%,var(--slate-46),var(--slate-17) 72%);border:1px solid var(--gray-54)}
-.player.white .player-stone,.seat-row.white .player-stone{background:radial-gradient(circle at 32% 27%,var(--white),var(--gray-90) 72%);border-color:var(--gray-78)}
+.player-stone,.stone-mark{flex:none;width:14px;height:14px;box-sizing:border-box;border-radius:var(--radius-round);background:radial-gradient(circle at 32% 28%,var(--slate-46),var(--slate-17) 72%);border:1px solid var(--gray-54)}
+.player.white .player-stone,.seat-row.white .player-stone,.stone-mark.white{background:radial-gradient(circle at 32% 27%,var(--white),var(--gray-90) 72%);border-color:var(--gray-78)}
+/* A colour named in a control gets a drawn stone: the text ● and ○ read backwards on the dark theme. */
+.stone-mark{display:inline-block;margin-right:6px;vertical-align:-2px}
+.choice .stone-mark{margin-right:2px}
 /* The side to move: its name in gold and bold, the other side's dimmed. */
 .player.is-turn .player-name{color:var(--gold);font-weight:var(--weight-bold)}
 .player.is-turn .player-detail{color:var(--slate-89)}

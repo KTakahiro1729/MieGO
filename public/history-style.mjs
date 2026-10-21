@@ -6,6 +6,7 @@ import {
   styleLink,
   styleTally
 } from "./play-style.mjs";
+import { stoneMark } from "./player-row.mjs";
 import { TEXT } from "./texts.mjs";
 
 // 棋風診断 over saved games: in the 履歴 list the player picks a side in each
@@ -92,7 +93,7 @@ export function createHistoryStyle({$,gameLibrary,ownSide=()=>null,recall=()=>()
       const chip=document.createElement("button");
       chip.type="button";chip.className="history-style-side";
       const key=color===BLACK ? "B" : "W";
-      chip.textContent=(key==="B" ? "● " : "○ ")+T.sideLabel(key);
+      chip.append(stoneMark(color),T.sideLabel(key));
       const on=picks.get(record.id)===color;
       chip.setAttribute("aria-pressed",String(on));
       chip.disabled=!on && !picks.has(record.id) && picks.size>=MAX_POOLED;

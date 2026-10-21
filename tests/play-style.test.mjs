@@ -168,6 +168,8 @@ test("in 履歴, the person's own side in recent games is picked and can be chan
   assert.ok(watched.row.classList.contains("is-unreadable"),"hidden while picking");
   assert.equal(local.label,"自分の石","the side buttons say what they pick");
   assert.deepEqual(local.sides.map(chip=>chip.getAttribute("aria-pressed")),["false","false"],"either side may be theirs");
+  assert.deepEqual(local.sides.map(chip=>[chip.children[0].className,chip.textContent]),
+    [["stone-mark","黒番"],["stone-mark white","白番"]],"each side shows a drawn stone, not ● or ○");
   const white=playStyle(game,WHITE);
   assert.match(dom.$("historyStyleResult").textContent,new RegExp("^"+white.type+" .*1局"));
   local.sides[1].click();
