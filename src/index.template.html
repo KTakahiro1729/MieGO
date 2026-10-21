@@ -32,13 +32,13 @@
       <div class="header-actions">
         <button id="newGameButton" class="secondary new-game-button" type="button" aria-haspopup="dialog" aria-controls="modePanel">{{header.newGame}}</button>
         <button id="shareToggle" class="icon-button" type="button" aria-label="{{share.open}}" title="{{share.open}}" aria-controls="sharePanel" aria-expanded="false">
-          <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7.5A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-2"/></svg>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7.5A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-2"/></svg>
         </button>
         <button id="helpToggle" class="icon-button" type="button" aria-label="{{header.openHelp}}" title="{{header.openHelp}}" aria-controls="helpPanel" aria-expanded="false">
-          <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg>
         </button>
         <button id="settingsToggle" class="icon-button" type="button" aria-label="{{header.openSettings}}" title="{{header.openSettings}}" aria-controls="settingsPanel" aria-expanded="false">
-          <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9.7 2.5-.45 2.1-1.7.7-1.8-1.16-2.6 2.6 1.16 1.8-.7 1.7-2.11.46v3.6l2.1.45.7 1.7-1.16 1.8 2.6 2.6 1.8-1.16 1.7.7.46 2.11h3.6l.45-2.1 1.7-.7 1.8 1.16 2.6-2.6-1.16-1.8.7-1.7 2.11-.46v-3.6l-2.1-.45-.7-1.7 1.16-1.8-2.6-2.6-1.8 1.16-1.7-.7-.46-2.11Z"/><circle cx="11.5" cy="12.5" r="3.2"/></svg>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m9.7 2.5-.45 2.1-1.7.7-1.8-1.16-2.6 2.6 1.16 1.8-.7 1.7-2.11.46v3.6l2.1.45.7 1.7-1.16 1.8 2.6 2.6 1.8-1.16 1.7.7.46 2.11h3.6l.45-2.1 1.7-.7 1.8 1.16 2.6-2.6-1.16-1.8.7-1.7 2.11-.46v-3.6l-2.1-.45-.7-1.7 1.16-1.8-2.6-2.6-1.8 1.16-1.7-.7-.46-2.11Z"/><circle cx="11.5" cy="12.5" r="3.2"/></svg>
         </button>
       </div>
     </header>
@@ -58,62 +58,66 @@
         </div>
         <div id="ownershipLegend" class="ownership-legend" aria-label="{{analysis.legendLabel}}">
           <div class="bar-line"><span class="end-stone white" aria-hidden="true"></span><div class="gradient" id="gradient" aria-hidden="true"></div><span class="end-stone black" aria-hidden="true"></span></div>
-          <div class="legend-labels"><span id="legendWhite" class="legend-area visually-hidden">{{common.whiteArea}}</span><span id="legendNeutral" class="legend-area" hidden>{{common.neutral}}</span><span class="rule-line"><span id="ruleLabel" class="rule-label">{{game.ruleLabel(9,0,7.5,0)}}</span><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span><span id="legendBlack" class="legend-area visually-hidden">{{common.blackArea}}</span></div>
+          <div class="legend-labels"><span id="legendWhite" class="legend-area visually-hidden">{{common.whiteArea}}</span><span id="legendNeutral" class="legend-area" hidden>{{common.neutral}}</span><span class="rule-line"><span id="ruleLabel" class="rule-label">{{game.ruleLabel(9,0,7.5,0)}}</span><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span><span id="legendBlack" class="legend-area visually-hidden">{{common.blackArea}}</span></div>
         </div>
-        <div id="captureCounts" class="capture-counts" role="status" hidden><span id="whitePrisonerPill" class="prisoner-pill"><span class="capture-stone white" aria-hidden="true"></span><span id="whitePrisoners">0</span></span><span class="capture-label">{{game.capturesLabel}}</span><span id="blackPrisonerPill" class="prisoner-pill"><span class="capture-stone black" aria-hidden="true"></span><span id="blackPrisoners">0</span></span></div>
         <div id="infoPanel" class="info-panel">
         <div id="reviewTools" class="review-tools" role="group" aria-label="{{review.menu}}" hidden>
-          <div class="review-scrubber">
-            <div id="reviewGraph" class="review-graph">
-              <div id="reviewGraphPlot" class="review-graph-plot" aria-hidden="true"></div>
-              <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="{{review.range}}">
-            </div>
-          </div>
           <div class="review-extras">
             <button id="reviewVariation" type="button" hidden>{{review.showVariation}}</button>
             <button id="reviewSaveVariation" type="button" hidden>{{review.saveVariation}}</button>
           </div>
           <p id="reviewNotice" role="status" aria-live="polite"></p>
         </div>
-        <div id="statusRow" class="status-row">
-          <button id="stepBack" class="icon-button step-button" type="button" aria-label="{{review.previous}}" title="{{review.previous}}" disabled><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
-          <div class="status-main">
-            <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
-            <div class="status-sub"><span id="moveLabel" class="move-label">{{game.moveLabel(0)}}</span><span id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</span></div>
-            <div id="players" class="players" aria-label="{{game.playersLabel}}" hidden>
-              <div id="playerBlack" class="player black"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockBlack" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
-              <span id="playersMove" class="players-move"></span>
-              <div id="playerWhite" class="player white"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockWhite" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
+        <div id="controlRow" class="control-row">
+          <button id="stepBack" class="icon-button step-button" type="button" aria-label="{{review.previous}}" title="{{review.previous}}" disabled><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
+          <div class="control-slot">
+            <div class="review-scrubber">
+              <div id="reviewGraph" class="review-graph">
+                <div id="reviewGraphPlot" class="review-graph-plot" aria-hidden="true"></div>
+                <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="{{review.range}}">
+              </div>
+            </div>
+            <div id="endgameBar" class="endgame-bar" aria-label="{{header.endBar}}">
+              <button id="copyIllegalPrompt" class="secondary accent-outline illegal-prompt-action" type="button" aria-label="{{game.illegalPromptAria}}" title="{{game.illegalPromptTitle}}" hidden><span>{{game.askAi}}</span><svg class="copy-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><svg class="copied-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></button>
+              <button class="help-button" type="button" data-help="endgame" aria-label="{{common.helpFor(help.endgame)}}" title="{{common.helpFor(help.endgame)}}" id="endHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button>
+              <span id="endNote" class="end-note"></span>
+              <div id="endActions" class="end-buttons">
+                <button id="endPropose" class="secondary end-action" type="button"><span id="endProposeLabel">{{endgame.propose}}</span><span id="endStage" class="end-stage" aria-hidden="true" hidden><b></b><b></b><b></b></span></button>
+                <button id="endDecline" class="secondary end-action" type="button" hidden>{{common.keepPlaying}}</button>
+                <button id="endAccept" class="end-action primary" type="button" hidden>{{common.accept}}</button>
+              </div>
+              <span id="analysisStatus" class="visually-hidden" role="status" aria-live="polite"></span>
+              <span id="endDetail" class="visually-hidden"></span>
+              <span id="hint" class="visually-hidden" aria-live="polite"></span>
+            </div>
+            <div id="scoreBox" class="score-box hidden">
+              <div id="scoreText" class="score-table" role="group"></div>
             </div>
           </div>
-          <button id="stepForward" class="icon-button step-button" type="button" aria-label="{{review.next}}" title="{{review.next}}" disabled><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
+          <button id="stepForward" class="icon-button step-button" type="button" aria-label="{{review.next}}" title="{{review.next}}" disabled><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
         </div>
-        <div id="endgameBar" class="endgame-bar" aria-label="{{header.endBar}}">
-          <span id="endStatus" class="end-status" role="status" aria-live="polite">{{endgame.playing}}</span>
-          <button id="copyIllegalPrompt" class="secondary accent-outline illegal-prompt-action" type="button" aria-label="{{game.illegalPromptAria}}" title="{{game.illegalPromptTitle}}" hidden><span>{{game.askAi}}</span><svg class="copy-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><svg class="copied-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></button>
-          <button class="help-button" type="button" data-help="endgame" aria-label="{{common.helpFor(help.endgame)}}" title="{{common.helpFor(help.endgame)}}" id="endHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button>
-          <div id="endActions" class="end-buttons">
-            <button id="endPropose" class="secondary end-action" type="button">{{endgame.propose}}</button>
-            <button id="endDecline" class="secondary end-action" type="button" hidden>{{common.keepPlaying}}</button>
-            <button id="endAccept" class="end-action primary" type="button" hidden>{{common.accept}}</button>
+        <div id="statusRow" class="status-row">
+          <div class="status-main">
+            <span id="endStatus" class="end-status" role="status" aria-live="polite"></span>
+            <span id="captureCounts" class="visually-hidden" role="status"></span>
+            <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
+            <div class="status-sub"><span id="moveLabel" class="move-label">{{game.moveLabel(0)}}</span><span id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</span></div>
+            <div class="score-head"><span id="scoreStone" class="score-stone" aria-hidden="true"></span><strong id="scoreTitle">{{scoring.title}}</strong><button class="help-button" type="button" data-help="scoring" aria-label="{{common.helpFor(help.scoringCheck)}}" title="{{common.helpFor(help.scoringCheck)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="scoreStyle" class="secondary score-style" type="button" hidden>{{playStyle.fromResult}}</button></div>
+            <p id="scoreInstruction" class="score-instruction">{{scoring.instruction}}</p>
+            <div id="players" class="players" aria-label="{{game.playersLabel}}" hidden>
+              <div id="playerBlack" class="player black"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span><span id="whitePrisonerPill" class="prisoner-pill" aria-hidden="true" hidden><span class="capture-stone white" aria-hidden="true"></span><span id="whitePrisoners">0</span></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockBlack" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
+              <span id="playersMove" class="players-move"></span>
+              <div id="playerWhite" class="player white"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span><span id="blackPrisonerPill" class="prisoner-pill" aria-hidden="true" hidden><span class="capture-stone black" aria-hidden="true"></span><span id="blackPrisoners">0</span></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockWhite" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
+            </div>
           </div>
-          <span id="analysisStatus" class="visually-hidden" role="status" aria-live="polite"></span>
-          <span id="endDetail" class="visually-hidden"></span>
-          <span id="hint" class="visually-hidden" aria-live="polite"></span>
-        </div>
-        <div id="scoreBox" class="score-box hidden">
-          <div class="score-head"><span id="scoreStone" class="score-stone" aria-hidden="true"></span><strong>{{scoring.title}}</strong><button class="help-button" type="button" data-help="scoring" aria-label="{{common.helpFor(help.scoringCheck)}}" title="{{common.helpFor(help.scoringCheck)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></div>
-          <p id="scoreInstruction">{{scoring.instruction}}</p>
-          <div id="scoreText" class="score-table" role="group"></div>
-          <button id="scoreStyle" class="secondary score-style" type="button" hidden>{{playStyle.fromResult}}</button>
         </div>
         </div>
         <div id="actionRow" class="action-row">
           <!-- The primary action is the rightmost button; after a game only the share glyph follows it. -->
           <div class="fused move-controls">
           <button id="cancel" class="secondary undo-button is-takeback" type="button" aria-label="{{common.takeback}}" title="{{common.takeback}}" disabled>
-            <svg class="cancel-icon" aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
-            <span class="takeback-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg><small>{{common.takeback}}</small></span>
+            <svg class="cancel-icon" aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+            <span class="takeback-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 4v5h5"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg><small>{{common.takeback}}</small></span>
           </button>
           <button id="resign" class="secondary resign-control" type="button">{{common.resign}}</button>
           <button id="pass" class="secondary" type="button">{{common.pass}}</button>
@@ -134,7 +138,7 @@
             <button id="newMatch" class="primary" type="button" aria-label="{{game.rematchAria}}" title="{{game.rematchAria}}" hidden><span>{{game.rematch}}</span><small aria-hidden="true">{{game.rematchNote}}</small></button>
           </div>
           <!-- After a game, the header's share glyph closes the row. -->
-          <button id="openShare" class="secondary share-game" type="button" aria-label="{{share.thisGame}}" title="{{share.thisGame}}" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7.5A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-2"/></svg></button>
+          <button id="openShare" class="secondary share-game" type="button" aria-label="{{share.thisGame}}" title="{{share.thisGame}}" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7.5A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-2"/></svg></button>
           <button id="watchIntervene" class="secondary" type="button" hidden>{{game.watchIntervene}}</button>
           <button id="watchToggle" class="primary" type="button" aria-pressed="false" hidden>{{game.watchPause}}</button>
         </div>
@@ -149,7 +153,7 @@
           <div class="review-navigation">
             <button id="reviewBack" class="secondary accent-outline review-back" type="button">{{review.backGame}}<span id="reviewNewMoves" class="review-new-moves" role="status" aria-live="polite" hidden></span></button>
             <div id="reviewPlayActions" class="review-play-actions" hidden>
-              <button id="reviewCancel" class="secondary review-cancel" type="button" aria-label="{{takeback.undoProvisional}}" title="{{takeback.undoProvisional}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+              <button id="reviewCancel" class="secondary review-cancel" type="button" aria-label="{{takeback.undoProvisional}}" title="{{takeback.undoProvisional}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
               <button id="reviewConfirm" class="review-confirm primary" type="button"><span id="reviewConfirmStone" class="button-stone" aria-hidden="true"></span>{{review.tryHere}}</button>
             </div>
             <button id="reviewContinue" class="primary review-continue" type="button" aria-haspopup="dialog" aria-controls="modePanel">{{review.continue}}</button>
@@ -165,7 +169,7 @@
     </main>
     <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
     <aside id="settingsPanel" class="settings-panel" role="dialog" aria-modal="true" aria-label="{{settings.title}}" hidden>
-      <div class="settings-head"><h2>{{settings.title}}</h2><button id="resetAppearance" class="reset-button" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span>{{settings.reset}}</span></button><button id="closeSettings" class="icon-button" type="button" aria-label="{{settings.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="settings-head"><h2>{{settings.title}}</h2><button id="resetAppearance" class="reset-button" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span>{{settings.reset}}</span></button><button id="closeSettings" class="icon-button" type="button" aria-label="{{settings.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <section class="settings-section name-settings">
         <label class="setting-label" for="playerName">{{settings.name}}</label>
         <input id="playerName" type="text" autocomplete="nickname" enterkeyhint="done" spellcheck="false" placeholder="{{game.you}}">
@@ -202,7 +206,7 @@
         </fieldset>
       </section>
       <section class="settings-section ownership-settings" id="ownershipSettings">
-        <h3>{{settings.ownership}}<button class="help-button" type="button" data-help="ownership" aria-label="{{common.helpFor(help.ownership)}}" title="{{common.helpFor(help.ownership)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></h3>
+        <h3>{{settings.ownership}}<button class="help-button" type="button" data-help="ownership" aria-label="{{common.helpFor(help.ownership)}}" title="{{common.helpFor(help.ownership)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></h3>
         <fieldset class="palette-choices">
           <legend class="setting-label">{{settings.palette}}</legend>
           <label class="palette-choice"><input type="radio" name="palette" value="mono" checked><span class="swatch" data-palette="mono"></span><span>{{settings.palettes.mono}}</span></label>
@@ -247,7 +251,7 @@
       </section>
     </aside>
     <aside id="sharePanel" class="settings-panel share-panel" role="dialog" aria-modal="true" aria-label="{{share.title}}" hidden>
-      <div class="settings-head"><h2>{{share.title}}</h2><button id="closeShare" class="icon-button" type="button" aria-label="{{share.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="settings-head"><h2>{{share.title}}</h2><button id="closeShare" class="icon-button" type="button" aria-label="{{share.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <section class="settings-section">
         <h3>{{share.image}}</h3>
         <div class="ai-color-choices share-kind-choices" role="radiogroup" aria-label="{{share.imageKind}}">
@@ -278,16 +282,16 @@
       <textarea id="shareCopyFallback" readonly hidden aria-label="{{share.manualCopy}}"></textarea>
     </aside>
     <aside id="modePanel" class="settings-panel mode-panel" role="dialog" aria-modal="true" aria-labelledby="modeTitle" hidden>
-      <div class="settings-head"><h2 id="modeTitle">{{header.newGame}}</h2><span class="sheet-head-actions"><label class="sheet-head-tab"><input id="openHistoryFromNew" type="radio" name="newGameMode" value="history"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 3.5V8h4.5"/><path d="M12 7.5V12l3 2"/></svg><strong>{{newGame.history}}</strong></span></label><button class="help-button" type="button" data-help="local" aria-label="{{common.helpFor(newGame.title)}}" title="{{common.helpFor(newGame.title)}}" id="modeHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="closeMode" class="icon-button" type="button" aria-label="{{common.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span></div>
+      <div class="settings-head"><h2 id="modeTitle">{{header.newGame}}</h2><span class="sheet-head-actions"><label class="sheet-head-tab"><input id="openHistoryFromNew" type="radio" name="newGameMode" value="history"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 3.5V8h4.5"/><path d="M12 7.5V12l3 2"/></svg><strong>{{newGame.history}}</strong></span></label><button class="help-button" type="button" data-help="local" aria-label="{{common.helpFor(newGame.title)}}" title="{{common.helpFor(newGame.title)}}" id="modeHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="closeMode" class="icon-button" type="button" aria-label="{{common.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span></div>
       <section class="settings-section new-game-common">
         <div class="new-game-modes">
           <div class="fused">
-            <label><input type="radio" name="newGameMode" value="ai" checked><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 1.5v3.5M15 1.5v3.5M9 19v3.5M15 19v3.5M1.5 9H5M1.5 15H5M19 9h3.5M19 15h3.5"/><circle cx="12" cy="12" r="2.6"/></svg><strong>{{newGame.ai}}</strong></span></label>
-            <label><input type="radio" name="newGameMode" value="watch"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><strong>{{newGame.watch}}</strong></span></label>
-            <label><input type="radio" name="newGameMode" value="online"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4l-1.4 1.4"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.4-1.4"/></svg><strong>{{newGame.online}}</strong></span></label>
+            <label><input type="radio" name="newGameMode" value="ai" checked><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 1.5v3.5M15 1.5v3.5M9 19v3.5M15 19v3.5M1.5 9H5M1.5 15H5M19 9h3.5M19 15h3.5"/><circle cx="12" cy="12" r="2.6"/></svg><strong>{{newGame.ai}}</strong></span></label>
+            <label><input type="radio" name="newGameMode" value="watch"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><strong>{{newGame.watch}}</strong></span></label>
+            <label><input type="radio" name="newGameMode" value="online"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3.2-3.2a4.5 4.5 0 0 0-6.4-6.4l-1.4 1.4"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3.2 3.2a4.5 4.5 0 0 0 6.4 6.4l1.4-1.4"/></svg><strong>{{newGame.online}}</strong></span></label>
           </div>
           <div class="fused">
-            <label><input type="radio" name="newGameMode" value="local"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><circle cx="10" cy="10" r="2" fill="currentColor"/><circle cx="14" cy="14" r="2"/></svg><strong>{{help.local.summary}}</strong></span></label>
+            <label><input type="radio" name="newGameMode" value="local"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><circle cx="10" cy="10" r="2" fill="currentColor"/><circle cx="14" cy="14" r="2"/></svg><strong>{{help.local.summary}}</strong></span></label>
           </div>
         </div>
         <div id="newGameSetup">
@@ -355,13 +359,13 @@
               <span class="com-label">{{ai.tenuki}}</span><div class="fused ai-color-choices com-choices"><label><input type="radio" name="aiTenuki" value="0"><span>{{ai.tenukiStops.low}}</span></label><label><input type="radio" name="aiTenuki" value="50"><span>{{ai.tenukiStops.mid}}</span></label><label><input type="radio" name="aiTenuki" value="100"><span>{{ai.tenukiStops.high}}</span></label></div>
               <span class="com-label">{{ai.resign}}</span><div class="fused ai-color-choices com-choices"><label><input type="radio" name="aiResign" value="0"><span>{{ai.resignStops.low}}</span></label><label><input type="radio" name="aiResign" value="50"><span>{{ai.resignStops.mid}}</span></label><label><input type="radio" name="aiResign" value="100"><span>{{ai.resignStops.high}}</span></label></div>
             </fieldset>
-            <p class="strength-note"><span id="aiStrengthNote" class="explanation setup-note"></span><button class="help-button" type="button" data-help="ai" aria-label="{{common.helpFor(newGame.ai)}}" title="{{common.helpFor(newGame.ai)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></p></div>
+            <p class="strength-note"><span id="aiStrengthNote" class="explanation setup-note"></span><button class="help-button" type="button" data-help="ai" aria-label="{{common.helpFor(newGame.ai)}}" title="{{common.helpFor(newGame.ai)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></p></div>
           </div>
           <div id="setupPanelBoard" class="setup-panel" role="tabpanel" aria-labelledby="setupTabBoard" hidden>
             <div class="choice-list board-list" role="radiogroup" aria-labelledby="setupTabBoard">
-              <label class="choice-row"><input type="radio" name="boardSize" value="9" checked><span class="choice"><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 7.00H22M7.00 2V22M2 12.00H22M12.00 2V22M2 17.00H22M17.00 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.9}}</span><small class="choice-note">{{newGame.boardNotes.9}}</small></label>
-              <label class="choice-row"><input type="radio" name="boardSize" value="13"><span class="choice"><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 5.33H22M5.33 2V22M2 8.67H22M8.67 2V22M2 12.00H22M12.00 2V22M2 15.33H22M15.33 2V22M2 18.67H22M18.67 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.13}}</span><small class="choice-note">{{newGame.boardNotes.13}}</small></label>
-              <label class="choice-row"><input type="radio" name="boardSize" value="19"><span class="choice"><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width=".9"><path d="M2 2.00H22M2.00 2V22M2 4.22H22M4.22 2V22M2 6.44H22M6.44 2V22M2 8.67H22M8.67 2V22M2 10.89H22M10.89 2V22M2 13.11H22M13.11 2V22M2 15.33H22M15.33 2V22M2 17.56H22M17.56 2V22M2 19.78H22M19.78 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.19}}</span><small class="choice-note">{{newGame.boardNotes.19}}</small></label>
+              <label class="choice-row"><input type="radio" name="boardSize" value="9" checked><span class="choice"><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"><path d="M2 2.00H22M2.00 2V22M2 7.00H22M7.00 2V22M2 12.00H22M12.00 2V22M2 17.00H22M17.00 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.9}}</span><small class="choice-note">{{newGame.boardNotes.9}}</small></label>
+              <label class="choice-row"><input type="radio" name="boardSize" value="13"><span class="choice"><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"><path d="M2 2.00H22M2.00 2V22M2 5.33H22M5.33 2V22M2 8.67H22M8.67 2V22M2 12.00H22M12.00 2V22M2 15.33H22M15.33 2V22M2 18.67H22M18.67 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.13}}</span><small class="choice-note">{{newGame.boardNotes.13}}</small></label>
+              <label class="choice-row"><input type="radio" name="boardSize" value="19"><span class="choice"><svg class="size-icon" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"><path d="M2 2.00H22M2.00 2V22M2 4.22H22M4.22 2V22M2 6.44H22M6.44 2V22M2 8.67H22M8.67 2V22M2 10.89H22M10.89 2V22M2 13.11H22M13.11 2V22M2 15.33H22M15.33 2V22M2 17.56H22M17.56 2V22M2 19.78H22M19.78 2V22M2 22.00H22M22.00 2V22"/></svg>{{newGame.sizes.19}}</span><small class="choice-note">{{newGame.boardNotes.19}}</small></label>
             </div>
           </div>
           <div id="setupPanelRules" class="setup-panel" role="tabpanel" aria-labelledby="setupTabRules" hidden>
@@ -373,7 +377,7 @@
             </div>
             <p id="komiNote" class="explanation setup-note" hidden></p>
             <div id="rulesOptions" class="setup-more"><p class="setup-more-head">{{newGame.rulesOptions}}</p>
-            <div id="handicapSetup" class="advanced-row"><span class="label-with-help"><label for="handicap">{{handicap.label}}</label><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span>
+            <div id="handicapSetup" class="advanced-row"><span class="label-with-help"><label for="handicap">{{handicap.label}}</label><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span>
               <select id="handicap" class="handicap-select">
                 <option value="0">{{handicap.even}}</option>
                 <option value="2">{{handicap.stones(2)}}</option><option value="3">{{handicap.stones(3)}}</option><option value="4">{{handicap.stones(4)}}</option><option value="5">{{handicap.stones(5)}}</option>
@@ -454,7 +458,7 @@
       </div>
     </aside>
     <aside id="helpPanel" class="settings-panel help-panel" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
-      <div class="settings-head"><h2 id="helpTitle">{{help.title}}</h2><button id="closeHelp" class="icon-button" type="button" aria-label="{{help.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="settings-head"><h2 id="helpTitle">{{help.title}}</h2><button id="closeHelp" class="icon-button" type="button" aria-label="{{help.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <section class="settings-section help-topics">
         <p class="explanation help-intro">{{page.description}}</p>
         <details id="help-beginner" class="info-disclosure help-topic" name="helpTopic"><summary>{{help.beginner.summary}}</summary>
@@ -518,7 +522,7 @@
       </section>
     </aside>
     <div id="helpPopover" class="help-popover" role="dialog" aria-labelledby="helpPopoverTitle" hidden>
-      <div class="help-popover-head"><strong id="helpPopoverTitle"></strong><button id="closeHelpPopover" class="icon-button" type="button" aria-label="{{help.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="help-popover-head"><strong id="helpPopoverTitle"></strong><button id="closeHelpPopover" class="icon-button" type="button" aria-label="{{help.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <div id="helpPopoverBody" class="help-popover-body"></div>
     </div>
   </div>

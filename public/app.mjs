@@ -8,9 +8,9 @@ import {
   BLACK,
   boardHash,
   confirmDeadSolo,
+  countedEnd,
   fillStones,
   finalizeSoloScore,
-  HANDICAP_KOMI,
   handicapOf,
   hasGomokuForbidden,
   initialGame,
@@ -24,6 +24,7 @@ import {
   play,
   playFreeStone,
   proposeEnd,
+  repeatedPosition,
   resume,
   RULES_KOMI,
   rulesOf,
@@ -32,6 +33,7 @@ import {
   sideKey,
   sizeOf,
   toggleDead,
+  voidGame,
   WHITE,
   withPlayoutFill,
 } from "./core.mjs";
@@ -267,7 +269,7 @@ const playerName = createPlayerName({$,onChange:()=>{
 // 効果音: off until the 設定 sheet turns them on. ドパガキモード swaps in louder voices.
 const sound = createSoundEffects({$,voices:()=>dopa.level()==="off"?CALM_VOICES:DOPA_VOICES});
 const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),graph:$("reviewGraph"),
-  score:()=>$("scoreBox").querySelector("strong")});
+  score:()=>$("scoreTitle")});
 // Whom ドパガキモード cheers for a win: the player's own colour, or either side
 // when watching the COMs or sharing one board.
 // The policy KataGo gave the position on the board, kept for judging the move played from it.
@@ -286,6 +288,8 @@ let takebackNotice = null;
 let endNotice = null;
 // 打ち続ける over the COM's pass: the position where the player said so.
 let keptPlayingAt = null;
+// The move number of the player's pass that asked the COM to end (採点を始める).
+let askedComToEnd = null;
 const keptPlaying = () => keptPlayingAt?.number===game.moveNumber && keptPlayingAt.hash===boardHash(game.board);
 let aiSideChoice = "black";
 // Set while 「ここから打つ」 shows the 新規対戦 sheet: the replayed line and its step.
@@ -449,6 +453,8 @@ function updateEndUi() {
   for(const [id,disabled] of Object.entries(view.disabled))$(id).disabled=disabled;
   for(const [id,classes] of Object.entries(view.classes))
     for(const [name,on] of Object.entries(classes))$(id).classList.toggle(name,on);
+  for(const [id,attributes] of Object.entries(view.attributes))
+    for(const [name,value] of Object.entries(attributes))$(id).setAttribute(name,value);
   if(view.help)$("endHelp").dataset.help=view.help;
 }
 
@@ -808,7 +814,7 @@ function scoringJobCurrent(job) {
 /** The playout's border stones stay on the board, as fill stones, and count. */
 function keptPlayout() {
   if(boardReview || settleControl.busy())return null;
-  const counted=game.status==="scoring" || game.status==="finished" && !game.result?.endsWith("+R");
+  const counted=game.status==="scoring" || countedEnd(game);
   return counted?fillStones(game):null;
 }
 function finishAiMove(result) {
@@ -1022,10 +1028,10 @@ function show() {
   $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,
     isFree(game)?"free":gomoku?"gomoku":japanese,forbidden);
   $("ruleLabel").textContent=TEXT.game.ruleLabel(size,rulesOf(game),komiOf(game),handicap,forbidden);
-  // Japanese territory scoring counts prisoners, so they sit under the ownership bar.
-  $("captureCounts").hidden=!japanese;
+  // Japanese territory scoring counts prisoners, so each player's count sits by their name.
+  $("whitePrisonerPill").hidden=$("blackPrisonerPill").hidden=!japanese;
   // While counting, the dead stones taken off the board are prisoners too.
-  const counted=game.status==="scoring" || game.status==="finished" && !game.result?.endsWith("+R");
+  const counted=game.status==="scoring" || countedEnd(game);
   const prisoners=japanese && counted?
     areaScore(game).prisoners:{black:game.captures?.black||0,white:game.captures?.white||0};
   // Black's prisoners are White stones: that pill shows White stones, in
@@ -1035,7 +1041,7 @@ function show() {
   const outline=prisonerOutline(shownPalette());
   $("whitePrisonerPill").style.borderColor=outline.white;
   $("blackPrisonerPill").style.borderColor=outline.black;
-  $("captureCounts").setAttribute("aria-label",TEXT.game.capturesAria(prisoners.black,prisoners.white));
+  $("captureCounts").textContent=japanese?TEXT.game.capturesAria(prisoners.black,prisoners.white):"";
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
   $("gamePanel").classList.toggle("is-scoring",isScoring);
   $("gamePanel").classList.toggle("is-finished",isFinished);
@@ -1069,7 +1075,7 @@ function show() {
   if(free)for(const id of ["resign","pass","confirm"])$(id).hidden=true;
   $("actionRow").classList.toggle("finished-actions",isFinished);
   // After a game of 囲碁, its 棋風診断 is one tap away, in the share sheet.
-  $("scoreStyle").hidden=!isFinished || !playedSides().some(color=>canReadStyle(game,color));
+  $("scoreStyle").hidden=!isFinished || ![...playedSides(),...watchedSides()].some(color=>canReadStyle(game,color));
   // COM同士: 介入する and 一時停止 (再開); stepping in shows × and ここに打つ instead.
   const watchingPlay=spectating && game.status==="playing";
   $("watchToggle").hidden=$("watchIntervene").hidden=!watchingPlay || intervening;
@@ -1078,7 +1084,7 @@ function show() {
   if(watchingPlay && !intervening)for(const id of ["cancel","confirm"])$(id).hidden=true;
   $("watchToggle").textContent=watchPaused?TEXT.game.watchResume:TEXT.game.watchPause;
   $("watchToggle").setAttribute("aria-pressed",String(watchPaused));
-  $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:
+  $("scoreTitle").textContent=isFinished?TEXT.scoring.resultTitle:
     scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
   const playout=settleControl.view();
   $("scoreInstruction").textContent=playout?TEXT.scoring.settling(playout.moves):
@@ -1098,7 +1104,7 @@ function show() {
     TEXT.scoring.reviewChecking;
   // The scoring controls live in the existing sticky action row.
   $("scoreStone").className="score-stone";
-  $("scoreBox").querySelector(".help-button").dataset.help=gomoku?"rules":"scoring";
+  document.querySelector(".score-head .help-button").dataset.help=gomoku?"rules":"scoring";
   $("scoreText").hidden=false;
   if(isScoring){
     renderScoreboard();
@@ -1116,7 +1122,7 @@ function show() {
   }
   if(isFinished) {
     const result=game.result;
-    $("scoreBox").querySelector("strong").textContent=resultLabel(result)||TEXT.scoring.ended;
+    $("scoreTitle").textContent=resultLabel(result)||TEXT.scoring.ended;
     const winner=resultWinner(result);
     if(winner)$("scoreStone").classList.add(winner==="B"?"black":"white");
     if(endedEarly(result) || gomoku) {
@@ -1161,10 +1167,22 @@ function apply(action, remote=false, isAiMove=false) {
       if(action.after!==boardHash(game.board)) throw new Error("Board mismatch after the move");
       lastPosition=Number.isInteger(action.position)?action.position:null;
       if(!remote && !isAiMove)personMovedAt=performance.now();
+      // The COM answered 採点を始める with a stone: the game goes on, and the bar says why.
+      if(isAiMove && askedComToEnd===before.moveNumber && action.position!==null)
+        endNotice={number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.comKeptPlaying};
+      if(isAiMove)askedComToEnd=null;
       if(isAiMove && aiPassAsks()){
         candidate=null;illegalCandidate=null;illegalPromptCopied=false;
         $("illegalPromptFallbackPanel").hidden=true;
       }
+      // A watched COM同士 game that comes back to the same position a third time
+      // ends as 無勝負: both COMs keep choosing the cycle (日本囲碁規約 第十二条).
+      if(isAiMove && watching && repeatedPosition(game)>=2){stopAiTurn();game=voidGame(game);}
+    } else if(action.type==="void") {
+      // 無勝負 on one board, or with the COM, which agrees to it.
+      stopAiTurn();
+      game=voidGame(game);
+      endExpanded=false;
     } else if(action.type==="solo_scoring") {
       stopAiTurn(); // Invalidate pending AI workers on the old position.
       game=beginSoloScoring(game);
@@ -1219,7 +1237,7 @@ function apply(action, remote=false, isAiMove=false) {
     }
     // "mode" (the removed per-game overlay switch) from older peers is ignored below.
     else if(action.type==="end_offer") {
-      game=proposeEnd(game,action.color);
+      game=proposeEnd(game,action.color,action.kind==="void"?"void":"score");
       if(remote)endExpanded=false;
     } else if(action.type==="end_answer") {
       const offerFrom=game.endProposal?.from;
@@ -1521,7 +1539,8 @@ $("endPropose").onclick=()=>{
     clearProvisional();
     endExpanded=true;show();requestAnalysis();return;
   }
-  apply({type:"end_offer",color,number:game.moveNumber,before:boardHash(game.board)});
+  const kind=repeatedPosition(game)>0?{kind:"void"}:{};
+  apply({type:"end_offer",color,...kind,number:game.moveNumber,before:boardHash(game.board)});
 };
 function answerTakebackRequest(accept) {
   const request=game.takebackRequest,color=myColorForEnd();
@@ -1533,10 +1552,20 @@ $("endAccept").onclick=()=>{
   if(game.status!=="playing")return;
   if(game.takebackRequest){answerTakebackRequest(true);return;}
   const color=myColorForEnd();
+  if(!room && endExpanded && !game.endProposal && repeatedPosition(game)>0){
+    apply({type:"void",number:game.moveNumber,before:boardHash(game.board)});return;
+  }
   if(!room && endExpanded && aiPassAsks()){
     endExpanded=false;submitMove(null);return;
   }
   if(!room && endExpanded && !game.endProposal){
+    // 対COM: stopping takes both sides' passes (日本囲碁規約 第九条), so the
+    // player's pass asks the COM, and its own pass starts the count. Without
+    // KataGo the COM cannot answer, so the player decides alone.
+    if(gameMode==="ai" && !watching && !fallbackMode){
+      if(!isHumanTurn())return;
+      endExpanded=false;askedComToEnd=game.moveNumber+1;submitMove(null);return;
+    }
     // One human decision, not a fabricated AI response.
     apply({type:"solo_scoring",number:game.moveNumber,before:boardHash(game.board)});
     return;
@@ -1567,8 +1596,8 @@ $("mainTime").onchange=e=>{mainTimeChoice=toSeconds(e.target.value,MAIN_TIME_CHO
 $("byoyomi").onchange=e=>{byoyomiChoice=toSeconds(e.target.value,BYOYOMI_CHOICES);rememberSettings();};
 $("gomokuForbidden").onchange=e=>{gomokuForbiddenChoice=e.target.checked;rememberSettings();renderInviteButton();};
 // A player reads their own result first; a 1台 game or COM同士 has no "you".
-// A resignation or a loss on time ends the game before any count.
-const endedEarly = result => /\+[RT]$/.test(result||"");
+// A resignation, a loss on time or 無勝負 ends the game before any count.
+const endedEarly = result => /\+[RT]$|^Void$/.test(result||"");
 // 持ち時間: only a person's clock runs. COMs, a watched game and a free board
 // play without one. In a friend game both devices run the clock of the side
 // to move while connected; a dropped connection gives the turn's time back.
@@ -1668,7 +1697,7 @@ function renderScoreboard(){
 }
 function isCounting(){
   return !boardReview && (game.status==="scoring" ||
-    game.status==="finished" && !game.result?.endsWith("+R") && !isGomoku(game));
+    countedEnd(game) && !isGomoku(game));
 }
 function save(){
   try {
@@ -2434,15 +2463,17 @@ function rememberOwnership(board,values){
   try{ownershipStore.remember(currentGameId,board,values);}catch(error){console.warn("Ownership not kept",error);}
 }
 // The colours a person played in the shared game: a COM's side is left out, and a watched game has none.
-function playedSides(){
+function sharedGameSides(){
   const record=boardReview?.source==="archive" ? boardReview.record : null;
   const live=!boardReview || boardReview.source==="live";
   const ai=record ? record.mode==="ai" : live && gameMode==="ai";
-  if(!ai)return [BLACK,WHITE];
-  if(record ? record.watch : watching)return [];
-  return [record ? record.humanColor : humanColor];
+  if(!ai)return {played:[BLACK,WHITE],watched:[]};
+  if(record ? record.watch : watching)return {played:[],watched:[BLACK,WHITE]};
+  return {played:[record ? record.humanColor : humanColor],watched:[]};
 }
-const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,playedSides,
+function playedSides(){return sharedGameSides().played;}
+function watchedSides(){return sharedGameSides().watched;}
+const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,playedSides,watchedSides,
   stillColoured:()=>boardReview ? !!boardReview.ownership : game.status==="playing" && !!displayedOwnership});
 function openSharePanel(){
   openPanel("share");
@@ -2664,7 +2695,7 @@ function syncHandicapUi() {
   // What komi is: the even-game value, or the handicap one when stones are placed.
   const go=gameRules==="chinese" || gameRules==="japanese";
   $("komiNote").hidden=!go;
-  if(go)$("komiNote").textContent=shown?TEXT.newGame.komiNoteHandicap(HANDICAP_KOMI,gameRules==="japanese"):
+  if(go)$("komiNote").textContent=shown?TEXT.newGame.komiNoteHandicap(gameRules==="japanese"):
     TEXT.newGame.komiNote(RULES_KOMI[gameRules]);
   $("handicapNote").textContent=(ai?TEXT.handicap.noteAi:
     kind==="online"?TEXT.handicap.noteOnline:TEXT.handicap.noteLocal)+

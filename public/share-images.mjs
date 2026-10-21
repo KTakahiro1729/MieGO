@@ -15,8 +15,9 @@ export function downloadBlob(blob,name){
 
 // The 画像 part of the share sheet. sharedPosition() is the board the sheet
 // works on; stillColoured() tells whether that board now shows ownership.
-// playedSides() lists the colours a person played (a COM's style is its setting).
-export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ownershipStore,playedSides,
+// playedSides() lists the colours a person played (a COM's style is its setting);
+// watchedSides() lists the COMs' colours in a watched game, read and shown but not counted.
+export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ownershipStore,playedSides,watchedSides=()=>[],
                                    appearance:{shownPalette,overlayOn,opacity,boardTheme}}) {
   // Shared images end on the board exactly as drawn (board look, ownership
   // colours, marks and labels come from the canvas itself), set in a card
@@ -45,9 +46,11 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
     const {snapshot,step,gameId}=sharedPosition();
     try{
       const recall=state=>gameId===null ? null : ownershipStore.recall(gameId,state.board);
-      const styles=playedSides().map(color=>playStyle(snapshot,color,{through:step,recall})).filter(Boolean);
+      const read=color=>playStyle(snapshot,color,{through:step,recall});
+      const styles=playedSides().map(read).filter(Boolean);
       reportPlayStyles(gameId+":"+step+":"+styles.map(s=>s.type).join(","),snapshot,styles);
-      return styles;
+      const watched=watchedSides().map(read).filter(Boolean).map(style=>({...style,com:true}));
+      return [...styles,...watched];
     }catch(error){console.warn("Play style not read",error);return [];}
   }
   // An animation frame: the replayed position with the ownership recorded for
@@ -121,7 +124,7 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
       const button=Object.assign(document.createElement("button"),{type:"button",className:"secondary full described"});
       const name=document.createElement("span"),note=document.createElement("small");
       name.textContent=(style.color==="B" ? "● " : "○ ")+TEXT.share.cardPlayStyle(style.type,TEXT.playStyle.types[style.type].name);
-      note.textContent=TEXT.playStyle.openPage;
+      note.textContent=style.com ? TEXT.playStyle.openPageCom : TEXT.playStyle.openPage;
       button.append(name,note);
       button.onclick=()=>window.open(styleLink(style),"_blank","noopener");
       return button;

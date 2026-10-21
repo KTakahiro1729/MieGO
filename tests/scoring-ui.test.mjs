@@ -34,3 +34,13 @@ test("scoring agreements do not restart model selection of dead stones",()=>{
 test("tapping a counting stone on empty territory is ignored instead of alerting",()=>{
   assert.match(app,/game\.status==="scoring"\)\{\n\s*if\(room&&!connected\)return;\n(?:\s*\/\/.*\n)?\s*if\(!game\.board\[position\]\)return;/);
 });
+test("無勝負: one board and the COM end at once, a friend is asked, and a watched cycle ends by itself",()=>{
+  assert.match(app,/else if\(action\.type==="void"\) \{/);
+  assert.match(app,/apply\(\{type:"void",number:game\.moveNumber,before:boardHash\(game\.board\)\}\)/);
+  assert.match(app,/apply\(\{type:"end_offer",color,\.\.\.kind,/);
+  assert.match(app,/if\(isAiMove && watching && repeatedPosition\(game\)>=2\)\{stopAiTurn\(\);game=voidGame\(game\);\}/);
+});
+test("対COM, 採点を始める is the player's pass and waits for the COM's",()=>{
+  assert.match(app,/if\(gameMode==="ai" && !watching && !fallbackMode\)\{\n      if\(!isHumanTurn\(\)\)return;\n      endExpanded=false;askedComToEnd=game\.moveNumber\+1;submitMove\(null\);return;/);
+  assert.match(app,/askedComToEnd===before\.moveNumber && action\.position!==null/);
+});
