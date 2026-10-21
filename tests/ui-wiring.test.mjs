@@ -31,3 +31,18 @@ test("endgame advice never claims 'not yet' until KataGo has evaluated a positio
   // endgameHint reports 確認中／判定できません instead (see tests/endgame.test.mjs).
   assert.match(app,/endgameHint\(game,endgameAdvisor,\{\s*unavailable:fallbackMode/);
 });
+test("states that only screen readers heard are also shown in the notice",()=>{
+  // The turn row cuts ページを開き直してください… short, and the player row keeps reading 最強.
+  assert.match(app,/\$\("aiMatchStatus"\)\.textContent = TEXT\.ai\.unavailable;\n    showNotice\(TEXT\.ai\.unavailable\);/);
+  assert.match(app,/showNotice\(TEXT\.ai\.strongestFailed\)/);
+});
+test("a friend game's status line says what it waits for, and the sheet the check opened closes",()=>{
+  assert.match(app,/async function joinRoom\(\)\{[\s\S]*?\$\("netStatus"\)\.textContent=TEXT\.online\.waitingConnection;\n  try\{/);
+  assert.match(app,/callback:token=>\{if\(opened\)closePanels\(\);resolve\(token\);\}/);
+  assert.match(app,/onConnected:\(\)=>\{[\s\S]*?TEXT\.online\.retrying\)\$\("saveStatus"\)\.hidden=true;/);
+});
+test("a dropped friend game says it reconnects by itself, and the opponent's line leaves the connection to the status line",()=>{
+  assert.match(app,/room && !connected\?\(reconnecting\?TEXT\.game\.reconnecting:TEXT\.game\.waitingOpponent\)/);
+  assert.match(app,/showNotice\(error\.retrying\?TEXT\.online\.retrying:/);
+  assert.doesNotMatch(app,/side\.name===TEXT\.game\.opponent\?\$\("netStatus"\)/);
+});

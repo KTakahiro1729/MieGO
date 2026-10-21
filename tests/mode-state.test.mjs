@@ -10,21 +10,21 @@ const panel=key=>{
   return sheet.slice(start,next>0?next:sheet.indexOf('</section>',start));
 };
 
-test("a 新規対戦 button opens one sheet with the modes as icon tabs, then 戻る and 履歴を見る",()=>{
+test("a 新規対戦 button opens one sheet with the modes as icon tabs and 履歴 in its header",()=>{
   assert.match(html,/<button id="newGameButton"[^>]*>新規対戦<\/button>/);
   assert.match(app,/\$\("newGameButton"\)\.onclick=\(\)=>openPanel\(room\?"online":gameMode\)/);
   assert.doesNotMatch(html,/<select id="modePicker"|<option value="history">/);
   // The modes form one row of icon tabs in one sheet, [対COM|観戦|対友人] [1台で打つ];
-  // under them, [対局に戻る] [履歴を見る].
+  // 履歴 sits in the header beside ? and ✕.
   assert.equal((sheet.match(/name="newGameMode"[^>]*><span><svg class="mode-icon"/g)||[]).length,5);
-  const modes=between(sheet,'<div class="new-game-modes">','<div class="new-game-nav">');
+  const modes=between(sheet,'<div class="new-game-modes">','<div id="newGameSetup">');
   assert.deepEqual(modes.split('<div class="fused">').slice(1).map(group=>[...group.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1])),
     [["ai","watch","online"],["local"]]);
-  const nav=between(sheet,'<div class="new-game-nav">','<div id="newGameSetup">');
-  assert.ok(nav.indexOf('id="returnToGame"')>=0 && nav.indexOf('id="returnToGame"')<nav.indexOf('id="openHistoryFromNew"'));
-  assert.match(sheet,/id="openHistoryFromNew" type="radio" name="newGameMode" value="history"/);
-  // 対COM first, 履歴 last; 対COM is the first-visit default.
-  assert.deepEqual([...sheet.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1]),["ai","watch","online","local","history"]);
+  const head=between(sheet,'<div class="settings-head">','</div>');
+  assert.match(head,/<label class="sheet-head-tab"><input id="openHistoryFromNew" type="radio" name="newGameMode" value="history">/);
+  assert.ok(head.indexOf('id="openHistoryFromNew"')<head.indexOf('id="modeHelp"') && head.indexOf('id="modeHelp"')<head.indexOf('id="closeMode"'));
+  // 履歴 in the header first, then the modes, 対COM first; 対COM is the first-visit default.
+  assert.deepEqual([...sheet.matchAll(/name="newGameMode" value="(\w+)"/g)].map(m=>m[1]),["history","ai","watch","online","local"]);
   assert.match(sheet,/name="newGameMode" value="ai" checked>/);
   assert.match(app,/let gameMode = room \? "online" : "ai";/);
   // 履歴 lives in this sheet; there is no separate history sheet.
@@ -61,11 +61,15 @@ test("the COM is eight characters with notes, then カスタム's strength and f
     assert.deepEqual([...sheet.matchAll(new RegExp('name="'+name+'" value="(\\d+)"',"g"))].map(m=>m[1]),["0","50","100"]);
 });
 
-test("the mode tabs and the way back, then the options, then the start button",()=>{
+test("the mode tabs, then the options, then one row of the way back and the start button",()=>{
+  const row=between(sheet,'<div id="newGameActions" class="new-game-actions">','</aside>');
   for(const id of ["startLocal","startAi","copy"]) {
-    assert.ok(sheet.indexOf('id="returnToGame"')<sheet.indexOf('id="newGameSetup"'),id);
     assert.ok(sheet.indexOf('id="aiStrengthRow"')<sheet.indexOf('id="'+id+'"'),id);
+    // The way back is on the left, so the start button stays the rightmost.
+    assert.ok(row.indexOf('id="returnToGame"')>=0 && row.indexOf('id="returnToGame"')<row.indexOf('id="'+id+'"'),id);
   }
+  // 履歴's list comes before the row, so the way back stays at the bottom there too.
+  assert.ok(sheet.indexOf('id="historySetup"')<sheet.indexOf('id="newGameActions"'));
 });
 test("settings is presentation-only and has no board rotation",()=>{
   const [common] = html.split('<aside id="modePanel"');
@@ -161,11 +165,13 @@ test("replacing the game discards every signal of the previous position",()=>{
   assert.match(app,/lastPosition=record\.lastPosition;resetPositionState\(\);/);
 });
 test("the 新規対戦 sheet offers a way back to the current or an unfinished saved game",()=>{
-  assert.match(sheet,/id="returnToGame"[^>]*>対局に戻る<\/button>/);
+  // It names where it goes, so it does not read like a settings page's 戻る.
+  assert.match(sheet,/id="returnToGame"[^>]*>今の対局を続ける<\/button>/);
   // The way back stays in every mode, so the sheet keeps its layout when the mode changes.
   assert.doesNotMatch(sheet,/id="returnToGame"[^>]*hidden/);
-  assert.match(app,/const current=\{mode:null,label:TEXT\.history\.returnCurrent\};/);
-  assert.equal(TEXT.history.returnCurrent,"対局に戻る");
+  assert.match(app,/const current=\{mode:null,label:!boardReview && game\.status==="finished"\?TEXT\.history\.returnBoard:TEXT\.history\.returnCurrent\};/);
+  assert.equal(TEXT.history.returnCurrent,"今の対局を続ける");
+  assert.equal(TEXT.history.returnBoard,"盤に戻る");
   // Finished games and friend rooms are not resumed from here: the button returns to the board instead.
   assert.match(app,/kind==="online" \|\| kind===\(room\?"online":gameMode\)\)return current;/);
   assert.match(app,/record\.snapshot\.status==="finished"\)return current;/);
@@ -183,7 +189,7 @@ test("every mode's start button reads 新しい対局を始める and stays at t
  assert.equal(TEXT.newGame.start,"新しい対局を始める");
  assert.match(app,/function startLabel\(\)\{return continueFrom\?TEXT\.review\.continue:TEXT\.newGame\.start;\}/);
  assert.match(app,/\$\("copy"\)\.textContent=!room\?TEXT\.newGame\.start:/);
- assert.match(css,/\.mode-panel #localSetup,\.mode-panel #aiSetup,\.mode-panel #onlineStart\{[^}]*position:sticky/);
+ assert.match(css,/\.mode-panel \.new-game-actions\{[^}]*position:sticky/);
  // 対友人's button is its own section, so it can stick like the others.
  assert.match(html,/<section id="onlineStart" class="settings-section" hidden>\s*<button id="copy"/);
 });

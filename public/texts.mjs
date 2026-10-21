@@ -107,7 +107,7 @@ export const TEXT = {
     detailIncoming: "受け入れると採点に進みます。打ち続けることもできます。",
     detailLocalAi: "あなたの判断で採点へ進みます。COMが終局を承認するわけではありません。",
     detailLocal: "採点に進み、死石を確認します。対局の再開もできます。",
-    detailUnsettled: "採点するとCOMが残りを打ち進めるので、結果が大きく動くことがあります。打ち続けることもできます。",
+    detailUnsettled: "まだ決まっていない所は、どちらの地にもなりません。打ち続けることもできます。",
     detailWaiting: "相手の返答待ちです。提案は取り下げられます。",
     detailOnline: "終局はいつでも提案できます。パスとは別の操作です。",
     detailOffline: "採点はいつでも始められます。パスとは別の操作です。",
@@ -161,9 +161,9 @@ export const TEXT = {
     reviewModifiedJapanese: "数字は地。点数を確認してください",
     reviewUnavailable: "死石をタップで指定してください。自動判定なし",
     reviewChecking: "死石を確認しています…",
-    settling: moves => "石をタップで修正。打ち進め中（" + moves + "手）",
-    settleCut: moves => "上限の" + moves + "手で停止。取られた石を死石にします",
-    settleDone: moves => moves ? moves + "手で決着。取られた石を死石にします" : "打つ手がなく、そのまま判定します",
+    settling: moves => "石をタップで修正。ダメを詰め中（" + moves + "手）",
+    settleCut: moves => "上限の" + moves + "手で停止。死石の候補を示します",
+    settleDone: moves => moves ? moves + "手でダメ詰め。死石の候補を示します" : "詰めるダメがなく、そのまま判定します",
     settleSkip: "スキップ",
     settleReplay: "決着手順を再生",
     // Each row: { area, detail, total } from scoreRows.
@@ -188,6 +188,7 @@ export const TEXT = {
     yourTurn: "あなたの番",
     opponentTurn: "相手の番",
     waitingOpponent: "対局相手を待っています",
+    reconnecting: "自動でつなぎ直しています",
     aiStopped: "ページを開き直してください",
     aiTurn: "COMの番です",
     // While 最強 thinks: the turn label, and what it is doing on the line under it.
@@ -237,6 +238,9 @@ export const TEXT = {
     // After a game: 新規対戦 opens the sheet; もう一局 starts the same game again at once.
     rematch: "もう一局",
     rematchAria: "同じ設定でもう一局",
+    rematchNote: "同じ設定で",
+    newGameAria: "別の設定で新規対戦",
+    newGameNote: "別の設定で",
     hintIllegal: "禁止手の仮置き中。確定せず、理由を質問する文をコピーできます",
     hintCandidate: "仮置き中。確定か取り消しを選べます",
     // ここに打つ, while it cannot be pressed, says why. About 140px wide on a 320px phone.
@@ -387,6 +391,8 @@ export const TEXT = {
     copyInvite: "招待リンクをコピー",
     checkpointFailed: "このページを閉じずに対局してください。この端末に保存できませんでした。",
     requestFailed: "電波やWi-Fiを確認して、もう一度お試しください。",
+    // Shown while the friend game reconnects by itself, so it asks for no retry.
+    retrying: "電波やWi-Fiを確認してください。つながると自動で続きに戻ります。",
     createFailed: "時間をおいて、もう一度お試しください。対局を作れませんでした。",
     rateLimited: "しばらく待ってから、もう一度お試しください。",
     sessionExpired: "招待URLか自分用の再入室リンクから開き直してください。",
@@ -448,9 +454,11 @@ export const TEXT = {
     updated: "もう一度選んでください。棋譜が更新されました。",
     sgfUnreadable: "別のSGFファイルを選んでください。このファイルは読み込めません。",
     otherTab: "ページを開き直してください。別のタブで更新されたため、保存できませんでした。",
-    returnCurrent: "対局に戻る",
-    returnAi: "途中のCOMとの対局に戻る",
-    returnLocal: "途中の1台の対局に戻る",
+    // The 新規対戦 sheet's way back, beside the start button: it names where it goes, not 戻る.
+    returnCurrent: "今の対局を続ける",
+    returnBoard: "盤に戻る",
+    returnAi: "途中のCOM戦を続ける",
+    returnLocal: "途中の1台対局を続ける",
     showFailed: "ほかの棋譜を選んでください。この棋譜は開けません。",
     replayFailed: "ほかの棋譜を選んでください。この棋譜は再生できません。",
     otherTabReview: "履歴から選び直してください。別のタブで更新されました。",
@@ -496,6 +504,8 @@ export const TEXT = {
     title: "共有",
     close: "共有を閉じる",
     open: "共有を開く",
+    // After a game the row ends with the share glyph, for the game just played.
+    thisGame: "この試合を共有する",
     image: "画像",
     imageKind: "画像の種類",
     still: "静止画",
@@ -664,7 +674,7 @@ export const TEXT = {
 
   newGame: {
     title: "新規対戦",
-    history: "履歴を見る",
+    history: "履歴",
     ai: "対COM",
     online: "対友人",
     board: "盤",
@@ -750,8 +760,9 @@ export const TEXT = {
     scoring: {
       summary: "死石の確認",
       items: [
-        "<strong>死石とは</strong>：囲まれていて、この先どう打っても取られてしまう石です。採点ではCOMが残りを打ち進め、死石の候補に×を付けます。",
-        "<strong>色と小さな輪</strong>：色は確定した地、小さな輪はどちらの地でもない所です。",
+        "<strong>死石とは</strong>：囲まれていて、この先どう打っても取られてしまう石です。採点では両方の石に接するダメを交互に詰めてから、死石の候補に×を付けます。",
+        "<strong>小さな石が増えた</strong>：採点で詰めたダメの石です。地の境目になるだけで、対局の棋譜は変わりません。",
+        "<strong>色と小さな輪</strong>：色は確定した地、小さな輪はどちらの地でもない所です。まだ決まっていない所も、どちらの地にもなりません。",
       ],
     },
     illegal: {
