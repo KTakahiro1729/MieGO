@@ -12,7 +12,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version-file: .node-version
+          node-version: '24'
+          check-latest: true
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
       - name: Install Chromium for the layout test
