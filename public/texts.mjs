@@ -955,7 +955,7 @@ export const TEXT = {
   seats: {
     title: "この対局の打ち手",
     open: "対局者（押すと打ち手を替えられます）",
-    person: "人",
+    person: "あなた",
     com: "COM",
     character: color => color + "のCOMのキャラ",
     strength: color => color + "のCOMの強さ",
@@ -970,8 +970,9 @@ export const TEXT = {
     becomes: (from, to) => from + "から" + to + "に替わります。",
     stays: mode => mode + "のまま、COMを替えます。",
     comMoves: color => "続けるとすぐ" + color + "のCOMが打ちます。",
+    speed: speed => "観戦の速さを「" + speed + "」にします。",
     record: "棋譜はこのまま続きます。",
-    comUnavailable: "COMを読み込めていないので、今は人どうしでだけ打てます。",
+    comUnavailable: "COMを読み込めていないので、今は黒も白もあなたが打つ「1台で打つ」だけです。",
   },
   newGame: {
     title: "新規対戦",
