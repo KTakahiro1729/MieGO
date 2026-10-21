@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { countingGradient,countingPalette,countingOpacity,PALETTES,paletteAt,ownershipAlpha,ownershipPixel,paletteGradient,
   interpolateOwnership,normalizePalette,OWNERSHIP_BANDS,PALETTE_CUSTOM,COLOUR_KEYS,paletteColours,setCustomColours,
-  setOpacityShape,opacityShape,isPaletteChoice,showsOwnership,PALETTE_NONE } from "../public/territory-view.mjs";
+  setOpacityShape,opacityShape,isPaletteChoice,showsOwnership,shownOwnership,PALETTE_NONE } from "../public/territory-view.mjs";
 import {source} from "./helpers/source.mjs";
 
 test("monochrome is the default: the stones' own colours, white and black on opposite sides",()=>{
@@ -102,4 +102,50 @@ test("counting legend shows White's area, a neutral ring and Black's area in the
 });
 test("the endgame advisor counts as settled exactly what is drawn in the settled colour",async()=>{
   assert.match(source("endgame.mjs"),/OWNERSHIP_BANDS\.SETTLED/);
+});
+
+// 9x9: a White wall on column 3, a Black wall on column 5, dame between.
+function walledBoard() {
+  const board=Array(81).fill(0),values=Array(81).fill(0);
+  for(let y=0;y<9;y++){
+    board[y*9+3]=-1;values[y*9+3]=-.9;
+    board[y*9+5]=1;values[y*9+5]=.9;
+    for(const x of [0,1,2])values[y*9+x]=-.3;
+    for(const x of [6,7,8])values[y*9+x]=.4;
+  }
+  return {board,values};
+}
+test("an area closed by one side's living stones, and given to it, is shown as settled",()=>{
+  const {board,values}=walledBoard();
+  const shown=shownOwnership(board,values);
+  assert.equal(shown[4*9+1],-1,"White's closed area");
+  assert.equal(shown[4*9+7],1,"Black's closed area");
+  assert.equal(shown[4*9+4],0,"dame between both walls stays as estimated");
+  assert.equal(shown[4*9+3],-.9,"stones keep their estimate");
+  assert.equal(values[4*9+1],-.3,"the estimate itself is not changed");
+});
+test("dead stones inside an area do not open it; doubt keeps the estimate",()=>{
+  const dead=walledBoard();
+  dead.board[4*9+1]=1;dead.values[4*9+1]=.05; // A Black stone the estimate gives to White on average.
+  dead.board[4*9+2]=1;dead.values[4*9+2]=-.5;
+  assert.equal(shownOwnership(dead.board,dead.values)[0],-1);
+  assert.equal(shownOwnership(dead.board,dead.values)[4*9+1],-1,"the dead stone's point is White's");
+  const seki=walledBoard();
+  for(let y=0;y<9;y++)seki.values[y*9+3]=-.4;
+  assert.equal(shownOwnership(seki.board,seki.values)[0],-.3,"a wall the estimate doubts (seki) closes nothing");
+  const doubt=walledBoard();
+  doubt.values[8*9]=.1;
+  assert.equal(shownOwnership(doubt.board,doubt.values)[0],-.3,"a point given to the other side keeps the area open");
+  const open=Array(81).fill(0),lean=Array(81).fill(.3);
+  open[40]=1;lean[40]=.9;
+  assert.deepEqual(shownOwnership(open,lean),lean,"the open board is never settled");
+});
+test("日本式 leaves living stones clear and colours a dead stone's point",()=>{
+  const {board,values}=walledBoard();
+  board[4*9+1]=1;values[4*9+1]=-.6;
+  const shown=shownOwnership(board,values,{japanese:true});
+  assert.equal(shown[4*9+3],0,"a living White stone");
+  assert.equal(shown[4*9+5],0,"a living Black stone");
+  assert.equal(shown[4*9+1],-1,"a dead stone's point is territory once lifted");
+  assert.equal(shown[4*9+4],0);
 });

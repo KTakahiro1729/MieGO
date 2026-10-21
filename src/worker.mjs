@@ -40,6 +40,15 @@ const roomStub = (env, room) => env.ROOMS.get(env.ROOMS.idFromName(room));
 const callRoom = (stub, path, data) => stub.fetch(new Request("https://room.internal" + path, {
   method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data)
 }));
+// The only shape /api/stat takes (public/play-style.mjs statPayload).
+function playStyleStat(value) {
+  const { size, rules, styles } = value;
+  if (![9, 13, 19].includes(size) || !["chinese", "japanese"].includes(rules)) return null;
+  if (!Array.isArray(styles) || styles.length < 1 || styles.length > 2) return null;
+  if (!styles.every(s => s && ["B", "W"].includes(s.color) && /^[AG][HL][FR][TQ]$/.test(s.type))) return null;
+  if (new Set(styles.map(s => s.color)).size !== styles.length) return null;
+  return { size, rules, styles: styles.map(({ color, type }) => ({ color, type })) };
+}
 const inputError = () => json({ error: "Invalid request" }, 400);
 export default {
   async fetch(request, env) {
@@ -59,6 +68,17 @@ export default {
     }
     if (path === "/api/p2p/config" && request.method === "GET") {
       return json({ siteKey: env.TURNSTILE_SECRET && env.TURNSTILE_SITE_KEY ? env.TURNSTILE_SITE_KEY : null, rooms: Boolean(env.ROOMS) });
+    }
+    // 棋風診断 counts: board size, rules and each shown type, written to Workers
+    // Analytics Engine. No IP, device or game is kept; previews have no STATS and count nothing.
+    if (path === "/api/stat" && request.method === "POST") {
+      if (!sameOrigin(request,url)) return json({error:"Forbidden origin"},403);
+      let payload; try { payload = await body(request); } catch { return inputError(); }
+      const stat = playStyleStat(payload);
+      if (!stat) return inputError();
+      for (const { color, type } of stat.styles)
+        env.STATS?.writeDataPoint({ indexes: [type], blobs: [type, color, stat.rules], doubles: [stat.size] });
+      return new Response(null, { status: 204 });
     }
     // Branch previews deploy without the GameRoom namespace (wrangler.preview.jsonc).
     if (path.startsWith("/api/rooms") && !env.ROOMS) return json({error:"Rooms unavailable",code:"rooms_unavailable"},503);
