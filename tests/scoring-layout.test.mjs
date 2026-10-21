@@ -144,7 +144,6 @@ test("scoring and the result fit above the action row on every screen",{skip,tim
     }
     await step(page,at,"scoring",()=>page.locator("#gamePanel.is-scoring").waitFor());
     const phases=[["決着手順",await layout(page)]];
-    if(await page.locator("#settleSkip").isVisible())await page.locator("#settleSkip").click();
     await step(page,at,"dead-stone check",()=>page.waitForFunction(()=>!document.getElementById("agree").disabled,null,{timeout:60000}));
     phases.push(["死石の確認",await layout(page)]);
     await page.locator("#agree").click();

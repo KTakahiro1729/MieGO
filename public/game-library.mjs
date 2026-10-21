@@ -22,6 +22,12 @@ export function cleanWatchAi(value) {
   if(!value?.black || !value?.white)return null;
   return {black:readCom(value.black),white:readCom(value.white)};
 }
+/** Each colour's name in a played game; a colour named now keeps it, and one not named keeps the earlier name. */
+export function cleanNames(value,previous=null) {
+  const one=name=>typeof name==="string" && name.trim()?[...name.trim()].slice(0,40).join(""):null;
+  const black=one(value?.black)??one(previous?.black),white=one(value?.white)??one(previous?.white);
+  return black||white?{black,white}:null;
+}
 export class GameLibrary {
   /** onRemove(record) runs after a game is deleted; keep() names games that must stay. */
   constructor(storage, createId=()=>crypto.randomUUID(), now=()=>new Date().toISOString(),
@@ -98,7 +104,7 @@ export class GameLibrary {
     return updated;
   }
   save({id=null,mode,snapshot,roomId=null,lastPosition=null,humanColor=1,
-        aiCom=null,aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null,watch=false,watchAi=null},expectedRevision=null) {
+        aiCom=null,aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null,watch=false,watchAi=null,names=null},expectedRevision=null) {
     const previous=id===null?null:this.load(id);
     // Nothing that cannot be read back is written.
     if(!MODES.has(mode) || !parseGameSnapshot(JSON.stringify(snapshot)) ||
@@ -130,6 +136,8 @@ export class GameLibrary {
       watch:mode==="ai" && watch===true,
       // Each colour's COM in a watched game: strength and personality.
       watchAi:mode==="ai" && watch===true ? cleanWatchAi(watchAi) : null,
+      // The players' names as they played: 表示名 and the COMs' characters.
+      names:cleanNames(names,previous?.names),
       seat:mode==="online"?(seat==="guest"?"guest":seat==="host"?"host":null):null,
       source:previous?.source==="sgf" || previous?.source==="variation"?previous.source:
         source==="sgf" || source==="variation"?source:"played",

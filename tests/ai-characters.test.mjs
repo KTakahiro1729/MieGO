@@ -9,7 +9,9 @@ import {
   characterNote,
   characterOf,
   comFor,
+  comSummary,
   normalizeCom,
+  setComValue,
 } from "../public/ai-characters.mjs";
 import { AI_STRENGTHS } from "../public/ai-strength.mjs";
 
@@ -106,12 +108,23 @@ test("settings that match no character open as カスタム, with every axis sna
   assert.equal(characterOf({strength:"easy",invasion:10,reinforcement:90}),"steady");
   assert.equal(characterOf({strength:"easy",invasion:90,height:20}),"raider");
   assert.deepEqual(normalizeCom({strength:"nope",invasion:70}),
-    {strength:"strong",height:50,stance:50,tenuki:50});
+    {strength:"strong",height:50,resign:0,stance:50,tenuki:50});
   assert.deepEqual(comFor(CUSTOM_CHARACTER,{strength:"easy",stance:100}),
-    {strength:"easy",height:50,stance:100,tenuki:50});
+    {strength:"easy",height:50,resign:0,stance:100,tenuki:50});
   // A COM saved while 侵入度 was its own axis: 攻守 takes the mean of the two.
   assert.equal(normalizeCom({stance:50,invasion:100}).stance,100);
   assert.equal(normalizeCom({stance:0,invasion:100}).stance,50);
   assert.equal(characterOf({strength:"easy",height:0,invasion:100,stance:50,tenuki:50}),"raider");
   assert.equal(characterLabel(CUSTOM_CHARACTER),"カスタム");
+});
+
+test("投了 starts at 最後まで for every character, and choosing it makes the COM カスタム",()=>{
+  for(const c of Object.values(AI_CHARACTERS))assert.equal(c.resign,0);
+  // Saves from before 投了 play every game out.
+  assert.equal(normalizeCom({strength:"easy"}).resign,0);
+  const com=setComValue({character:"chick",...AI_CHARACTERS.chick},"resign","50");
+  assert.equal(com.character,CUSTOM_CHARACTER);
+  assert.equal(com.resign,50);
+  assert.match(comSummary(com),/大差で投了/);
+  assert.doesNotMatch(comSummary(AI_CHARACTERS.chick),/投了/);
 });
