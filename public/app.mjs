@@ -39,7 +39,7 @@ import {
 } from "./core.mjs";
 import { replayPlayout } from "./settle-playout.mjs";
 import { createSettleControl } from "./settle-control.mjs";
-import { EndgameAdvisor } from "./endgame.mjs";
+import { EndgameAdvisor, endingNear } from "./endgame.mjs";
 import { endgameBarView } from "./endgame-bar.mjs";
 import {
   BYOYOMI_CHOICES,
@@ -90,7 +90,7 @@ import {
   goodMove,
 } from "./dopa-mode.mjs";
 import { choosePolicyMove, createResignWatch } from "./ai-opponent.mjs";
-import { gomokuMove } from "./gomoku.mjs";
+import { gomokuMove } from "./gomoku-ai.mjs";
 import { cleanName, createPlayerName } from "./player-name.mjs";
 import { playerSides, recordNames, stoneMark } from "./player-row.mjs";
 import { createSeatSheet, seatsOf } from "./seat-sheet.mjs";
@@ -134,7 +134,7 @@ import { createReviewPrefetch, createScoreGraph } from "./review-estimates.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { createHistoryStyle } from "./history-style.mjs";
-import { canReadStyle, readStyleLink } from "./play-style.mjs";
+import { canReadStyle, playStyleShown, readStyleLink } from "./play-style.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { createHelpSheet } from "./help-sheet.mjs";
@@ -332,7 +332,7 @@ let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
 // A COM set to 終局の提案 offers to end once its game has looked lost for a few turns.
 const resignWatch = createResignWatch();
-// While watching, a COM that would offer keeps playing and the bar says so;
+// While watching, a COM that would offer keeps playing and its side of the turn row says so;
 // the colour that wants to, or null.
 let resignWish = null;
 // The player said 対局を続ける to the COM's offer: it plays the game out.
@@ -457,7 +457,7 @@ function myColorForEnd() {
 function updateEndUi() {
   const view=endgameBarView({game,color:myColorForEnd(),room:!!room,connected,gameMode,watching:isWatching(),
     endExpanded,katagoReady,fallbackMode,advisor:endgameAdvisor,aiThinking,
-    notices:[takebackNotice,endNotice],illegalCandidate,resignWish});
+    notices:[takebackNotice,endNotice],illegalCandidate});
   for(const [id,text] of Object.entries(view.text))$(id).textContent=text;
   for(const [id,hidden] of Object.entries(view.hidden))$(id).hidden=hidden;
   for(const [id,disabled] of Object.entries(view.disabled))$(id).disabled=disabled;
@@ -475,9 +475,10 @@ function peerAgreed() {
   return game.agreed[theirs] && !game.agreed[mine];
 }
 // A pass is a move, against a COM too; ending the game is an offer, which the
-// COM makes or answers when the board has settled or when it sees the game lost.
+// COM makes when the board has settled and accepts from そろそろ, as もう終盤
+// under the button shows it (endgame.mjs), or either when it sees the game lost.
 const comEnds = color => endgameAdvisor.stage==="ready" && !endgameAdvisor.held || resignWatch.lost(color);
-const comAcceptsEnd = color => endgameAdvisor.stage==="near" || comEnds(color);
+const comAcceptsEnd = color => endingNear(endgameAdvisor) || comEnds(color);
 // The COM moves only once an offer on the board is answered.
 const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" && !game.endProposal &&
   (watching ? !intervening : game.next === -humanColor);
@@ -817,7 +818,7 @@ function requestGomokuTurn() {
   const id=pending;
   aiThinking=true;
   aiJob={id,number:game.moveNumber,hash:boardHash(game.board),at:performance.now()};
-  $("aiMatchStatus").textContent=TEXT.ai.playingGomoku;
+  $("aiMatchStatus").textContent=TEXT.ai.playingGomoku(TEXT.ai.strengths[comToMove().strength]);
   show();
   const job=aiJob;
   setTimeout(()=>{
@@ -825,7 +826,8 @@ function requestGomokuTurn() {
     aiThinking=false;aiJob=null;
     if(!isAiTurn() || game.moveNumber!==job.number || boardHash(game.board)!==job.hash){show();return;}
     lastWatchMoveAt=performance.now();
-    submitMove(gomokuMove(game.board,game.next,Math.random,{forbidden:hasGomokuForbidden(game)}),true);
+    submitMove(gomokuMove(game.board,game.next,Math.random,
+      {forbidden:hasGomokuForbidden(game),strength:comToMove().strength}),true);
   },AI_REPLY_MS);
 }
 /** The automatic dead-stone job still belongs to the position on the board. */
@@ -1357,10 +1359,10 @@ canvas.addEventListener("click",e=>{
     try{
       boardReview.preview=proposeReviewStone(boardReview,game,position);
       boardReview.previewPosition=position;
-      reviewFeedback("");show();requestReviewOwnership();
+      reviewNotice("");show();requestReviewOwnership();
     }catch(error){
       boardReview.preview=null;boardReview.previewPosition=null;
-      reviewFeedback(messageFor(error,TEXT.common.retry));show();requestReviewOwnership();
+      reviewNotice(messageFor(error,TEXT.common.retry));show();requestReviewOwnership();
     }
     return;
   }
@@ -1584,6 +1586,14 @@ $("endAccept").onclick=()=>{
   const color=myColorForEnd();
   if(!room && endExpanded && !game.endProposal && repeatedPosition(game)>0){
     apply({type:"void",number:game.moveNumber,before:boardHash(game.board)});return;
+  }
+  // After the COM declined, それでも採点 scores on the player's own judgement, as without KataGo.
+  if(!room && !endExpanded && !game.endProposal && gameMode==="ai" && !watching &&
+     endNotice?.text===TEXT.endgame.comDeclined && endNotice.number===game.moveNumber &&
+     endNotice.hash===boardHash(game.board)){
+    if(aiThinking)return;
+    apply({type:"solo_scoring",number:game.moveNumber,before:boardHash(game.board)});
+    return;
   }
   if(!room && endExpanded && !game.endProposal){
     // 対COM, the player's offer is an offer, as with a friend, not a pass: the COM
@@ -2032,7 +2042,8 @@ SETUP_TABS.forEach((key,index)=>{
 // A tab whose setting the chosen mode does not use is greyed out; its panel still opens.
 function syncSetupValues() {
   const kind=newGameModeKind(),watch=kind==="ai" && watchChoice;
-  $("setupTabSide").classList.toggle("is-unused",kind==="local" || watch);
+  // 自分の石 also holds the 置き石 choice, which every mode of 囲碁 uses.
+  $("setupTabSide").classList.toggle("is-unused",(kind==="local" || watch) && !handicapInUse());
   // While watching, the tab still holds each COM's card.
   $("setupTabStrength").classList.toggle("is-unused",kind!=="ai");
   // 時間 holds the clock and 観戦's speed; a free board uses neither.
@@ -2049,6 +2060,7 @@ function syncSetupTabValues() {
     // ここから打つ fixes 盤 and ルール to the record's, so those still show the value.
     const fixed=continueFrom && (key==="Board" || key==="Rules");
     if(key==="Time" && !tab.classList.contains("is-unused")){$("setupValueTime").textContent=timeTabValue();continue;}
+    if(key==="Side" && handicapInUse()){$("setupValueSide").textContent=sideTabValue(checked);continue;}
     if(key==="Strength" && !tab.classList.contains("is-unused")){
       $("setupValueStrength").textContent=editsWatchAi()?TEXT.newGame.watchStrengthValue:
         TEXT.newGame.comValue(TEXT.ai.strengths[nextAiCom.strength],characterLabel(nextAiCom.character));
@@ -2058,6 +2070,17 @@ function syncSetupTabValues() {
   }
 }
 $("newGameSetup").addEventListener("change",syncSetupTabValues);
+// 置き石 can be chosen unless the rules take none or ここから打つ keeps the record's stones.
+function handicapInUse() {
+  return gameRules!=="gomoku" && gameRules!=="free" && !continueFrom?.line;
+}
+// The side, when the mode picks one, then the 置き石 count; 互先 alone when no side is picked.
+function sideTabValue(checked) {
+  const kind=newGameModeKind(),picks=kind==="online" || kind==="ai" && !watchChoice;
+  const side=picks && checked?checked.nextElementSibling.textContent.trim():"";
+  const handicap=Number($("handicap").value);
+  return [side,handicap?TEXT.handicap.stones(handicap):side?"":TEXT.handicap.evenShort].filter(Boolean).join(" · ");
+}
 // 観戦 shows its speed; the other modes their clock.
 function timeTabValue() {
   if(newGameModeKind()==="ai" && watchChoice)return TEXT.newGame.watchSpeeds[watchSpeed];
@@ -2130,13 +2153,15 @@ for(const input of document.querySelectorAll('input[name="gameRules"]')) {
     syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
-function reviewFeedback(message){
-  $("reviewFeedback").textContent=message;$("reviewFeedback").hidden=!message;
+// The replay's one notice line, above its tools: a confirmation or what to do next.
+// Any step, try-out or change of line clears it, so it never outlives what it is about.
+function reviewNotice(message){
+  $("reviewNotice").textContent=message;
 }
 function discardReviewPreview(){
   if(!boardReview?.preview)return;
   boardReview.preview=null;boardReview.previewPosition=null;
-  reviewFeedback("");show();requestReviewOwnership();
+  reviewNotice("");show();requestReviewOwnership();
 }
 function confirmReviewPreview(){
   if(!boardReview?.preview)return;
@@ -2144,10 +2169,9 @@ function confirmReviewPreview(){
     const result=commitReviewStone(boardReview,game,boardReview.previewPosition);
     Object.assign(boardReview,result);
     boardReview.preview=null;boardReview.previewPosition=null;
-    reviewFeedback("");
-    $("reviewNotice").textContent=result.created?TEXT.review.variationCreated:"";
+    reviewNotice("");
     show();requestReviewOwnership();
-  }catch(error){reviewFeedback(messageFor(error,TEXT.common.retry));}
+  }catch(error){reviewNotice(messageFor(error,TEXT.common.retry));}
 }
 function selectOriginalLine(){
   if(!boardReview)return;
@@ -2156,7 +2180,7 @@ function selectOriginalLine(){
   const original=boardReview.source==="live"?game:boardReview.snapshot;
   boardReview.step=Math.min(boardReview.step,original.moves.length);
   boardReview.display=replaySteps(original,boardReview.step);
-  reviewFeedback("");show();requestReviewOwnership();
+  reviewNotice("");show();requestReviewOwnership();
 }
 function selectVariationLine(){
   if(!boardReview?.variation)return;
@@ -2165,14 +2189,15 @@ function selectVariationLine(){
   const line=boardReview.variation.snapshot;
   boardReview.step=Math.min(boardReview.step,line.moves.length);
   boardReview.display=replaySteps(line,boardReview.step);
-  reviewFeedback("");show();requestReviewOwnership();
+  reviewNotice("");show();requestReviewOwnership();
 }
 function saveReviewVariation(){
   if(!boardReview?.variation)return;
   try{
     gameLibrary.save({mode:"local",snapshot:boardReview.variation.snapshot,source:"variation"});
-    $("reviewNotice").textContent=TEXT.review.variationSaved;
-  }catch(error){$("reviewNotice").textContent=messageFor(error,TEXT.review.variationSaveFailed);}
+    boardReview.variation.saved=true;
+    reviewNotice(TEXT.review.variationSaved);show();
+  }catch(error){reviewNotice(messageFor(error,TEXT.review.variationSaveFailed));}
 }
 /** Who plays each colour, for the turn row and the names a saved game keeps. */
 function playersShown(){
@@ -2189,14 +2214,19 @@ function renderPlayers(shown, waiting=null) {
   for(const color of [BLACK,WHITE]){
     const side=sides[color],box=$(color===BLACK?"playerBlack":"playerWhite");
     const toMove=game.next===color;
-    const thinking=toMove && side.com && !watchPaused && !intervening;
+    // A COM whose offer to end waits for an answer is not thinking: its side says so.
+    const offering=side.com && game.endProposal?.from===color;
+    const thinking=toMove && side.com && !offering && !watchPaused && !intervening;
     box.classList.toggle("is-turn",toMove);
     box.querySelector(".player-wait").hidden=!thinking;
     // A person's 持ち時間 takes the place of their line.
     box.querySelector(".player-name").textContent=side.name;
     // The connection stays in the line under the turn, which takes this row's place when it drops.
     box.querySelector(".player-detail-text").textContent=
-      thinking?(waiting?.short || TEXT.game.comThinking):clockShown(color)?"":toMove && !side.com?TEXT.game.toMove:side.detail;
+      // While watching, a COM that sees its game lost plays on and says it would offer to end.
+      thinking?(waiting?.short || (watching && resignWish===color?TEXT.game.comWantsEnd:TEXT.game.comThinking)):
+      offering?TEXT.game.comOffering:
+      clockShown(color)?"":toMove && !side.com?TEXT.game.toMove:side.detail;
   }
   $("playersMove").textContent=TEXT.game.moveLabel(game.moveNumber);
 }
@@ -2211,7 +2241,9 @@ function renderBoardReview() {
   const isPreview=!!boardReview.preview;
   $("ownershipLegend").classList.toggle("no-territory",isGomoku(line));
   $("reviewTitle").textContent=variationActive?TEXT.review.checkingVariation:source==="url"?TEXT.review.checkingShared:TEXT.review.checking;
-  $("moveLabel").textContent=TEXT.review.step(step,count);
+  // A resignation takes a step on the slider but is not counted as a move.
+  const played=line.moves.filter(move=>move.position!=="resign").length;
+  $("moveLabel").textContent=TEXT.review.step(Math.min(step,played),played);
   $("reviewStepRange").max=String(count);
   $("reviewStepRange").value=String(step);
   $("stepBack").disabled=step===0 || isPreview;
@@ -2224,17 +2256,23 @@ function renderBoardReview() {
   $("reviewConfirmStone").classList.toggle("white",boardReview.preview?.moves.at(-1)?.color===WHITE);
   $("reviewVariation").hidden=variationActive || !boardReview.variation;
   $("reviewSaveVariation").hidden=!boardReview.variation;
+  // A saved 試し打ち is in 履歴 already; saving it again would only add a copy.
+  $("reviewSaveVariation").disabled=!!boardReview.variation?.saved;
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?TEXT.review.newMoves(updates):"";
   // The way back: to the latest move, the original line, or the game.
   $("reviewBack").firstChild.textContent=variationActive?TEXT.review.backOriginal:TEXT.review.backGame;
-  $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
-  $("turn").classList.remove("no-stone");
-  $("turn").textContent=isPreview?TEXT.review.trying(step+1):variationActive?TEXT.review.trying(step):TEXT.review.showing(step);
+  // The turn row names the move on the board, and its stone is that move's colour
+  // (no stone before the first move), whether it is the game's or a 試し打ち.
+  const shown=isPreview?boardReview.preview.moves.at(-1):line.moves[step-1];
+  $("turn").classList.toggle("white-to-play",shown?.color===WHITE);
+  $("turn").classList.toggle("no-stone",!shown);
+  $("turn").textContent=isPreview?TEXT.review.trying(step+1):variationActive?TEXT.review.trying(step):
+    TEXT.review.showing(step,shown?.position);
   $("gamePanel").classList.remove("is-scoring","is-finished");
   $("netStatus").textContent=source==="archive"?TEXT.game.savedGames:source==="url"?TEXT.review.sourceUrl:
-    isWatching()?TEXT.common.modeWatch:gameMode==="ai"?TEXT.common.modeAi:room?TEXT.review.sourceOnline:TEXT.common.modeLocal;
+    isWatching()?TEXT.common.modeWatch:gameMode==="ai"?TEXT.common.modeAi:room?TEXT.common.modeOnline:TEXT.common.modeLocal;
   // One primary slot: resume the saved game at its end, otherwise start from here.
   $("reviewContinue").textContent=canResumeSelectedReview()||atLiveLatest()?TEXT.review.resume:TEXT.review.continue;
   $("reviewContinue").hidden=isPreview;
@@ -2310,7 +2348,7 @@ function showReviewOwnership() {
     };
     reviewWorker.onerror=e=>{
       console.warn("Review ownership unavailable",e);
-      $("reviewNotice").textContent=TEXT.review.ownershipFailed;
+      reviewNotice(TEXT.review.ownershipFailed);
       reviewWorker?.terminate();reviewWorker=null;
     };
   }
@@ -2325,7 +2363,7 @@ function enterBoardReview(snapshot,step,source="live",metadata=null,record=null)
   boardReview={snapshot,display,step,source,metadata,record,ownership:null,
     activeLine:"main",variation:null,preview:null,previewPosition:null,
     openedAt:game.moveNumber,analysisId:0};
-  $("reviewNotice").textContent="";
+  reviewNotice("");
   show();requestReviewOwnership();
 }
 function setBoardReviewStep(step) {
@@ -2337,10 +2375,10 @@ function setBoardReviewStep(step) {
     const moved=step!==boardReview.step;
     boardReview.display=display;boardReview.step=step;
     boardReview.preview=null;boardReview.previewPosition=null;
-    reviewFeedback("");$("reviewNotice").textContent="";
+    reviewNotice("");
     show();requestReviewOwnership();
-    if(moved && scoreGraphShown() && scoreGraph?.marks.includes(step)){dopa.don();sound.play("don");}
-  }catch(error){$("reviewNotice").textContent=TEXT.history.replayFailed;}
+    if(moved && scoreGraph.shown() && scoreGraph.marks().includes(step)){dopa.don();sound.play("don");}
+  }catch(error){reviewNotice(TEXT.history.replayFailed);}
 }
 function clearBoardReview() {
   if(!boardReview)return;
@@ -2412,7 +2450,7 @@ function forkBoardReview(kind="local") {
   if(!boardReview)return;
   let fork;
   try{fork=forkReview(activeReviewSnapshot(boardReview,game),boardReview.step);}
-  catch{$("reviewNotice").textContent=TEXT.review.branchFailed;closePanels();return;}
+  catch{reviewNotice(TEXT.review.branchFailed);closePanels();return;}
   const ai=kind==="ai";
   if(ai && !canContinueWithAi())return; // The choice is disabled meanwhile.
   if(room && connected && !confirmByRetap($(ai?"startAi":"startLocal"),TEXT.confirm.leaveForReview))return;
@@ -2568,13 +2606,13 @@ function resumeSelectedReview(){
   let record=gameLibrary.load(selected.id);
   if(!record || (record.revision!==selected.revision &&
     !(selected.id===currentGameId && selected.mode===gameMode))){
-    $("reviewNotice").textContent=TEXT.history.otherTabReview;
+    reviewNotice(TEXT.history.otherTabReview);
     return;
   }
   if(!save())return;
   record=gameLibrary.load(selected.id);
   if(!record){
-    $("reviewNotice").textContent=TEXT.history.loadFailed;
+    reviewNotice(TEXT.history.loadFailed);
     return;
   }
   if(room)leaveOnlineRoom();
@@ -2726,6 +2764,10 @@ function applySeats(match) {
   if(!canChangeSeats())return;
   stopAiTurn(); // A move being computed for a seat that changed is dropped.
   candidate=null;illegalCandidate=null;
+  // The COM that offered to end may be gone: the seats as they are now decide again.
+  if(game.endProposal && gameMode==="ai" && !watching && game.endProposal.from!==humanColor)
+    game={...game,endProposal:null};
+  endExpanded=false;resetResignWatch();
   gameMode=match.mode;
   setWatching(match.watching);
   if(match.watching){watchAi=match.watchAi;lastWatchMoveAt=performance.now();}
@@ -2948,7 +2990,7 @@ if(!room && params.get("open")==="history-style"){
   const [type,...leans]=(params.get("with") ?? "").split(",");
   stylePartner=readStyleLink("?t="+type+"&s="+leans.join(","));
   history.replaceState(null,"",location.pathname);
-  openHistoryStyle();
+  if(playStyleShown())openHistoryStyle();
 }
 compactOwnership();
 // An unfinished friend game is offered when the page opens on something else.

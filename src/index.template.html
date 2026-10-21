@@ -7,6 +7,7 @@
   <title>{{page.title}}</title>
   <meta name="description" content="{{page.description}}">
   <link rel="canonical" href="https://miego.fun/">
+  <link rel="alternate" type="text/plain" href="https://miego.fun/llms.txt" title="llms.txt">
   <link rel="icon" href="/favicon.ico" sizes="32x32">
   <link rel="icon" href="/icon-96.png" type="image/png" sizes="96x96">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -25,6 +26,8 @@
   <!-- module preloads -->
 </head>
 <body>
+  <!-- Fetchers for chat AIs only follow URLs they have already seen, and they do not run scripts. -->
+  <noscript><p>{{page.forAi}} <a href="https://miego.fun/llms.txt">https://miego.fun/llms.txt</a> <a href="https://miego.fun/ai.md">https://miego.fun/ai.md</a></p></noscript>
   <canvas id="boardBleed" class="board-bleed" aria-hidden="true"></canvas>
   <div class="app-shell">
     <header class="topbar">
@@ -82,7 +85,7 @@
               <button class="help-button" type="button" data-help="endgame" aria-label="{{common.helpFor(help.endgame)}}" title="{{common.helpFor(help.endgame)}}" id="endHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button>
               <span id="endNote" class="end-note"></span>
               <div id="endActions" class="end-buttons">
-                <button id="endPropose" class="secondary end-action" type="button"><span id="endProposeLabel">{{endgame.propose}}</span><span id="endStage" class="end-stage" aria-hidden="true" hidden><b></b><b></b><b></b></span></button>
+                <button id="endPropose" class="secondary end-action" type="button"><span id="endProposeLabel">{{endgame.propose}}</span><span id="endStage" class="end-stage" aria-hidden="true" hidden></span></button>
                 <button id="endDecline" class="secondary end-action" type="button" hidden>{{common.keepPlaying}}</button>
                 <button id="endAccept" class="end-action primary" type="button" hidden>{{common.accept}}</button>
               </div>
@@ -102,7 +105,7 @@
             <span id="captureCounts" class="visually-hidden" role="status"></span>
             <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
             <div class="status-sub"><span id="moveLabel" class="move-label">{{game.moveLabel(0)}}</span><span id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</span></div>
-            <div class="score-head"><span id="scoreStone" class="score-stone" aria-hidden="true"></span><strong id="scoreTitle">{{scoring.title}}</strong><button class="help-button" type="button" data-help="scoring" aria-label="{{common.helpFor(help.scoringCheck)}}" title="{{common.helpFor(help.scoringCheck)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="scoreStyle" class="secondary score-style" type="button" hidden>{{playStyle.fromResult}}</button></div>
+            <div class="score-head"><span id="scoreStone" class="score-stone" aria-hidden="true"></span><strong id="scoreTitle">{{scoring.title}}</strong><button class="help-button" type="button" data-help="scoring" aria-label="{{common.helpFor(help.scoringCheck)}}" title="{{common.helpFor(help.scoringCheck)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></div>
             <p id="scoreInstruction" class="score-instruction">{{scoring.instruction}}</p>
             <button id="players" class="players" type="button" aria-label="{{seats.open}}" aria-haspopup="dialog" hidden>
               <span id="playerBlack" class="player black"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span><span id="whitePrisonerPill" class="prisoner-pill" aria-hidden="true" hidden><span class="capture-stone white" aria-hidden="true"></span><span id="whitePrisoners">0</span></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockBlack" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></span>
@@ -137,7 +140,8 @@
             <button id="newMatchSheet" class="secondary" type="button" aria-label="{{game.newGameAria}}" title="{{game.newGameAria}}" hidden><span>{{header.newGame}}</span><small aria-hidden="true">{{game.newGameNote}}</small></button>
             <button id="newMatch" class="primary" type="button" aria-label="{{game.rematchAria}}" title="{{game.rematchAria}}" hidden><span>{{game.rematch}}</span><small aria-hidden="true">{{game.rematchNote}}</small></button>
           </div>
-          <!-- After a game, the header's share glyph closes the row. -->
+          <!-- After a game, the play-style button and the header's share glyph close the row. -->
+          <button id="scoreStyle" class="secondary score-style" type="button" aria-label="{{playStyle.fromResultAria}}" title="{{playStyle.fromResultAria}}" hidden><span>{{playStyle.fromResult}}</span><small aria-hidden="true">{{playStyle.fromResultNote}}</small></button>
           <button id="openShare" class="secondary share-game" type="button" aria-label="{{share.thisGame}}" title="{{share.thisGame}}" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7.5A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-2"/></svg></button>
           <button id="watchIntervene" class="secondary" type="button" hidden>{{game.watchIntervene}}</button>
           <button id="watchToggle" class="primary" type="button" aria-pressed="false" hidden>{{game.watchPause}}</button>
@@ -149,7 +153,6 @@
         </div>
         <section id="reviewPanel" class="review-panel" aria-label="{{review.panel}}" hidden>
           <strong id="reviewTitle" class="visually-hidden">{{review.checking}}</strong>
-          <p id="reviewFeedback" class="review-feedback" role="status" aria-live="polite" hidden></p>
           <div class="review-navigation">
             <button id="reviewBack" class="secondary accent-outline review-back" type="button">{{review.backGame}}<span id="reviewNewMoves" class="review-new-moves" role="status" aria-live="polite" hidden></span></button>
             <div id="reviewPlayActions" class="review-play-actions" hidden>
@@ -341,6 +344,16 @@
               <label class="choice-row"><input type="radio" name="onlineSide" value="white"><span class="choice"><span class="stone-mark white" aria-hidden="true"></span>{{common.sideWhite}}</span><small class="choice-note">{{newGame.sideNotes.white}}</small></label>
             </fieldset></div>
             <p id="sideNote" class="explanation setup-note"></p>
+            <div id="handicapOptions" class="setup-more">
+              <div id="handicapSetup" class="advanced-row"><span class="label-with-help"><label for="handicap">{{handicap.label}}</label><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span>
+                <select id="handicap" class="handicap-select">
+                  <option value="0">{{handicap.even}}</option>
+                  <option value="2">{{handicap.stones(2)}}</option><option value="3">{{handicap.stones(3)}}</option><option value="4">{{handicap.stones(4)}}</option><option value="5">{{handicap.stones(5)}}</option>
+                  <option value="6">{{handicap.stones(6)}}</option><option value="7">{{handicap.stones(7)}}</option><option value="8">{{handicap.stones(8)}}</option><option value="9">{{handicap.stones(9)}}</option>
+                </select>
+              </div>
+              <p id="handicapNote" class="explanation" hidden></p>
+            </div>
           </div>
           <div id="setupPanelStrength" class="setup-panel" role="tabpanel" aria-labelledby="setupTabStrength" hidden>
             <div id="watchAiOptions" class="watch-ai" hidden>
@@ -415,14 +428,6 @@
             </div>
             <p id="komiNote" class="explanation setup-note" hidden></p>
             <div id="rulesOptions" class="setup-more"><p class="setup-more-head">{{newGame.rulesOptions}}</p>
-            <div id="handicapSetup" class="advanced-row"><span class="label-with-help"><label for="handicap">{{handicap.label}}</label><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span>
-              <select id="handicap" class="handicap-select">
-                <option value="0">{{handicap.even}}</option>
-                <option value="2">{{handicap.stones(2)}}</option><option value="3">{{handicap.stones(3)}}</option><option value="4">{{handicap.stones(4)}}</option><option value="5">{{handicap.stones(5)}}</option>
-                <option value="6">{{handicap.stones(6)}}</option><option value="7">{{handicap.stones(7)}}</option><option value="8">{{handicap.stones(8)}}</option><option value="9">{{handicap.stones(9)}}</option>
-              </select>
-            </div>
-            <p id="handicapNote" class="explanation" hidden></p>
             <div id="gomokuForbiddenRow" class="mode hide-stones"><div><strong>{{newGame.gomokuForbidden}}</strong><p>{{newGame.gomokuForbiddenNote}}</p></div><input id="gomokuForbidden" type="checkbox" aria-label="{{newGame.gomokuForbidden}}"></div>
             <div id="hideStonesRow" class="mode hide-stones"><div><strong>{{newGame.hideStones}}</strong><p>{{newGame.hideStonesNote}}</p></div><input id="hideStones" type="checkbox" aria-label="{{newGame.hideStones}}"></div>
             </div>

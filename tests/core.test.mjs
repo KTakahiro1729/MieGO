@@ -7,6 +7,7 @@ import {
   answerEndProposal,
   areaScore,
   at,
+  beginSoloScoring,
   boardHash,
   countedEnd,
   group,
@@ -25,6 +26,7 @@ import {
   parseSGF,
   replaySteps,
 } from "../public/sgf.mjs";
+import { takeBack } from "../public/takeback.mjs";
 
 test("initial game and alternating moves", () => {
   let g = newGame(); g = play(g, at(0, 0)); g = play(g, at(1, 0));
@@ -89,6 +91,22 @@ test("対局を再開: the opponent of the side that resumes moves first", () =>
   assert.equal(resumed.moves.at(-1).color, BLACK);
   assert.equal(replaySteps(resumed).next, WHITE);
   assert.equal(parseSGF(exportSGF(resumed)).snapshot.board[0], BLACK);
+});
+
+test("対局を再開 after a count opened without passes still replays", () => {
+  // Black to move: a COM game's 終局, or White's 終局の提案 accepted by Black,
+  // then Black resumes, so White (the COM or the friend) moves first.
+  const g = play(play(newGame(), 40), 41);
+  const offered = answerEndProposal(proposeEnd(g, WHITE), BLACK, true);
+  for (const counted of [beginSoloScoring(g), offered]) {
+    const resumed = play(resume(counted, BLACK), 0);
+    assert.equal(resumed.moves.at(-1).color, WHITE);
+    const replayed = replaySteps(resumed);
+    assert.deepEqual(replayed.board, resumed.board);
+    assert.equal(replayed.next, BLACK);
+    // 待った gives the turn back to the side whose move was taken back.
+    assert.equal(takeBack(resumed, { color: WHITE }).game.next, WHITE);
+  }
 });
 
 test("groups yields every group of stones once, with its colour and liberties", () => {

@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { textAt } from "../public/texts.mjs";
@@ -17,6 +17,11 @@ const NOTICE = "<!-- Generated from src/index.template.html and public/texts.mjs
 // The site serves MieGO's license and the third-party notices as one file,
 // since the MIT and Apache licenses ask for them in every copy.
 const LICENSES = resolve("public/licenses.txt");
+
+// Production, built from the release branch on Workers Builds, leaves 棋風診断 out
+// for now: index.html is marked so the page hides its entries, and /style is not built.
+export const hidesPlayStyle = (env = process.env) =>
+  env.WORKERS_CI_BRANCH === "release" || env.MIEGO_HIDE_PLAY_STYLE === "1";
 
 function resolveArg(arg) {
   arg = arg.trim();
@@ -59,8 +64,9 @@ export async function renderLicenses() {
   return "# MieGO\n\n" + own.trim() + "\n\n" + others;
 }
 
-export async function renderIndex() {
+export async function renderIndex(hidePlayStyle = hidesPlayStyle()) {
   let html = renderTemplate(await readFile(TEMPLATE, "utf8"));
+  if (hidePlayStyle) html = html.replace('<html lang="ja">', '<html lang="ja" data-no-play-style>');
   const marker = /^([ \t]*)<!-- module preloads -->$/m;
   if (!marker.test(html)) throw Error("The template lacks the module preloads marker");
   const indent = html.match(marker)[1];
@@ -76,8 +82,14 @@ export async function renderStylePage() {
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   await writeFile(OUTPUT, await renderIndex());
   console.log("index.html: rendered from texts.mjs");
-  await writeFile(STYLE_OUTPUT, await renderStylePage());
-  console.log("style.html: rendered from texts.mjs");
+  if (hidesPlayStyle()) {
+    // A cached public/ from another branch's build may still hold it.
+    await rm(STYLE_OUTPUT, { force: true });
+    console.log("index.html: 棋風診断 hidden; style.html: left out");
+  } else {
+    await writeFile(STYLE_OUTPUT, await renderStylePage());
+    console.log("style.html: rendered from texts.mjs");
+  }
   await writeFile(LICENSES, await renderLicenses());
   console.log("licenses.txt: LICENSE and THIRD_PARTY_NOTICES.md");
 }

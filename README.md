@@ -6,7 +6,7 @@
 
 デプロイはGitHubとCloudflareのWeb画面だけでできます。手元でのターミナル操作や、Node.js・Git・Wranglerのインストールは要りません。GitHubのリポジトリとCloudflare Workers Buildsを連携して、Cloudflare側でビルドと配置を実施します。
 
-既に`main`とCloudflare Workers Buildsを連携済みの場合、初回作成を繰り返す必要はありません。
+既にCloudflare Workers Buildsを連携済みの場合、初回作成を繰り返す必要はありません。本番に出るのは`release`ブランチだけです（下の「開発用とリリース用のブランチ」）。
 
 ### 1. Cloudflareにログイン
 
@@ -27,7 +27,7 @@
 | Project / Worker name | `miego` |
 | Git provider | GitHub |
 | Repository | `KTakahiro1729/MieGO` |
-| Production branch | `main` |
+| Production branch | `release` |
 | Root directory | `/`（リポジトリ直下、既定のまま） |
 | Build command | `npm test` |
 | Deploy command | `npx wrangler deploy` |
@@ -71,7 +71,7 @@
 ### 5. すべてブラウザでできる更新・監視
 
 - **コードの更新**: GitHub上のファイルを開く → 編集（鉛筆アイコン） → Commit changes。手動`git push`は不要です。
-- **自動反映**: `main`へのコミットをCloudflare Workers Buildsが検知し、テスト → デプロイを実行します。
+- **自動反映**: `release`へのコミットをCloudflare Workers Buildsが検知し、テスト → 本番へデプロイします。`main`へのコミットは開発版のPreviewに出ます。
 - **ビルド履歴**: Cloudflare → Workers & Pages → `miego` → **Builds / Deployments**。
 - **設定・ログ**: 対象Worker → **Settings** / **Logs** などの画面で確認します（メニュー名はUIにより変わります）。
 - **初回に既存Workerを選ぶ場合**: Worker → **Settings → Builds → Connect** でGitHubを接続します。ただし、接続だけではデプロイが開始されない場合があり、その際はCloudflareの画面から手動ビルドを開始するか、GitHub Web画面で新規コミットを作成してください。
@@ -159,7 +159,7 @@ CloudflareのBuild logsで`Browser KataGo worker built`および`KataGo model do
 - **「最強」**: 9路はKataGo作者が配布する9路専用ネット [kata9x9-b18c384nbt-20231025](https://github.com/lightvector/KataGo/releases/tag/v1.13.2-kata9x9)（約98MB、作者は9路以外での使用を勧めていません）、13路・19路はKataGo本流の [kata1-b18c384nbt-s9996604416-d4316597426](https://katagotraining.org/networks/)（約96MB、Web KaTrainがブラウザ向けに勧めるもの）を使います（`public/strong-networks.mjs`）。ビルド時に固定URLから取得してSHA-256で検証し（b18のハッシュはHomebrewのkatago定義が固定している値）、Cloudflareの1ファイル25MiB制限に合わせて`public/models/<key>/`へ24MiBずつ分割して置きます。ページを開いただけでは読み込まず、「最強」の対局が始まったときに別のWorkerでその盤の大きさのネットを読み込みます。ふだんは探索せず方針の最上位の手を打ちます（性格の補正は使いません）。手番側がKataGoの予測目数差で2目以上負けているなら、方針の上位8手の合法手を実際に打ってそれぞれ評価し、目数差が最もよい手を選ぶ「1手読み」をします。6目以上なら上位5手それぞれに相手の方針上位3手の応手を読み、相手の最善の応手での目数差が最もよい手を選ぶ「2手読み」（最大20回の評価）にします。勝率でなく目数差を使うのは、9路・コミ7.5では初手から黒の勝率が6%前後（0.5目負け）と出て、勝率では判断がつかないためです。「最強」の番の間は手番の表示が「AIが思考中です」になってその右で金色の弧が回り、その下の行に何をしているかを出します（「AIをダウンロード中 51%」「AIを準備中」「次の一手を計算中」「2手先を読み中 35%・約5秒」。読みの%は評価した局面の割合、秒数は残りの評価回数×1回の評価時間の移動平均）。読み込めなかった場合は小型モデルで打ち続けます。
 - 推論結果: 黒視点のOwnership予測（-1〜+1）、KataGoのニューラル目数差、黒の予測勝率。**地合いの推定と「最強」以外のCOMではMCTS探索を行っていません。** Ownershipを勝敗確率と同一視しないでください。
 - ルール: 中国式（互先コミ7.5、KataGoの`chinese`ルール）と日本式（互先コミ6.5、KataGoの`japanese`ルール）に対応し、盤の大きさによらずコミは同じです。置き碁（9路は2〜5子・13路と19路は2〜9子、星に固定配置）はコミなしで同点は持碁（引き分け）、中国式のみ置き石数を白に加算します（KataGoの`whiteHandicapBonus=N`と同じ）。コウは簡易コウ（直前の局面に戻る手を禁止）で、三劫などで同じ局面が同じ手番で再び現れたら、双方の同意で無勝負にできます。
-- 五目並べのCOMはKataGoを使わず、並びの長さを数える簡単な読みで打ちます。
+- 五目並べのCOMはKataGoを使わず、盤上の形（五・四・三）を数えて打ちます（`public/gomoku-ai.mjs`）。強さは囲碁と同じ5段階で、つよい・最強は四追いと数手先を読みます。段階ごとの測定は `docs/GOMOKU_AI.md`。
 - 地合いの推定はブラウザ内で計算します。友人対局で相手に送るのは確定した着手だけで、推定の結果はサーバーへ送りません。
 
 ## 新規対戦のシート
@@ -265,7 +265,7 @@ SGF入力は**9路・13路・19路盤（`SZ`必須）・SGF FF[4]・交互着手
 
 **「この局面のURLをコピー」**で棋譜全体（SGF）と選択した手数（`move`）を含むリンクを作成します。`/?sgf=<URLエンコードしたSGF>&move=42`を開くと、42手目直後の局面で再生モードが開きます。`move`省略で最終局面、`move=0`で初期局面です。
 
-**「AI向けにコピー」**では、そのURLとURLの読み方・生成方法を簡潔に説明する文章、選択手数の●○・による座標ラベルなし文字図（盤の大きさと同じ行数・列数）、公開仕様書`/ai.md`へのリンクをコピーします。SGF本文の別貼り付けは不要です。ユーザーが自分の好きな生成AIに貼り付け、自由に質問し、別タブのMieGOでAIの説明に沿って局面を行き来できます。AIも同形式のURLを生成できます。サイトに`/llms.txt`と`/skills/miego/SKILL.md`も公開します。
+**「AI向けにコピー」**では、そのURLとURLの読み方・生成方法を簡潔に説明する文章、選択手数の●○・による座標ラベルなし文字図（盤の大きさと同じ行数・列数）、公開仕様書`/ai.md`へのリンクをコピーします。SGF本文の別貼り付けは不要です。ユーザーが自分の好きな生成AIに貼り付け、自由に質問し、別タブのMieGOでAIの説明に沿って局面を行き来できます。AIも同形式のURLを生成できます。サイトに`/ai.md`への目次`/llms.txt`も公開します。
 
 見出しの「?」から開くヘルプシートの「初心者の方へ」では、**ルールの質問**と**今の局面の質問**（進行中の対局の棋譜URL・手番・同じ文字図）をコピーできます。AIには場所を「上から○行目・左から○列目」で答えるよう頼みます。禁止手の質問・AI向けコピーと同じく、棋譜URLの検査（`sgf-link.mjs`の`shareableReviewUrl`）、文字図の並び（`board-text.mjs`の`formatBoardSection`）、クリップボードと手動コピーの処理（`clipboard.mjs`の`copyWithFallback`）を共有します。
 
@@ -292,6 +292,24 @@ npm run dev
 - JavaScriptの各モジュールは `TEXT.*` を参照します。
 - `public/index.html` は `src/index.template.html` と `texts.mjs` から `scripts/build-html.mjs` が生成します（`npm test`・`npm run dev`・`npm run deploy` の前に自動生成）。`public/index.html` はGitで管理しません（`.gitignore` 対象）。マークアップは `src/index.template.html` を編集してください。GitHubのWeb画面で `texts.mjs` を編集した場合も、Cloudflareのビルドで再生成されます。
 - テスト `tests/texts.test.mjs` が、モジュールへの日本語リテラルの再混入と、生成した `index.html` がテンプレートと一致することを確かめます。
+
+### 開発用とリリース用のブランチ
+
+| ブランチ | 役割 | 出る先 |
+| --- | --- | --- |
+| `main` | 開発用。機能や修正のPRはすべてここへ出す | Preview（`main-miego.<subdomain>.workers.dev`、対友人の対局は不可） |
+| `release` | リリース用。`main` をマージしたときだけ進む | 本番（miego.fun） |
+| `feature/play-style` | 棋風診断の作業をためるブランチ。棋風診断のPRはここへ出し、出すと決めたら `main` へマージする | Preview（`feature-play-style-miego.<subdomain>.workers.dev`） |
+
+リリースの手順:
+
+1. GitHubで **base: `release` ← compare: `main`** のPRを作ります（タイトル例 `Release: 2026-10-21`）。PR checksが通ることを確認します。
+2. **Create a merge commit** でマージします（Squash・Rebaseは使いません。使うと `release` と `main` の履歴が分かれ、次のリリースでコンフリクトします）。
+3. Cloudflareの **Builds / Deployments** で `release` のビルドが成功し、miego.fun に出たことを確認します。
+
+棋風診断は、`release` から作る本番では出しません。Workers Buildsのビルドで `WORKERS_CI_BRANCH` が `release` のとき、`scripts/build-html.mjs` が `index.html` に `data-no-play-style` を付けて結果・共有・履歴の棋風診断の入口を隠し、`/style` のページを作りません（`/style` へのリンクはトップへ転送）。手元で本番と同じ表示を見るには `MIEGO_HIDE_PLAY_STYLE=1 npm run dev` を使います。出すと決めたら、この切り替えを外すPRを `main` に出してリリースします。
+
+本番だけの急ぎの修正は、`main` への修正PRをマージしてから上の手順でリリースします。`release` に直接コミットした場合は、すぐに `release` を `main` へマージして戻してください。
 
 ### Content-Security-Policy
 

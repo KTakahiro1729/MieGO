@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { newGame, play, proposeEnd, answerEndProposal, beginSoloScoring, finalizeSoloScore, agreeScore, BLACK, WHITE, at } from "../public/core.mjs";
-import { EndgameAdvisor, endgameHint } from "../public/endgame.mjs";
+import { ENDGAME_ACCEPT_SHARE, EndgameAdvisor, endgameHint, endingNear } from "../public/endgame.mjs";
 import { TEXT } from "../public/texts.mjs";
 
 test("end offer consumes no turn, move number or passes", () => {
@@ -91,7 +91,7 @@ test("advice with no valid NN estimate is not reported as 'not near endgame'",()
   advisor.observe(g,Array(81).fill(0));
   assert.equal(endgameHint(g,advisor),"終局はまだまだです");
   assert.equal(endgameHint({...g,moveNumber:5},advisor),"終局の目安を更新中");
-  advisor.stage="near";
+  advisor.stage="near";advisor.settledShare=ENDGAME_ACCEPT_SHARE;
   assert.equal(endgameHint(g,advisor),"そろそろ終局です");
   advisor.stage="ready";
   assert.equal(endgameHint(g,advisor),"終局してよさそうです");
@@ -214,4 +214,42 @@ test("a dead group in atari inside a closed area does not hold back the advice",
   let stage;
   for(const moveNumber of [40,41,42])stage=advisor.observe({...newGame(),board,moveNumber},ownership);
   assert.equal(stage,"ready");
+});
+
+test("そろそろ also lights once most of the board reads settled, without touching the COM's stage",()=>{
+  const g=newGame(),advisor=new EndgameAdvisor();
+  // 56 of 81 points settled (69%): the swing has nothing to compare yet, so still まだまだ.
+  advisor.observe(g,Array.from({length:81},(_,i)=>i<56?1:0));
+  assert.equal(endgameHint(g,advisor),TEXT.endgame.playing);
+  // 57 of 81 (70%): そろそろ, while the stage the COM passes and offers by stays as it was.
+  advisor.observe({...g,moveNumber:1},Array.from({length:81},(_,i)=>i<57?1:0));
+  assert.equal(advisor.stage,"playing");
+  assert.equal(endgameHint({...g,moveNumber:1},advisor),TEXT.endgame.near);
+  advisor.reset();
+  assert.equal(advisor.mostlySettled,false);
+});
+
+test("the opening is over once a fifth of the board reads settled, and stays over until the next game",()=>{
+  const g=newGame(),advisor=new EndgameAdvisor();
+  // 16 of 81 points settled (19.8%): still 序.
+  advisor.observe(g,Array.from({length:81},(_,i)=>i<16?1:0));
+  assert.equal(advisor.opened,false);
+  advisor.observe({...g,moveNumber:1},Array.from({length:81},(_,i)=>i<17?1:0));
+  assert.equal(advisor.opened,true);
+  // A fight that unsettles the board again does not bring 序 back.
+  advisor.observe({...g,moveNumber:2},Array(81).fill(0));
+  assert.equal(advisor.opened,true);
+  advisor.reset();
+  assert.equal(advisor.opened,false);
+});
+
+test("the COM accepts an offer to end from そろそろ, as もう終盤 shows it, but not in a calm middle game",()=>{
+  const at=(stage,settledShare,mostlySettled=false)=>endingNear({stage,settledShare,mostlySettled});
+  assert.equal(at("near",ENDGAME_ACCEPT_SHARE),true);
+  assert.equal(at("ready",ENDGAME_ACCEPT_SHARE),true);
+  // A swing of 2 or less with most of the board still open is a pause, not the end.
+  assert.equal(at("near",ENDGAME_ACCEPT_SHARE-0.01),false);
+  // Most of the board settled, while a stone still moves more than 2 points.
+  assert.equal(at("playing",0.7,true),true);
+  assert.equal(at("playing",0.69),false);
 });

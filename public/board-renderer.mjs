@@ -28,15 +28,35 @@ import {scoringRegions,prisonerFill,prisonersFilled} from "./scoring-regions.mjs
 
 // Stones taken by a move fade out over this long instead of vanishing.
 export const CAPTURE_FADE_MS=200;
-// 盤の線 breathes: every BREATH_MS each side takes one breath, about fifteen
-// a minute as a person at rest, black in the first half and white in the
-// second, so only one side moves at a time. Each breath is drawn in: first a
-// faint wide circle around every liberty closes in on it, faster and denser
-// as it goes, over BREATH_GATHER_MS; then over BREATH_DRAW_MS a stretch of
-// line leaves the liberties slowly and speeds up into that side's groups,
-// trailing what it covered in the last BREATH_TRAIL_MS, so it stretches as
-// it speeds up, until it has passed the deepest stone. Then that side rests.
-export const BREATH_MS=4000, BREATH_GATHER_MS=900, BREATH_DRAW_MS=900, BREATH_TRAIL_MS=250;
+// 盤の線 breathes, one side at a time: black takes a breath, and once its
+// last group is through, after BREATH_REST_MS, white takes one, and so on.
+// Each breath is drawn in: first a faint wide circle around every liberty
+// closes in on it, faster and denser as it goes, over BREATH_GATHER_MS; then
+// a stretch of line leaves the liberties, speeding up over its first line
+// to one line each BREATH_LINE_MS, and runs on into the group at that speed,
+// trailing what it covered in the last BREATH_TRAIL_MS, until it has passed
+// the deepest stone. A deeper group takes longer, never faster. Each group
+// starts its breath up to BREATH_STAGGER_MS late, so the groups of a side
+// breathe apart.
+export const BREATH_GATHER_MS=900, BREATH_LINE_MS=200, BREATH_TRAIL_MS=250, BREATH_STAGGER_MS=1100, BREATH_REST_MS=200;
+// How far a breath has run, in lines, BREATH_GATHER_MS after it started.
+export const breathReached=t=>t<=0?0:t<BREATH_LINE_MS?t*t/(2*BREATH_LINE_MS**2):.5+(t-BREATH_LINE_MS)/BREATH_LINE_MS;
+// How long, after it starts, a breath takes to run d lines with its trail.
+export const breathTakes=d=>BREATH_GATHER_MS+(d<=.5?BREATH_LINE_MS*Math.sqrt(2*d):BREATH_LINE_MS*(d+.5))+BREATH_TRAIL_MS;
+// How late a group breathes, from its first stone: steps of the golden
+// ratio keep neighbouring groups well apart, and a group keeps its delay
+// until a stone before its first joins it.
+export const breathDelay=first=>(first*.6180339887%1)*BREATH_STAGGER_MS;
+// 盤の線 on, a group a move takes dies from its last liberty out: grey,
+// air no longer, runs from the stone that fills that liberty along the line
+// through the group, one stone further each CAPTURE_STEP_MS however long the
+// group, and each stone it reaches dims over CAPTURE_DIM_MS; once all of it
+// is grey the line dims too.
+// It runs while the move is only placed, the stones dimming to
+// PREVIEW_CAPTURED_ALPHA; once played they fade out from there as any
+// capture does. A move played without being placed first dims as it is played.
+export const CAPTURE_STEP_MS=320, CAPTURE_DIM_MS=480, PREVIEW_CAPTURED_ALPHA=.4;
+const DEAD_AIR="rgb(128,124,118)";
 const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 // ドパガキモード: sparks fly from each taken stone, and a "+N" rises over them, for this long.
 export const BURST_MS=900;
@@ -61,7 +81,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   // The side length of the position being drawn; set at the start of each draw.
   let SIZE = DEFAULT_SIZE;
   // The live position last drawn and each stone's alpha in it, to find what a move captured.
-  let lastLive=null, shownAlpha=[], fading=[], sparks=[], pops=[], waves=[], frame=null;
+  let lastLive=null, shownAlpha=[], fading=[], cuts=[], previewCut=null, sparks=[], pops=[], waves=[], frame=null;
+  // The side breathing in 盤の線 and when its breath started.
+  let turn=null;
 
   function paintGrid(theme, d, gap, pad) {
     ctx.clearRect(0,0,d,d);
@@ -222,7 +244,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       ctx.fillText(label,x,y+1);ctx.restore();
     }
   }
-  function paintStones(theme, view, display, gap, pad) {
+  function paintStones(theme, view, display, gap, pad, cut) {
     const {game,boardReview,candidate,illegalCandidate} = view;
     // "Stones hidden" leaves only the ownership colours (and the move being
     // placed) while playing or replaying; counting shows every stone again.
@@ -230,6 +252,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const proposedBoard = boardReview?.preview?.board || (boardReview ? null : candidate?.board);
     const preview = boardReview ? boardReview.previewPosition :
       (candidate?.moves.at(-1)?.position ?? illegalCandidate?.position);
+    const capturedAlpha=previewCapture(display,boardReview?null:candidate,cut);
     // 盤の線 reads the stones as shown, the one being placed included.
     const around=Array(display.board.length).fill(0);
     for(let i=0;i<display.board.length;i++) {
@@ -244,7 +267,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       const x=pad+(i%SIZE)*gap;
       const y=pad+Math.floor(i/SIZE)*gap;
       const r=gap*.44;
-      const alpha=captured ? 0.4 : i===preview ? 0.68 : 1;
+      const alpha=captured ? capturedAlpha(i) : i===preview ? 0.68 : 1;
       shownAlpha[i]=alpha;
       paintStone(theme,color,x,y,r,alpha);
       if(!captured)around[i]=color;
@@ -292,10 +315,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const rgb={[BLACK]:paletteAt(1,palette).join(","),[WHITE]:paletteAt(-1,palette).join(",")};
     const tone={[BLACK]:`rgb(${rgb[BLACK]})`,[WHITE]:`rgb(${rgb[WHITE]})`};
     const width=Math.max(2,gap*.08), dash=gap*.09, edge=1-.44, flare=gap*.14;
-    // How far into its breath each side is: black and white take turns.
-    const since={[BLACK]:now()%BREATH_MS,[WHITE]:(now()+BREATH_MS/2)%BREATH_MS};
     const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
-    const dots=new Map(), seen=new Set(), groups=[], deepest={[BLACK]:0,[WHITE]:0};
+    const dots=new Map(), seen=new Set(), groups=[];
     for(let i=0;i<board.length;i++){
       if(!board[i] || seen.has(i))continue;
       const color=board[i], g=group(board,i);
@@ -310,31 +331,42 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
           if(g.stones.has(n) && !depth.has(n)){depth.set(n,depth.get(s)+1);next.push(n);}
         front=next;
       }
-      for(const d of depth.values())deepest[color]=Math.max(deepest[color],d);
       // Each line runs from a (a liberty at depth 0, or a stone) to stone b.
-      const lines=[];
+      const lines=[], delay=breathDelay(Math.min(...g.stones));
       for(const s of g.stones)for(const n of neighbors(s,SIZE)){
         if(!board[n]){
           lines.push({a:n,b:s,from:0,to:depth.get(s),liberty:true});
-          if(!dots.has(n))dots.set(n,new Set());
-          dots.get(n).add(color);
+          const key=n*3+color;
+          if(!dots.has(key))dots.set(key,{point:n,color,first:delay,last:delay});
+          const dot=dots.get(key);
+          dot.first=Math.min(dot.first,delay);dot.last=Math.max(dot.last,delay);
         }else if(g.stones.has(n) && n>s)lines.push({a:s,b:n,from:depth.get(s),to:depth.get(n),liberty:false});
       }
-      groups.push({color,g,lines});
+      // Its breath is through once its tail has passed the deepest stone,
+      // or in atari the edge of the stone next to its liberty.
+      const through=g.liberties.size===1?1-.44:Math.max(...depth.values())+1;
+      groups.push({color,g,lines,delay,takes:delay+breathTakes(through)});
     }
-    // How far each side's breath has run, and where its tail is, in lines
+    // Whose breath it is and how far into it: a side's breath lasts until
+    // its last group is through, then the other side's starts after a rest.
+    // Long unseen, it starts again from black.
+    const time=now(), lasts=color=>Math.max(0,...groups.filter(g=>g.color===color).map(g=>g.takes))+BREATH_REST_MS;
+    if(!turn || time-turn.start>60000)turn={color:BLACK,start:time};
+    while(time-turn.start>=lasts(turn.color))turn={color:turn.color===BLACK?WHITE:BLACK,start:turn.start+lasts(turn.color)};
+    // How far into its breath a group is; a resting one is never, or not yet.
+    const after=(color,delay)=>color===turn.color?time-turn.start-delay:Infinity;
+    // How far a group's breath has run, and where its tail is, in lines
     // from the liberties. It sets out from the liberties the moment its
-    // circles have closed in, and its tail is past the deepest stone when
-    // the breath is over.
-    const breath={[BLACK]:[0,0],[WHITE]:[0,0]};
-    if(moving)for(const color of [BLACK,WHITE]){
-      const t=since[color]-BREATH_GATHER_MS, run=BREATH_DRAW_MS-BREATH_TRAIL_MS;
-      const reached=t=>t>0?(deepest[color]+1)*(t/run)**2:0;
-      breath[color]=[reached(t-BREATH_TRAIL_MS),reached(t)];
-    }
+    // circles have closed in.
+    const breath=({color,delay})=>{
+      if(!moving)return [0,0];
+      const t=after(color,delay)-BREATH_GATHER_MS;
+      return t<0?[0,0]:[breathReached(t-BREATH_TRAIL_MS),breathReached(t)];
+    };
     ctx.save();
     ctx.lineWidth=width;ctx.lineCap="butt";
-    for(const {color,g,lines} of groups){
+    for(const group of groups){
+      const {color,g,lines}=group, [near,ahead]=breath(group);
       const reach=g.liberties.size===1?1-.44:Infinity;
       for(const line of lines){
         const [ax,ay]=xy(line.a),[bx,by]=xy(line.b);
@@ -363,7 +395,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         // A round head shows the breath from its first moment.
         ctx.globalAlpha=1;ctx.setLineDash([]);ctx.lineCap="round";ctx.beginPath();
         const middle=Math.min(1,Math.max(0,(line.to+1-line.from)/2));
-        const [near,ahead]=breath[color], far=Math.min(ahead,reach);
+        const far=Math.min(ahead,reach);
         along(Math.max(0,near-line.from),Math.min(middle,far-line.from));
         along(Math.max(middle,line.to+1-far),Math.min(1,line.to+1-near));
         ctx.stroke();
@@ -373,23 +405,23 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     // The breath's start: a circle closing in on each liberty, well inside a
     // stone's size and soft at its edge so it never reads as one. It ends as
     // a solid dot the line's width. A liberty both sides need gets a whole
-    // circle from each in turn.
-    for(const [point,colors] of dots){
-      const [x,y]=xy(point);
-      for(const color of colors){
-        const gather=moving?since[color]/BREATH_GATHER_MS:1;
-        if(gather>=1)continue;
-        // It fades in from nothing over the first third, then darkens.
-        const rise=Math.min(1,gather*3);
-        ctx.globalAlpha=(.4+.5*gather)*rise*rise*(3-2*rise);
-        const radius=gap*(.04+.22*(1-gather**2)), core=gap*.04/radius;
-        const soft=ctx.createRadialGradient(x,y,0,x,y,radius);
-        soft.addColorStop(0,`rgba(${rgb[color]},1)`);
-        soft.addColorStop(core,`rgba(${rgb[color]},1)`);
-        soft.addColorStop(1,`rgba(${rgb[color]},0)`);
-        ctx.fillStyle=core<1?soft:tone[color];ctx.beginPath();
-        ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
-      }
+    // circle from each in turn. Groups of one side that share a liberty
+    // share its circle: it closes in with the first group's breath and stays
+    // a dot until the last has drawn its own in.
+    if(moving)for(const {point,color,first,last} of dots.values()){
+      const [x,y]=xy(point), held=after(color,first);
+      if(held<0 || held>=last-first+BREATH_GATHER_MS)continue;
+      const gather=Math.min(1,held/BREATH_GATHER_MS);
+      // It fades in from nothing over the first third, then darkens.
+      const rise=Math.min(1,gather*3);
+      ctx.globalAlpha=(.4+.5*gather)*rise*rise*(3-2*rise);
+      const radius=gap*(.04+.22*(1-gather**2)), core=gap*.04/radius;
+      const soft=ctx.createRadialGradient(x,y,0,x,y,radius);
+      soft.addColorStop(0,`rgba(${rgb[color]},1)`);
+      soft.addColorStop(core,`rgba(${rgb[color]},1)`);
+      soft.addColorStop(1,`rgba(${rgb[color]},0)`);
+      ctx.fillStyle=core<1?soft:tone[color];ctx.beginPath();
+      ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
     }
     ctx.restore();
     if(moving && frame===null)frame=requestFrame(()=>{frame=null;draw();});
@@ -443,9 +475,10 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   // A live move that removed stones starts them fading from the alpha they were last shown at.
+  // With 盤の線 on (cut) they dim one after another from the placed stone out, as the grey reaches them.
   // ドパガキモード ("on") also rings out from the placed stone and sends
   // rainbow sparks out of each taken one, more and farther the more were taken.
-  function noteCaptures(game,live,burst) {
+  function noteCaptures(game,live,burst,cut) {
     const before=lastLive;
     lastLive=live?{board:[...game.board],moves:game.moves.length,alpha:shownAlpha}:null;
     if(!live || !before || before.board.length!==game.board.length || game.moves.length!==before.moves+1 ||
@@ -453,12 +486,16 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const start=now();
     const taken=[];
     for(let i=0;i<game.board.length;i++){
-      if(before.board[i] && !game.board[i] && before.alpha[i]){
-        fading.push({position:i,color:before.board[i],from:before.alpha[i],start});
-        taken.push(i);
-      }
+      if(before.board[i] && !game.board[i] && before.alpha[i])taken.push(i);
       if(burst==="on" && !before.board[i] && game.board[i])waves.push({x:i%SIZE,y:Math.floor(i/SIZE),start});
     }
+    // Stones already dimmed while the move was placed only fade from there.
+    const placed=game.moves.at(-1)?.position, whole=taken.filter(i=>before.alpha[i]===1);
+    const cutting=cut && whole.length===taken.length && taken.length && Number.isInteger(placed);
+    const cutAt=cutting?cutFrom(before.board,placed,taken,start):null;
+    for(const i of taken)
+      fading.push({position:i,color:before.board[i],from:before.alpha[i],start,
+        delay:cutAt?cutAt(i):0,duration:cutAt?CAPTURE_DIM_MS:CAPTURE_FADE_MS});
     if(burst!=="on" || !taken.length)return;
     const each=Math.max(3,Math.min(BURST_SPARKS,Math.floor(BURST_LIMIT/taken.length)));
     const reach=Math.min(4,1.4+taken.length*.2);
@@ -473,11 +510,97 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
   function paintFading(theme,gap,pad) {
     const time=now();
-    fading=fading.filter(f=>time-f.start<CAPTURE_FADE_MS);
+    fading=fading.filter(f=>time-f.start-f.delay<f.duration);
     for(const f of fading)
       paintStone(theme,f.color,pad+(f.position%SIZE)*gap,pad+Math.floor(f.position/SIZE)*gap,gap*.44,
-        f.from*(1-(time-f.start)/CAPTURE_FADE_MS));
+        f.from*Math.min(1,1-(time-f.start-f.delay)/f.duration));
     if(fading.length && frame===null)frame=requestFrame(()=>{frame=null;draw();});
+  }
+
+  // How faint each stone the placed move would take is shown: with the grey
+  // running, full until the grey reaches it and then dimming to
+  // PREVIEW_CAPTURED_ALPHA; otherwise that at once. A new placement starts
+  // its own grey and drops the last one's.
+  function previewCapture(display,candidate,cut) {
+    const placed=candidate?.moves.at(-1)?.position;
+    if(previewCut?.board!==candidate?.board){
+      cuts=cuts.filter(c=>!c.preview);
+      const taken=candidate && cut && requestFrame && !stillMotion() && Number.isInteger(placed) ?
+        display.board.flatMap((v,i)=>v && !candidate.board[i]?[i]:[]) : [];
+      const start=now();
+      previewCut=taken.length?{board:candidate.board,start,delay:cutFrom(display.board,placed,taken,start,true)}:
+        candidate?{board:candidate.board}:null;
+    }
+    if(!previewCut?.delay)return ()=>PREVIEW_CAPTURED_ALPHA;
+    const time=now()-previewCut.start;
+    return i=>{
+      const t=Math.min(1,Math.max(0,(time-previewCut.delay(i))/CAPTURE_DIM_MS));
+      if(t<1 && frame===null)frame=requestFrame(()=>{frame=null;draw();});
+      return 1-(1-PREVIEW_CAPTURED_ALPHA)*t;
+    };
+  }
+
+  // The line through the groups a move takes, in lines from the stone that
+  // fills their last liberty: from there it turns grey one stone at a time,
+  // and each stone starts dimming when the grey reaches its middle.
+  function cutFrom(board,placed,taken,start,preview=false) {
+    const dead=new Set(taken), depth=new Map([[placed,0]]);
+    let front=[placed];
+    while(front.length){
+      const next=[];
+      for(const s of front)for(const n of neighbors(s,SIZE))
+        if(dead.has(n) && !depth.has(n)){depth.set(n,depth.get(s)+1);next.push(n);}
+      front=next;
+    }
+    const step=CAPTURE_STEP_MS;
+    const lines=[];
+    for(const s of taken)for(const n of neighbors(s,SIZE))
+      if(n===placed || dead.has(n) && board[n]===board[s] && n>s){
+        const [a,b]=depth.get(n)<=depth.get(s)?[n,s]:[s,n];
+        lines.push({a,b,from:depth.get(a),to:depth.get(b),color:board[s],liberty:n===placed});
+      }
+    // All of it is grey once the grey is half a line past the deepest stone.
+    cuts.push({lines,start,step,grey:(Math.max(...depth.values())+.5)*step,preview});
+    return i=>depth.get(i)*step;
+  }
+  // A taken group's line keeps its side's colour where the grey has not
+  // reached, the stretch to its last liberty flared like any line to a liberty.
+  function paintCuts(view,gap,pad) {
+    const time=now(), palette=countingPalette(view.palette);
+    cuts=cuts.filter(c=>time-c.start<c.grey+CAPTURE_DIM_MS);
+    const width=Math.max(2,gap*.08), flare=gap*.14, edge=1-.44;
+    const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
+    ctx.save();
+    ctx.lineCap="round";
+    for(const c of cuts){
+      const reached=(time-c.start)/c.step;
+      ctx.globalAlpha=1-Math.max(0,time-c.start-c.grey)/CAPTURE_DIM_MS;
+      for(const line of c.lines){
+        const [ax,ay]=xy(line.a),[bx,by]=xy(line.b);
+        const along=(u,v)=>{if(v>u){ctx.moveTo(ax+(bx-ax)*u,ay+(by-ay)*u);ctx.lineTo(ax+(bx-ax)*v,ay+(by-ay)*v);}};
+        ctx.save();
+        const air=`rgb(${paletteAt(line.color===BLACK?1:-1,palette).join(",")})`;
+        ctx.lineWidth=width;
+        if(line.liberty){
+          const at=(u,side)=>[ax+(bx-ax)*u+(ay-by)/gap*side,ay+(by-ay)*u+(bx-ax)/gap*side];
+          const outline=[[0,width/2],[edge,flare/2],[edge,width/2],[1,width/2],[1,-width/2],[edge,-width/2],[edge,-flare/2],[0,-width/2]];
+          ctx.beginPath();
+          outline.forEach(([u,side],k)=>ctx[k?"lineTo":"moveTo"](...at(u,side)));
+          ctx.closePath();ctx.clip();
+          ctx.lineWidth=flare;ctx.lineCap="butt";
+        }
+        // A point u along the line is min(from+u, to+1-u) lines from the
+        // placed stone; what the grey has reached is grey, and the placed
+        // stone itself is never drawn over.
+        const middle=Math.min(1,Math.max(0,(line.to+1-line.from)/2)), first=line.liberty?.44:0;
+        const near=Math.max(first,Math.min(middle,reached-line.from)), far=Math.max(middle,Math.min(1,line.to+1-reached));
+        ctx.strokeStyle=DEAD_AIR;ctx.beginPath();along(first,near);along(far,1);ctx.stroke();
+        ctx.strokeStyle=air;ctx.beginPath();along(near,middle);along(middle,far);ctx.stroke();
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+    if(cuts.length && frame===null)frame=requestFrame(()=>{frame=null;draw();});
   }
   function paintSparks(gap,pad) {
     const time=now();
@@ -539,11 +662,14 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     paintStarPoints(theme,gap,pad);
     if(scoring)paintNeutralPoints(game,scoring,kept,gap,pad);
     const live=!boardReview && game.status==="playing";
-    if(!live){fading=[];sparks=[];pops=[];waves=[];}
+    if(!live){fading=[];cuts=[];previewCut=null;sparks=[];pops=[];waves=[];}
     shownAlpha=[];
-    paintStones(theme,view,display,gap,pad);
-    noteCaptures(game,live,view.burst);
+    // The grey shows with 盤の線 on, whether always or 仮置き時.
+    const cut=live && !!view.linkStones && view.linkStones!=="off" && !view.hideStones;
+    paintStones(theme,view,display,gap,pad,cut);
+    noteCaptures(game,live,view.burst,cut);
     if(fading.length)paintFading(theme,gap,pad);
+    if(cuts.length)paintCuts(view,gap,pad);
     for(const {position,color} of kept)
       paintFillStone(theme,color,pad+(position%SIZE)*gap,pad+Math.floor(position/SIZE)*gap,gap);
     if(scoring)paintPrisonerFill(theme,fill,view.palette,gap,pad);

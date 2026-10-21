@@ -223,9 +223,13 @@ function playFree(state, position, color, replace) {
 /** Places, takes off or (with `replace`) turns over a stone on a free board. */
 export const playFreeStone = (state, position, color, replace = false) =>
   play({ ...state, next: color }, position, replace);
-/** Replays one recorded move. On a free board the move's colour is chosen, not alternated. */
+/** Replays one recorded move. On a free board the move's colour is chosen, not alternated.
+ * Elsewhere the recorded colour is followed too: 対局を再開 after a count opened by
+ * 終局の提案 (or a COM game's 終局) hands the turn to the resumer's opponent, and the
+ * record keeps only the moves, not the count. */
 export const replayMove = (state, { color, position, replace }) =>
-  isFree(state) ? playFreeStone(state, position, color, replace) : play(state, position);
+  isFree(state) ? playFreeStone(state, position, color, replace) :
+    play(color === BLACK || color === WHITE ? { ...state, next: color } : state, position);
 /** A proposed conclusion is not a Go move, a pass, or a scoring verdict.
  * Either color may offer, even when it is not their turn. The other side
  * must explicitly accept before entering dead-stone adjudication.
