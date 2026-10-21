@@ -1,7 +1,7 @@
-import { readStyleLink } from "./play-style.mjs";
+import { BALANCE, readStyleLink, typeShare } from "./play-style.mjs";
 import { TEXT } from "./texts.mjs";
 
-// The /style page: one 棋風診断 from a share sheet's link, or the 16 types.
+// The /style page: one 棋風診断 from a share sheet's link, or the 17 types.
 const T = TEXT.playStyle;
 const $ = id => document.getElementById(id);
 const el = (tag, className, text) => {
@@ -16,7 +16,7 @@ const el = (tag, className, text) => {
 function axisRow(axis, letter, lean) {
   const row = el("div", "style-bar-row");
   const high = el("span", "style-bar-end", axis.highName), low = el("span", "style-bar-end", axis.lowName);
-  (letter === axis.high ? high : low).classList.add("is-lit");
+  if (letter) (letter === axis.high ? high : low).classList.add("is-lit");
   const bar = el("span", "style-bar");
   bar.setAttribute("aria-hidden", "true");
   if (lean != null) {
@@ -25,9 +25,36 @@ function axisRow(axis, letter, lean) {
     fill.style.width = size + "%";
     fill.style.left = lean >= 0 ? 50 - size + "%" : "50%";
     bar.append(fill);
-  } else bar.classList.add(letter === axis.high ? "leans-high" : "leans-low");
+  } else if (letter) bar.classList.add(letter === axis.high ? "leans-high" : "leans-low");
   row.append(high, bar, low);
   return row;
+}
+
+// The name of the side the player leans to on axis i: its letter's, or by leaning for the balanced type.
+function letterName(found, i) {
+  const axis = T.axes[i];
+  const high = found.type === BALANCE ? (found.leans?.[i] ?? 0) >= 0 : found.type[i] === axis.high;
+  return high ? axis.highName : axis.lowName;
+}
+
+function evidenceList(found) {
+  const box = el("section", "style-evidence");
+  box.append(el("h2", null, T.evidenceTitle));
+  const list = el("ul");
+  T.axes.forEach((axis, i) => {
+    const item = el("li");
+    // The balanced type leans nowhere, so it is told each axis's numbers without a side or rank.
+    const balanced = found.type === BALANCE;
+    item.append(el("strong", null, balanced ? axis.highName + "・" + axis.lowName :
+      letterName(found, i) + (found.ranks?.[i] != null ? " " + T.rank(found.ranks[i]) : "")));
+    const shown = found.evidence?.[i];
+    const say = T.evidence[i];
+    const line = shown == null || !say ? null : typeof say === "function" ? say(shown) : say[shown];
+    if (line) item.append(el("span", null, line));
+    list.append(item);
+  });
+  box.append(list);
+  return box;
 }
 
 function renderResult(found) {
@@ -41,10 +68,21 @@ function renderResult(found) {
     box.append(side);
   }
   box.append(el("p", "style-code", found.type), el("h1", "style-name", type.name),
-    el("p", "style-catch", type.catch), el("p", "style-text", found.games > 1 ? T.pooledText(type.text) : type.text));
+    el("p", "style-catch", type.catch));
+  // What makes it special comes first: the axis where the player stands out most, and how rare the type is.
+  if (found.type === BALANCE) box.append(el("p", "style-rank", T.balanceRank));
+  else if (found.ranks) {
+    const best = found.ranks.indexOf(Math.min(...found.ranks.filter(rank => rank != null)));
+    box.append(el("p", "style-rank", T.topRank(letterName(found, best), found.ranks[best])));
+  }
+  if (typeShare(found.type) != null) box.append(el("p", "style-rarity", T.rarity(typeShare(found.type))));
+  box.append(el("p", "style-text", found.games > 1 ? T.pooledText(type.text) : type.text));
   const bars = el("div", "style-bars");
-  T.axes.forEach((axis, i) => bars.append(axisRow(axis, found.type[i], found.leans?.[i])));
-  box.append(bars, el("p", "style-note", found.games > 1 ? T.pooled(found.games) : T.oneGame));
+  T.axes.forEach((axis, i) => bars.append(axisRow(axis, found.type === BALANCE ? null : found.type[i], found.leans?.[i])));
+  box.append(bars);
+  if (found.ranks || found.evidence) box.append(evidenceList(found));
+  box.append(el("p", "style-note", found.games > 1 ? T.pooled(found.games) : T.oneGame));
+  if (found.ranks || typeShare(found.type) != null) box.append(el("p", "style-note", T.peopleSource));
   box.hidden = false;
   $("styleIntro").hidden = true;
   document.title = T.pageTitle(found.type);

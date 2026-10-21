@@ -2,14 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {newGame,play,BLACK,WHITE} from "../public/core.mjs";
 import {
+  BALANCE,
   MAX_POOLED,
   MIN_MOVES,
+  PLAY_STYLE_RE,
   playStyle,
   pooledPlayStyle,
   readStyleLink,
   reportPlayStyles,
   statPayload,
-  styleLink
+  styleLink,
+  styleRanks,
+  typeShare
 } from "../public/play-style.mjs";
 import {createHistoryStyle} from "../public/history-style.mjs";
 import {installDom} from "./helpers/fake-dom.mjs";
@@ -55,11 +59,12 @@ test("the resignation right after the shown moves counts",()=>{
   assert.equal(playStyle(game,WHITE,{through:shown}).type[3],"Q");
 });
 
-test("every one of the 16 types has a short name",()=>{
-  const types=[];
+test("every one of the 17 types has a short name",()=>{
+  const types=[BALANCE];
   for(const a of "AG")for(const b of "HL")for(const c of "FR")for(const d of "TQ")types.push(a+b+c+d);
   assert.deepEqual(Object.keys(TEXT.playStyle.types).sort(),types.sort());
-  assert.equal(new Set(Object.values(TEXT.playStyle.types).map(t=>t.name)).size,16);
+  assert.equal(new Set(Object.values(TEXT.playStyle.types).map(t=>t.name)).size,17);
+  assert.ok(types.every(type=>PLAY_STYLE_RE.test(type)));
 });
 
 test("a shown style is counted once, by type, board size and rules only",()=>{
@@ -77,13 +82,16 @@ test("a shown style is counted once, by type, board size and rules only",()=>{
 
 test("a player's /style link carries the type, colour and how far each axis leans",()=>{
   const style=playStyle(highAndLow(),WHITE),link=styleLink(style);
-  assert.match(link,/^\/style\?t=.LRQ&c=W&s=-?\d+,-?\d+,-?\d+,-100$/);
+  // Resigned: 潔い, as far as the 35.7% of people who resigned.
+  assert.match(link,/^\/style\?t=.LRQ&c=W&s=-?\d+,-?\d+,-?\d+,-100&p=\d+,\d+,\d+,36&e=\d+,\d+,\d+,-1$/);
   const read=readStyleLink(link.slice(link.indexOf("?")));
   assert.equal(read.type,style.type);
   assert.equal(read.color,"W");
   assert.equal(read.leans.length,4);
+  assert.ok(read.ranks.every(v=>v>=1 && v<=50),"where the player stands among people");
+  assert.equal(read.evidence[3],-1,"resigned");
   assert.ok(read.leans.every(v=>Math.abs(v)<=100));
-  assert.deepEqual(readStyleLink("?t=AHFT"),{type:"AHFT",color:null,leans:null,games:1});
+  assert.deepEqual(readStyleLink("?t=AHFT"),{type:"AHFT",color:null,leans:null,ranks:null,evidence:null,games:1});
   assert.equal(readStyleLink("?t=XXXX"),null);
   assert.equal(readStyleLink("?t=AHFT&s=1,2,3,999").leans,null,"out-of-range leanings are dropped");
 });
@@ -184,4 +192,23 @@ test("each way to 棋風診断 leads on to the others",async()=>{
   // Read together, a type's text no longer speaks of one game.
   for(const {text} of Object.values(TEXT.playStyle.types))
     assert.doesNotMatch(TEXT.playStyle.pooledText(text),/この一局/);
+});
+
+test("引き際 has a rank among people only where people were measured",()=>{
+  const game=highAndLow(),black=playStyle(game,BLACK);
+  // Black won by resignation: 粘り強い with nothing to compare.
+  assert.equal(black.type[3],"T");
+  assert.equal(styleRanks(black.score)[3],null);
+  const link=styleLink(black);
+  assert.match(link,/&p=\d+,\d+,\d+,&/);
+  assert.deepEqual(readStyleLink(link.split("?")[1]).ranks.slice(3),[null]);
+  assert.equal(readStyleLink("?t=AHFT&p=,,,").ranks,null,"no rank at all reads as none");
+});
+
+test("the balanced type and every type's share of people",()=>{
+  const types=Object.keys(TEXT.playStyle.types);
+  assert.ok(types.every(type=>typeShare(type)>0));
+  const total=types.reduce((sum,type)=>sum+typeShare(type),0);
+  assert.ok(Math.abs(total-100)<1,"the types' shares make up everyone");
+  assert.deepEqual(readStyleLink("?t="+BALANCE+"&s=0,0,0,0").leans,[0,0,0,0]);
 });

@@ -970,4 +970,13 @@ body.style-page{overflow:auto}
 .style-type-name{font-size:14px}
 .style-cta{display:flex;align-items:center;justify-content:center;min-height:var(--action-h);margin-top:28px;border-radius:var(--radius);border:1px solid var(--accent-edge);background:var(--btn-bg);color:var(--accent-text);font-weight:700;text-decoration:none}
 .style-cta.secondary{min-height:var(--control-h);margin-top:10px;border-color:var(--btn-edge);color:var(--btn-text);font-weight:600}
+/* What makes a result special comes first, gold and large: the axis where the player stands out, and the type's rarity. */
+.style-rank{margin:4px 0 2px;font-size:20px;font-weight:800;color:var(--gold)}
+.style-rarity{margin:0 0 14px;color:var(--accent-text);font-size:14px;font-weight:600}
+.style-evidence h2{margin:22px 0 8px;font-size:15px}
+.style-evidence ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.style-evidence li{display:flex;flex-direction:column;gap:1px;font-size:14px}
+.style-evidence strong{color:var(--btn-text)}
+.style-evidence span{color:var(--muted);font-size:13px}
+.style-privacy{margin:28px 0 0;color:var(--muted);font-size:12px;line-height:1.7}
 .share-style-note{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
