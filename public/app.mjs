@@ -91,6 +91,7 @@ import { choosePolicyMove, createResignWatch } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
 import { cleanName, createPlayerName } from "./player-name.mjs";
 import { playerSides, recordNames } from "./player-row.mjs";
+import { createSeatSheet, seatsOf } from "./seat-sheet.mjs";
 import { DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
 import {
   CUSTOM_CHARACTER,
@@ -276,6 +277,8 @@ let gameMode = room ? "online" : "ai";
 let humanColor = BLACK;
 // The COM opponent: a character, or カスタム with its own strength and style.
 let aiCom = readCom({character:DEFAULT_AI_CHARACTER});
+// The 新規対戦 sheet's COM for the next game; aiCom is the one playing now.
+let nextAiCom = aiCom;
 let takebackNotice = null;
 // What a friend's answer did to an end offer, shown once in the bar like takebackNotice.
 let endNotice = null;
@@ -297,6 +300,8 @@ const newCom = (com={character:DEFAULT_AI_CHARACTER}) => readCom(com,DEFAULT_AI_
 const recordCom = record => readCom(record.aiCom ?? {strength:record.aiStrength,
   invasion:record.invasion,reinforcement:record.reinforcement},"strong");
 let watchAi = {black:newCom(), white:newCom()};
+// The 新規対戦 sheet's two COMs for the next 観戦; watchAi are the ones playing now.
+let nextWatchAi = watchAi;
 // The pause between watched moves, chosen under 観戦's 速さ tab; a running game follows it.
 const WATCH_STEP_MS = {fast:250, normal:1100, slow:2200};
 const toWatchSpeed = value => Object.hasOwn(WATCH_STEP_MS,value) ? value : "normal";
@@ -540,7 +545,7 @@ setInterval(()=>{
 function rememberSettings() {
   writeSettings(localStorage, {
     aiHandicap,
-    aiCom,
+    aiCom:nextAiCom,
     aiSide:aiSideChoice,
     boardSize,
     byoyomi:byoyomiChoice,
@@ -554,7 +559,7 @@ function rememberSettings() {
     mode:gameMode,
     onlineHandicap,
     watch:watchChoice,
-    watchAi,
+    watchAi:nextWatchAi,
     watchSpeed,
   });
 }
@@ -592,9 +597,9 @@ function checkComChoices(prefix, com) {
 }
 function syncComCards() {
   for(const [slot,side] of Object.entries(COM_SLOTS)){
-    $("com"+slot+"Character").value=watchAi[side].character;
-    $("com"+slot+"Custom").hidden=watchAi[side].character!==CUSTOM_CHARACTER;
-    checkComChoices("com"+slot,watchAi[side]);
+    $("com"+slot+"Character").value=nextWatchAi[side].character;
+    $("com"+slot+"Custom").hidden=nextWatchAi[side].character!==CUSTOM_CHARACTER;
+    checkComChoices("com"+slot,nextWatchAi[side]);
   }
 }
 // 観戦's COMのキャラ tab holds a card per COM in place of the character list.
@@ -603,7 +608,7 @@ function syncWatchSliderRows() {
   $("watchAiOptions").hidden=!two;
   $("aiStrengthRow").hidden=two;
   // カスタム's own rows show only for the one COM it sets.
-  $("aiCustom").hidden=two || aiCom.character!==CUSTOM_CHARACTER;
+  $("aiCustom").hidden=two || nextAiCom.character!==CUSTOM_CHARACTER;
 }
 function readWatchAi(value, fallback) {
   const clean=cleanWatchAi(value);
@@ -611,7 +616,7 @@ function readWatchAi(value, fallback) {
   return {black:newCom(clean.black),white:newCom(clean.white)};
 }
 function updatePersonaUi() {
-  checkComChoices("ai",aiCom);
+  checkComChoices("ai",nextAiCom);
   syncComCards();syncWatchSliderRows();
 }
 
@@ -2068,6 +2073,7 @@ function playersShown(){
 /** Both players in the turn row: who each colour is, and whether it is to move. */
 function renderPlayers(shown, waiting=null) {
   $("players").hidden=!shown;
+  $("players").disabled=!canChangeSeats();
   $("statusRow").querySelector(".status-main").classList.toggle("has-players",shown);
   if(!shown)return;
   const sides=playerSides(playersShown());
@@ -2308,6 +2314,7 @@ function forkBoardReview(kind="local") {
   if(!save())return;
   if(room)leaveOnlineRoom();
   stopAiTurn();gameMode=kind;game=fork;
+  if(ai){aiCom=nextAiCom;watchAi=nextWatchAi;}
   // 観戦 lets the two COMs set in the sheet play on from the shown position.
   setWatching(ai && watchChoice);
   if(watching)lastWatchMoveAt=performance.now();
@@ -2493,6 +2500,7 @@ function closePanels() {
   $("sharePanel").hidden=true;
   shareImages.clear();
   $("modePanel").hidden=true;
+  $("seatPanel").hidden=true;
   $("helpPanel").hidden=true;
   $("helpToggle").setAttribute("aria-expanded","false");
   closeHelpPopover(false);
@@ -2522,6 +2530,7 @@ $("startAi").onclick=()=>{
   if(room && connected &&
      !confirmByRetap($("startAi"),TEXT.confirm.leaveForAi))return;
   // 観戦 runs at its own speed, without a clock.
+  aiCom=nextAiCom;watchAi=nextWatchAi;
   startAiGame(newGame(true,{...nextGameOptions(aiHandicap),...(watchChoice?{timeControl:null}:{})}),watchChoice,aiSideChoice);
 };
 /** A new AI game from the empty board `fresh`: watched, or with the human's side drawn from `side`. */
@@ -2569,6 +2578,33 @@ function takeOverWatchedGame(color) {
   syncSideUi();syncStrengthUi();updatePersonaUi();
   $("aiMatchStatus").textContent=TEXT.ai.tookOver(colorLabel(color));
   save();show();requestAnalysis();
+}
+// この対局の打ち手: the names under the board open it while a game is played on this
+// device. Changing a seat changes the mode (1台・対COM・観戦), and the record carries on.
+function canChangeSeats(){return !room && !boardReview && game.status==="playing" && !isFree(game);}
+const seatSheet=createSeatSheet({$,onApply:applySeats,onKeep:closeSeatPanel});
+function openSeatPanel() {
+  if(!canChangeSeats())return;
+  seatSheet.load(seatsOf({mode:gameMode,watching,humanColor,aiCom,watchAi}),{next:game.next,
+    available:isGomoku(game) || katagoReady && !fallbackMode,
+    // A person's seat switched to COM gets the COM playing now, or the next game's.
+    fallback:()=>gameMode==="ai" && !watching?aiCom:nextAiCom});
+  setBackgroundInert(true);
+  $("settingsBackdrop").hidden=false;$("seatPanel").hidden=false;
+  $("closeSeats").focus();
+}
+function closeSeatPanel(){closePanels();$("players").focus();}
+$("players").onclick=openSeatPanel;
+$("closeSeats").onclick=closeSeatPanel;
+function applySeats(match) {
+  if(!canChangeSeats())return;
+  stopAiTurn(); // A move being computed for a seat that changed is dropped.
+  candidate=null;illegalCandidate=null;
+  gameMode=match.mode;
+  setWatching(match.watching);
+  if(match.watching){watchAi=match.watchAi;lastWatchMoveAt=performance.now();}
+  else if(match.mode==="ai"){humanColor=match.humanColor;aiCom=match.aiCom;}
+  save();closeSeatPanel();show();requestAnalysis();
 }
 $("watchIntervene").onclick=()=>{
   if(!isWatching() || game.status!=="playing" || intervening)return;
@@ -2635,48 +2671,48 @@ function syncHandicapUi() {
     syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
-// A change to a COM applies from its next move.
+// The sheet's COMs are for the next game; この対局の打ち手 changes the one playing now.
 function comChanged(label) {
   syncStrengthUi();
-  if(isWatching() || gameMode==="ai" && !editsWatchAi())save();else rememberSettings();
+  rememberSettings();
   $("aiMatchStatus").textContent=label?TEXT.ai.nextCharacter(label):TEXT.ai.nextMove;
 }
 for(const [slot,side] of Object.entries(COM_SLOTS)){
   $("com"+slot+"Character").onchange=e=>{
-    watchAi[side]=pickCharacter(watchAi[side],e.target.value);
+    nextWatchAi={...nextWatchAi,[side]:pickCharacter(nextWatchAi[side],e.target.value)};
     comChanged();
   };
   for(const [field,key] of Object.entries(COM_FIELDS))
   for(const input of document.querySelectorAll('input[name="com'+slot+field+'"]'))
     input.onchange=e=>{
       if(!e.target.checked)return;
-      watchAi[side]=setComValue(watchAi[side],key,e.target.value);
+      nextWatchAi={...nextWatchAi,[side]:setComValue(nextWatchAi[side],key,e.target.value)};
       comChanged();
     };
 }
 for(const input of document.querySelectorAll('input[name="aiCharacter"]')) {
   input.onchange=e=>{
     if(!e.target.checked)return;
-    aiCom=pickCharacter(aiCom,e.target.value);
-    comChanged(characterLabel(aiCom.character));
+    nextAiCom=pickCharacter(nextAiCom,e.target.value);
+    comChanged(characterLabel(nextAiCom.character));
   };
 }
 for(const [field,key] of Object.entries(COM_FIELDS))
 for(const input of document.querySelectorAll('input[name="ai'+field+'"]')) {
   input.onchange=e=>{
     if(!e.target.checked)return;
-    aiCom=setComValue(aiCom,key,e.target.value);
+    nextAiCom=setComValue(nextAiCom,key,e.target.value);
     comChanged();
   };
 }
 // The character list shows the one COM; two COMs are set in their cards.
 function syncStrengthUi() {
   const two=editsWatchAi(),off=newGameModeKind()!=="ai" || two;
-  const input=document.querySelector('input[name="aiCharacter"][value="'+aiCom.character+'"]');
+  const input=document.querySelector('input[name="aiCharacter"][value="'+nextAiCom.character+'"]');
   if(input)input.checked=true;
   $("aiCharacterChoices").disabled=$("aiCustom").disabled=off;
   // One COM's line names its strength and the style it leans on, which カスタム's rows already show.
-  $("aiStrengthNote").textContent=newGameModeKind()!=="ai" || two || aiCom.character===CUSTOM_CHARACTER?"":comSummary(aiCom);
+  $("aiStrengthNote").textContent=newGameModeKind()!=="ai" || two || nextAiCom.character===CUSTOM_CHARACTER?"":comSummary(nextAiCom);
   updatePersonaUi();
   syncSetupValues();
 }
@@ -2753,6 +2789,7 @@ else try {
     aiCom=newCom(settings.aiCom ?? {strength:settings.aiStrength,invasion:settings.invasion,
       reinforcement:settings.reinforcement});
     watchAi=readWatchAi(settings.watchAi,aiCom);
+    nextAiCom=aiCom;nextWatchAi=watchAi;
   }
   game=savedGame(gameMode);restoreEndgameAdvice();endExpanded=!!game.endProposal || aiPassAsks();
 }catch{}

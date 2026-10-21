@@ -80,11 +80,11 @@
           <div class="status-main">
             <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
             <div class="status-sub"><span id="moveLabel" class="move-label">{{game.moveLabel(0)}}</span><span id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</span></div>
-            <div id="players" class="players" aria-label="{{game.playersLabel}}" hidden>
-              <div id="playerBlack" class="player black"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockBlack" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
-              <span id="playersMove" class="players-move"></span>
-              <div id="playerWhite" class="player white"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockWhite" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
-            </div>
+            <button id="players" class="players" type="button" aria-label="{{seats.open}}" aria-haspopup="dialog" hidden>
+              <span id="playerBlack" class="player black"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockBlack" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></span>
+              <span class="players-middle"><span id="playersMove" class="players-move"></span><svg class="seat-mark" aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></span>
+              <span id="playerWhite" class="player white"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockWhite" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></span>
+            </button>
           </div>
           <button id="stepForward" class="icon-button step-button" type="button" aria-label="{{review.next}}" title="{{review.next}}" disabled><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
         </div>
@@ -259,6 +259,30 @@
       </section>
       <p id="shareNotice" class="invite-status" role="status" aria-live="polite"></p>
       <textarea id="shareCopyFallback" readonly hidden aria-label="{{share.manualCopy}}"></textarea>
+    </aside>
+    <aside id="seatPanel" class="settings-panel seat-panel" role="dialog" aria-modal="true" aria-labelledby="seatTitle" hidden>
+      <div class="settings-head"><h2 id="seatTitle">{{seats.title}}</h2><button id="closeSeats" class="icon-button" type="button" aria-label="{{common.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="seat-row black">
+        <span class="seat-color"><span class="player-stone" aria-hidden="true"></span>{{common.black}}</span>
+        <div class="fused ai-color-choices seat-choices" role="radiogroup" aria-label="{{common.black}}"><label><input type="radio" name="seatBlack" value="person"><span>{{seats.person}}</span></label><label><input type="radio" name="seatBlack" value="com"><span>{{seats.com}}</span></label></div>
+      </div>
+      <div id="seatBlackCom" class="seat-com" hidden>
+        <select id="seatBlackCharacter" class="handicap-select" aria-label="{{seats.character(common.black)}}"><option value="chick">{{ai.characters.chick.name}}</option><option value="steady">{{ai.characters.steady.name}}</option><option value="raider">{{ai.characters.raider.name}}</option><option value="brawler">{{ai.characters.brawler.name}}</option><option value="wide">{{ai.characters.wide.name}}</option><option value="serious">{{ai.characters.serious.name}}</option><option value="master">{{ai.characters.master.name}}</option><option value="custom">{{ai.characters.custom.name}}</option></select>
+        <p id="seatBlackNote" class="seat-note"></p>
+      </div>
+      <div class="seat-row white">
+        <span class="seat-color"><span class="player-stone" aria-hidden="true"></span>{{common.white}}</span>
+        <div class="fused ai-color-choices seat-choices" role="radiogroup" aria-label="{{common.white}}"><label><input type="radio" name="seatWhite" value="person"><span>{{seats.person}}</span></label><label><input type="radio" name="seatWhite" value="com"><span>{{seats.com}}</span></label></div>
+      </div>
+      <div id="seatWhiteCom" class="seat-com" hidden>
+        <select id="seatWhiteCharacter" class="handicap-select" aria-label="{{seats.character(common.white)}}"><option value="chick">{{ai.characters.chick.name}}</option><option value="steady">{{ai.characters.steady.name}}</option><option value="raider">{{ai.characters.raider.name}}</option><option value="brawler">{{ai.characters.brawler.name}}</option><option value="wide">{{ai.characters.wide.name}}</option><option value="serious">{{ai.characters.serious.name}}</option><option value="master">{{ai.characters.master.name}}</option><option value="custom">{{ai.characters.custom.name}}</option></select>
+        <p id="seatWhiteNote" class="seat-note"></p>
+      </div>
+      <p id="seatSummary" class="seat-summary" role="status" aria-live="polite"></p>
+      <div class="new-game-actions seat-actions">
+        <button id="seatKeep" class="secondary" type="button">{{seats.keep}}</button>
+        <button id="seatApply" class="primary" type="button">{{seats.apply}}</button>
+      </div>
     </aside>
     <aside id="modePanel" class="settings-panel mode-panel" role="dialog" aria-modal="true" aria-labelledby="modeTitle" hidden>
       <div class="settings-head"><h2 id="modeTitle">{{header.newGame}}</h2><span class="sheet-head-actions"><label class="sheet-head-tab"><input id="openHistoryFromNew" type="radio" name="newGameMode" value="history"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 3.5V8h4.5"/><path d="M12 7.5V12l3 2"/></svg><strong>{{newGame.history}}</strong></span></label><button class="help-button" type="button" data-help="local" aria-label="{{common.helpFor(newGame.title)}}" title="{{common.helpFor(newGame.title)}}" id="modeHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="closeMode" class="icon-button" type="button" aria-label="{{common.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span></div>
