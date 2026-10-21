@@ -84,3 +84,10 @@ test("a disabled gold member of a fused group rests as an empty slot, not a grey
   const at=css.indexOf(".fused>.primary:disabled{background:var(--slate-17);border:0}");
   assert.ok(at>css.indexOf(".fused>.primary{background:"));
 });
+
+test("a fused group does not clip its members, so its corners keep the edge's width",()=>{
+  // A clip over the members' own rounded corners antialiases them twice.
+  assert.doesNotMatch(css.match(/\.fused\{display:flex;[^}]*\}/)[0],/overflow/);
+  // Unclipped, a gold member's glow would spread over its neighbours.
+  assert.match(css,/\.fused>\.primary\{[^}]*box-shadow:none/);
+});

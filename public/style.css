@@ -690,7 +690,7 @@ body{overflow:hidden}
    group's edge colour showing through 1px gaps, so a hidden member leaves no
    stray line, and a group with every member hidden disappears. A .primary
    never joins a group; it keeps its own gap (UX policy §3.6). */
-.fused{display:flex;gap:1px;margin:0;padding:0;min-width:0;border:1px solid var(--fused-edge,var(--btn-edge));border-radius:var(--radius);background:var(--fused-edge,var(--btn-edge));overflow:hidden}
+.fused{display:flex;gap:1px;margin:0;padding:0;min-width:0;border:1px solid var(--fused-edge,var(--btn-edge));border-radius:var(--radius);background:var(--fused-edge,var(--btn-edge))}
 .fused:not(:has(>:not([hidden]))){display:none}
 .fused>*{flex:1 1 0;min-width:0;margin:0}
 .fused>button,.fused>label>span{border:0;border-radius:0;background:var(--fused-bg,var(--btn-bg))}
@@ -701,10 +701,10 @@ body{overflow:hidden}
 .fused>.danger-armed{background:var(--danger-bg);color:var(--danger-text)}
 .fused>button:focus-visible,.fused input:focus-visible+span{outline-offset:-3px}
 .fused input:checked+span{box-shadow:inset 0 0 0 1px var(--gold-85)}
-/* The end members round their own outer corners rather than lean on the
-   group's clip: Safari can drop that clip for a member whose filter changes
-   (the pressed brightness), and a chosen edge or focus ring should reach the
-   corner. Hidden members don't count, so a lone visible one rounds all four. */
+/* The end members round their own outer corners; the group doesn't clip them.
+   A clip on top antialiases the corner twice and thickens the edge there, and
+   Safari can drop it while a member's filter changes (the pressed brightness).
+   Hidden members don't count, so a lone visible one rounds all four. */
 .fused>:nth-child(1 of :not([hidden])),.fused>label:nth-child(1 of :not([hidden]))>span{border-top-left-radius:calc(var(--radius) - 1px);border-bottom-left-radius:calc(var(--radius) - 1px)}
 .fused>:nth-last-child(1 of :not([hidden])),.fused>label:nth-last-child(1 of :not([hidden]))>span{border-top-right-radius:calc(var(--radius) - 1px);border-bottom-right-radius:calc(var(--radius) - 1px)}
 .fused-column>:nth-child(1 of :not([hidden])){border-radius:calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0}
@@ -751,7 +751,7 @@ body{overflow:hidden}
 .action-row .next-game>button{display:grid;place-content:center;gap:1px;padding:5px 6px;line-height:1.15}
 .action-row .next-game>#newMatch{flex:1.3 1 0}
 .action-row .next-game small{font-size:var(--font-caption);font-weight:var(--weight-medium);opacity:.75}
-.fused>.primary{background:linear-gradient(180deg,var(--gold-89),var(--gold-80))}
+.fused>.primary{background:linear-gradient(180deg,var(--gold-89),var(--gold-80));box-shadow:none}
 /* A gold member that cannot be pressed yet rests as an empty slot, like a lone
    disabled ここに打つ: no gold fill and no dashed edge of its own (the group draws
    the edge), only the dimmed label of a disabled member. */
