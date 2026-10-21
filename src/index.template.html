@@ -108,7 +108,7 @@
         </div>
         </div>
         <div id="actionRow" class="action-row">
-          <!-- The primary action is always the rightmost button. -->
+          <!-- The primary action is the rightmost button; after a game only the share glyph follows it. -->
           <div class="fused move-controls">
           <button id="cancel" class="secondary undo-button is-takeback" type="button" aria-label="{{common.takeback}}" title="{{common.takeback}}" disabled>
             <svg class="cancel-icon" aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
@@ -129,8 +129,13 @@
           </div>
           <button id="openHistory" class="secondary" type="button" hidden>{{help.history.summary}}</button>
           <button id="confirm" class="primary" type="button" disabled><span id="confirmStone" class="button-stone" aria-hidden="true"></span><span id="confirmLabel">{{game.confirmPick}}</span></button>
-          <button id="newMatchSheet" class="secondary" type="button" hidden>{{header.newGame}}</button>
-          <button id="newMatch" class="primary" type="button" aria-label="{{game.rematchAria}}" title="{{game.rematchAria}}" hidden>{{game.rematch}}</button>
+          <!-- One fused button, two ways to the next game: choose its settings, or keep this one's. -->
+          <div class="fused next-game">
+            <button id="newMatchSheet" class="secondary" type="button" aria-label="{{game.newGameAria}}" title="{{game.newGameAria}}" hidden><span>{{header.newGame}}</span><small aria-hidden="true">{{game.newGameNote}}</small></button>
+            <button id="newMatch" class="primary" type="button" aria-label="{{game.rematchAria}}" title="{{game.rematchAria}}" hidden><span>{{game.rematch}}</span><small aria-hidden="true">{{game.rematchNote}}</small></button>
+          </div>
+          <!-- After a game, the header's share glyph closes the row. -->
+          <button id="openShare" class="secondary share-game" type="button" aria-label="{{share.thisGame}}" title="{{share.thisGame}}" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7.5A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-2"/></svg></button>
           <button id="watchIntervene" class="secondary" type="button" hidden>{{game.watchIntervene}}</button>
           <button id="watchToggle" class="primary" type="button" aria-pressed="false" hidden>{{game.watchPause}}</button>
         </div>
@@ -249,7 +254,7 @@
       <textarea id="shareCopyFallback" readonly hidden aria-label="{{share.manualCopy}}"></textarea>
     </aside>
     <aside id="modePanel" class="settings-panel mode-panel" role="dialog" aria-modal="true" aria-labelledby="modeTitle" hidden>
-      <div class="settings-head"><h2 id="modeTitle">{{header.newGame}}</h2><span class="sheet-head-actions"><button class="help-button" type="button" data-help="local" aria-label="{{common.helpFor(newGame.title)}}" title="{{common.helpFor(newGame.title)}}" id="modeHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="closeMode" class="icon-button" type="button" aria-label="{{common.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span></div>
+      <div class="settings-head"><h2 id="modeTitle">{{header.newGame}}</h2><span class="sheet-head-actions"><label class="sheet-head-tab"><input id="openHistoryFromNew" type="radio" name="newGameMode" value="history"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 3.5V8h4.5"/><path d="M12 7.5V12l3 2"/></svg><strong>{{newGame.history}}</strong></span></label><button class="help-button" type="button" data-help="local" aria-label="{{common.helpFor(newGame.title)}}" title="{{common.helpFor(newGame.title)}}" id="modeHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="closeMode" class="icon-button" type="button" aria-label="{{common.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span></div>
       <section class="settings-section new-game-common">
         <div class="new-game-modes">
           <div class="fused">
@@ -259,10 +264,6 @@
           </div>
           <div class="fused">
             <label><input type="radio" name="newGameMode" value="local"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><circle cx="10" cy="10" r="2" fill="currentColor"/><circle cx="14" cy="14" r="2"/></svg><strong>{{help.local.summary}}</strong></span></label>
-          </div>
-          <div class="new-game-nav">
-            <button id="returnToGame" class="mode-button" type="button">{{history.returnCurrent}}</button>
-            <label><input id="openHistoryFromNew" type="radio" name="newGameMode" value="history"><span><svg class="mode-icon" aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 3.5V8h4.5"/><path d="M12 7.5V12l3 2"/></svg><strong>{{newGame.history}}</strong></span></label>
           </div>
         </div>
         <div id="newGameSetup">
@@ -377,9 +378,6 @@
         </div>
         </div>
       </section>
-      <section id="localSetup" class="settings-section" hidden>
-        <button id="startLocal" class="primary full" type="button">{{newGame.start}}</button>
-      </section>
       <section id="onlineSetup" class="settings-section" hidden>
         <div id="p2pVerify" hidden><p>{{online.verifyNote}}</p><div id="p2pTurnstile"></div></div>
         <div id="inviteDetails" class="invite-details hidden">
@@ -395,13 +393,6 @@
           <p id="seatLinkStatus" class="invite-status" role="status" aria-live="polite"></p>
         </details>
       </section>
-      <section id="onlineStart" class="settings-section" hidden>
-        <button id="copy" class="primary full" type="button">{{newGame.start}}</button>
-      </section>
-      <section id="aiSetup" class="settings-section" hidden>
-        <button id="startAi" class="primary full" type="button" disabled>{{ai.preparing}}</button>
-        <p id="aiMatchStatus" class="visually-hidden" role="status" aria-live="polite">{{ai.preparingMatch}}</p>
-      </section>
       <section id="historyActions" class="settings-section history-actions" hidden>
         <div class="history-import-row">
           <label for="historyImportFile" class="secondary accent-outline history-import-label">{{history.importSgf}}</label>
@@ -414,6 +405,19 @@
         <div id="historyList" class="history-list"></div>
         <p id="historyEmpty" class="history-empty" hidden>{{history.empty}}</p>
       </section>
+      <div id="newGameActions" class="new-game-actions">
+        <button id="returnToGame" class="secondary" type="button">{{history.returnCurrent}}</button>
+        <section id="localSetup" class="settings-section" hidden>
+          <button id="startLocal" class="primary full" type="button">{{newGame.start}}</button>
+        </section>
+        <section id="onlineStart" class="settings-section" hidden>
+          <button id="copy" class="primary full" type="button">{{newGame.start}}</button>
+        </section>
+        <section id="aiSetup" class="settings-section" hidden>
+          <button id="startAi" class="primary full" type="button" disabled>{{ai.preparing}}</button>
+          <p id="aiMatchStatus" class="visually-hidden" role="status" aria-live="polite">{{ai.preparingMatch}}</p>
+        </section>
+      </div>
     </aside>
     <aside id="helpPanel" class="settings-panel help-panel" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
       <div class="settings-head"><h2 id="helpTitle">{{help.title}}</h2><button id="closeHelp" class="icon-button" type="button" aria-label="{{help.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
@@ -427,16 +431,6 @@
           </div>
           <p id="beginnerPromptStatus" class="invite-status help-copy-status" role="status" aria-live="polite"></p>
           <textarea id="beginnerPromptFallback" class="help-copy-fallback" readonly hidden rows="6" spellcheck="false" aria-label="{{help.beginner.manualCopy}}"></textarea>
-        </details>
-        <details id="help-basics" class="info-disclosure help-topic" name="helpTopic"><summary>{{help.basics.summary}}</summary>
-          <ul class="help-list">
-            {{help.basics.items}}
-          </ul>
-        </details>
-        <details id="help-moves" class="info-disclosure help-topic" name="helpTopic"><summary>{{help.moves.summary}}</summary>
-          <ul class="help-list">
-            {{help.moves.items}}
-          </ul>
         </details>
         <details id="help-endgame" class="info-disclosure help-topic" name="helpTopic"><summary>{{help.endgame}}</summary>
           <ul class="help-list">

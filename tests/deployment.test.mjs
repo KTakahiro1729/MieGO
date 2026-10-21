@@ -81,7 +81,7 @@ test("the page may not be framed, and its policy admits every third party the pa
   assert.ok(!directives["script-src"].includes("'unsafe-inline'") && !directives["script-src"].includes("'unsafe-eval'"));
   // Turnstile's script and widget, the share image's fonts, and the KataGo WASM.
   const origin = (file, pattern) => new URL(readFileSync(resolve(root, file), "utf8").match(pattern)[1]).origin;
-  const turnstile = origin("public/app.mjs", /script\.src="([^"]+)"/);
+  const turnstile = origin("public/p2p-verify.mjs", /TURNSTILE_SCRIPT = "([^"]+)"/);
   assert.ok(directives["script-src"].includes(turnstile) && directives["frame-src"].includes(turnstile));
   assert.ok(directives["style-src"].includes(origin("public/share-image.mjs", /href:"([^"]+)"/)));
   assert.ok(directives["script-src"].includes("'wasm-unsafe-eval'"));
