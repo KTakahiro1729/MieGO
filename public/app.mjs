@@ -94,7 +94,7 @@ import { gomokuMove } from "./gomoku-ai.mjs";
 import { cleanName, createPlayerName } from "./player-name.mjs";
 import { playerSides, recordNames, stoneMark } from "./player-row.mjs";
 import { createSeatSheet, sameSeats, seatsOf } from "./seat-sheet.mjs";
-import { DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
+import { AI_STRENGTHS, DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
 import {
   CUSTOM_CHARACTER,
   DEFAULT_AI_CHARACTER,
@@ -611,14 +611,27 @@ const COM_FIELDS = {
   Height:"height",
   Resign:"resign",
   Stance:"stance",
-  Strength:"strength",
   Tenuki:"tenuki",
 };
+// Strength is a slider with a stop per level, weakest first.
+const STRENGTH_ORDER = Object.keys(AI_STRENGTHS);
+const strengthAt = value => STRENGTH_ORDER[Number(value)] ?? DEFAULT_AI_STRENGTH;
+// Step sliders name each stop under the bar and show the chosen stop's note below it.
+function syncStepSlider(id) {
+  const input=$(id),stops=[...$(id+"Row").querySelectorAll(".step-ticks span")];
+  const index=Math.round((Number(input.value)-Number(input.min))/Number(input.step));
+  stops.forEach((stop,i)=>stop.classList.toggle("is-current",i===index));
+  $(id+"Value").textContent=stops[index]?.textContent||"";
+  const note=$(id+"Row").querySelector(".step-note");
+  if(note)note.textContent=stops[index]?.dataset.note||"";
+}
 function checkComChoices(prefix, com) {
   for(const [field,key] of Object.entries(COM_FIELDS)){
     const input=document.querySelector('input[name="'+prefix+field+'"][value="'+com[key]+'"]');
     if(input)input.checked=true;
   }
+  $(prefix+"Strength").value=String(Math.max(0,STRENGTH_ORDER.indexOf(com.strength)));
+  syncStepSlider(prefix+"Strength");
 }
 function syncComCards() {
   for(const [slot,side] of Object.entries(COM_SLOTS)){
@@ -631,7 +644,7 @@ function syncComCards() {
 function syncWatchSliderRows() {
   const two=editsWatchAi();
   $("watchAiOptions").hidden=!two;
-  $("aiStrengthRow").hidden=two;
+  $("aiOneCom").hidden=two;
   // カスタム's own rows show only for the one COM it sets.
   $("aiCustom").hidden=two || nextAiCom.character!==CUSTOM_CHARACTER;
 }
@@ -2711,7 +2724,7 @@ function takeOverWatchedGame(color) {
 // この対局の打ち手: the names under the board open it while a game is played on this
 // device. Changing a seat changes the mode (1台・対COM・観戦), and the record carries on.
 function canChangeSeats(){return !room && !boardReview && game.status==="playing" && !isFree(game);}
-const seatSheet=createSeatSheet({$,onApply:applySeats,onKeep:closeSeatPanel});
+const seatSheet=createSeatSheet({$,onApply:applySeats,onKeep:closeSeatPanel,syncSlider:syncStepSlider});
 function openSeatPanel() {
   if(!canChangeSeats())return;
   seatSheet.load(seatsOf({mode:gameMode,watching,humanColor,aiCom,watchAi}),{next:game.next,
@@ -2827,6 +2840,10 @@ for(const [slot,side] of Object.entries(COM_SLOTS)){
       nextWatchAi={...nextWatchAi,[side]:setComValue(nextWatchAi[side],key,e.target.value)};
       comChanged();
     };
+  $("com"+slot+"Strength").oninput=e=>{
+    nextWatchAi={...nextWatchAi,[side]:setComValue(nextWatchAi[side],"strength",strengthAt(e.target.value))};
+    comChanged();
+  };
 }
 for(const input of document.querySelectorAll('input[name="aiCharacter"]')) {
   input.onchange=e=>{
@@ -2843,12 +2860,16 @@ for(const input of document.querySelectorAll('input[name="ai'+field+'"]')) {
     comChanged();
   };
 }
+$("aiStrength").oninput=e=>{
+  nextAiCom=setComValue(nextAiCom,"strength",strengthAt(e.target.value));
+  comChanged();
+};
 // The character list shows the one COM; two COMs are set in their cards.
 function syncStrengthUi() {
   const two=editsWatchAi(),off=newGameModeKind()!=="ai" || two;
   const input=document.querySelector('input[name="aiCharacter"][value="'+nextAiCom.character+'"]');
   if(input)input.checked=true;
-  $("aiStrengthChoices").disabled=$("aiCharacterChoices").disabled=$("aiCustom").disabled=off;
+  $("aiStrength").disabled=$("aiCharacterChoices").disabled=$("aiCustom").disabled=off;
   // One COM's line names its strength and the style it leans on, which カスタム's rows already show.
   $("aiStrengthNote").textContent=newGameModeKind()!=="ai" || two || nextAiCom.character===CUSTOM_CHARACTER?"":comSummary(nextAiCom);
   updatePersonaUi();

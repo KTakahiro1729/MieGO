@@ -10,9 +10,12 @@ import {
   pickCharacter,
   setComValue,
 } from "./ai-characters.mjs";
+import { AI_STRENGTHS } from "./ai-strength.mjs";
 import { TEXT } from "./texts.mjs";
 
 const SIDES = Object.freeze({black:BLACK, white:WHITE});
+// The strength slider has a stop per level, weakest first, as in 新規対戦.
+const STRENGTH_ORDER = Object.keys(AI_STRENGTHS);
 const colorName = color => color===BLACK ? TEXT.common.black : TEXT.common.white;
 
 /** Each colour's COM, or null where a person plays it. */
@@ -65,7 +68,7 @@ export const comNote = com => characterNote(com.character) +
  * The sheet's controls. The app opens and closes the panel; this keeps the
  * seats being edited until onApply(match, speed) takes them or the sheet is opened again.
  */
-export function createSeatSheet({$, onApply, onKeep}) {
+export function createSeatSheet({$, onApply, onKeep, syncSlider}) {
   let current={black:null, white:null}, draft=current, next=BLACK, comAvailable=true;
   let speed="normal", draftSpeed=speed;
   // The COM a seat goes back to when switched from 人 to COM.
@@ -81,6 +84,8 @@ export function createSeatSheet({$, onApply, onKeep}) {
       }
       $(name+"Com").hidden=!com;
       if(!com)continue;
+      $(name+"Strength").value=String(Math.max(0, STRENGTH_ORDER.indexOf(com.strength)));
+      syncSlider(name+"Strength");
       $(name+"Character").value=com.character;
       // As in 新規対戦's COM card: the strength row, the character, and カスタム's style rows in place of the note.
       const custom=com.character===CUSTOM_CHARACTER;
@@ -96,9 +101,8 @@ export function createSeatSheet({$, onApply, onKeep}) {
       TEXT.seats.comUnavailable : seatSummary(current, draft, next, speed, draftSpeed);
     $("seatApply").disabled=!seatsChanged(current, draft, speed, draftSpeed);
   }
-  // Each row's radio name and the COM's value it shows: the strength, then カスタム's style.
-  const comFields = name => [[name+"Strength", "strength"],
-    ...COM_AXES.map(axis=>[name+axis[0].toUpperCase()+axis.slice(1), axis])];
+  // Each カスタム row's radio name and the COM's value it shows.
+  const comFields = name => COM_AXES.map(axis=>[name+axis[0].toUpperCase()+axis.slice(1), axis]);
   for(const side of Object.keys(SIDES)){
     const name="seat"+key(side);
     for(const input of document.querySelectorAll('input[name="'+name+'"]'))
@@ -113,6 +117,7 @@ export function createSeatSheet({$, onApply, onKeep}) {
       draft={...draft, [side]:com};
       render();
     };
+    $(name+"Strength").oninput=e=>change(setComValue(draft[side], "strength", STRENGTH_ORDER[Number(e.target.value)]));
     $(name+"Character").onchange=e=>change(pickCharacter(draft[side], e.target.value));
     for(const [field, axis] of comFields(name))
       for(const input of document.querySelectorAll('input[name="'+field+'"]'))
