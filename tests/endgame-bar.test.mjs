@@ -32,7 +32,7 @@ test("the meter lights 序 in the opening, 中 after it, and 終 from そろそ�
   assert.equal(stage({stage:"playing"}),"1");
   assert.equal(stage({stage:"playing",opened:true}),"2");
   assert.equal(stage({stage:"playing",mostlySettled:true}),"3");
-  assert.equal(stage({stage:"near"}),"3");
+  assert.equal(stage({stage:"near",settledShare:1}),"3");
   // 終局してよさそう keeps 終 and also marks the button (style.css).
   assert.equal(stage({stage:"ready"}),"4");
   assert.deepEqual([TEXT.endgame.stageOpening,TEXT.endgame.stageMiddle,TEXT.endgame.stageEnd],["序","中","終"]);
@@ -58,10 +58,10 @@ test("採点を始める waits for a computing move, except while watching",()=>
 });
 
 test("the solo prompt asks to score, and against the COM it offers the end, not a pass",()=>{
-  const prompt=bar({endExpanded:true,advisor:{previous:{move:0},stage:"near"}});
+  const prompt=bar({endExpanded:true,advisor:{previous:{move:0},stage:"near",settledShare:1}});
   assert.equal(prompt.text.endStatus,TEXT.endgame.askCom);
   assert.equal(prompt.text.endDetail,TEXT.endgame.detailLocalAi);
-  assert.equal(bar({endExpanded:true,gameMode:"local",advisor:{previous:{move:0},stage:"near"}}).text.endDetail,
+  assert.equal(bar({endExpanded:true,gameMode:"local",advisor:{previous:{move:0},stage:"near",settledShare:1}}).text.endDetail,
     TEXT.endgame.detailLocal);
   assert.deepEqual(prompt.classes.actionRow,{"end-prompt-open":true});
   assert.equal(prompt.classes.endgameBar["is-asking"],true);
@@ -69,7 +69,7 @@ test("the solo prompt asks to score, and against the COM it offers the end, not 
   assert.equal(bar({endExpanded:true,gameMode:"local"}).text.endProposeLabel,TEXT.endgame.startScoring);
   // On one board, while watching or without KataGo, the count is the viewer's own decision.
   assert.equal(bar({endExpanded:true,gameMode:"local"}).text.endAccept,TEXT.endgame.goScoring);
-  const watched=bar({endExpanded:true,watching:true,advisor:{previous:{move:0},stage:"near"}});
+  const watched=bar({endExpanded:true,watching:true,advisor:{previous:{move:0},stage:"near",settledShare:1}});
   assert.deepEqual([watched.text.endAccept,watched.text.endDetail],[TEXT.endgame.goScoring,TEXT.endgame.detailWatchScoring]);
   assert.equal(bar({endExpanded:true,fallbackMode:true}).text.endAccept,TEXT.endgame.goScoring);
   assert.equal(bar().text.endDetail,TEXT.endgame.detailAi);

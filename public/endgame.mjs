@@ -19,7 +19,7 @@ export function endgameHint(state,advisor,{unavailable=false}={}) {
   // Three steps. After the player chose to keep playing, the milder one
   // stands in for the strongest until the board has settled again.
   if(advisor.stage==="ready" && !advisor.held)return ENDGAME_HINTS.ready;
-  if(advisor.stage==="ready" || advisor.stage==="near" || advisor.mostlySettled)return ENDGAME_HINTS.near;
+  if(endingNear(advisor))return ENDGAME_HINTS.near;
   return ENDGAME_HINTS.playing;
 }
 /** The advice reads the feel of the position, not move or stone counts: how
@@ -46,13 +46,17 @@ export const ENDGAME_SETTLED_SHARE = 0.7;
  * 15-20, a quarter to a third of the game. The opening does not come back, so
  * the advisor keeps it over until the next game. */
 export const OPENING_SETTLED_SHARE = 0.2;
-/** The COM offers to end only once the board is settled ("ready": a stone moves at
- * most 1 point), and accepts the player's offer a little earlier: a stone moves at
- * most 2 points and this share of the board reads settled. On 9x9 COM同士 games
- * that holds from about 12 moves before the end against about 3 for "ready", and
- * the share keeps a calm moment in the middle game (a swing of 2 or less turns up
- * from a quarter of the way in) from ending it. */
+/** そろそろ, the meter's 終, is also when the COM accepts the player's offer to end:
+ * a stone moves at most 2 points and this share of the board reads settled, or
+ * ENDGAME_SETTLED_SHARE reads settled whatever the swing. The share keeps a calm
+ * moment in the middle game (a swing of 2 or less turns up from a quarter of the
+ * way in) from lighting 終. On 9x9 COM同士 games it holds from about 20 moves
+ * before the end, where the COM's own offer ("ready": a stone moves at most
+ * 1 point) holds from about 3. */
 export const ENDGAME_ACCEPT_SHARE = 0.6;
+/** Whether the board reads as そろそろ: what lights 終, and what the COM accepts an offer at. */
+export const endingNear = advisor => advisor.stage !== "playing" &&
+  (advisor.settledShare ?? 0) >= ENDGAME_ACCEPT_SHARE || !!advisor.mostlySettled;
 export class EndgameAdvisor {
   constructor() { this.reset(); }
   reset() {
@@ -66,10 +70,7 @@ export class EndgameAdvisor {
     this.opened = false;
     this.settledShare = 0;
   }
-  /** Whether the COM accepts the player's offer to end, from the board alone. */
-  acceptsEnd() {
-    return this.stage !== "playing" && this.settledShare >= ENDGAME_ACCEPT_SHARE;
-  }
+
   /** 対局を続ける: the player sees something left to play. The strongest advice
    * comes back once it has been played and the board reads settled again,
    * a full window of new readings after this call. */
