@@ -153,3 +153,35 @@ test("a friend game's 持ち時間 is the inviter's, and only the player out of 
   assert.equal(reconcileGame(moved,1,out,2,{localColor:WHITE}).kind,"conflict");
   assert.equal(reconcileGame(moved,1,out,2,{localColor:BLACK}).kind,"adopt");
 });
+
+test("もう一局 waits for the other player, then starts the same settings as a newer game both boards adopt",async()=>{
+  const {requestRematch,roundOf}=await import("../public/p2p-session.mjs");
+  const settings={size:13,rules:"japanese",timeControl:{main:600,byoyomi:30,periods:1}};
+  const finished=play(play(newGame(true,settings),0),"resign");
+  assert.equal(finished.status,"finished");
+  assert.throws(()=>requestRematch(newGame(),BLACK));
+
+  const asked=requestRematch(finished,BLACK);
+  assert.deepEqual(asked.rematchRequest,{from:BLACK});
+  assert.equal(requestRematch(asked,BLACK),asked,"pressing again changes nothing");
+  assert.equal(isConsistentSnapshot(asked),true);
+
+  const next=requestRematch(asked,WHITE);
+  assert.equal(next.status,"playing");
+  assert.equal(next.moveNumber,0);
+  assert.equal(next.board.length,169);
+  assert.equal(next.rules,"japanese");
+  assert.deepEqual(next.timeControl,finished.timeControl);
+  assert.equal(next.rematchRequest,undefined);
+  assert.equal(roundOf(next),1);
+  assert.equal(roundOf(requestRematch(requestRematch(play(next,"resign"),WHITE),BLACK)),2);
+
+  // A device that missed the agreement takes the new game, and the one that has it sends it.
+  assert.deepEqual(reconcileGame(asked,4,next,5),{kind:"adopt",game:next,revision:5});
+  assert.equal(reconcileGame(next,5,asked,4).kind,"send");
+  // Black's request crossed with white's: each side starts it, so both hold the same game.
+  const crossed=requestRematch(requestRematch(finished,WHITE),BLACK);
+  assert.equal(reconcileGame(next,5,crossed,5).kind,"equal");
+  assert.equal(isPeerAction({type:"rematch",color:WHITE},asked,{peerColor:WHITE}),true);
+  assert.equal(isPeerAction({type:"rematch",color:BLACK},asked,{peerColor:WHITE}),false);
+});

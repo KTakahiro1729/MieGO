@@ -41,3 +41,8 @@ test("a friend game's status line says what it waits for, and the sheet the chec
   assert.match(app,/callback:token=>\{if\(opened\)closePanels\(\);resolve\(token\);\}/);
   assert.match(app,/onConnected:\(\)=>\{[\s\S]*?TEXT\.online\.requestFailed\)\$\("saveStatus"\)\.hidden=true;/);
 });
+test("a friend game offers もう一局, which waits until the other player presses it too",()=>{
+  assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished;/);
+  assert.match(app,/if\(room\)\{\n    if\(connected\)apply\(\{type:"rematch",color:myOnlineColor\(\)/);
+  assert.match(app,/rematchAsked\?TEXT\.online\.rematchWaiting:TEXT\.game\.rematchNote/);
+});
