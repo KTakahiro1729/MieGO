@@ -1725,7 +1725,8 @@ function resumeModeGame(mode) {
  * board, otherwise the game on the board (leaving any replay).
  */
 function returnTarget(kind) {
-  const current={mode:null,label:TEXT.history.returnCurrent};
+  // A finished game has nothing to continue, so the button names the board instead.
+  const current={mode:null,label:!boardReview && game.status==="finished"?TEXT.history.returnBoard:TEXT.history.returnCurrent};
   // Friend rooms reopen from the saved games.
   if(kind==="history" || kind==="online" || kind===(room?"online":gameMode))return current;
   let record=null;
