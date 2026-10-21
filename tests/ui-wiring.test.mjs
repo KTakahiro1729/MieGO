@@ -34,7 +34,7 @@ test("states that only screen readers heard are also shown in the notice",()=>{
 });
 test("a friend game's status line says what it waits for, and the sheet the check opened closes",()=>{
   assert.match(app,/async function joinRoom\(\)\{[\s\S]*?\$\("netStatus"\)\.textContent=TEXT\.online\.waitingConnection;\n  try\{/);
-  assert.match(app,/callback:token=>\{if\(opened\)closePanels\(\);resolve\(token\);\}/);
+  // The sheet the check opened closes again: tests/p2p-verify.test.mjs.
   assert.match(app,/onConnected:\(\)=>\{[\s\S]*?TEXT\.online\.retrying\)\$\("saveStatus"\)\.hidden=true;/);
 });
 test("a dropped friend game says it reconnects by itself, and the opponent's line leaves the connection to the status line",()=>{
