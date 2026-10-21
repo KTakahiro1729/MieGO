@@ -98,3 +98,14 @@ test("each COM of a watched game plays with its own character",()=>{
   // The COM left playing after a take-over keeps its own settings.
   assert.match(body("takeOverWatchedGame"),/=watchAi\[color===BLACK\?"white":"black"\]/);
 });
+
+test("a watched game that nobody is computing a move for asks for it again",()=>{
+  // The pause before a move clears its timer when it fires, so a pending timer means a move is coming.
+  assert.match(body("watchDue"),/watchTimer=setTimeout\(\(\)=>\{watchTimer=null;requestAnalysis\(\);\},wait\);/);
+  const check=app.slice(app.indexOf("const WATCH_STALL_MS"),app.indexOf("},3000);"));
+  assert.match(check,/if\(!isWatching\(\) \|\| !isAiTurn\(\) \|\| watchPaused \|\| endExpanded \|\| boardReview \|\| fallbackMode \|\| document\.hidden\)return;/);
+  // A small-network move left unanswered is asked for again; 最強 reports its own progress.
+  assert.match(check,/if\(!aiJob \|\| aiJob\.strong \|\| performance\.now\(\)-aiJob\.at<WATCH_STALL_MS\)return;\s*stopAiTurn\(\);/);
+  assert.match(check,/else if\(watchTimer \|\| !katagoReady && !isGomoku\(game\)\)return;\s*requestAnalysis\(\);/);
+  assert.match(app,/aiJob=\{id,number:game\.moveNumber,hash:boardHash\(game\.board\),strong,at:performance\.now\(\)\};/);
+});

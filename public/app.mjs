@@ -583,9 +583,22 @@ function watchDue() {
   if(watchPaused){$("aiMatchStatus").textContent=TEXT.ai.watchPaused;return false;}
   const wait=lastWatchMoveAt+watchStep()-performance.now();
   if(wait<=0){watchReturning=false;return true;}
-  watchTimer=setTimeout(requestAnalysis,wait);
+  watchTimer=setTimeout(()=>{watchTimer=null;requestAnalysis();},wait);
   return false;
 }
+// A watched game never waits on a move nobody is computing: when neither a
+// move nor the pause before one is pending, the next move is asked for, and a
+// move the small network has left unanswered for long is asked for again.
+const WATCH_STALL_MS = 20000;
+setInterval(()=>{
+  if(!isWatching() || !isAiTurn() || watchPaused || endExpanded || boardReview || fallbackMode || document.hidden)return;
+  if(comToMove().strength==="strongest" && strongWorkers.current().state!=="ready")return;
+  if(aiThinking){
+    if(!aiJob || aiJob.strong || performance.now()-aiJob.at<WATCH_STALL_MS)return;
+    stopAiTurn();
+  } else if(watchTimer || !katagoReady && !isGomoku(game))return;
+  requestAnalysis();
+},3000);
 // One remembered choice per line, in alphabetical order, so that two
 // branches adding different choices touch different lines.
 function rememberSettings() {
@@ -777,7 +790,7 @@ function requestAnalysis() {
     const id = ++seq;
     pending=id;
     aiThinking=true;
-    aiJob={id,number:game.moveNumber,hash:boardHash(game.board),strong};
+    aiJob={id,number:game.moveNumber,hash:boardHash(game.board),strong,at:performance.now()};
     $("analysisStatus").textContent = TEXT.analysis.thinking;
     $("aiMatchStatus").textContent = TEXT.ai.thinking;
     if(strong)strongWorkers.requestMove(net,id,game);
@@ -815,7 +828,7 @@ function requestGomokuTurn() {
   if(!watchDue()){show();return;}
   const id=pending;
   aiThinking=true;
-  aiJob={id,number:game.moveNumber,hash:boardHash(game.board)};
+  aiJob={id,number:game.moveNumber,hash:boardHash(game.board),at:performance.now()};
   $("aiMatchStatus").textContent=TEXT.ai.playingGomoku;
   show();
   const job=aiJob;
