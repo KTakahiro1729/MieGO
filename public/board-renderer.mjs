@@ -1,5 +1,6 @@
 import {
   BLACK,
+  countedEnd,
   countingBoard,
   group,
   isFree,
@@ -238,7 +239,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         ? game.next : committedColor;
       if(!color || hidden && i!==preview)continue;
       // Dead stones are off the board once the count is final, or filled under Japanese rules.
-      if(!boardReview && (game.status==="finished" && !game.result?.endsWith("+R") ||
+      if(!boardReview && (countedEnd(game) ||
          prisonersFilled(game)) && game.dead?.includes(i))continue;
       const x=pad+(i%SIZE)*gap;
       const y=pad+Math.floor(i/SIZE)*gap;
@@ -527,7 +528,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     paintGrid(theme,d,gap,pad);
     paintOwnership(view,gap,pad);
     // 五目並べ ends without a count, like a resignation.
-    const scoredFinished=game.status==="finished" && !game.result?.endsWith("+R") && !isGomoku(game);
+    const scoredFinished=countedEnd(game) && !isGomoku(game);
     // Stones kept from the settle playout, and the prisoners filled around them.
     const kept=!boardReview && Array.isArray(view.keptPlayout) ? view.keptPlayout : [];
     const counting=!boardReview && (game.status==="scoring" || scoredFinished);
