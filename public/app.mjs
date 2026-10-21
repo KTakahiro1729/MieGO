@@ -2092,6 +2092,7 @@ const untimedRules=kind=>gameRules==="free" || kind==="ai" && watchChoice;
 // The 新規対戦 sheet shows the same rows in every mode, so its height stays put;
 // a row the chosen mode does not use is greyed out.
 function showNewGameMode(kind) {
+  if(kind==="online" && !room && noNewFriendGames)kind="ai";
   // 観戦 is 対COM with two COMs: it opens as 観戦 while that is the sheet's choice.
   if(kind==="ai" && watchChoice)kind="watch";
   const watch=kind==="watch";
@@ -2121,6 +2122,13 @@ function showNewGameMode(kind) {
   syncHandicapUi();
   if(kind==="online" && room)showInviteLink();
   if(kind==="online")renderInviteButton();
+}
+// Production starts no new 対友人 games (scripts/build-html.mjs); invitations and
+// resuming still work, so a page opened in a room keeps the tab.
+const noNewFriendGames=document.documentElement.hasAttribute("data-no-p2p");
+if(noNewFriendGames && !room){
+  document.querySelector('input[name="newGameMode"][value="online"]').closest("label").hidden=true;
+  $("help-online").hidden=true;
 }
 // 観戦 starts a game against the COM, so the sheet treats it as 対COM.
 const newGameModeKind=()=>{

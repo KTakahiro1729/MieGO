@@ -443,7 +443,7 @@ export const TEXT = {
     seatLinkCopy: "自分用の再入室リンクをコピー",
     seatLinkField: "自分用の再入室リンク",
     seatLinkCopied: "コピーしました。相手には送らないでください。",
-    roomsUnavailable: "miego.fun でお試しください。この試作版のページでは、対友人の対局を作れません。",
+    roomsUnavailable: "開発版（main-miego.poet-takahiro1234.workers.dev）でお試しください。この試作版のページでは、対友人の対局を作れません。",
     turnstileMissing: "時間をおいてお試しください。サイトの設定に問題があり、対局を作れません。",
     verifyLoadFailed: "電波やWi-Fiを確認して、もう一度お試しください。確認画面を表示できません。",
     verifyFailed: "もう一度お試しください。ロボットでないことを確認できませんでした。",
