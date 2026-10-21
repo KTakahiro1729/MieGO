@@ -82,12 +82,13 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
     voidPrompt?TEXT.endgame.askVoid:
     localPrompt?(unsettled?hint+"\n":"")+(asksCom?TEXT.endgame.askCom:TEXT.endgame.askLocal):
     passed?passed.text:repeated?TEXT.endgame.repeated:"";
-  // How near the end is reads on 採点を始める's 序・中・終, not as a sentence: 終 lights
-  // from そろそろ (ヨセ, the usual 終盤), and 終局してよさそう also marks the button.
+  // How near the end is reads under 採点を始める as one short stage: もう終盤 from
+  // そろそろ (ヨセ, the usual 終盤), and そろそろどう？ at 終局してよさそう, which also marks the button.
   const step=[TEXT.endgame.playing,TEXT.endgame.near,TEXT.endgame.ready].indexOf(hint)+1;
   const stage=step===1 && !advisor.opened?1:step && step+1;
   view.hidden.endStage=!stage;
   view.attributes.endStage={"data-stage":String(stage)};
+  view.text.endStage=stage?TEXT.endgame.stages[stage-1]:"";
   // A repeated position offers 無勝負 in place of the count.
   const proposeLabel=repeated?(room?TEXT.endgame.proposeVoid:TEXT.endgame.void):
     room || asksCom?TEXT.endgame.propose:TEXT.endgame.startScoring;

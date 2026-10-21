@@ -46,15 +46,15 @@ export const ENDGAME_SETTLED_SHARE = 0.7;
  * 15-20, a quarter to a third of the game. The opening does not come back, so
  * the advisor keeps it over until the next game. */
 export const OPENING_SETTLED_SHARE = 0.2;
-/** そろそろ, the meter's 終, is also when the COM accepts the player's offer to end:
+/** そろそろ, もう終盤 under 終局を提案, is also when the COM accepts the player's offer to end:
  * a stone moves at most 2 points and this share of the board reads settled, or
  * ENDGAME_SETTLED_SHARE reads settled whatever the swing. The share keeps a calm
  * moment in the middle game (a swing of 2 or less turns up from a quarter of the
- * way in) from lighting 終. On 9x9 COM同士 games it holds from about 20 moves
+ * way in) from showing もう終盤. On 9x9 COM同士 games it holds from about 20 moves
  * before the end, where the COM's own offer ("ready": a stone moves at most
  * 1 point) holds from about 3. */
 export const ENDGAME_ACCEPT_SHARE = 0.6;
-/** Whether the board reads as そろそろ: what lights 終, and what the COM accepts an offer at. */
+/** Whether the board reads as そろそろ: what shows もう終盤, and what the COM accepts an offer at. */
 export const endingNear = advisor => advisor.stage !== "playing" &&
   (advisor.settledShare ?? 0) >= ENDGAME_ACCEPT_SHARE || !!advisor.mostlySettled;
 export class EndgameAdvisor {

@@ -27,7 +27,7 @@ test("the meter on the end button never claims 'not yet' until KataGo has evalua
   assert.equal(playing.attributes.endStage["data-stage"],"1");
 });
 
-test("the meter lights 序 in the opening, 中 after it, and 終 from そろそろ",()=>{
+test("the stage reads まだ序盤 in the opening, いま中盤 after it, もう終盤 from そろそろ, and そろそろどう？ at the end",()=>{
   const stage=advisor=>bar({advisor:{previous:{move:0},held:false,...advisor}}).attributes.endStage["data-stage"];
   assert.equal(stage({stage:"playing"}),"1");
   assert.equal(stage({stage:"playing",opened:true}),"2");
@@ -35,7 +35,8 @@ test("the meter lights 序 in the opening, 中 after it, and 終 from そろそ�
   assert.equal(stage({stage:"near",settledShare:1}),"3");
   // 終局してよさそう keeps 終 and also marks the button (style.css).
   assert.equal(stage({stage:"ready"}),"4");
-  assert.deepEqual([TEXT.endgame.stageOpening,TEXT.endgame.stageMiddle,TEXT.endgame.stageEnd],["序","中","終"]);
+  assert.equal(bar({advisor:{previous:{move:0},held:false,stage:"ready"}}).text.endStage,"そろそろどう？");
+  assert.deepEqual(TEXT.endgame.stages,["まだ序盤","いま中盤","もう終盤","そろそろどう？"]);
 });
 test("after one pass the bar says who passed, and asks for the second when it is this player's",()=>{
   const passed=play(newGame(),null);

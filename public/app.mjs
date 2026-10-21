@@ -475,8 +475,8 @@ function peerAgreed() {
   return game.agreed[theirs] && !game.agreed[mine];
 }
 // A pass is a move, against a COM too; ending the game is an offer, which the
-// COM makes when the board has settled and accepts from そろそろ, as the meter's 終
-// shows it (endgame.mjs), or either when it sees the game lost.
+// COM makes when the board has settled and accepts from そろそろ, as もう終盤
+// under the button shows it (endgame.mjs), or either when it sees the game lost.
 const comEnds = color => endgameAdvisor.stage==="ready" && !endgameAdvisor.held || resignWatch.lost(color);
 const comAcceptsEnd = color => endingNear(endgameAdvisor) || comEnds(color);
 // The COM moves only once an offer on the board is answered.

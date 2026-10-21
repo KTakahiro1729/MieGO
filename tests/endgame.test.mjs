@@ -243,7 +243,7 @@ test("the opening is over once a fifth of the board reads settled, and stays ove
   assert.equal(advisor.opened,false);
 });
 
-test("the COM accepts an offer to end from そろそろ, as 終 shows it, but not in a calm middle game",()=>{
+test("the COM accepts an offer to end from そろそろ, as もう終盤 shows it, but not in a calm middle game",()=>{
   const at=(stage,settledShare,mostlySettled=false)=>endingNear({stage,settledShare,mostlySettled});
   assert.equal(at("near",ENDGAME_ACCEPT_SHARE),true);
   assert.equal(at("ready",ENDGAME_ACCEPT_SHARE),true);
