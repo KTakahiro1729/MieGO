@@ -47,10 +47,10 @@ test("turning 効果音 on is remembered and plays a stone to hear it", () => {
   assert.deepEqual(heard, ["move"]);
   sound.play("capture");
   assert.deepEqual(heard, ["move", "capture"]);
-  // 初期状態に戻す turns them off again.
+  // 初期状態に戻す resets the board's look only: the sound stays on.
   page.$("resetAppearance").listeners.forEach(listener => listener());
-  assert.equal(sound.enabled(), false);
-  assert.equal(saved.get("miego-sound"), "off");
+  assert.equal(sound.enabled(), true);
+  assert.equal(saved.get("miego-sound"), "on");
 });
 
 test("a saved switch waits for the first tap before playing", () => {

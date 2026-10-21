@@ -285,7 +285,6 @@ export function createSoundEffects({ $, voices = CALM_VOICES, AudioContextClass 
     // Turning it on is a tap, so the sound can be heard right away.
     if (enabled) { wake(); play("move"); }
   };
-  $("resetAppearance").addEventListener?.("click", () => setEnabled(false));
   function play(name, detail) {
     const voice = (typeof voices === "function" ? voices() : voices)?.[name];
     if (!enabled || !voice) return;

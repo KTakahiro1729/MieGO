@@ -37,8 +37,9 @@ function listen(){
   AudioScheduledSourceNode.prototype.start=function(...args){window.heard.starts++;return start.apply(this,args);};
 }
 
-// S: 効果音, D: ドパガキモード, G: a new 二人で対局, M: a move, R: a reload.
-const ORDERS=["SGMM","DSGMDMM","GMSMDMDMSMSM","SDRGMM","SGMRMDMRM","DGMSMDM"];
+// S: 効果音, D: ドパガキモード, X: 初期状態に戻す (which leaves both as they are),
+// G: a new 二人で対局, M: a move, R: a reload.
+const ORDERS=["SGMM","DSGMDMM","GMSMDMDMSMSM","SDRGMM","SGMRMDMRM","DGMSMDM","SDGMXMM"];
 const POINTS=[[2,2],[6,6],[2,6],[6,2],[4,4],[3,5],[5,3]];
 
 test("every move sounds while 効果音 is on, whatever order the switches went in",{skip,timeout:180000},async t=>{
@@ -65,6 +66,7 @@ test("every move sounds while 効果音 is on, whatever order the switches went 
       const at=`${touch?"finger":"mouse"} ${order} step ${step+1}`;
       if(letter==="S"){await settings("#soundEffects");on=!on;}
       if(letter==="D")await settings("#dopaMode");
+      if(letter==="X")await settings("#resetAppearance");
       if(letter==="R"){await page.reload();await ready();}
       if(letter==="G"){
         await press("#newGameButton");
