@@ -4,14 +4,14 @@ import {newGame,play,BLACK,WHITE} from "../public/core.mjs";
 import {
   BALANCE,
   compatibility,
+  LET_GO_REASON,
   MAX_POOLED,
   MIN_MOVES,
   pairShare,
   PLAY_STYLE_RE,
   playStyle,
-  readResignReason,
-  RESCUE_REASON,
   pooledPlayStyle,
+  readResignReason,
   readStyleLink,
   reportPlayStyles,
   statPayload,
@@ -209,29 +209,26 @@ test("each way to 棋風診断 leads on to the others",async()=>{
     assert.doesNotMatch(TEXT.playStyle.pooledText(text),/この一局/);
 });
 
-test("letting dead stones go is 潔い, reaching for them in vain 粘り強い",()=>{
+test("letting dying stones go early is 潔い, reaching for them till they are gone 粘り強い",()=>{
   const at=(x,y)=>y*19+x;
-  // White plays a line along the edge, each stone next to the last (or one apart), while Black plays far away.
-  const game=step=>{
-    let state=newGame(true,{size:19});
-    for(let i=0;i<12;i++){state=play(state,at(i,10)); state=play(state,at(i*step,0));}
-    return state;
-  };
-  // White's stones are Black's, so dead, while the count stays about even.
-  const recall=state=>state.board.map(v=>v===WHITE ? 0.8 : 0);
-  const clinging=playStyle(game(1),WHITE,{recall}),letting=playStyle(game(2),WHITE,{recall});
-  assert.equal(clinging.score.grit,0.5,"every chance a futile rescue: as far as people go");
-  assert.equal(clinging.type[3],"T");
-  assert.equal(letting.score.grit,-0.25,"never a rescue, as more than half of people");
-  assert.equal(letting.type[3],"Q");
-  assert.equal(clinging.score.shares[3],RESCUE_REASON+100);
-  assert.equal(letting.score.shares[3],RESCUE_REASON);
-  assert.ok(styleRanks(clinging.score)[3]<styleRanks(letting.score)[3]);
+  // White grows two lines on the top and bottom edges by turns, while Black plays in the middle.
+  let game=newGame(true,{size:19});
+  for(let i=0;i<12;i++){game=play(game,at(i,9)); game=play(game,at(i>>1,i%2 ? 18 : 0));}
+  const end=game.moves.length;
+  // Both lines are Black's at the end: dead. On the way they look `before` far gone.
+  const recallFor=before=>state=>state.board.map(v=>v===WHITE ? (state.moves.length===end ? 0.8 : before) : 0);
+  const clinging=playStyle(game,WHITE,{recall:recallFor(0.8)}),letting=playStyle(game,WHITE,{recall:recallFor(0.2)});
+  assert.equal(clinging.type[3],"T","still reaching for them when 90% lost");
+  assert.equal(letting.type[3],"Q","let go when 60% lost, sooner than most");
+  assert.ok(clinging.score.grit>0.25 && letting.score.grit<-0.25);
+  assert.equal(clinging.score.shares[3],LET_GO_REASON+90);
+  assert.equal(letting.score.shares[3],LET_GO_REASON+60);
+  assert.ok(styleRanks(clinging.score)[3]<=50 && styleRanks(letting.score)[3]<=50);
   const read=readStyleLink(styleLink(clinging).split("?")[1]);
-  assert.equal(read.evidence[3],RESCUE_REASON+100);
-  assert.equal(TEXT.playStyle.evidence[3]({rescue:100}),"死んだ自分の石がある局面で、その石を助けに行った手が100%");
+  assert.equal(read.evidence[3],LET_GO_REASON+90);
+  assert.equal(TEXT.playStyle.evidence[3]({letGo:90}),"取られそうな自分の石を、取られる見込み約90%で見切った");
   // Without ownership there is nothing to read, and 引き際 stays where the rest left it.
-  assert.equal(playStyle(game(1),WHITE).score.grit,0);
+  assert.equal(playStyle(game,WHITE).score.grit,0);
 });
 
 test("a resignation is the more 潔い the closer the game and the sooner after it was lost",()=>{

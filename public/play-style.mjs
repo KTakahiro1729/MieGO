@@ -46,7 +46,7 @@ const lineOf = (point, size) => {
 // was lost: own moves played since falling DECIDED points or more behind for
 // good; none is the earliest, LATE_MOVES and more the latest. Each runs from
 // about the 10th to the 75th percentile of resigning players on Fox (see
-// RESIGN_GRIT). A timing with no ownership kept to read it reads halfway.
+// below). A timing with no ownership kept to read it reads halfway.
 const DECIDED = 20, DEFICIT_LATE = 90, LATE_MOVES = 45;
 const ramp = (value, from, to) => value===null ? 0.5 : Math.max(0,Math.min(1,(value-from)/(to-from)));
 const resignGrit = (deficit, late) => -1+(ramp(deficit,10,DEFICIT_LATE)+ramp(late,0,LATE_MOVES))/4;
@@ -89,36 +89,49 @@ function resignTiming(states, moves, color, recall) {
   return {deficit,late:unknown ? null : late};
 }
 
-// A group is dead when its stones average this or less of the owner's ownership.
+// A group ends dead when its stones average this or less of the owner's ownership.
 const DEAD = -0.6;
-const groupOwnership = (board, point, ownership, color) => {
-  const stones=[...group(board,point).stones];
-  return stones.reduce((total,stone)=>total+Number(ownership[stone])*color,0)/stones.length;
-};
+const groupOwnership = (stones, ownership, color) =>
+  stones.reduce((total,stone)=>total+Number(ownership[stone])*color,0)/stones.length;
+
 /**
- * Whether `color`, about to play `point` in `state`, has a dead group (a
- * chance to let stones go), and whether the move reaches for one and leaves
- * it dead still (a futile rescue, read on the next position's ownership).
+ * Where `color` let its own weak groups go: for each group that died (lost a
+ * stone later, or ended DEAD), its stones' mean ownership, -1 to 0, at the
+ * last own move next to it. A group is weak while that mean is below 0.
  */
-function rescueOf(state, point, ownership, next, nextOwnership, color) {
-  const size=Math.round(Math.sqrt(state.board.length));
-  let chance=false;
-  const seen=new Set();
-  for(let p=0;p<state.board.length && !chance;p++){
-    if(state.board[p]!==color || seen.has(p))continue;
-    for(const stone of group(state.board,p).stones)seen.add(stone);
-    chance=groupOwnership(state.board,p,ownership,color)<=DEAD;
-  }
-  if(!chance)return {chance,futile:false};
-  const reaches=neighbors(point,size).some(n=>state.board[n]===color && groupOwnership(state.board,n,ownership,color)<=DEAD);
-  const futile=reaches && Array.isArray(nextOwnership) && next?.board[point]===color &&
-    groupOwnership(next.board,point,nextOwnership,color)<=DEAD;
-  return {chance,futile};
+function letGoPoints(states, moves, color, recall) {
+  const size=Math.round(Math.sqrt(states[0].board.length));
+  const touches=[];
+  moves.forEach((move,i)=>{
+    const state=states[i], ownership=state ? recall(state) ?? null : null;
+    if(move.color!==color || !Number.isInteger(move.position) || !state || ownership?.length!==state.board.length)return;
+    const seen=new Set();
+    for(const point of neighbors(move.position,size)){
+      if(state.board[point]!==color || seen.has(point))continue;
+      const stones=[...group(state.board,point).stones];
+      stones.forEach(stone=>seen.add(stone));
+      const mean=groupOwnership(stones,ownership,color);
+      if(mean<0)touches.push({i,mean,stones});
+    }
+  });
+  // Touches sharing a stone follow one group; its last touch is where the player let go.
+  const lastOf=new Map(), owner=new Map();
+  touches.forEach((touch,k)=>{
+    const joined=new Set(touch.stones.filter(stone=>owner.has(stone)).map(stone=>owner.get(stone)));
+    for(const old of joined)lastOf.delete(old);
+    touch.stones.forEach(stone=>owner.set(stone,k));
+    for(const [stone,o] of owner)if(joined.has(o))owner.set(stone,k);
+    lastOf.set(k,touch);
+  });
+  const end=states.at(-1), endOwnership=recall(end) ?? null;
+  const died=touch=>states.slice(touch.i+1).some(state=>touch.stones.some(stone=>state.board[stone]!==color)) ||
+    endOwnership?.length===end.board.length && groupOwnership(touch.stones,endOwnership,color)<=DEAD;
+  return [...lastOf.values()].filter(died).map(touch=>touch.mean);
 }
 
 /** One side's tallies over one game, or null for too few moves. */
 function tallyMoves(states, moves, color, recall, resigned=false) {
-  let count=0, stance=0, attack=0, attacks=0, opening=0, height=0, lows=0, replies=0, tenuki=0, nears=0, behind=0, chances=0, futile=0;
+  let count=0, stance=0, attack=0, attacks=0, opening=0, height=0, lows=0, replies=0, tenuki=0, nears=0, behind=0;
   moves.forEach((move,i)=>{
     const state=states[i];
     if(move.color!==color || !Number.isInteger(move.position) || !state)return;
@@ -138,10 +151,6 @@ function tallyMoves(states, moves, color, recall, resigned=false) {
     if(Number.isInteger(state.moves.at(-1)?.position)){replies++; nears+=f.tenuki<0; tenuki+=NEUTRAL.near-(f.tenuki<0);}
     const lead=leadFromOwnership(state,ownership);
     if(lead!==null && lead*color<=-BEHIND)behind++;
-    if(ownership){
-      const rescue=rescueOf(state,move.position,ownership,states[i+1],states[i+1] ? recall(states[i+1]) : null,color);
-      chances+=rescue.chance; futile+=rescue.futile;
-    }
   });
   if(count<MIN_MOVES)return null;
   // Resigning is 潔い, the more so the sooner (resignGrit); playing on behind
@@ -156,7 +165,8 @@ function tallyMoves(states, moves, color, recall, resigned=false) {
     grit=resignGrit(deficit===null ? null : deficit*scale,late===null ? null : late*scale);
     reason=resignReason(deficit,late);
   }
-  return {count,stance,attack,attacks,opening,height,lows,replies,tenuki,nears,grit,reason,chances,futile};
+  const letGo=letGoPoints(states,moves,color,recall);
+  return {count,stance,attack,attacks,opening,height,lows,replies,tenuki,nears,grit,reason,letGo};
 }
 
 /**
@@ -168,26 +178,30 @@ function scoreTallies(tallies) {
   const sum=key=>tallies.reduce((total,tally)=>total+tally[key],0);
   const opening=sum("opening"), replies=sum("replies");
   return {stance:sum("stance")/sum("count"),attack:sum("attack")/sum("count"),height:opening ? sum("height")/opening : 0,
-    tenuki:replies ? sum("tenuki")/replies : 0,grit:withRescue(sum("grit")/tallies.length,sum("chances"),sum("futile")),
+    tenuki:replies ? sum("tenuki")/replies : 0,grit:withLetGo(sum("grit")/tallies.length,tallies.flatMap(tally=>tally.letGo)),
     // What the /style page shows as the reasons: shares of the player's own moves, in percent.
     shares:[sum("attacks")/sum("count"),opening ? sum("lows")/opening : null,replies ? sum("nears")/replies : null]
-      .map(v=>v===null ? null : Math.round(v*100)).concat(tallies.length===1 ? tallies[0].reason ??
-        (tallies[0].chances>=MIN_RESCUE ? RESCUE_REASON+Math.round(tallies[0].futile/tallies[0].chances*100) : null) : null)};
+      .map(v=>v===null ? null : Math.round(v*100)).concat(tallies.length===1 ? tallies[0].reason ?? letGoReason(tallies[0].letGo) : null)};
 }
 
-// Letting dead stones go is 潔い, reaching for them again and again 粘り強い:
-// with MIN_RESCUE chances or more, where the futile rescues' share of the
-// chances stands among people (FUTILE) moves 引き際 by up to half, as far as
+// Letting dying stones go early is 潔い, reaching for them till they are gone
+// 粘り強い: with MIN_LET_GO groups or more, where the median of letGoPoints
+// stands among people (LET_GO) moves 引き際 by up to half, as far as
 // resigning, playing on or passing first left it open.
-const MIN_RESCUE = 5;
-const withRescue = (grit, chances, futile) => chances<MIN_RESCUE ? grit :
-  grit+(shareBelow(FUTILE,futile/chances)-0.5)*(1-Math.abs(grit));
-// The /style page's reason for a rescue share n%: RESCUE_REASON + n.
-export const RESCUE_REASON = 1000;
+const MIN_LET_GO = 2;
+const median = values => {
+  const sorted=[...values].sort((a,b)=>a-b), mid=sorted.length>>1;
+  return sorted.length%2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
+};
+const withLetGo = (grit, points) => points.length<MIN_LET_GO ? grit :
+  grit+(0.5-shareBelow(LET_GO,median(points)))*(1-Math.abs(grit));
+// The /style page's reason for letting go when the stones were n% likely lost: LET_GO_REASON + n.
+export const LET_GO_REASON = 1000;
+const letGoReason = points => points.length<MIN_LET_GO ? null : LET_GO_REASON+Math.round((1-median(points))/2*100);
 
 const letter = (value, high, low) => value>=0 ? high : low;
 // Within half a standard deviation of people on the first three axes (Fox, as PEOPLE).
-// 引き際 is in the middle with no resignation, playing on or passing first, whatever the rescues.
+// 引き際 is in the middle with no resignation, playing on or passing first, and letting go as most do.
 const MIDDLE = Object.freeze({attack:0.040, height:0.104, tenuki:0.038, grit:0.25});
 const balanced = score => Math.abs(score.attack)<MIDDLE.attack && Math.abs(score.height)<MIDDLE.height &&
   Math.abs(score.tenuki)<MIDDLE.tenuki && Math.abs(score.grit)<=MIDDLE.grit;
@@ -257,10 +271,10 @@ export function reportPlayStyles(key, snapshot, styles, send=globalThis.navigato
 
 // Where people stand on each axis, every 2.5%: the first three over 7,401
 // sides of even 19路 games on the Fox server, 攻め read by attacking alone;
-// 引き際 over 572 sides with ownership on every move (see FUTILE).
+// 引き際 put together from the resignations, playing on and LET_GO below.
 const PEOPLE = Object.freeze({
   attack:[-0.224,-0.153,-0.127,-0.112,-0.098,-0.088,-0.078,-0.071,-0.064,-0.057,-0.052,-0.045,-0.04,-0.035,-0.03,-0.024,-0.02,-0.015,-0.01,-0.005,-0.001,0.004,0.009,0.014,0.019,0.024,0.028,0.034,0.04,0.045,0.05,0.057,0.063,0.07,0.077,0.085,0.096,0.109,0.126,0.155,0.519],
-  grit:[-1,-1,-0.99,-0.981,-0.962,-0.913,-0.874,-0.829,-0.791,-0.721,-0.625,-0.521,-0.433,-0.334,-0.25,-0.25,-0.25,-0.25,-0.25,-0.25,-0.25,-0.25,-0.25,-0.25,0,0,0,0,0,0.092,0.185,0.389,1,1,1,1,1,1,1,1,1],
+  grit:[-1,-1,-0.983,-0.95,-0.898,-0.859,-0.803,-0.74,-0.697,-0.641,-0.586,-0.53,-0.5,-0.442,-0.37,-0.285,-0.142,0,0,0,0,0,0,0,0,0,0,0,0,0,0.125,0.28,0.413,1,1,1,1,1,1,1,1],
   height:[-0.434,-0.309,-0.309,-0.309,-0.309,-0.184,-0.184,-0.184,-0.184,-0.184,-0.184,-0.184,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.005,0.066,0.066,0.066,0.066,0.066,0.066,0.066,0.066,0.191,0.191,0.191,0.191,0.191,0.191,0.316,0.316,0.316,0.441,0.566],
   tenuki:[-0.346,-0.137,-0.114,-0.101,-0.091,-0.082,-0.073,-0.066,-0.06,-0.054,-0.048,-0.043,-0.038,-0.034,-0.03,-0.025,-0.02,-0.016,-0.013,-0.008,-0.004,0.001,0.005,0.01,0.015,0.019,0.025,0.029,0.034,0.039,0.045,0.051,0.058,0.065,0.072,0.08,0.091,0.104,0.124,0.154,0.654],
 });
@@ -276,13 +290,13 @@ function shareBelow(points, value) {
   return (lo+(value-points[lo])/(points[hi]-points[lo]))/last;
 }
 
-// 引き際 among people, from KataGo's small network on every move of 286 Fox
-// games (15級 to 1段): PEOPLE.grit below. The futile rescues' share of the
-// chances every 5%: 55% of sides never reached for dead stones in vain, and
-// the median of those who lost on the count was 2.9%. resignGrit's timings
-// come from 931 other Fox games (661 resigned): 52 points behind at the
-// median, and 18 own moves since falling 20 behind.
-const FUTILE = [0,0,0,0,0,0,0,0,0,0,0,0.007,0.014,0.02,0.029,0.041,0.057,0.072,0.097,0.143,0.625];
+// 引き際 among people, from KataGo's small network on Fox 19路 games (15級 to
+// 1段). LET_GO every 5%: the median of letGoPoints over the 260 of 574 sides
+// with two or more groups that died; stronger players let go sooner (15級
+// -0.77, 1段 -0.54). Resignations: 661 of 931 games, 52 points behind and 18
+// own moves since falling 20 behind at the median. 17.9% of sides played on
+// behind like 粘り強い's first rule.
+const LET_GO = [-1,-0.96,-0.92,-0.87,-0.81,-0.76,-0.73,-0.7,-0.68,-0.65,-0.62,-0.56,-0.52,-0.46,-0.42,-0.36,-0.26,-0.17,-0.11,-0.05,-0.01];
 
 /**
  * Where the player stands among people on each axis, towards their own letter:
@@ -304,9 +318,9 @@ export function styleRanks(score) {
 export const evidence = score => (score.shares ?? [null,null,null,null]).map(v=>v ?? "");
 
 // Each type's share of people, in percent: Fox 19路, the first three axes as
-// PEOPLE and 引き際 as PEOPLE.grit (57.9% Q), read as independent.
-const TYPE_SHARES = Object.freeze({AHFQ:6,AHFT:4.4,AHRQ:6.8,AHRT:5,ALFQ:7.7,ALFT:5.6,ALRQ:6.8,ALRT:4.9,BLNC:4.8,
-  GHFQ:5.5,GHFT:4,GHRQ:7.6,GHRT:5.5,GLFQ:7.2,GLFT:5.2,GLRQ:7.5,GLRT:5.4});
+// PEOPLE and 引き際 as PEOPLE.grit (41.7% Q), read as independent.
+const TYPE_SHARES = Object.freeze({AHFQ:4.3,AHFT:6.1,AHRQ:4.9,AHRT:6.9,ALFQ:5.6,ALFT:7.8,ALRQ:4.9,ALRT:6.8,BLNC:4.2,
+  GHFQ:4,GHFT:5.6,GHRQ:5.5,GHRT:7.7,GLFQ:5.2,GLFT:7.3,GLRQ:5.4,GLRT:7.5});
 export const typeShare = type => TYPE_SHARES[type] ?? null;
 /** How often two people of these types meet, in percent, to one decimal (at least 0.1). */
 export function pairShare(a, b) {
@@ -357,7 +371,7 @@ export function readStyleLink(search) {
   // A rank may be missing (null) where people were not measured, but not all of them.
   const ranked=ints(query.get("p"),v=>v>=1 && v<=50);
   const ranks=ranked?.length===4 && ranked.some(v=>v!==null) ? ranked : null;
-  const shown=ints(query.get("e"),v=>v>=-999999 && v<=RESCUE_REASON+100);
+  const shown=ints(query.get("e"),v=>v>=-999999 && v<=LET_GO_REASON+100);
   const games=Number(query.get("n"));
   const partner=PLAY_STYLE_RE.test(query.get("u") ?? "") ? {type:query.get("u"),leans:four("ul",v=>Math.abs(v)<=100)} : null;
   return {type,color,leans,ranks,evidence:shown?.length===4 ? shown : null,
