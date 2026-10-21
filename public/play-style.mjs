@@ -10,7 +10,7 @@ import {leadFromOwnership} from "./score-graph.mjs";
 //   A 攻め / G 守り   attack and invasion against reinforcement (the COM's 戦い方)
 //   H 模様 / L 実利   the 4th line and above against the 2nd and 3rd (序盤)
 //   F 自由 / R 律儀   playing away from the opponent's last move or next to it
-//   T 粘り強い / Q 潔い  playing on 10 points behind, or resigning and passing first
+//   T 粘り強い / Q 潔い  playing on 10 points behind, or resigning (the sooner the more) and passing first
 
 // The middle of each axis, so that players split about evenly between the two
 // letters; the mean, not the median, so a share of a few opening moves never lands on it.
@@ -40,6 +40,55 @@ const lineOf = (point, size) => {
   return Math.min(x,y,size-1-x,size-1-y)+1;
 };
 
+// How 潔い a resignation is, from -1 (most) to -0.5, half from each of two
+// timings, both scaled to 19路 by board area. How far behind: up to 10 points
+// is the earliest, DEFICIT_LATE and more the latest. How long after the game
+// was lost: own moves played since falling DECIDED points or more behind for
+// good; none is the earliest, LATE_MOVES and more the latest. Each runs from
+// about the 10th to the 75th percentile of resigning players on Fox (see
+// RESIGN_GRIT). A timing with no ownership kept to read it reads halfway.
+const DECIDED = 20, DEFICIT_LATE = 90, LATE_MOVES = 45;
+const ramp = (value, from, to) => value===null ? 0.5 : Math.max(0,Math.min(1,(value-from)/(to-from)));
+const resignGrit = (deficit, late) => -1+(ramp(deficit,10,DEFICIT_LATE)+ramp(late,0,LATE_MOVES))/4;
+
+// A resignation's reason for the /style page, as one negative number: -1 when
+// nothing is known, else -2 less the points behind (to 999) less 1000 times
+// one more than the own moves played since falling far behind (0: unknown).
+const resignReason = (deficit, late) => deficit===null ? -1 :
+  -2-Math.min(999,Math.max(0,Math.round(deficit)))-1000*(late===null ? 0 : late+1);
+/** The points behind and own moves played far behind of a resignation's reason; null where unknown. */
+export function readResignReason(n) {
+  if(n>=-1)return {deficit:null,late:null};
+  const v=-n-2;
+  return {deficit:v%1000,late:v<1000 ? null : Math.floor(v/1000)-1};
+}
+
+/**
+ * At the resignation (the last of `states`): how many points `color` was
+ * behind, and how many of its own moves it had played since falling DECIDED
+ * (scaled to the board) or more behind for good; null where no ownership tells.
+ */
+function resignTiming(states, moves, color, recall) {
+  const decided=DECIDED*states[0].board.length/361;
+  const deficitAt=state=>{
+    const lead=state ? leadFromOwnership(state,recall(state) ?? null) : null;
+    return lead===null ? null : -lead*color;
+  };
+  const deficit=deficitAt(states.at(-1));
+  if(deficit===null || deficit<decided)return {deficit,late:deficit===null ? null : 0};
+  // Back from the resignation over own moves, to the last one known to be closer.
+  let late=0, unknown=false;
+  for(let i=moves.length-1;i>=0;i--){
+    if(moves[i].color!==color || !Number.isInteger(moves[i].position))continue;
+    const behind=deficitAt(states[i]);
+    if(behind!==null && behind<decided)return {deficit,late};
+    unknown||=behind===null;
+    late++;
+  }
+  // Far behind from the first move, or never known to be closer.
+  return {deficit,late:unknown ? null : late};
+}
+
 /** One side's tallies over one game, or null for too few moves. */
 function tallyMoves(states, moves, color, recall, resigned=false) {
   let count=0, stance=0, attack=0, attacks=0, opening=0, height=0, lows=0, replies=0, tenuki=0, nears=0, behind=0;
@@ -64,12 +113,18 @@ function tallyMoves(states, moves, color, recall, resigned=false) {
     if(lead!==null && lead*color<=-BEHIND)behind++;
   });
   if(count<MIN_MOVES)return null;
-  // Resigning is 潔い; playing on behind is 粘り強い; otherwise whoever passed first let go first.
-  const resign=resigned || moves.some(m=>m.color===color && m.position==="resign");
+  // Resigning is 潔い, the more so the sooner (resignGrit); playing on behind
+  // is 粘り強い; otherwise whoever passed first let go first.
+  const resignAt=moves.findIndex(m=>m.color===color && m.position==="resign");
+  const shown=resignAt>=0 ? moves.slice(0,resignAt) : resigned ? moves : null;
   const firstPass=moves.find(m=>m.position===null)?.color;
-  const grit=resign ? -1 : behind/count>=0.2 ? 1 : firstPass===color ? -0.5 : firstPass===-color ? 0.5 : 0;
-  // The reason the /style page gives: resigned (-1), or how often played on behind.
-  const reason=resign ? -1 : grit===1 ? Math.round(behind/count*100) : null;
+  let grit=behind/count>=0.2 ? 1 : firstPass===color ? -0.5 : firstPass===-color ? 0.5 : 0, reason=grit===1 ? Math.round(behind/count*100) : null;
+  if(shown){
+    const {deficit,late}=resignTiming(states.slice(0,shown.length+1),shown,color,recall);
+    const scale=361/states[0].board.length;
+    grit=resignGrit(deficit===null ? null : deficit*scale,late===null ? null : late*scale);
+    reason=resignReason(deficit,late);
+  }
   return {count,stance,attack,attacks,opening,height,lows,replies,tenuki,nears,grit,reason};
 }
 
@@ -176,10 +231,16 @@ function shareBelow(points, value) {
   return (lo+(value-points[lo])/(points[hi]-points[lo]))/last;
 }
 
-// 引き際 among people: 35.7% of sides resigned. How often people play on
-// behind, or pass first, is not measured yet, so those have no rank.
+// 引き際 among people: 35.7% of sides resigned. Their resignGrit every 5%,
+// from KataGo's small network every 4 or 8 moves of 931 Fox games (15級 to
+// 3段, 661 resigned): they were 52 points behind at the median, and had
+// played 18 own moves since falling 20 behind. PLAYED_ON (17.9%) of sides
+// played on behind like 粘り強い's first rule. Passing first, or the mean of
+// several games in between, is not placed.
 const RESIGNED = 0.357;
-const gritShare = grit => grit<=-1 ? RESIGNED : null;
+const RESIGN_GRIT = [-1,-1,-0.997,-0.978,-0.95,-0.92,-0.896,-0.863,-0.824,-0.782,-0.74,-0.705,-0.672,-0.641,-0.606,-0.576,-0.542,-0.5,-0.5,-0.5,-0.5];
+const PLAYED_ON = 0.179;
+const gritShare = grit => grit<=-0.5 ? RESIGNED*shareBelow(RESIGN_GRIT,grit) : grit>=1 ? PLAYED_ON : null;
 
 /**
  * Where the player stands among people on each axis, towards their own letter:
@@ -245,7 +306,7 @@ export function readStyleLink(search) {
   // A rank may be missing (null) where people were not measured, but not all of them.
   const ranked=ints(query.get("p"),v=>v>=1 && v<=50);
   const ranks=ranked?.length===4 && ranked.some(v=>v!==null) ? ranked : null;
-  const shown=ints(query.get("e"),v=>Math.abs(v)<=999);
+  const shown=ints(query.get("e"),v=>v>=-999999 && v<=999);
   const games=Number(query.get("n"));
   return {type,color,leans,ranks,evidence:shown?.length===4 ? shown : null,
     games:Number.isInteger(games) && games>1 && games<=MAX_POOLED ? games : 1};

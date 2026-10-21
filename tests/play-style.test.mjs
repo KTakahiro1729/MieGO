@@ -7,6 +7,7 @@ import {
   MIN_MOVES,
   PLAY_STYLE_RE,
   playStyle,
+  readResignReason,
   pooledPlayStyle,
   readStyleLink,
   reportPlayStyles,
@@ -82,8 +83,8 @@ test("a shown style is counted once, by type, board size and rules only",()=>{
 
 test("a player's /style link carries the type, colour and how far each axis leans",()=>{
   const style=playStyle(highAndLow(),WHITE),link=styleLink(style);
-  // Resigned: 潔い, as far as the 35.7% of people who resigned.
-  assert.match(link,/^\/style\?t=.LRQ&c=W&s=-?\d+,-?\d+,-?\d+,-100&p=\d+,\d+,\d+,36&e=\d+,\d+,\d+,-1$/);
+  // Resigned with no ownership kept: 潔い, with both timings unknown.
+  assert.match(link,/^\/style\?t=.LRQ&c=W&s=-?\d+,-?\d+,-?\d+,-75&p=\d+,\d+,\d+,\d+&e=\d+,\d+,\d+,-1$/);
   const read=readStyleLink(link.slice(link.indexOf("?")));
   assert.equal(read.type,style.type);
   assert.equal(read.color,"W");
@@ -203,6 +204,48 @@ test("引き際 has a rank among people only where people were measured",()=>{
   assert.match(link,/&p=\d+,\d+,\d+,&/);
   assert.deepEqual(readStyleLink(link.split("?")[1]).ranks.slice(3),[null]);
   assert.equal(readStyleLink("?t=AHFT&p=,,,").ranks,null,"no rank at all reads as none");
+});
+
+test("a resignation is the more 潔い the closer the game and the sooner after it was lost",()=>{
+  const game=highAndLow(),size=game.board.length;
+  const even=Array(size).fill(0),black=Array(size).fill(0.5);
+  // About even (komi aside) at resigning, the earliest kind.
+  const close=playStyle(game,WHITE,{recall:()=>even});
+  // Far behind from the 10th move on: White played 5 more moves before resigning.
+  const turned=playStyle(game,WHITE,{recall:state=>state.moves.length<10 ? even : black});
+  // Far behind from the first move.
+  const lost=playStyle(game,WHITE,{recall:()=>black});
+  assert.equal(close.score.grit,-1);
+  assert.equal(turned.score.grit,-1+(1+5/45)/4);
+  assert.equal(lost.score.grit,-1+(1+10/45)/4);
+  for(const style of [close,turned,lost])assert.equal(style.type[3],"Q");
+  const ranks=[close,turned,lost].map(style=>styleRanks(style.score)[3]);
+  assert.ok(ranks[0]<ranks[1] && ranks[1]<=ranks[2],"the earlier resignation is the rarer");
+  // The page is told how far behind and how many moves after falling far behind.
+  assert.deepEqual(readResignReason(close.score.shares[3]),{deficit:0,late:0});
+  assert.deepEqual(readResignReason(turned.score.shares[3]),{deficit:173,late:5});
+  assert.deepEqual(readResignReason(lost.score.shares[3]),{deficit:173,late:10});
+  assert.deepEqual(readResignReason(-1),{deficit:null,late:null});
+  const read=readStyleLink(styleLink(turned).split("?")[1]);
+  assert.equal(read.evidence[3],turned.score.shares[3]);
+  const say=TEXT.playStyle.evidence[3];
+  assert.equal(say(readResignReason(turned.score.shares[3])),"形勢 約173目差で投了（大差がついてから5手後）");
+  assert.equal(say(readResignReason(close.score.shares[3])),"形勢 約0目差で投了（大差がつく前）");
+  assert.equal(say({deficit:null,late:null}),"投了で対局を終えた");
+  assert.equal(say(30),"10目以上負けている局面の30%でも打ち続けた");
+});
+
+test("a resignation's timing is scaled to 19路 by board area",()=>{
+  // The same moves on 9路 are far behind sooner: 20 points on 19路 is about 4.5 on 9路.
+  const at=(x,y)=>y*9+x;
+  let state=newGame(true,{size:9});
+  for(let i=0;i<12;i++){state=play(state,at(i%9,Math.floor(i/9)*4)); state=play(state,at(i%9,Math.floor(i/9)*4+2));}
+  const game=play(play(state,at(8,8)),"resign");
+  const black=Array(81).fill(0.5);
+  const style=playStyle(game,WHITE,{recall:()=>black});
+  // 12 own moves on 9路 count as 12*361/81, past LATE_MOVES; the deficit past DEFICIT_LATE as well.
+  assert.equal(style.score.grit,-0.5);
+  assert.equal(readResignReason(style.score.shares[3]).late,12);
 });
 
 test("the balanced type and every type's share of people",()=>{
