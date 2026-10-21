@@ -365,7 +365,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       for(const color of colors){
         const gather=moving?since[color]/BREATH_GATHER_MS:1;
         if(gather>=1)continue;
-        ctx.globalAlpha=.4+.5*gather;
+        // It fades in from nothing over the first third, then darkens.
+        const rise=Math.min(1,gather*3);
+        ctx.globalAlpha=(.4+.5*gather)*rise*rise*(3-2*rise);
         const radius=gap*(.04+.22*(1-gather**2)), core=gap*.04/radius;
         const soft=ctx.createRadialGradient(x,y,0,x,y,radius);
         soft.addColorStop(0,`rgba(${rgb[color]},1)`);

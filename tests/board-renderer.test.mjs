@@ -271,6 +271,7 @@ test("盤の線 starts each breath with a circle closing in on the liberties",()
   time=BREATH_GATHER_MS/2;
   const [later]=dots(250,200);
   assert.ok(later.args[2]<first.args[2] && later.alpha>first.alpha,"closes in and darkens");
+  assert.equal(first.alpha,0,"fading in from nothing");
   // With black on (5,4), black and white both need (5,5): a whole dot from
   // each side's own breath, half a breath apart.
   game.board[at(5,4)]=BLACK;time=0;
