@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {newGame,play,at,isGomoku,hasGomokuForbidden,initialGame,rulesOf,BLACK,WHITE} from "../public/core.mjs";
-import {gomokuMove,forbiddenReason,makesFive,winningLine} from "../public/gomoku.mjs";
+import {forbiddenReason,makesFive,winningLine} from "../public/gomoku.mjs";
+import {GOMOKU_LEVELS,gomokuMove} from "../public/gomoku-ai.mjs";
 import {inspectProvisionalMove,forbiddenLines,forbiddenMessage} from "../public/illegal-moves.mjs";
 import {replaySteps,parseSGF,exportSGF} from "../public/sgf.mjs";
 import {takeBack} from "../public/takeback.mjs";
@@ -90,18 +91,67 @@ test("replays, 待った, SGF and a friend's first board keep 五目並べ",()=>
 
 test("the computer takes a win, blocks a four, and opens in the centre",()=>{
   const empty=newGame(true,{size:13,rules:"gomoku"});
-  assert.equal(gomokuMove(empty.board,BLACK),at(6,6,13));
-  // Black has four in a row with an open end: White must block, Black must win.
   const board=[...empty.board];
   for(const x of [3,4,5,6])board[at(x,6,13)]=BLACK;
   for(const x of [3,4,5])board[at(x,8,13)]=WHITE;
   board[at(2,6,13)]=WHITE;
-  assert.equal(gomokuMove(board,BLACK),at(7,6,13));
-  assert.equal(gomokuMove(board,WHITE),at(7,6,13));
-  // Its own five comes before blocking the opponent's.
-  board[at(6,8,13)]=WHITE;
-  const win=gomokuMove(board,WHITE),after=[...board];after[win]=WHITE;
-  assert.equal(makesFive(after,win),true);
+  for(const strength of Object.keys(GOMOKU_LEVELS)){
+    assert.equal(gomokuMove(empty.board,BLACK,Math.random,{strength}),at(6,6,13));
+    // Black has four in a row with an open end: White must block, Black must win.
+    assert.equal(gomokuMove(board,BLACK,Math.random,{strength}),at(7,6,13));
+    // Even 入門 blocks a four when it notices it.
+    assert.equal(gomokuMove(board,WHITE,()=>0,{strength}),at(7,6,13));
+    // Its own five comes before blocking the opponent's.
+    const threat=[...board];threat[at(6,8,13)]=WHITE;
+    const win=gomokuMove(threat,WHITE,Math.random,{strength}),after=[...threat];after[win]=WHITE;
+    assert.equal(makesFive(after,win),true);
+  }
+  // From ふつう up, a four or a three is never missed.
+  const three=[...empty.board];
+  for(const x of [4,5,6])three[at(x,6,13)]=BLACK;
+  three[at(6,7,13)]=WHITE;three[at(7,8,13)]=WHITE;
+  for(const strength of ["normal","strong","strongest"])
+    assert.ok([at(3,6,13),at(7,6,13)].includes(gomokuMove(three,WHITE,()=>0.99,{strength})),strength);
+});
+
+test("つよい wins by fours in a row",()=>{
+  // No single move wins yet, but a four at (8,6) forces (8,7), and (7,6)
+  // then makes two fours at once.
+  // つよい finds a sequence like it and plays it out against つよい.
+  const board=newGame(true,{size:13,rules:"gomoku"}).board.slice();
+  for(const [x,y] of [[8,3],[8,4],[8,5],[7,3],[7,4],[7,5],[5,6],[6,6]])board[at(x,y,13)]=BLACK;
+  for(const [x,y] of [[8,2],[7,2],[4,6],[0,0],[12,12],[12,0],[0,12],[11,11]])board[at(x,y,13)]=WHITE;
+  let color=BLACK,winner=null;
+  for(let move=0;move<15 && !winner;move++,color=-color){
+    const p=gomokuMove(board,color,()=>0,{strength:"strong"});
+    board[p]=color;
+    if(makesFive(board,p))winner=color;
+  }
+  assert.equal(winner,BLACK);
+});
+
+test("each 五目並べ level beats the one below it",()=>{
+  // A seeded random, so the games are the same on every run.
+  const seeded=seed=>()=>(seed=(seed*1103515245+12345)%2147483648)/2147483648;
+  const play9=(black,white,seed)=>{
+    const board=Array(81).fill(0),random=seeded(seed);
+    for(let move=0,color=BLACK;move<81;move++,color=-color){
+      const p=gomokuMove(board,color,random,{strength:color===BLACK?black:white});
+      board[p]=color;
+      if(makesFive(board,p))return color===BLACK?black:white;
+    }
+    return null;
+  };
+  const ladder=["beginner","easy","normal","strong"];
+  for(let i=1;i<ladder.length;i++){
+    let wins=0,losses=0;
+    for(let seed=1;seed<=6;seed++){
+      const [black,white]=seed%2?[ladder[i],ladder[i-1]]:[ladder[i-1],ladder[i]];
+      const winner=play9(black,white,seed);
+      if(winner===ladder[i])wins++;else if(winner)losses++;
+    }
+    assert.ok(wins>losses,ladder[i]+" "+wins+"-"+losses);
+  }
 });
 
 test("the current rules show above the board and open the rules help",()=>{

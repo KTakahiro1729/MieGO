@@ -90,7 +90,7 @@ import {
   goodMove,
 } from "./dopa-mode.mjs";
 import { choosePolicyMove, createResignWatch } from "./ai-opponent.mjs";
-import { gomokuMove } from "./gomoku.mjs";
+import { gomokuMove } from "./gomoku-ai.mjs";
 import { cleanName, createPlayerName } from "./player-name.mjs";
 import { playerSides, recordNames, stoneMark } from "./player-row.mjs";
 import { createSeatSheet, sameSeats, seatsOf } from "./seat-sheet.mjs";
@@ -804,7 +804,7 @@ function requestGomokuTurn() {
   const id=pending;
   aiThinking=true;
   aiJob={id,number:game.moveNumber,hash:boardHash(game.board),at:performance.now()};
-  $("aiMatchStatus").textContent=TEXT.ai.playingGomoku;
+  $("aiMatchStatus").textContent=TEXT.ai.playingGomoku(TEXT.ai.strengths[comToMove().strength]);
   show();
   const job=aiJob;
   setTimeout(()=>{
@@ -812,7 +812,8 @@ function requestGomokuTurn() {
     aiThinking=false;aiJob=null;
     if(!isAiTurn() || game.moveNumber!==job.number || boardHash(game.board)!==job.hash){show();return;}
     lastWatchMoveAt=performance.now();
-    submitMove(gomokuMove(game.board,game.next,Math.random,{forbidden:hasGomokuForbidden(game)}),true);
+    submitMove(gomokuMove(game.board,game.next,Math.random,
+      {forbidden:hasGomokuForbidden(game),strength:comToMove().strength}),true);
   },AI_REPLY_MS);
 }
 /** The automatic dead-stone job still belongs to the position on the board. */
@@ -1344,10 +1345,10 @@ canvas.addEventListener("click",e=>{
     try{
       boardReview.preview=proposeReviewStone(boardReview,game,position);
       boardReview.previewPosition=position;
-      reviewFeedback("");show();requestReviewOwnership();
+      reviewNotice("");show();requestReviewOwnership();
     }catch(error){
       boardReview.preview=null;boardReview.previewPosition=null;
-      reviewFeedback(messageFor(error,TEXT.common.retry));show();requestReviewOwnership();
+      reviewNotice(messageFor(error,TEXT.common.retry));show();requestReviewOwnership();
     }
     return;
   }
@@ -2117,13 +2118,15 @@ for(const input of document.querySelectorAll('input[name="gameRules"]')) {
     syncHandicapUi();rememberSettings();renderInviteButton();
   };
 }
-function reviewFeedback(message){
-  $("reviewFeedback").textContent=message;$("reviewFeedback").hidden=!message;
+// The replay's one notice line, above its tools: a confirmation or what to do next.
+// Any step, try-out or change of line clears it, so it never outlives what it is about.
+function reviewNotice(message){
+  $("reviewNotice").textContent=message;
 }
 function discardReviewPreview(){
   if(!boardReview?.preview)return;
   boardReview.preview=null;boardReview.previewPosition=null;
-  reviewFeedback("");show();requestReviewOwnership();
+  reviewNotice("");show();requestReviewOwnership();
 }
 function confirmReviewPreview(){
   if(!boardReview?.preview)return;
@@ -2131,10 +2134,9 @@ function confirmReviewPreview(){
     const result=commitReviewStone(boardReview,game,boardReview.previewPosition);
     Object.assign(boardReview,result);
     boardReview.preview=null;boardReview.previewPosition=null;
-    reviewFeedback("");
-    $("reviewNotice").textContent=result.created?TEXT.review.variationCreated:"";
+    reviewNotice("");
     show();requestReviewOwnership();
-  }catch(error){reviewFeedback(messageFor(error,TEXT.common.retry));}
+  }catch(error){reviewNotice(messageFor(error,TEXT.common.retry));}
 }
 function selectOriginalLine(){
   if(!boardReview)return;
@@ -2143,7 +2145,7 @@ function selectOriginalLine(){
   const original=boardReview.source==="live"?game:boardReview.snapshot;
   boardReview.step=Math.min(boardReview.step,original.moves.length);
   boardReview.display=replaySteps(original,boardReview.step);
-  reviewFeedback("");show();requestReviewOwnership();
+  reviewNotice("");show();requestReviewOwnership();
 }
 function selectVariationLine(){
   if(!boardReview?.variation)return;
@@ -2152,14 +2154,15 @@ function selectVariationLine(){
   const line=boardReview.variation.snapshot;
   boardReview.step=Math.min(boardReview.step,line.moves.length);
   boardReview.display=replaySteps(line,boardReview.step);
-  reviewFeedback("");show();requestReviewOwnership();
+  reviewNotice("");show();requestReviewOwnership();
 }
 function saveReviewVariation(){
   if(!boardReview?.variation)return;
   try{
     gameLibrary.save({mode:"local",snapshot:boardReview.variation.snapshot,source:"variation"});
-    $("reviewNotice").textContent=TEXT.review.variationSaved;
-  }catch(error){$("reviewNotice").textContent=messageFor(error,TEXT.review.variationSaveFailed);}
+    boardReview.variation.saved=true;
+    reviewNotice(TEXT.review.variationSaved);show();
+  }catch(error){reviewNotice(messageFor(error,TEXT.review.variationSaveFailed));}
 }
 /** Who plays each colour, for the turn row and the names a saved game keeps. */
 function playersShown(){
@@ -2203,7 +2206,9 @@ function renderBoardReview() {
   const isPreview=!!boardReview.preview;
   $("ownershipLegend").classList.toggle("no-territory",isGomoku(line));
   $("reviewTitle").textContent=variationActive?TEXT.review.checkingVariation:source==="url"?TEXT.review.checkingShared:TEXT.review.checking;
-  $("moveLabel").textContent=TEXT.review.step(step,count);
+  // A resignation takes a step on the slider but is not counted as a move.
+  const played=line.moves.filter(move=>move.position!=="resign").length;
+  $("moveLabel").textContent=TEXT.review.step(Math.min(step,played),played);
   $("reviewStepRange").max=String(count);
   $("reviewStepRange").value=String(step);
   $("stepBack").disabled=step===0 || isPreview;
@@ -2216,17 +2221,23 @@ function renderBoardReview() {
   $("reviewConfirmStone").classList.toggle("white",boardReview.preview?.moves.at(-1)?.color===WHITE);
   $("reviewVariation").hidden=variationActive || !boardReview.variation;
   $("reviewSaveVariation").hidden=!boardReview.variation;
+  // A saved 試し打ち is in 履歴 already; saving it again would only add a copy.
+  $("reviewSaveVariation").disabled=!!boardReview.variation?.saved;
   const updates=source==="live"?Math.max(0,game.moveNumber-boardReview.openedAt):0;
   $("reviewNewMoves").hidden=updates===0;
   $("reviewNewMoves").textContent=updates>0?TEXT.review.newMoves(updates):"";
   // The way back: to the latest move, the original line, or the game.
   $("reviewBack").firstChild.textContent=variationActive?TEXT.review.backOriginal:TEXT.review.backGame;
-  $("turn").classList.toggle("white-to-play",boardReview.display.next===WHITE);
-  $("turn").classList.remove("no-stone");
-  $("turn").textContent=isPreview?TEXT.review.trying(step+1):variationActive?TEXT.review.trying(step):TEXT.review.showing(step);
+  // The turn row names the move on the board, and its stone is that move's colour
+  // (no stone before the first move), whether it is the game's or a 試し打ち.
+  const shown=isPreview?boardReview.preview.moves.at(-1):line.moves[step-1];
+  $("turn").classList.toggle("white-to-play",shown?.color===WHITE);
+  $("turn").classList.toggle("no-stone",!shown);
+  $("turn").textContent=isPreview?TEXT.review.trying(step+1):variationActive?TEXT.review.trying(step):
+    TEXT.review.showing(step,shown?.position);
   $("gamePanel").classList.remove("is-scoring","is-finished");
   $("netStatus").textContent=source==="archive"?TEXT.game.savedGames:source==="url"?TEXT.review.sourceUrl:
-    isWatching()?TEXT.common.modeWatch:gameMode==="ai"?TEXT.common.modeAi:room?TEXT.review.sourceOnline:TEXT.common.modeLocal;
+    isWatching()?TEXT.common.modeWatch:gameMode==="ai"?TEXT.common.modeAi:room?TEXT.common.modeOnline:TEXT.common.modeLocal;
   // One primary slot: resume the saved game at its end, otherwise start from here.
   $("reviewContinue").textContent=canResumeSelectedReview()||atLiveLatest()?TEXT.review.resume:TEXT.review.continue;
   $("reviewContinue").hidden=isPreview;
@@ -2302,7 +2313,7 @@ function showReviewOwnership() {
     };
     reviewWorker.onerror=e=>{
       console.warn("Review ownership unavailable",e);
-      $("reviewNotice").textContent=TEXT.review.ownershipFailed;
+      reviewNotice(TEXT.review.ownershipFailed);
       reviewWorker?.terminate();reviewWorker=null;
     };
   }
@@ -2317,7 +2328,7 @@ function enterBoardReview(snapshot,step,source="live",metadata=null,record=null)
   boardReview={snapshot,display,step,source,metadata,record,ownership:null,
     activeLine:"main",variation:null,preview:null,previewPosition:null,
     openedAt:game.moveNumber,analysisId:0};
-  $("reviewNotice").textContent="";
+  reviewNotice("");
   show();requestReviewOwnership();
 }
 function setBoardReviewStep(step) {
@@ -2329,10 +2340,10 @@ function setBoardReviewStep(step) {
     const moved=step!==boardReview.step;
     boardReview.display=display;boardReview.step=step;
     boardReview.preview=null;boardReview.previewPosition=null;
-    reviewFeedback("");$("reviewNotice").textContent="";
+    reviewNotice("");
     show();requestReviewOwnership();
-    if(moved && scoreGraphShown() && scoreGraph?.marks.includes(step)){dopa.don();sound.play("don");}
-  }catch(error){$("reviewNotice").textContent=TEXT.history.replayFailed;}
+    if(moved && scoreGraph.shown() && scoreGraph.marks().includes(step)){dopa.don();sound.play("don");}
+  }catch(error){reviewNotice(TEXT.history.replayFailed);}
 }
 function clearBoardReview() {
   if(!boardReview)return;
@@ -2404,7 +2415,7 @@ function forkBoardReview(kind="local") {
   if(!boardReview)return;
   let fork;
   try{fork=forkReview(activeReviewSnapshot(boardReview,game),boardReview.step);}
-  catch{$("reviewNotice").textContent=TEXT.review.branchFailed;closePanels();return;}
+  catch{reviewNotice(TEXT.review.branchFailed);closePanels();return;}
   const ai=kind==="ai";
   if(ai && !canContinueWithAi())return; // The choice is disabled meanwhile.
   if(room && connected && !confirmByRetap($(ai?"startAi":"startLocal"),TEXT.confirm.leaveForReview))return;
@@ -2560,13 +2571,13 @@ function resumeSelectedReview(){
   let record=gameLibrary.load(selected.id);
   if(!record || (record.revision!==selected.revision &&
     !(selected.id===currentGameId && selected.mode===gameMode))){
-    $("reviewNotice").textContent=TEXT.history.otherTabReview;
+    reviewNotice(TEXT.history.otherTabReview);
     return;
   }
   if(!save())return;
   record=gameLibrary.load(selected.id);
   if(!record){
-    $("reviewNotice").textContent=TEXT.history.loadFailed;
+    reviewNotice(TEXT.history.loadFailed);
     return;
   }
   if(room)leaveOnlineRoom();

@@ -85,7 +85,7 @@
               <button class="help-button" type="button" data-help="endgame" aria-label="{{common.helpFor(help.endgame)}}" title="{{common.helpFor(help.endgame)}}" id="endHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button>
               <span id="endNote" class="end-note"></span>
               <div id="endActions" class="end-buttons">
-                <button id="endPropose" class="secondary end-action" type="button"><span id="endProposeLabel">{{endgame.propose}}</span><span id="endStage" class="end-stage" aria-hidden="true" hidden><i>{{endgame.stageFrom}}</i><b></b><b></b><b></b><i>{{endgame.stageTo}}</i></span></button>
+                <button id="endPropose" class="secondary end-action" type="button"><span id="endProposeLabel">{{endgame.propose}}</span><span id="endStage" class="end-stage" aria-hidden="true" hidden><i>{{endgame.stageOpening}}</i><i>{{endgame.stageMiddle}}</i><i>{{endgame.stageEnd}}</i></span></button>
                 <button id="endDecline" class="secondary end-action" type="button" hidden>{{common.keepPlaying}}</button>
                 <button id="endAccept" class="end-action primary" type="button" hidden>{{common.accept}}</button>
               </div>
@@ -153,7 +153,6 @@
         </div>
         <section id="reviewPanel" class="review-panel" aria-label="{{review.panel}}" hidden>
           <strong id="reviewTitle" class="visually-hidden">{{review.checking}}</strong>
-          <p id="reviewFeedback" class="review-feedback" role="status" aria-live="polite" hidden></p>
           <div class="review-navigation">
             <button id="reviewBack" class="secondary accent-outline review-back" type="button">{{review.backGame}}<span id="reviewNewMoves" class="review-new-moves" role="status" aria-live="polite" hidden></span></button>
             <div id="reviewPlayActions" class="review-play-actions" hidden>

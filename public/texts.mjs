@@ -75,7 +75,7 @@ export const TEXT = {
     labelOnline: "待った：相手が確認したら、自分の直前の手まで戻す",
     labelAi: "待った：自分の直前の手まで戻す",
     labelLocal: "待った：直前の1手を戻す",
-    done: move => "待った：" + move + "手目に戻しました",
+    done: move => "待った：" + (move === 0 ? "対局開始" : move + "手目") + "に戻しました",
     doneAi: "待ったをしました。",
   },
 
@@ -98,9 +98,10 @@ export const TEXT = {
     playing: "終局はまだまだです",
     near: "そろそろ終局です",
     ready: "終局してよさそうです",
-    // The ends of the meter under 終局を提案.
-    stageFrom: "序盤",
-    stageTo: "終盤",
+    // The steps of the meter under 終局を提案; the current one lights.
+    stageEnd: "終",
+    stageMiddle: "中",
+    stageOpening: "序",
     unavailable: "終局は自分で判断してください。目安を出せません",
     gomoku: "縦・横・斜めに5つ並べたら勝ち",
     free: "交点をタップして置く・取り除く・色を替える",
@@ -375,7 +376,8 @@ export const TEXT = {
     // After the summary of a 最強 COM whose character leans on a style.
     strongestNoStyle: "（最強は打ち方の好みを使いません）",
     playingWith: (character, summary) => "「" + character + "」と対局中（" + summary + "）",
-    playingGomoku: "五目並べのCOMは、並びの長さを数える簡単な読みで打ちます（強さの設定は使いません）。",
+    // 五目並べ's COM reads lines itself (gomoku-ai.mjs) at the chosen strength.
+    playingGomoku: strength => "五目並べのCOMが強さ「" + strength + "」で打っています。",
     ready: "COMの準備ができました。対局を始められます。",
     startUnavailable: "COMを使えません",
     startLoading: "COMを準備中…",
@@ -510,19 +512,20 @@ export const TEXT = {
     checking: "棋譜を確認中",
     checkingVariation: "試し打ちを確認中",
     checkingShared: "リンクの棋譜を確認中",
-    showing: step => step + "手目を表示中",
+    // A pass or a resignation leaves the board as it was, so the turn row names it.
+    // A resignation is not a move: the game's count, as in 履歴, stops before it.
+    showing: (step, position) => step === 0 ? "対局開始を表示中" : position === "resign" ? "投了を表示中" :
+      step + "手目" + (position === null ? "のパス" : "") + "を表示中",
     trying: step => "試し打ち " + step + "手目",
     tryHere: "試しに打つ",
     step: (step, count) => step + " / " + count + "手",
     newMoves: n => "+" + n + "手",
     sourceUrl: "リンクの棋譜",
-    sourceOnline: "URLで対戦",
     backOriginal: "元の棋譜に戻る",
     backGame: "対局に戻る",
-    variationCreated: "元の棋譜は変わりません。",
     variationSaved: "試し打ちを履歴に追加しました。",
     variationSaveFailed: "もう一度お試しください。試し打ちを保存できませんでした。",
-    ownershipFailed: "ほかの局面を選んでください。この局面の地の見込みは表示できません。",
+    ownershipFailed: "ほかの局面を選んでください。この局面の地合いは表示できません。",
     branchFailed: "ほかの局面を選んでください。この局面からは打ち始められません。",
     previous: "1手戻る",
     next: "1手進む",

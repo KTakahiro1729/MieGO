@@ -84,7 +84,7 @@ export function createScoreGraph({$, getReview, getGame, isWatching, recall, gam
     // Not laid out yet (the tools are still hidden): drawing at 1x1 would blow
     // the marks up to the whole bar. The resize observer draws it once sized.
     if(width<=0 || height<=0){$("reviewGraphPlot").innerHTML="";return;}
-    $("reviewGraphPlot").innerHTML=scoreGraphSvg(series,{width,height,step:review.step,marks:scoreGraph.marks,stepLabel:TEXT.review.graphEnd});
+    $("reviewGraphPlot").innerHTML=scoreGraphSvg(series,{width,height,step:review.step,marks:scoreGraph.marks,stepLabel:()=>TEXT.review.graphEnd(line.moves.filter(move=>move.position!=="resign").length)});
   }
   // A tap near a marked turning point lands on it; otherwise on the nearest step.
   function pick(event) {
@@ -97,5 +97,7 @@ export function createScoreGraph({$, getReview, getGame, isWatching, recall, gam
     const step=near ?? stepAt(x,rect.width,count);
     if(step!==review.step)setStep(step);
   }
-  return {pick,render,shown};
+  // The marked turning points of the line drawn last, for ドパガキモード's ドン！.
+  const marks=()=>scoreGraph?.marks||[];
+  return {marks,pick,render,shown};
 }

@@ -181,7 +181,7 @@ export function replaySteps(game,through=game.moves.length){
     const move=game.moves[i];
     // After a count, the side that moves first is the one the resumer asked.
     if(state.status==="scoring")state=resume(state,-move.color);
-    if(move.color!==state.next && !isFree(state))throw broken();
+    if(move.color!==BLACK && move.color!==WHITE)throw broken();
     try { state=replayMove(state,move); }
     catch {throw broken();}
   }

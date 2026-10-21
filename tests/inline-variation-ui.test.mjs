@@ -134,6 +134,27 @@ test("◁ steps back one move at once; the replay row holds the way back",()=>{
   assert.equal(TEXT.review.tryHere,"試しに打つ");
   assert.match(html,/id="reviewConfirm"[^>]*><span id="reviewConfirmStone"[^>]*><\/span>試しに打つ/);
 });
+test("the replay's turn row names the shown move, and its stone is that move's colour",()=>{
+  assert.equal(TEXT.review.showing(0),"対局開始を表示中");
+  assert.equal(TEXT.review.showing(5,null),"5手目のパスを表示中");
+  assert.equal(TEXT.review.showing(6,"resign"),"投了を表示中");
+  assert.equal(TEXT.takeback.done(0),"待った：対局開始に戻しました");
+  assert.equal(TEXT.takeback.done(3),"待った：3手目に戻しました");
+  // A resignation is a step on the slider but not a move, as in 履歴.
+  assert.match(app,/TEXT\.review\.step\(Math\.min\(step,played\),played\)/);
+  assert.match(app,/const shown=isPreview\?boardReview\.preview\.moves\.at\(-1\):line\.moves\[step-1\];/);
+  assert.match(app,/\$\("turn"\)\.classList\.toggle\("white-to-play",shown\?\.color===WHITE\);/);
+  assert.match(app,/\$\("turn"\)\.classList\.toggle\("no-stone",!shown\);/);
+});
+test("a replay has one notice line, cleared by any step, try-out or change of line",()=>{
+  assert.doesNotMatch(html,/id="reviewFeedback"/);
+  assert.doesNotMatch(app,/\$\("reviewNotice"\)\.textContent=(?!message)/);
+  for(const name of ["setBoardReviewStep","selectOriginalLine","selectVariationLine","confirmReviewPreview","discardReviewPreview"])
+    assert.match(app.slice(app.indexOf("function "+name+"(")).split("\nfunction ")[0],/reviewNotice\(""\)/,name);
+  // A saved 試し打ち is not offered for saving again.
+  assert.match(app,/\$\("reviewSaveVariation"\)\.disabled=!!boardReview\.variation\?\.saved;/);
+  assert.equal(TEXT.review.variationCreated,undefined);
+});
 test("one primary slot in the replay row starts a game from the shown position",()=>{
   const row=html.slice(html.indexOf('class="review-navigation"'),html.indexOf('id="reviewMenu"'));
   assert.match(row,/id="reviewContinue" class="primary review-continue"[^>]*>ここから打つ</);
