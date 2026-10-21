@@ -93,7 +93,7 @@ import { choosePolicyMove, createResignWatch } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
 import { cleanName, createPlayerName } from "./player-name.mjs";
 import { playerSides, recordNames, stoneMark } from "./player-row.mjs";
-import { createSeatSheet, seatsOf } from "./seat-sheet.mjs";
+import { createSeatSheet, sameSeats, seatsOf } from "./seat-sheet.mjs";
 import { DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
 import {
   CUSTOM_CHARACTER,
@@ -2697,7 +2697,7 @@ function openSeatPanel() {
   seatSheet.load(seatsOf({mode:gameMode,watching,humanColor,aiCom,watchAi}),{next:game.next,
     available:isGomoku(game) || katagoReady && !fallbackMode,
     // A person's seat switched to COM gets the COM playing now, or the next game's.
-    fallback:()=>gameMode==="ai" && !watching?aiCom:nextAiCom});
+    fallback:()=>gameMode==="ai" && !watching?aiCom:nextAiCom,watchSpeed});
   setBackgroundInert(true);
   $("settingsBackdrop").hidden=false;$("seatPanel").hidden=false;
   $("closeSeats").focus();
@@ -2705,14 +2705,19 @@ function openSeatPanel() {
 function closeSeatPanel(){closePanels();$("players").focus();}
 $("players").onclick=openSeatPanel;
 $("closeSeats").onclick=closeSeatPanel;
-function applySeats(match) {
+function applySeats(match, speed) {
   if(!canChangeSeats())return;
-  stopAiTurn(); // A move being computed for a seat that changed is dropped.
-  candidate=null;illegalCandidate=null;
-  gameMode=match.mode;
-  setWatching(match.watching);
-  if(match.watching){watchAi=match.watchAi;lastWatchMoveAt=performance.now();}
-  else if(match.mode==="ai"){humanColor=match.humanColor;aiCom=match.aiCom;}
+  // 観戦's speed is also the next 観戦's, as under 新規対戦's 時間 tab.
+  watchSpeed=toWatchSpeed(speed);syncSideUi();
+  // A watched game whose only change is its speed keeps going, paused or not.
+  if(!sameSeats(seatsOf({mode:gameMode,watching,humanColor,aiCom,watchAi}),seatsOf(match))){
+    stopAiTurn(); // A move being computed for a seat that changed is dropped.
+    candidate=null;illegalCandidate=null;
+    gameMode=match.mode;
+    setWatching(match.watching);
+    if(match.watching){watchAi=match.watchAi;lastWatchMoveAt=performance.now();}
+    else if(match.mode==="ai"){humanColor=match.humanColor;aiCom=match.aiCom;}
+  }
   save();closeSeatPanel();show();requestAnalysis();
 }
 $("watchIntervene").onclick=()=>{

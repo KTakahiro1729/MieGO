@@ -922,6 +922,7 @@ export const TEXT = {
     becomes: (from, to) => from + "から" + to + "に替わります。",
     stays: mode => mode + "のまま、COMを替えます。",
     comMoves: color => "続けるとすぐ" + color + "のCOMが打ちます。",
+    speed: speed => "観戦の速さを「" + speed + "」にします。",
     record: "棋譜はこのまま続きます。",
     comUnavailable: "COMを読み込めていないので、今は人どうしでだけ打てます。",
   },
