@@ -195,6 +195,11 @@ test("each way to 棋風診断 leads on to the others",async()=>{
   // A finished game of 囲碁 opens the share sheet at its 棋風診断.
   assert.match(html,/<div id="scoreBox"[\s\S]*?id="scoreStyle"/);
   assert.match(app,/\$\("scoreStyle"\)\.onclick=\(\)=>\{openSharePanel\(\);\$\("sharePlayStyles"\)\.scrollIntoView/);
+  // A watched COM同士 game shows both COMs' types (after the game and in the share sheet), uncounted.
+  assert.match(app,/return \{played:\[\],watched:\[BLACK,WHITE\]\};/);
+  assert.match(app,/\[\.\.\.playedSides\(\),\.\.\.watchedSides\(\)\]\.some\(color=>canReadStyle\(game,color\)\)/);
+  const share=readFileSync(new URL("../public/share-images.mjs",import.meta.url),"utf8");
+  assert.match(share,/reportPlayStyles\([^;]*,styles\);\s*const watched=watchedSides\(\)/);
   // Read together, a type's text no longer speaks of one game.
   for(const {text} of Object.values(TEXT.playStyle.types))
     assert.doesNotMatch(TEXT.playStyle.pooledText(text),/この一局/);

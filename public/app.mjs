@@ -267,7 +267,7 @@ const playerName = createPlayerName({$,onChange:()=>{
 // 効果音: off until the 設定 sheet turns them on. ドパガキモード swaps in louder voices.
 const sound = createSoundEffects({$,voices:()=>dopa.level()==="off"?CALM_VOICES:DOPA_VOICES});
 const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),graph:$("reviewGraph"),
-  score:()=>$("scoreBox").querySelector("strong")});
+  score:()=>$("scoreTitle")});
 // Whom ドパガキモード cheers for a win: the player's own colour, or either side
 // when watching the COMs or sharing one board.
 // The policy KataGo gave the position on the board, kept for judging the move played from it.
@@ -447,6 +447,8 @@ function updateEndUi() {
   for(const [id,disabled] of Object.entries(view.disabled))$(id).disabled=disabled;
   for(const [id,classes] of Object.entries(view.classes))
     for(const [name,on] of Object.entries(classes))$(id).classList.toggle(name,on);
+  for(const [id,attributes] of Object.entries(view.attributes))
+    for(const [name,value] of Object.entries(attributes))$(id).setAttribute(name,value);
   if(view.help)$("endHelp").dataset.help=view.help;
 }
 
@@ -1020,8 +1022,8 @@ function show() {
   $("ruleSummary").textContent=TEXT.game.ruleSummary(size,komiOf(game),handicap,
     isFree(game)?"free":gomoku?"gomoku":japanese,forbidden);
   $("ruleLabel").textContent=TEXT.game.ruleLabel(size,rulesOf(game),komiOf(game),handicap,forbidden);
-  // Japanese territory scoring counts prisoners, so they sit under the ownership bar.
-  $("captureCounts").hidden=!japanese;
+  // Japanese territory scoring counts prisoners, so each player's count sits by their name.
+  $("whitePrisonerPill").hidden=$("blackPrisonerPill").hidden=!japanese;
   // While counting, the dead stones taken off the board are prisoners too.
   const counted=game.status==="scoring" || game.status==="finished" && !game.result?.endsWith("+R");
   const prisoners=japanese && counted?
@@ -1033,7 +1035,7 @@ function show() {
   const outline=prisonerOutline(shownPalette());
   $("whitePrisonerPill").style.borderColor=outline.white;
   $("blackPrisonerPill").style.borderColor=outline.black;
-  $("captureCounts").setAttribute("aria-label",TEXT.game.capturesAria(prisoners.black,prisoners.white));
+  $("captureCounts").textContent=japanese?TEXT.game.capturesAria(prisoners.black,prisoners.white):"";
   const isScoring=game.status==="scoring",isFinished=game.status==="finished";
   $("gamePanel").classList.toggle("is-scoring",isScoring);
   $("gamePanel").classList.toggle("is-finished",isFinished);
@@ -1067,7 +1069,7 @@ function show() {
   if(free)for(const id of ["resign","pass","confirm"])$(id).hidden=true;
   $("actionRow").classList.toggle("finished-actions",isFinished);
   // After a game of 囲碁, its 棋風診断 is one tap away, in the share sheet.
-  $("scoreStyle").hidden=!isFinished || !playedSides().some(color=>canReadStyle(game,color));
+  $("scoreStyle").hidden=!isFinished || ![...playedSides(),...watchedSides()].some(color=>canReadStyle(game,color));
   // COM同士: 介入する and 一時停止 (再開); stepping in shows × and ここに打つ instead.
   const watchingPlay=spectating && game.status==="playing";
   $("watchToggle").hidden=$("watchIntervene").hidden=!watchingPlay || intervening;
@@ -1076,7 +1078,7 @@ function show() {
   if(watchingPlay && !intervening)for(const id of ["cancel","confirm"])$(id).hidden=true;
   $("watchToggle").textContent=watchPaused?TEXT.game.watchResume:TEXT.game.watchPause;
   $("watchToggle").setAttribute("aria-pressed",String(watchPaused));
-  $("scoreBox").querySelector("strong").textContent=isFinished?TEXT.scoring.resultTitle:
+  $("scoreTitle").textContent=isFinished?TEXT.scoring.resultTitle:
     scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
   const playout=settleControl.view();
   $("scoreInstruction").textContent=playout?TEXT.scoring.settling(playout.moves):
@@ -1096,7 +1098,7 @@ function show() {
     TEXT.scoring.reviewChecking;
   // The scoring controls live in the existing sticky action row.
   $("scoreStone").className="score-stone";
-  $("scoreBox").querySelector(".help-button").dataset.help=gomoku?"rules":"scoring";
+  document.querySelector(".score-head .help-button").dataset.help=gomoku?"rules":"scoring";
   $("scoreText").hidden=false;
   if(isScoring){
     renderScoreboard();
@@ -1114,7 +1116,7 @@ function show() {
   }
   if(isFinished) {
     const result=game.result;
-    $("scoreBox").querySelector("strong").textContent=resultLabel(result)||TEXT.scoring.ended;
+    $("scoreTitle").textContent=resultLabel(result)||TEXT.scoring.ended;
     const winner=resultWinner(result);
     if(winner)$("scoreStone").classList.add(winner==="B"?"black":"white");
     if(endedEarly(result) || gomoku) {
@@ -2432,15 +2434,17 @@ function rememberOwnership(board,values){
   try{ownershipStore.remember(currentGameId,board,values);}catch(error){console.warn("Ownership not kept",error);}
 }
 // The colours a person played in the shared game: a COM's side is left out, and a watched game has none.
-function playedSides(){
+function sharedGameSides(){
   const record=boardReview?.source==="archive" ? boardReview.record : null;
   const live=!boardReview || boardReview.source==="live";
   const ai=record ? record.mode==="ai" : live && gameMode==="ai";
-  if(!ai)return [BLACK,WHITE];
-  if(record ? record.watch : watching)return [];
-  return [record ? record.humanColor : humanColor];
+  if(!ai)return {played:[BLACK,WHITE],watched:[]};
+  if(record ? record.watch : watching)return {played:[],watched:[BLACK,WHITE]};
+  return {played:[record ? record.humanColor : humanColor],watched:[]};
 }
-const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,playedSides,
+function playedSides(){return sharedGameSides().played;}
+function watchedSides(){return sharedGameSides().watched;}
+const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,playedSides,watchedSides,
   stillColoured:()=>boardReview ? !!boardReview.ownership : game.status==="playing" && !!displayedOwnership});
 function openSharePanel(){
   openPanel("share");
