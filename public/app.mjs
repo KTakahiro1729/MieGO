@@ -1905,6 +1905,7 @@ function syncStartButtons() {
   $("startAi").disabled=needsKatago && (!katagoReady || fallbackMode);
   $("startAi").textContent=needsKatago && fallbackMode?TEXT.ai.startUnavailable:
     needsKatago && !katagoReady?TEXT.ai.startLoading:startLabel();
+  $("startAiNote").hidden=!(needsKatago && fallbackMode);
   keepArmedLabel($("startAi"));
   $("startLocal").textContent=startLabel();
   keepArmedLabel($("startLocal"));
