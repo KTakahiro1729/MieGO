@@ -133,14 +133,11 @@ function recordingContext() {
   return { ctx, heard };
 }
 
-test("ドパガキモード's capture runs longer and higher the more stones it takes, and stays in tune", () => {
+test("ドパガキモード's capture grows with the stones it takes, and stays in tune", () => {
   const run = count => { const { ctx, heard } = recordingContext(); DOPA_VOICES.capture(ctx, {}, 0, { count }); return heard; };
   for (let count = 1; count <= 30; count++)
     assert.ok(run(count).every(frequency => Number.isFinite(frequency) && frequency > 0), `count ${count}`);
-  assert.ok(run(4).length > run(1).length);
-  // The run's bells, above the stone and below its taps.
-  const top = count => Math.max(...run(count).filter(frequency => frequency > 500 && frequency < 2200));
-  assert.ok(top(8) > top(1));
+  assert.ok(run(4).length > run(1).length, "a big capture's ドーン echoes");
 });
 
 test("ドパガキモード cheers only a win: a loss or a draw ends as calmly as usual", () => {
@@ -148,13 +145,4 @@ test("ドパガキモード cheers only a win: a loss or a draw ends as calmly a
   assert.deepEqual(end(DOPA_VOICES, undefined), end(CALM_VOICES));
   assert.ok(end(DOPA_VOICES, { kind: "win", big: false }).length > end(CALM_VOICES).length);
   assert.ok(end(DOPA_VOICES, { kind: "win", big: true }).length > end(DOPA_VOICES, { kind: "win", big: false }).length);
-});
-
-test("ドパガキモード's stones step up a scale with the move number", () => {
-  const stone = recordingContext();
-  CALM_VOICES.move(stone.ctx, {}, 0);
-  // The first sound beyond the calm stone is the step's chime.
-  const first = moveNumber => { const { ctx, heard } = recordingContext(); DOPA_VOICES.move(ctx, {}, 0, { moveNumber }); return heard.find(frequency => !stone.heard.includes(frequency)); };
-  assert.ok(first(2) > first(1));
-  assert.equal(first(11), first(1), "it goes round after ten");
 });

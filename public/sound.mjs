@@ -104,15 +104,12 @@ export const CALM_VOICES = {
   move(ctx, out, at) { knock(ctx, out, at, { frequency: 900, gain: .09, length: .09 }); },
 };
 
-// C major from C5 up two octaves: the notes ドパガキモード climbs through.
-const SCALE = [523.25, 587.33, 659.25, 698.46, 783.99, 880, 987.77, 1046.5, 1174.66, 1318.51, 1396.91, 1567.98, 1760, 1975.53, 2093];
-// C major's pentatonic over two octaves: each move rings the next one up, so
-// a game's stones walk up and round it.
-const STEPS = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51, 1567.98, 1760];
-// Most stones a capture's run counts: past this it is as long as it gets.
-const RUN_MOST = 10;
-// From this many stones taken (as the board's quake) a capture also booms.
-const BOOM_FROM = 4;
+// From this many stones taken (as the board's quake) a capture's ドーン echoes.
+const ECHO_FROM = 4;
+// Most stones a capture's sound grows for: past this it is as big as it gets.
+const GROW_MOST = 10;
+// When the crackle after a firework's ドーン pops, in seconds after it.
+const CRACKLE = [.08, .13, .17, .24, .29, .36, .41, .5, .57, .66];
 
 // ドパガキモード is louder and layered, so it runs through a compressor
 // that holds its peaks down: a big capture or a win sounds bigger, not
@@ -133,15 +130,7 @@ function limited(ctx, out) {
   }
   return limiters.get(ctx);
 }
-// A bright bell: a sine with a slightly detuned twin (for shimmer), its
-// octave on a triangle, and a short high partial for the strike.
-function bell(ctx, out, at, { frequency, gain, length }) {
-  tone(ctx, out, at, { frequency, gain, length });
-  tone(ctx, out, at, { frequency: frequency * 1.004, gain: gain * .5, length });
-  wave(ctx, out, at, { type: "triangle", frequency: frequency * 2, gain: gain * .3, length: length * .7 });
-  tone(ctx, out, at, { frequency: frequency * 3, gain: gain * .12, length: length * .25 });
-}
-function wave(ctx, out, at, { type, frequency, to = frequency, gain, length, attack = .005 }) {
+function wave(ctx, out, at, { type, frequency, to = frequency, gain, length, attack = .003 }) {
   const oscillator = ctx.createOscillator();
   oscillator.type = type;
   oscillator.frequency.setValueAtTime(frequency, at);
@@ -154,73 +143,76 @@ function wave(ctx, out, at, { type, frequency, to = frequency, gain, length, att
   oscillator.start(at);
   oscillator.stop(at + length + .01);
 }
-// A brass-like note: two detuned saws whose filter opens as it is blown.
-function brass(ctx, out, at, { frequency, gain, length }) {
+// ピューン: a square, softened by a low-pass, gliding from `from` to `to`
+// with a sine under it; falling, it flies off, rising, it is launched.
+function pew(ctx, out, at, { from, to, gain, length }) {
   const filter = ctx.createBiquadFilter();
   filter.type = "lowpass";
-  filter.frequency.setValueAtTime(frequency * 2, at);
-  filter.frequency.exponentialRampToValueAtTime(frequency * 6, at + .05);
-  filter.frequency.exponentialRampToValueAtTime(frequency * 3, at + length);
+  filter.frequency.value = 3500;
   filter.connect(out);
-  for (const detune of [.997, 1.003])
-    wave(ctx, filter, at, { type: "sawtooth", frequency: frequency * detune, gain: gain * .5, length, attack: .015 });
+  wave(ctx, filter, at, { type: "square", frequency: from, to, gain: gain * .5, length });
+  wave(ctx, out, at, { type: "sine", frequency: from, to, gain, length });
 }
-// Filtered noise whose band climbs from `from` to `to`: the rising whoosh.
-function sweep(ctx, out, at, { from, to, gain, length }) {
+// Noise through a low-pass that closes from `from` to `to`: a blast's rumble.
+function rumble(ctx, out, at, { from, to, gain, length }) {
   const source = ctx.createBufferSource();
   source.buffer = noise(ctx);
   source.loop = true;
   const filter = ctx.createBiquadFilter();
-  filter.type = "bandpass";
-  filter.Q.value = 2;
+  filter.type = "lowpass";
   filter.frequency.setValueAtTime(from, at);
   filter.frequency.exponentialRampToValueAtTime(to, at + length);
-  const level = ctx.createGain();
-  level.gain.setValueAtTime(.0001, at);
-  level.gain.linearRampToValueAtTime(gain, at + length * .8);
-  level.gain.exponentialRampToValueAtTime(.0001, at + length);
-  source.connect(filter).connect(level).connect(out);
+  source.connect(filter).connect(envelope(ctx, at, gain, length)).connect(out);
   source.start(at);
   source.stop(at + length + .01);
 }
-// A low drum: a sine falling fast from 150Hz, felt more than heard.
+// ドーン: a drum falling fast from 140Hz to 35Hz under the rumble of a blast.
 function boom(ctx, out, at, { gain, length }) {
-  wave(ctx, out, at, { type: "sine", frequency: 150, to: 40, gain, length, attack: .003 });
+  wave(ctx, out, at, { type: "sine", frequency: 140, to: 35, gain, length });
+  wave(ctx, out, at, { type: "triangle", frequency: 70, to: 30, gain: gain * .4, length: length * .6 });
+  rumble(ctx, out, at, { from: 2500, to: 120, gain: gain * .45, length: length * 1.2 });
 }
-// A quick glitter of high notes, each a little later and quieter.
-function sparkle(ctx, out, at, notes, gain) {
-  notes.forEach((frequency, i) => tone(ctx, out, at + i * .035, { frequency, gain: gain * (1 - i * .1), length: .25 }));
+// Pops of bright noise after a firework bursts.
+function crackle(ctx, out, at, gain) {
+  for (const [i, later] of CRACKLE.entries()) {
+    const source = ctx.createBufferSource();
+    source.buffer = noise(ctx);
+    const filter = ctx.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.value = 3000 + i % 3 * 1500;
+    const pop = at + later;
+    source.connect(filter).connect(envelope(ctx, pop, gain * (1 - i * .07), .03)).connect(out);
+    source.start(pop);
+    source.stop(pop + .04);
+  }
+}
+// ヒュ～ドーン: a whistle climbing into a burst that crackles.
+function firework(ctx, out, at, { gain }) {
+  wave(ctx, out, at, { type: "sine", frequency: 500, to: 2200, gain: gain * .35, length: .45 });
+  const burst = at + .45;
+  boom(ctx, out, burst, { gain, length: .9 });
+  crackle(ctx, out, burst, gain * .5);
 }
 
 /**
- * ドパガキモード's louder sounds, layered and rising. Each stone pops a two-note
- * chime one step up a pentatonic scale from the last; a capture runs up the
- * scale, longer and higher the more stones it took (and booms from 4), under
- * a rising whoosh; a good move glides up into a sparkling chord; the viewer's
- * win plays a brass fanfare (twice as long for 圧勝), while a loss or a draw
- * ends as calmly as usual; 秒読み beeps twice; a turning point of the replay
- * lands with a low ドン. It grows with what happened in that one move, never
- * with a streak, and the limiter keeps its peaks down.
+ * ドパガキモード's louder sounds: game-like ピューン and ドーン rather than
+ * notes. Each stone lands with a short ピュン and a thump; a capture flies off
+ * with a longer ピューン into a ドーン, both bigger the more stones it took
+ * (echoing from 4); a good move rises with a キュイーン; the viewer's win is a
+ * firework, ヒュ～ドーン (three for 圧勝), while a loss or a draw ends as
+ * calmly as usual; 秒読み beeps twice; a turning point of the replay lands
+ * with a ドーン. It grows with what happened in that one move, never with a
+ * streak, and the limiter keeps its peaks down.
  */
 export const DOPA_VOICES = {
   capture(ctx, out, at, { count = 1 } = {}) {
     const bus = limited(ctx, out);
-    CALM_VOICES.capture(ctx, bus, at);
-    const stones = Math.max(1, Math.min(RUN_MOST, count));
-    const notes = stones + 3;
-    const gap = .06 - stones * .0025;
-    // More stones start higher as well as run longer, up to the scale's top.
-    const from = Math.min(SCALE.length - notes, stones - 1);
-    sweep(ctx, bus, at, { from: 300, to: 3000 + stones * 600, gain: .05 + stones * .006, length: notes * gap + .05 });
-    for (let i = 0; i < notes; i++)
-      bell(ctx, bus, at + .03 + i * gap, { frequency: SCALE[from + i], gain: .1, length: .22 });
-    const top = at + .03 + notes * gap;
-    const root = SCALE[from + notes - 1];
-    for (const ratio of [1, 1.25, 1.5]) bell(ctx, bus, top, { frequency: root * ratio / 2, gain: .07, length: .5 + stones * .05 });
-    if (stones >= BOOM_FROM) {
-      boom(ctx, bus, at, { gain: .5, length: .45 });
-      sparkle(ctx, bus, top + .05, [root * 2, root * 2.5, root * 3, root * 4], .04);
-    }
+    const stones = Math.max(1, Math.min(GROW_MOST, count));
+    CALM_VOICES.move(ctx, bus, at);
+    const flight = .22 + stones * .03;
+    pew(ctx, bus, at, { from: 2600, to: 180, gain: .16, length: flight });
+    boom(ctx, bus, at + flight * .6, { gain: .3 + stones * .03, length: .45 + stones * .06 });
+    if (stones >= ECHO_FROM) boom(ctx, bus, at + flight * .6 + .28, { gain: .25, length: .5 });
   },
   countdown(ctx, out, at) {
     const bus = limited(ctx, out);
@@ -237,42 +229,28 @@ export const DOPA_VOICES = {
   },
   don(ctx, out, at) {
     const bus = limited(ctx, out);
-    boom(ctx, bus, at, { gain: .6, length: .6 });
+    boom(ctx, bus, at, { gain: .55, length: .8 });
     knock(ctx, bus, at, { frequency: 120, gain: .3, length: .35 });
-    tone(ctx, bus, at, { frequency: 98, gain: .22, length: .7 });
   },
   end(ctx, out, at, detail) {
     if (detail?.kind !== "win") return CALM_VOICES.end(ctx, out, at);
     const bus = limited(ctx, out);
-    // ソソソ・ドー: three short notes and a held one under its chord.
-    const call = [783.99, 783.99, 783.99, 1046.5];
-    call.forEach((frequency, i) => brass(ctx, bus, at + i * .12, { frequency: frequency / 2, gain: .12, length: i < 3 ? .1 : .9 }));
-    const held = at + .36;
-    boom(ctx, bus, held, { gain: .4, length: .5 });
-    for (const frequency of [523.25, 659.25, 783.99, 1046.5]) bell(ctx, bus, held, { frequency, gain: .05, length: 1.2 });
-    sparkle(ctx, bus, held + .1, [2093, 2637.02, 3135.96, 4186.01], .035);
+    firework(ctx, bus, at, { gain: .5 });
     if (!detail.big) return;
-    // 圧勝: the call again a third higher, with a longer whoosh into it.
-    const again = at + 1.1;
-    sweep(ctx, bus, again - .4, { from: 300, to: 6000, gain: .07, length: .4 });
-    [987.77, 987.77, 987.77, 1318.51].forEach((frequency, i) =>
-      brass(ctx, bus, again + i * .12, { frequency: frequency / 2, gain: .12, length: i < 3 ? .1 : 1.1 }));
-    boom(ctx, bus, again + .36, { gain: .5, length: .6 });
-    for (const frequency of [659.25, 830.61, 987.77, 1318.51]) bell(ctx, bus, again + .36, { frequency, gain: .05, length: 1.3 });
-    sparkle(ctx, bus, again + .46, [2637.02, 3322.44, 3951.07, 5274.04], .035);
+    firework(ctx, bus, at + .55, { gain: .45 });
+    firework(ctx, bus, at + 1.1, { gain: .55 });
   },
   good(ctx, out, at) {
     const bus = limited(ctx, out);
-    wave(ctx, bus, at + .05, { type: "sine", frequency: 1046.5, to: 4186.01, gain: .04, length: .15 });
-    [659.25, 783.99, 1046.5, 1318.51].forEach((frequency, i) => bell(ctx, bus, at + .1 + i * .045, { frequency, gain: .08, length: .5 }));
-    sparkle(ctx, bus, at + .3, [2637.02, 3135.96, 4186.01], .03);
+    // キュイーン: two glides up, a fifth apart.
+    pew(ctx, bus, at + .05, { from: 300, to: 2400, gain: .07, length: .35 });
+    wave(ctx, bus, at + .05, { type: "sine", frequency: 450, to: 3600, gain: .04, length: .35 });
   },
-  move(ctx, out, at, { moveNumber = 1 } = {}) {
+  move(ctx, out, at) {
     const bus = limited(ctx, out);
     CALM_VOICES.move(ctx, bus, at);
-    const step = ((moveNumber - 1) % STEPS.length + STEPS.length) % STEPS.length;
-    bell(ctx, bus, at + .015, { frequency: STEPS[step], gain: .06, length: .14 });
-    bell(ctx, bus, at + .06, { frequency: STEPS[step] * 1.5, gain: .05, length: .2 });
+    pew(ctx, bus, at, { from: 1600, to: 500, gain: .06, length: .1 });
+    wave(ctx, bus, at, { type: "sine", frequency: 160, to: 50, gain: .2, length: .16 });
   },
 };
 
