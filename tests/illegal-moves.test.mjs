@@ -99,7 +99,8 @@ test("no forbidden markers, no status coordinates, normal-weight matching type",
   assert.doesNotMatch(app,/pointLabel\(illegalCandidate\.position\)/);
   assert.match(app,/classList\.toggle\("has-illegal",blocked\)/);
   assert.match(style,/\.action-row #confirm\{font-size:var\(--font-body\)\}/);
-  assert.match(style,/font-size:var\(--font-body\);font-weight:400;line-height:1\.3/);
+  assert.match(style,/font-size:var\(--font-body\);font-weight:var\(--weight-regular\);line-height:1\.3/);
+  assert.match(style,/--weight-regular:400;--weight-medium:600;--weight-bold:700;/);
   assert.doesNotMatch(style,/\.endgame-bar\.has-illegal \.end-status\{[^}]*font-weight:750/);
   assert.doesNotMatch(html,/illegalMoveLegend|illegalMoveToggle/);
 });
