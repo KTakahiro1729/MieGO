@@ -134,7 +134,7 @@ import { createReviewPrefetch, createScoreGraph } from "./review-estimates.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { createHistoryStyle } from "./history-style.mjs";
-import { canReadStyle } from "./play-style.mjs";
+import { canReadStyle, readStyleLink } from "./play-style.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { createHelpSheet } from "./help-sheet.mjs";
@@ -407,6 +407,7 @@ function showEvictionNotice(){
   evictedGames=0;
 }
 let currentGameId=null,currentRevision=null;
+let stylePartner=null;
 const historyStyle=createHistoryStyle({$,gameLibrary,
   ownSide:record=>{
     if(record.mode==="ai")return record.humanColor;
@@ -414,6 +415,7 @@ const historyStyle=createHistoryStyle({$,gameLibrary,
     return [BLACK,WHITE].includes(saved?.ownerColor) ? playerColor(saved.role,saved.ownerColor) : null;
   },
   recall:record=>state=>ownershipStore.recall(record.id,state.board),
+  partner:()=>stylePartner,
   onChange:()=>renderHistoryList()});
 const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard,getBoardTheme:appearance.boardTheme,
   decorateRow:historyStyle.decorateRow,
@@ -2912,8 +2914,10 @@ if(!room && params.has("sgf")){
     showNotice(TEXT.history.sharedLoadFailed);
   }
 }
-// The /style page links here to read several saved games together.
+// The /style page links here to read several saved games together, with a friend's type to match.
 if(!room && params.get("open")==="history-style"){
+  const [type,...leans]=(params.get("with") ?? "").split(",");
+  stylePartner=readStyleLink("?t="+type+"&s="+leans.join(","));
   history.replaceState(null,"",location.pathname);
   openHistoryStyle();
 }
