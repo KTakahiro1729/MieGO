@@ -72,7 +72,7 @@ test("finished view exposes next match and history without hidden menus",()=>{
   // They are one fused button, each half naming how it differs.
   assert.match(html,/<div class="fused next-game">\s*<button id="newMatchSheet" class="secondary"[^>]*><span>新規対戦<\/span><small aria-hidden="true">別の設定で<\/small><\/button>\s*<button id="newMatch" class="primary"[^>]*><span>もう一局<\/span><small aria-hidden="true">同じ設定で<\/small><\/button>\s*<\/div>/);
   assert.match(app,/\$\("newMatchSheet"\)\.hidden=!isFinished/);
-  assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished \|\| !!room/);
+  assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished;/);
   assert.match(app,/\$\("openHistory"\)\.hidden=!isFinished/);
   // The header's share glyph closes the row and opens the share sheet for the game just played.
   const glyph=html.match(/id="shareToggle"[^>]*>\s*(<svg[\s\S]*?<\/svg>)/)[1].replace(/width="23" height="23"/,'width="22" height="22"');

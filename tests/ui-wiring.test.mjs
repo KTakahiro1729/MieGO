@@ -42,3 +42,8 @@ test("a dropped friend game says it reconnects by itself, and the opponent's lin
   assert.match(app,/showNotice\(error\.retrying\?TEXT\.online\.retrying:/);
   assert.doesNotMatch(app,/side\.name===TEXT\.game\.opponent\?\$\("netStatus"\)/);
 });
+test("a friend game offers もう一局, which waits until the other player presses it too",()=>{
+  assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished;/);
+  assert.match(app,/if\(room\)\{\n    if\(connected\)apply\(\{type:"rematch",color:myOnlineColor\(\)/);
+  assert.match(app,/rematchAsked\?TEXT\.online\.rematchWaiting:TEXT\.game\.rematchNote/);
+});
