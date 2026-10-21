@@ -19,14 +19,14 @@ export function passNotice({game, room, gameMode, watching, color}) {
 }
 
 /**
- * What the bar shows, as {text, hidden, disabled, classes, help} keyed by
- * element id; an element left out keeps what it shows. `color` is this
+ * What the bar shows, as {text, hidden, disabled, classes, attributes, help} keyed
+ * by element id; an element left out keeps what it shows. `color` is this
  * player's colour (null for a spectator), `room` whether it is a friend's game,
  * `notices` the one-off texts a 待った or an answered offer left for this position.
  */
 export function endgameBarView({game, color, room, connected, gameMode, watching, endExpanded, aiPassAsks,
   katagoReady, fallbackMode, advisor, aiThinking, notices, keptPlaying, illegalCandidate}) {
-  const view={text:{},hidden:{},disabled:{},classes:{},help:null};
+  const view={text:{},hidden:{},disabled:{},classes:{},attributes:{},help:null};
   const playing=game.status==="playing";
   const offer=playing?game.endProposal:null;
   // A friend's 待った request borrows the same in-bar answer buttons as an end offer.
@@ -34,6 +34,7 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
   if(takebackRequest){
     const asked=color!==null && takebackRequest.from!==color;
     view.text.endStatus=asked?TEXT.takeback.requested:TEXT.takeback.waiting;
+    view.text.endNote="";
     Object.assign(view.hidden,{endPropose:true,endAccept:!asked,endDecline:false});
     view.text.endAccept=TEXT.common.accept;
     view.text.endDecline=asked?TEXT.takeback.decline:TEXT.common.withdraw;
@@ -42,9 +43,11 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
     view.classes.endgameBar={"is-calling":asked};
     return view;
   }
-  // 自由に置く has no end: the bar only says how the board works.
+  // 自由に置く has no end: the slot only says how the board works.
   if(isFree(game)){
-    view.text.endStatus=room && (!connected || color===null)?TEXT.endgame.offline:TEXT.endgame.free;
+    view.text.endStatus=room && (!connected || color===null)?TEXT.endgame.offline:"";
+    view.text.endNote=TEXT.endgame.free;
+    view.hidden.endStage=true;
     for(const id of BUTTONS)view.hidden[id]=true;
     view.classes.endgameBar={"is-calling":false,"has-illegal":false};
     view.classes.actionRow={"end-prompt-open":false};
@@ -69,11 +72,16 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
     waiting?TEXT.endgame.waiting:
     aiPassed?TEXT.endgame.askAiPassed:
     localPrompt?(unsettled?hint+"\n"+TEXT.endgame.askLocal:TEXT.endgame.askLocal):
-    passed?passed.text:hint;
+    passed?passed.text:"";
+  // How near the end is reads on 採点を始める's three-step meter, not as a sentence.
+  const stage=[TEXT.endgame.playing,TEXT.endgame.near,TEXT.endgame.ready].indexOf(hint)+1;
+  view.hidden.endStage=!stage;
+  view.attributes.endStage={"data-stage":String(stage)};
+  view.attributes.endPropose={"aria-label":(!room?TEXT.endgame.startScoring:TEXT.endgame.propose)+(hint?"（"+hint+"）":"")};
   view.hidden.endPropose=!playing||!!offer||localPrompt||isGomoku(game);
   view.hidden.endAccept=!playing||!(incoming||localPrompt);
   view.hidden.endDecline=!playing||!(incoming||localPrompt||waiting);
-  view.text.endPropose=!room?TEXT.endgame.startScoring:TEXT.endgame.propose;
+  view.text.endProposeLabel=!room?TEXT.endgame.startScoring:TEXT.endgame.propose;
   view.text.endAccept=!room?TEXT.endgame.goScoring:TEXT.common.accept;
   view.text.endDecline=waiting?TEXT.common.withdraw:TEXT.common.keepPlaying;
   for(const id of BUTTONS)view.disabled[id]=offline;
@@ -90,12 +98,12 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
     waiting?TEXT.endgame.detailWaiting:
     room?TEXT.endgame.detailOnline:
     TEXT.endgame.detailOffline;
-  if(playing && isGomoku(game) && !offline && !offer && !localPrompt)status=TEXT.endgame.gomoku;
+  view.text.endNote=playing && isGomoku(game) && !offline && !offer && !localPrompt?TEXT.endgame.gomoku:"";
   const notice=notices.find(n=>n?.number===game.moveNumber && n.hash===boardHash(game.board));
   if(playing && !offer && !localPrompt && !passed && notice)status=notice.text;
   // A decision is asked of this player: an offer, the other side's pass, or the advice to end.
   view.classes.endgameBar={"is-asking":localPrompt,"is-calling":playing && !offline &&
-    (incoming || (!!passed?.second && !keptPlaying) || status===TEXT.endgame.ready)};
+    (incoming || (!!passed?.second && !keptPlaying) || !status && hint===TEXT.endgame.ready)};
   // The stable left-hand status slot doubles as a rule explanation for illegal previews.
   // 五目並べ's forbidden moves are explained with its rules, not with ko and suicide.
   view.help=isGomoku(game)?"rules":playing && illegalCandidate?"illegal":"endgame";

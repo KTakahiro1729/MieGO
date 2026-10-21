@@ -60,52 +60,56 @@
           <div class="bar-line"><span class="end-stone white" aria-hidden="true"></span><div class="gradient" id="gradient" aria-hidden="true"></div><span class="end-stone black" aria-hidden="true"></span></div>
           <div class="legend-labels"><span id="legendWhite" class="legend-area visually-hidden">{{common.whiteArea}}</span><span id="legendNeutral" class="legend-area" hidden>{{common.neutral}}</span><span class="rule-line"><span id="ruleLabel" class="rule-label">{{game.ruleLabel(9,0,7.5,0)}}</span><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span><span id="legendBlack" class="legend-area visually-hidden">{{common.blackArea}}</span></div>
         </div>
-        <div id="captureCounts" class="capture-counts" role="status" hidden><span id="whitePrisonerPill" class="prisoner-pill"><span class="capture-stone white" aria-hidden="true"></span><span id="whitePrisoners">0</span></span><span class="capture-label">{{game.capturesLabel}}</span><span id="blackPrisonerPill" class="prisoner-pill"><span class="capture-stone black" aria-hidden="true"></span><span id="blackPrisoners">0</span></span></div>
         <div id="infoPanel" class="info-panel">
         <div id="reviewTools" class="review-tools" role="group" aria-label="{{review.menu}}" hidden>
-          <div class="review-scrubber">
-            <div id="reviewGraph" class="review-graph">
-              <div id="reviewGraphPlot" class="review-graph-plot" aria-hidden="true"></div>
-              <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="{{review.range}}">
-            </div>
-          </div>
           <div class="review-extras">
             <button id="reviewVariation" type="button" hidden>{{review.showVariation}}</button>
             <button id="reviewSaveVariation" type="button" hidden>{{review.saveVariation}}</button>
           </div>
           <p id="reviewNotice" role="status" aria-live="polite"></p>
         </div>
-        <div id="statusRow" class="status-row">
+        <div id="controlRow" class="control-row">
           <button id="stepBack" class="icon-button step-button" type="button" aria-label="{{review.previous}}" title="{{review.previous}}" disabled><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>
-          <div class="status-main">
-            <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
-            <div class="status-sub"><span id="moveLabel" class="move-label">{{game.moveLabel(0)}}</span><span id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</span></div>
-            <div id="players" class="players" aria-label="{{game.playersLabel}}" hidden>
-              <div id="playerBlack" class="player black"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockBlack" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
-              <span id="playersMove" class="players-move"></span>
-              <div id="playerWhite" class="player white"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockWhite" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
+          <div class="control-slot">
+            <div class="review-scrubber">
+              <div id="reviewGraph" class="review-graph">
+                <div id="reviewGraphPlot" class="review-graph-plot" aria-hidden="true"></div>
+                <input id="reviewStepRange" type="range" min="0" max="0" value="0" step="1" aria-label="{{review.range}}">
+              </div>
+            </div>
+            <div id="endgameBar" class="endgame-bar" aria-label="{{header.endBar}}">
+              <button id="copyIllegalPrompt" class="secondary accent-outline illegal-prompt-action" type="button" aria-label="{{game.illegalPromptAria}}" title="{{game.illegalPromptTitle}}" hidden><span>{{game.askAi}}</span><svg class="copy-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><svg class="copied-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></button>
+              <button class="help-button" type="button" data-help="endgame" aria-label="{{common.helpFor(help.endgame)}}" title="{{common.helpFor(help.endgame)}}" id="endHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button>
+              <span id="endNote" class="end-note"></span>
+              <div id="endActions" class="end-buttons">
+                <button id="endPropose" class="secondary end-action" type="button"><span id="endProposeLabel">{{endgame.propose}}</span><span id="endStage" class="end-stage" aria-hidden="true" hidden><b></b><b></b><b></b></span></button>
+                <button id="endDecline" class="secondary end-action" type="button" hidden>{{common.keepPlaying}}</button>
+                <button id="endAccept" class="end-action primary" type="button" hidden>{{common.accept}}</button>
+              </div>
+              <span id="analysisStatus" class="visually-hidden" role="status" aria-live="polite"></span>
+              <span id="endDetail" class="visually-hidden"></span>
+              <span id="hint" class="visually-hidden" aria-live="polite"></span>
+            </div>
+            <div id="scoreBox" class="score-box hidden">
+              <div id="scoreText" class="score-table" role="group"></div>
             </div>
           </div>
           <button id="stepForward" class="icon-button step-button" type="button" aria-label="{{review.next}}" title="{{review.next}}" disabled><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button>
         </div>
-        <div id="endgameBar" class="endgame-bar" aria-label="{{header.endBar}}">
-          <span id="endStatus" class="end-status" role="status" aria-live="polite">{{endgame.playing}}</span>
-          <button id="copyIllegalPrompt" class="secondary accent-outline illegal-prompt-action" type="button" aria-label="{{game.illegalPromptAria}}" title="{{game.illegalPromptTitle}}" hidden><span>{{game.askAi}}</span><svg class="copy-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg><svg class="copied-icon" aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></button>
-          <button class="help-button" type="button" data-help="endgame" aria-label="{{common.helpFor(help.endgame)}}" title="{{common.helpFor(help.endgame)}}" id="endHelp"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button>
-          <div id="endActions" class="end-buttons">
-            <button id="endPropose" class="secondary end-action" type="button">{{endgame.propose}}</button>
-            <button id="endDecline" class="secondary end-action" type="button" hidden>{{common.keepPlaying}}</button>
-            <button id="endAccept" class="end-action primary" type="button" hidden>{{common.accept}}</button>
+        <div id="statusRow" class="status-row">
+          <div class="status-main">
+            <span id="endStatus" class="end-status" role="status" aria-live="polite"></span>
+            <span id="captureCounts" class="visually-hidden" role="status"></span>
+            <div id="turn" class="turn" role="status" aria-live="polite">{{game.turnBlack}}</div>
+            <div class="status-sub"><span id="moveLabel" class="move-label">{{game.moveLabel(0)}}</span><span id="netStatus" class="connection-status" role="status" aria-live="polite">{{game.localPractice}}</span></div>
+            <div class="score-head"><span id="scoreStone" class="score-stone" aria-hidden="true"></span><strong id="scoreTitle">{{scoring.title}}</strong><button class="help-button" type="button" data-help="scoring" aria-label="{{common.helpFor(help.scoringCheck)}}" title="{{common.helpFor(help.scoringCheck)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button><button id="scoreStyle" class="secondary score-style" type="button" hidden>{{playStyle.fromResult}}</button></div>
+            <p id="scoreInstruction" class="score-instruction">{{scoring.instruction}}</p>
+            <div id="players" class="players" aria-label="{{game.playersLabel}}" hidden>
+              <div id="playerBlack" class="player black"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span><span id="whitePrisonerPill" class="prisoner-pill" aria-hidden="true" hidden><span class="capture-stone white" aria-hidden="true"></span><span id="whitePrisoners">0</span></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockBlack" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
+              <span id="playersMove" class="players-move"></span>
+              <div id="playerWhite" class="player white"><span class="player-head"><span class="player-stone" aria-hidden="true"></span><span class="player-name"></span><span id="blackPrisonerPill" class="prisoner-pill" aria-hidden="true" hidden><span class="capture-stone black" aria-hidden="true"></span><span id="blackPrisoners">0</span></span></span><span class="player-detail"><span class="player-detail-text"></span><span id="clockWhite" class="clock-time" aria-label="{{game.clockLabel}}" hidden></span><span class="thinking-ring player-wait" aria-hidden="true" hidden></span></span></div>
+            </div>
           </div>
-          <span id="analysisStatus" class="visually-hidden" role="status" aria-live="polite"></span>
-          <span id="endDetail" class="visually-hidden"></span>
-          <span id="hint" class="visually-hidden" aria-live="polite"></span>
-        </div>
-        <div id="scoreBox" class="score-box hidden">
-          <div class="score-head"><span id="scoreStone" class="score-stone" aria-hidden="true"></span><strong>{{scoring.title}}</strong><button class="help-button" type="button" data-help="scoring" aria-label="{{common.helpFor(help.scoringCheck)}}" title="{{common.helpFor(help.scoringCheck)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></div>
-          <p id="scoreInstruction">{{scoring.instruction}}</p>
-          <div id="scoreText" class="score-table" role="group"></div>
-          <button id="scoreStyle" class="secondary score-style" type="button" hidden>{{playStyle.fromResult}}</button>
         </div>
         </div>
         <div id="actionRow" class="action-row">
