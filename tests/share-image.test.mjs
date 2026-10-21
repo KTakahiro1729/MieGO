@@ -45,13 +45,13 @@ function recordingContext() {
     measureText:t=>({width:t.length*10})};
 }
 
-test("the card reads brand and rules, result, board, legend, then links",()=>{
+test("the card reads brand and rules, result, board, legend (Black left), then links",()=>{
   assert.deepEqual(SHARE_LINKS,[["自分でプレイする","miego.fun"],["開発に参加する","github.com/KTakahiro1729/MieGO"]]);
   const ctx=recordingContext();
   paintShareFrame({width:800,getContext:()=>ctx},{width:720},
     {moves:"42手目",rules:"コミ7.5目",result:"白が3.5目差で勝利",winner:"W",theme:"wood",legend:{palette:"mono",opacity:.55}});
   assert.deepEqual(ctx.texts.map(t=>t.text),["MieGO","42手目 · コミ7.5目","白が3.5目差で勝利",
-    "地合いの推定","白の地","黒の地","miego.fun","自分でプレイする","github.com/KTakahiro1729/MieGO","開発に参加する"]);
+    "地合いの推定","黒の地","白の地","miego.fun","自分でプレイする","github.com/KTakahiro1729/MieGO","開発に参加する"]);
   const [[bx,by,bs]]=ctx.images;
   const at=text=>ctx.texts.find(t=>t.text===text);
   assert.equal(at("MieGO").x,bx+bs/10,"text aligns with the grid's edge");
@@ -61,6 +61,7 @@ test("the card reads brand and rules, result, board, legend, then links",()=>{
   assert.ok(Math.abs(((stone[0]-16)+(result.x+result.text.length*10))/2-400)<1,"stone and result are centred");
   // The legend is titled, centred and sits just under the board.
   assert.ok(at("地合いの推定").y>by+bs && at("黒の地").y<at("miego.fun").y);
+  assert.ok(at("黒の地").x<at("白の地").x,"Black's end is on the left, as everywhere");
   assert.ok(Math.abs((at("白の地").x+at("黒の地").x)/2-400)<1);
   // Each link is centred in its half of the board's width, the address above its purpose.
   assert.equal(at("miego.fun").x,bx+bs/4);
