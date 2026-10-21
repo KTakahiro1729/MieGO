@@ -339,7 +339,9 @@ export function areaScore(state) {
 /**
  * Area scoring. The playout's fill stones close the borders but count for
  * nobody: they fill the dame after the players stopped, and those points are
- * shared (中国围棋竞赛规则), which is the same difference as no one's. Counting
+ * shared (中国围棋竞赛规则 2002年版 第九条: 双方活棋之间的空点各得一半), which
+ * is the same difference as no one's. Dame filled as moves during the match
+ * are real stones and still count for the side that played them. Counting
  * them would give the side that fills first, the one that passed first, the
  * odd point.
  */
