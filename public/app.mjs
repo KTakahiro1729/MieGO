@@ -165,7 +165,11 @@ function switchToFallback(reason) {
   workerWaiting = null; prefetch = null;
   worker.onmessage = onWorkerMessage;
   worker.onerror = e => { $("analysisStatus").textContent = TEXT.analysis.unavailable; console.error(e); };
-  if (gameMode === "ai" && !isGomoku(game)) $("aiMatchStatus").textContent = TEXT.ai.unavailable;
+  // The turn row has room for the first words only; the notice gives the whole sentence.
+  if (gameMode === "ai" && !isGomoku(game)) {
+    $("aiMatchStatus").textContent = TEXT.ai.unavailable;
+    showNotice(TEXT.ai.unavailable);
+  }
   show();
   requestAnalysis();
 }
@@ -538,7 +542,8 @@ const strongWorkers = createStrongWorkers({
   },
   onFailed() {
     if(aiJob?.strong){aiThinking=false;aiJob=null;}
-    if(gameMode==="ai")$("aiMatchStatus").textContent=TEXT.ai.strongestFailed;
+    // The player row still reads 最強, so the notice says it plays with the small network.
+    if(gameMode==="ai"){$("aiMatchStatus").textContent=TEXT.ai.strongestFailed;showNotice(TEXT.ai.strongestFailed);}
     if(isAiTurn())requestAnalysis();
   },
   onReading(result) {
@@ -1758,7 +1763,9 @@ $("returnToGame").onclick=()=>{
 };
 async function verifyP2P(){
   $("p2pVerify").hidden=false;
-  if($("onlineSetup").hidden)openPanel("online");
+  // A guest's sheet opens only for the check, so it closes once the check passes.
+  const opened=$("onlineSetup").hidden;
+  if(opened)openPanel("online");
   const config=await fetch("/api/p2p/config").then(r=>r.json());
   if(config.rooms===false)throw new UserError(TEXT.online.roomsUnavailable);
   if(!config.siteKey)throw new UserError(TEXT.online.turnstileMissing);
@@ -1773,7 +1780,7 @@ async function verifyP2P(){
   return new Promise((resolve,reject)=>{
     $("p2pTurnstile").replaceChildren();
     window.turnstile.render($("p2pTurnstile"),{sitekey:config.siteKey,action:"miego_p2p",
-      callback:resolve,"error-callback":()=>reject(new UserError(TEXT.online.verifyFailed)),
+      callback:token=>{if(opened)closePanels();resolve(token);},"error-callback":()=>reject(new UserError(TEXT.online.verifyFailed)),
       "expired-callback":()=>reject(new UserError(TEXT.online.verifyExpired))});
   });
 }
@@ -1815,7 +1822,12 @@ p2pTransport=createP2PTransport({
   },
   onSync:onPeerSync,
   onAction:action=>apply(action,true),
-  onConnected:()=>{connected=true;$("netStatus").textContent=TEXT.online.connected;show();},
+  onConnected:()=>{
+    connected=true;$("netStatus").textContent=TEXT.online.connected;
+    // A failed retry left 電波やWi-Fiを確認して…, which no longer applies once the peers meet again.
+    if($("saveStatus").textContent===TEXT.online.requestFailed)$("saveStatus").hidden=true;
+    show();
+  },
   onDisconnected:message=>{connected=false;$("netStatus").textContent=message;show();},
   onError:error=>{
     console.warn("P2P",error);
@@ -1842,6 +1854,8 @@ async function joinRoom(){
     $("netStatus").textContent=TEXT.online.statusCannotJoin;showSeatNotice(TEXT.online.badInvite);return;
   }
   const targetRoom=room;
+  // show() names the mode only outside a room, so the previous mode's name would stay here.
+  $("netStatus").textContent=TEXT.online.waitingConnection;
   try{
     await p2pTransport.join({room,role:p2pRole,session:onlineSession,inviteKey});
     if(targetRoom!==room)return;
