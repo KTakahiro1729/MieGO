@@ -277,7 +277,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   // of its stone, so nothing behind it is ever reached. Each side keeps its own colour on the colour map.
   function paintBoardLines(view,board,gap,pad,moving) {
     const palette=countingPalette(view.palette);
-    const tone={[BLACK]:`rgb(${paletteAt(1,palette).join(",")})`,[WHITE]:`rgb(${paletteAt(-1,palette).join(",")})`};
+    const rgb={[BLACK]:paletteAt(1,palette).join(","),[WHITE]:paletteAt(-1,palette).join(",")};
+    const tone={[BLACK]:`rgb(${rgb[BLACK]})`,[WHITE]:`rgb(${rgb[WHITE]})`};
     const width=Math.max(2,gap*.08), dash=gap*.09, tip=0, edge=1-.44, flare=gap*.14;
     // How far into its breath each side is: black and white take turns.
     const since={[BLACK]:now()%BREATH_MS,[WHITE]:(now()+BREATH_MS/2)%BREATH_MS};
@@ -355,16 +356,23 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         ctx.restore();
       }
     }
-    // The breath's start: a circle closing in on each liberty. A liberty both
-    // sides need gets a whole circle from each in turn.
+    // The breath's start: a circle closing in on each liberty, well inside a
+    // stone's size and soft at its edge so it never reads as one. It ends as
+    // a solid dot the line's width. A liberty both sides need gets a whole
+    // circle from each in turn.
     for(const [point,colors] of dots){
       const [x,y]=xy(point);
       for(const color of colors){
         const gather=moving?since[color]/BREATH_GATHER_MS:1;
         if(gather>=1)continue;
-        ctx.globalAlpha=.15+.7*gather;
-        ctx.fillStyle=tone[color];ctx.beginPath();
-        ctx.arc(x,y,gap*(.04+.36*(1-gather**2)),0,Math.PI*2);ctx.fill();
+        ctx.globalAlpha=.4+.5*gather;
+        const radius=gap*(.04+.22*(1-gather**2)), core=gap*.04/radius;
+        const soft=ctx.createRadialGradient(x,y,0,x,y,radius);
+        soft.addColorStop(0,`rgba(${rgb[color]},1)`);
+        soft.addColorStop(core,`rgba(${rgb[color]},1)`);
+        soft.addColorStop(1,`rgba(${rgb[color]},0)`);
+        ctx.fillStyle=core<1?soft:tone[color];ctx.beginPath();
+        ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
       }
     }
     ctx.restore();
