@@ -240,6 +240,9 @@ export const TEXT = {
     // While watching: stepping in lets the viewer place the next stone; × goes back to watching.
     watchIntervene: "介入する",
     watchBack: "観戦に戻る",
+    // The button between them shows the pace and moves on to the next one: ゆっくり → ふつう → はやい → ゆっくり.
+    watchSpeedNote: "速さ",
+    watchSpeedAria: speed => "観戦の速さ：" + speed + "（押すと次の速さ）",
     moveLabel: move => move + "手目",
     // Each side's 持ち時間 beside the move count; 秒読み counts each move's seconds.
     clockLabel: "持ち時間",

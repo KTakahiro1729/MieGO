@@ -1114,12 +1114,14 @@ function show() {
   $("scoreStyle").hidden=!isFinished || ![...playedSides(),...watchedSides()].some(color=>canReadStyle(game,color));
   // COM同士: 介入する and 一時停止 (再開); stepping in shows × and ここに打つ instead.
   const watchingPlay=spectating && game.status==="playing";
-  $("watchToggle").hidden=$("watchIntervene").hidden=!watchingPlay || intervening;
+  $("watchToggle").hidden=$("watchIntervene").hidden=$("watchSpeedStep").hidden=!watchingPlay || intervening;
   $("watchIntervene").disabled=!isGomoku(game) && (!katagoReady || fallbackMode);
   if(watchingPlay)for(const id of ["pass","resign"])$(id).hidden=true;
   if(watchingPlay && !intervening)for(const id of ["cancel","confirm"])$(id).hidden=true;
   $("watchToggle").textContent=watchPaused?TEXT.game.watchResume:TEXT.game.watchPause;
   $("watchToggle").setAttribute("aria-pressed",String(watchPaused));
+  $("watchSpeedLabel").textContent=TEXT.newGame.watchSpeeds[watchSpeed];
+  $("watchSpeedStep").setAttribute("aria-label",TEXT.game.watchSpeedAria(TEXT.newGame.watchSpeeds[watchSpeed]));
   $("scoreTitle").textContent=isFinished?TEXT.scoring.resultTitle:
     scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title;
   const playout=settleControl.view();
@@ -2784,6 +2786,17 @@ $("watchToggle").onclick=()=>{
   watchPaused=!watchPaused;
   // 再開 plays the next move straight away.
   if(!watchPaused)lastWatchMoveAt=0;
+  show();requestAnalysis();
+};
+// 速さ changes only the pause between moves: the COMs and the game go on, and the
+// 新規対戦 sheet's 時間 tab shows the same pace.
+const WATCH_SPEED_ORDER = ["slow","normal","fast"];
+$("watchSpeedStep").onclick=()=>{
+  if(!isWatching() || game.status!=="playing")return;
+  watchSpeed=WATCH_SPEED_ORDER[(WATCH_SPEED_ORDER.indexOf(watchSpeed)+1)%WATCH_SPEED_ORDER.length];
+  rememberSettings();
+  const choice=document.querySelector('input[name="watchSpeed"][value="'+watchSpeed+'"]');
+  if(choice)choice.checked=true;
   show();requestAnalysis();
 };
 function syncHandicapUi() {
