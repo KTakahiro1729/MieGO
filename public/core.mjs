@@ -90,11 +90,13 @@ export function handicapPoints(size, count) {
 export const starPoints = size => handicapPoints(size, size === 19 ? 9 : 5);
 // The 9x9 handicap points (kept for callers written before other sizes).
 export const HANDICAP_POINTS = Object.freeze(handicapPoints(SIZE, 5));
-// Handicap games use 0.5 komi; Chinese rules (and KataGo's "chinese" ruleset,
-// whiteHandicapBonus=N) also give White one point per handicap stone. Japanese
-// territory scoring needs no such bonus (KataGo: whiteHandicapBonus=0), since
-// the handicap stones themselves are not counted.
-export const HANDICAP_KOMI = 0.5;
+// Handicap games have no komi, so they can end in a draw (持碁): 让子棋不贴目
+// under the Chinese rules, and none by custom in Japan. Chinese rules (and
+// KataGo's "chinese" ruleset, whiteHandicapBonus=N) give White back half a 子
+// (one point) per handicap stone. Japanese territory scoring needs no such
+// bonus (KataGo: whiteHandicapBonus=0), since the handicap stones themselves
+// are not counted.
+export const HANDICAP_KOMI = 0;
 export const handicapOf = (state, size = Array.isArray(state?.board) ? sizeOf(state.board) : SIZE) =>
   Number.isInteger(state?.handicap) && state.handicap >= 2 && state.handicap <= maxHandicap(size) ? state.handicap : 0;
 export const komiOf = state => Number.isFinite(state?.komi) ? state.komi : RULES_KOMI[rulesOf(state)];
@@ -228,7 +230,7 @@ export const replayMove = (state, { color, position, replace }) =>
  * Either color may offer, even when it is not their turn. The other side
  * must explicitly accept before entering dead-stone adjudication.
  */
-export function proposeEnd(state, color) {
+export function proposeEnd(state, color, kind = "score") {
   if (state.status !== "playing" || ![BLACK, WHITE].includes(color)) {
     throw new Error("No end offer outside play");
   }
@@ -239,7 +241,9 @@ export function proposeEnd(state, color) {
     // wins the tie, and the other offer is ignored (not a rule preference).
     if (state.endProposal.from === color || color === WHITE) return state;
   }
-  return { ...state, endProposal: { from: color, atMove: state.moveNumber } };
+  // A 無勝負 offer is only written as such, so a scoring offer keeps its shape.
+  const voids = kind === "void" ? { kind: "void" } : {};
+  return { ...state, endProposal: { from: color, atMove: state.moveNumber, ...voids } };
 }
 export function answerEndProposal(state, color, accept) {
   const offer = state.endProposal;
@@ -251,9 +255,39 @@ export function answerEndProposal(state, color, accept) {
     return { ...state, endProposal: null }; // withdraw own offer
   }
   if (!accept) return { ...state, endProposal: null };
+  if (offer.kind === "void") return voidGame(state);
   return { ...state, status: "scoring", scoringStep: "dead", passes: 0, endProposal: null,
     dead: [], agreed: { black: false, white: false } };
 }
+/**
+ * 同一局面反復: how many times the stone just played brings back a board seen
+ * before with the same side to move (0 if it does not), as a triple ko or
+ * 長生 does over and over. A pass is left out: passing only ends the game.
+ */
+export function repeatedPosition(state) {
+  const last = state?.moves?.at(-1);
+  if (!last || !Number.isInteger(last.position) || isFree(state) || isGomoku(state)) return 0;
+  const hash = state.history.at(-1), first = initialGame(state).next;
+  let count = 0;
+  // history[i] is the board after i moves, with the side after moves[i-1] to move.
+  for (let i = 0; i < state.history.length - 1; i++) {
+    const next = i ? -state.moves[i - 1].color : first;
+    if (state.history[i] === hash && next === state.next) count++;
+  }
+  return count;
+}
+/**
+ * 無勝負: 日本囲碁規約 第十二条 ends a game whose position repeats as no result
+ * when both sides agree. The Chinese rules forbid the repetition outright and
+ * leave the outcome (无胜负 among others) to each event; MieGO plays simple
+ * ko there too (as KataGo does), so the same offer ends it.
+ */
+export function voidGame(state) {
+  if (state.status !== "playing") throw new Error("Not playing");
+  return { ...state, status: "finished", endProposal: null, result: "Void" };
+}
+/** A finished game that shows its count: not a resignation and not 無勝負. */
+export const countedEnd = state => state?.status === "finished" && !/\+R$|^Void$/.test(state.result || "");
 /** A human may open scoring in a solo/AI match, without fabricating
  * another player's (or an AI's) acceptance of an endgame offer.
  */
@@ -473,5 +507,7 @@ export function finalizeSoloScore(state) {
 }
 /** The SGF result of a count, such as "B+3.5". */
 export function scoreResult(score) {
+  // Without komi (a handicap game) the count can be even: 持碁.
+  if (score.difference === 0) return "0";
   return (score.difference > 0 ? "B+" : "W+") + Math.abs(score.difference).toFixed(1);
 }

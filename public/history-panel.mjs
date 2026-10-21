@@ -4,7 +4,7 @@ import {recordThumbnailSvg} from "./board-thumbnail.mjs";
 import { TEXT } from "./texts.mjs";
 import { UserError, messageFor } from "./user-error.mjs";
 
-const STAR='<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="m12 3.2 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/></svg>';
+const STAR='<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linejoin="round"><path d="m12 3.2 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8z"/></svg>';
 // The library sheet is a file picker and saved-game list. All board/replay
 // controls live on the main board; it never creates a second playing surface.
 // getThumbnailOverlay(record) gives the kept ownership tint of its final board, or null.

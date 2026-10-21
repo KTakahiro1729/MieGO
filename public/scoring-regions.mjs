@@ -2,6 +2,7 @@ import {
   BLACK,
   WHITE,
   areaScore,
+  countedEnd,
   countingBoard,
   handicapBonusOf,
   isJapanese,
@@ -64,7 +65,7 @@ export function scoreBreakdown(state) {
 
 /** Japanese counting after the dead stones are agreed (or a finished count). */
 export const prisonersFilled=state=>isJapanese(state) &&
-  (scoringStepOf(state)==="count" || state.status==="finished" && !state.result?.endsWith("+R"));
+  (scoringStepOf(state)==="count" || countedEnd(state));
 
 /** The scoreboard rows: board count (area, or territory under Japanese
  * rules), what is added to it, and the total. Under Japanese rules the rows
@@ -84,11 +85,11 @@ export function scoreRows(state) {
     if(japanese){
       const other=color==="black"?"white":"black";
       const area=Math.max(0,remaining(color)),leftover=Math.max(0,-remaining(other));
-      return {area,detail:TEXT.scoring.detail(area,{komi:color==="white"?komi:null,
+      return {area,detail:TEXT.scoring.detail(area,{komi:color==="white" && komi?komi:null,
         bonus:color==="white"?bonus:0,leftover}),total:area+leftover+extra};
     }
     const area=total-extra;
-    return {area,detail:TEXT.scoring.detail(area,{komi:color==="white"?komi:null,
+    return {area,detail:TEXT.scoring.detail(area,{komi:color==="white" && komi?komi:null,
       bonus:color==="white"?bonus:0}),total};
   };
   return {

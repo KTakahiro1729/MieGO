@@ -188,7 +188,7 @@ test("forbidden-point reasons are full sentences that wrap to two lines",async()
   // What to do on the first line, why on the second.
   assert.equal(forbiddenLines("doubleThree"),"別の交点を選んでください。\n黒の三三で打てません。");
   assert.equal(forbiddenLines("ko"),"別の交点を選んでください。\nコウで打てません。");
-  // Two lines inside the fixed-height bar, never cut to one line with an ellipsis.
-  assert.match(css,/\.endgame-bar\.has-illegal \.end-status\{[^}]*white-space:pre-line[^}]*-webkit-line-clamp:2/);
-  assert.doesNotMatch(css,/\.endgame-bar\.has-illegal \.end-status\{[^}]*text-overflow:ellipsis/);
+  // Two lines in the turn row, never cut to one line with an ellipsis.
+  assert.match(css,/\.end-status\{[^}]*white-space:pre-line[^}]*-webkit-line-clamp:2/);
+  assert.doesNotMatch(css,/\.end-status\{[^}]*text-overflow:ellipsis/);
 });

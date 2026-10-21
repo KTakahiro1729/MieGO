@@ -87,7 +87,7 @@ test("AI copy is only a description of the link format, not separate SGF or a qu
 });
 
 test("the status row keeps its height whatever it says",()=>{
- assert.match(css,/\.status-row \.step-button\{[^}]*height:44px/);
+ assert.match(css,/\.control-row \.step-button\{[^}]*height:44px/);
  assert.match(css,/\.turn\{[^}]*white-space:nowrap;overflow:hidden;text-overflow:ellipsis/);
 });
 

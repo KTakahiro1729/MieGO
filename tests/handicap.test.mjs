@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {newGame,play,at,areaScore,whiteCompensation,initialGame,HANDICAP_POINTS,KOMI,BLACK,WHITE} from "../public/core.mjs";
+import {newGame,play,at,areaScore,scoreResult,whiteCompensation,initialGame,HANDICAP_POINTS,KOMI,BLACK,WHITE} from "../public/core.mjs";
 import {parseSGF,exportSGF,replaySteps,forkReview} from "../public/sgf.mjs";
 import {takeBack} from "../public/takeback.mjs";
 import {freshLocalGame} from "../public/mode-state.mjs";
@@ -10,7 +10,7 @@ test("handicap games start with stones on star points and White to move",()=>{
   const g=newGame(true,{handicap:4});
   assert.equal(g.next,WHITE);
   assert.equal(g.handicap,4);
-  assert.equal(g.komi,0.5);
+  assert.equal(g.komi,0);
   assert.deepEqual(g.board.flatMap((v,i)=>v===BLACK?[i]:[]).sort((a,b)=>a-b),
     HANDICAP_POINTS.slice(0,4).sort((a,b)=>a-b));
   assert.equal(g.board[at(4,4)],0,"tengen is the fifth stone");
@@ -22,15 +22,23 @@ test("handicap games start with stones on star points and White to move",()=>{
   }
 });
 
-test("Chinese handicap scoring gives White komi 0.5 plus one point per stone",()=>{
+test("Chinese handicap scoring gives White no komi, only one point per stone",()=>{
   const g=newGame(true,{handicap:3});
-  assert.equal(whiteCompensation(g),3.5);
+  assert.equal(whiteCompensation(g),3);
   // Old snapshots without the new fields keep the even-game 7.5 komi.
   const legacy={...newGame()};delete legacy.komi;delete legacy.handicap;
   assert.equal(whiteCompensation(legacy),7.5);
   // Board with only the three black stones: Black owns all 81 points.
   const s=areaScore({...g,dead:[]});
-  assert.equal(s.black,81);assert.equal(s.white,3.5);
+  assert.equal(s.black,81);assert.equal(s.white,3);
+});
+
+test("without komi a handicap game can end in a draw (持碁)",()=>{
+  const g={...newGame(true,{handicap:2,rules:"japanese"}),status:"scoring",board:Array(81).fill(0)};
+  assert.equal(scoreResult(areaScore(g)),"0");
+  const record=parseSGF(exportSGF({...g,status:"finished",result:"0"}));
+  assert.equal(record.snapshot.result,"0");
+  assert.match(exportSGF({...g,status:"finished",result:"0"}),/RE\[0\]/);
 });
 
 test("replay, fork and takeback start from the handicap position",()=>{
@@ -54,11 +62,11 @@ test("SGF round-trips MieGO handicap games and rejects other setups",()=>{
   let g=newGame(true,{handicap:3});
   g=play(g,at(4,4));g=play(g,at(3,3));
   const text=exportSGF(g);
-  assert.match(text,/KM\[0\.5\]RU\[Chinese\]HA\[3\]AB\[gc\]\[cg\]\[gg\]/);
+  assert.match(text,/KM\[0\]RU\[Chinese\]HA\[3\]AB\[gc\]\[cg\]\[gg\]/);
   const back=parseSGF(text);
   assert.equal(back.snapshot.handicap,3);
   assert.deepEqual(back.snapshot.board,g.board);
-  assert.equal(back.metadata.komi,"0.5");
+  assert.equal(back.metadata.komi,"0");
   assert.throws(()=>parseSGF("(;GM[1]FF[4]SZ[9]HA[2]AB[aa][ii];W[ee])"),/置き石/);
   assert.throws(()=>parseSGF("(;GM[1]FF[4]SZ[9]AB[gc];W[ee])"),/置き石/);
   assert.throws(()=>parseSGF("(;GM[1]FF[4]SZ[9]AW[gc];B[ee])"),/白石/);
