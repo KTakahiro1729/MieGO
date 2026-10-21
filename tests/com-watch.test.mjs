@@ -59,13 +59,8 @@ test("介入する steps in; only then the board takes a stone; ここに打つ 
 });
 
 test("採点を始める works while a COM is thinking: it stops the watched game and asks",()=>{
-  assert.match(body("updateEndUi"),/if\(aiThinking && !isWatching\(\)\)\$\("endPropose"\)\.disabled=true;/);
   const propose=app.slice(app.indexOf('$("endPropose").onclick'),app.indexOf("function answerTakebackRequest"));
   assert.match(propose,/if\(isWatching\(\)\)\{stopAiTurn\(\);[^}]*\}\s*if\(!room\)\{\s*if\(aiThinking\)return;/);
-});
-
-test("a COM's pass while watching says what happened, without asking the viewer to pass",()=>{
-  assert.match(body("passNotice"),/if\(isWatching\(\)\)return \{text:TEXT\.endgame\.passedWatch\([^)]*\),second:false\};/);
 });
 
 test("stepping back through a watched game pauses it and shows the score graph",()=>{

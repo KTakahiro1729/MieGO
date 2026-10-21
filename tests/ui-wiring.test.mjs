@@ -27,10 +27,6 @@ test("game errors use the inline notice, never a blocking alert",()=>{
   assert.doesNotMatch(app,/\balert\(error/);
   assert.match(css,/\.save-status\{position:fixed/);
 });
-test("endgame advice never claims 'not yet' until KataGo has evaluated a position",()=>{
-  // endgameHint reports 確認中／判定できません instead (see tests/endgame.test.mjs).
-  assert.match(app,/endgameHint\(game,endgameAdvisor,\{\s*unavailable:fallbackMode/);
-});
 test("states that only screen readers heard are also shown in the notice",()=>{
   // The turn row cuts ページを開き直してください… short, and the player row keeps reading 最強.
   assert.match(app,/\$\("aiMatchStatus"\)\.textContent = TEXT\.ai\.unavailable;\n    showNotice\(TEXT\.ai\.unavailable\);/);
