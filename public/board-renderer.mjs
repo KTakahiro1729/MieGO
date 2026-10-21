@@ -28,30 +28,34 @@ import {scoringRegions,prisonerFill,prisonersFilled} from "./scoring-regions.mjs
 
 // Stones taken by a move fade out over this long instead of vanishing.
 export const CAPTURE_FADE_MS=200;
-// 盤の線 breathes: every BREATH_MS each side takes one breath, about fifteen
-// a minute as a person at rest, black in the first half and white in the
-// second, so only one side moves at a time. Each breath is drawn in: first a
-// faint wide circle around every liberty closes in on it, faster and denser
-// as it goes, over BREATH_GATHER_MS; then over BREATH_DRAW_MS a stretch of
-// line leaves the liberties slowly and speeds up into that side's groups,
-// trailing what it covered in the last BREATH_TRAIL_MS, so it stretches as
-// it speeds up, until it has passed the deepest stone. Then that side rests.
-// Each group starts its breath up to BREATH_STAGGER_MS late, so the groups
-// of a side breathe a little apart; all are done before the other side starts.
-export const BREATH_MS=4000, BREATH_GATHER_MS=900, BREATH_DRAW_MS=900, BREATH_TRAIL_MS=250, BREATH_STAGGER_MS=200;
+// 盤の線 breathes, one side at a time: black takes a breath, and once its
+// last group is through, after BREATH_REST_MS, white takes one, and so on.
+// Each breath is drawn in: first a faint wide circle around every liberty
+// closes in on it, faster and denser as it goes, over BREATH_GATHER_MS; then
+// a stretch of line leaves the liberties, speeding up over its first line
+// to one line each BREATH_LINE_MS, and runs on into the group at that speed,
+// trailing what it covered in the last BREATH_TRAIL_MS, until it has passed
+// the deepest stone. A deeper group takes longer, never faster. Each group
+// starts its breath up to BREATH_STAGGER_MS late, so the groups of a side
+// breathe apart.
+export const BREATH_GATHER_MS=900, BREATH_LINE_MS=200, BREATH_TRAIL_MS=250, BREATH_STAGGER_MS=1100, BREATH_REST_MS=200;
+// How far a breath has run, in lines, BREATH_GATHER_MS after it started.
+export const breathReached=t=>t<=0?0:t<BREATH_LINE_MS?t*t/(2*BREATH_LINE_MS**2):.5+(t-BREATH_LINE_MS)/BREATH_LINE_MS;
+// How long, after it starts, a breath takes to run d lines with its trail.
+export const breathTakes=d=>BREATH_GATHER_MS+(d<=.5?BREATH_LINE_MS*Math.sqrt(2*d):BREATH_LINE_MS*(d+.5))+BREATH_TRAIL_MS;
 // How late a group breathes, from its first stone: steps of the golden
 // ratio keep neighbouring groups well apart, and a group keeps its delay
 // until a stone before its first joins it.
 export const breathDelay=first=>(first*.6180339887%1)*BREATH_STAGGER_MS;
 // 盤の線 on, a group a move takes dies from its last liberty out: grey,
 // air no longer, runs from the stone that fills that liberty along the line
-// through the group, one stone further each CAPTURE_STEP_MS (quicker in a
-// long group, so it takes at most CAPTURE_SPREAD_MS), and each stone it
-// reaches dims over CAPTURE_DIM_MS; once all of it is grey the line dims too.
+// through the group, one stone further each CAPTURE_STEP_MS however long the
+// group, and each stone it reaches dims over CAPTURE_DIM_MS; once all of it
+// is grey the line dims too.
 // It runs while the move is only placed, the stones dimming to
 // PREVIEW_CAPTURED_ALPHA; once played they fade out from there as any
 // capture does. A move played without being placed first dims as it is played.
-export const CAPTURE_STEP_MS=320, CAPTURE_SPREAD_MS=1280, CAPTURE_DIM_MS=480, PREVIEW_CAPTURED_ALPHA=.4;
+export const CAPTURE_STEP_MS=320, CAPTURE_DIM_MS=480, PREVIEW_CAPTURED_ALPHA=.4;
 const DEAD_AIR="rgb(128,124,118)";
 const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 // ドパガキモード: sparks fly from each taken stone, and a "+N" rises over them, for this long.
@@ -78,6 +82,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   let SIZE = DEFAULT_SIZE;
   // The live position last drawn and each stone's alpha in it, to find what a move captured.
   let lastLive=null, shownAlpha=[], fading=[], cuts=[], previewCut=null, sparks=[], pops=[], waves=[], frame=null;
+  // The side breathing in 盤の線 and when its breath started.
+  let turn=null;
 
   function paintGrid(theme, d, gap, pad) {
     ctx.clearRect(0,0,d,d);
@@ -309,12 +315,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const rgb={[BLACK]:paletteAt(1,palette).join(","),[WHITE]:paletteAt(-1,palette).join(",")};
     const tone={[BLACK]:`rgb(${rgb[BLACK]})`,[WHITE]:`rgb(${rgb[WHITE]})`};
     const width=Math.max(2,gap*.08), dash=gap*.09, edge=1-.44, flare=gap*.14;
-    // How far into its breath each side is: black and white take turns. A
-    // group is later by its own delay; before it starts it is still resting.
-    const since={[BLACK]:now()%BREATH_MS,[WHITE]:(now()+BREATH_MS/2)%BREATH_MS};
-    const after=(color,delay)=>((since[color]-delay)%BREATH_MS+BREATH_MS)%BREATH_MS;
     const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
-    const dots=new Map(), seen=new Set(), groups=[], deepest={[BLACK]:0,[WHITE]:0};
+    const dots=new Map(), seen=new Set(), groups=[];
     for(let i=0;i<board.length;i++){
       if(!board[i] || seen.has(i))continue;
       const color=board[i], g=group(board,i);
@@ -329,7 +331,6 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
           if(g.stones.has(n) && !depth.has(n)){depth.set(n,depth.get(s)+1);next.push(n);}
         front=next;
       }
-      for(const d of depth.values())deepest[color]=Math.max(deepest[color],d);
       // Each line runs from a (a liberty at depth 0, or a stone) to stone b.
       const lines=[], delay=breathDelay(Math.min(...g.stones));
       for(const s of g.stones)for(const n of neighbors(s,SIZE)){
@@ -341,17 +342,26 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
           dot.first=Math.min(dot.first,delay);dot.last=Math.max(dot.last,delay);
         }else if(g.stones.has(n) && n>s)lines.push({a:s,b:n,from:depth.get(s),to:depth.get(n),liberty:false});
       }
-      groups.push({color,g,lines,delay});
+      // Its breath is through once its tail has passed the deepest stone,
+      // or in atari the edge of the stone next to its liberty.
+      const through=g.liberties.size===1?1-.44:Math.max(...depth.values())+1;
+      groups.push({color,g,lines,delay,takes:delay+breathTakes(through)});
     }
+    // Whose breath it is and how far into it: a side's breath lasts until
+    // its last group is through, then the other side's starts after a rest.
+    // Long unseen, it starts again from black.
+    const time=now(), lasts=color=>Math.max(0,...groups.filter(g=>g.color===color).map(g=>g.takes))+BREATH_REST_MS;
+    if(!turn || time-turn.start>60000)turn={color:BLACK,start:time};
+    while(time-turn.start>=lasts(turn.color))turn={color:turn.color===BLACK?WHITE:BLACK,start:turn.start+lasts(turn.color)};
+    // How far into its breath a group is; a resting one is never, or not yet.
+    const after=(color,delay)=>color===turn.color?time-turn.start-delay:Infinity;
     // How far a group's breath has run, and where its tail is, in lines
     // from the liberties. It sets out from the liberties the moment its
-    // circles have closed in, and its tail is past the side's deepest stone
-    // when the breath is over, so every group of a side draws in as fast.
+    // circles have closed in.
     const breath=({color,delay})=>{
       if(!moving)return [0,0];
-      const t=after(color,delay)-BREATH_GATHER_MS, run=BREATH_DRAW_MS-BREATH_TRAIL_MS;
-      const reached=t=>t>0?(deepest[color]+1)*(t/run)**2:0;
-      return [reached(t-BREATH_TRAIL_MS),reached(t)];
+      const t=after(color,delay)-BREATH_GATHER_MS;
+      return t<0?[0,0]:[breathReached(t-BREATH_TRAIL_MS),breathReached(t)];
     };
     ctx.save();
     ctx.lineWidth=width;ctx.lineCap="butt";
@@ -400,7 +410,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     // a dot until the last has drawn its own in.
     if(moving)for(const {point,color,first,last} of dots.values()){
       const [x,y]=xy(point), held=after(color,first);
-      if(held>=last-first+BREATH_GATHER_MS)continue;
+      if(held<0 || held>=last-first+BREATH_GATHER_MS)continue;
       const gather=Math.min(1,held/BREATH_GATHER_MS);
       // It fades in from nothing over the first third, then darkens.
       const rise=Math.min(1,gather*3);
@@ -542,7 +552,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         if(dead.has(n) && !depth.has(n)){depth.set(n,depth.get(s)+1);next.push(n);}
       front=next;
     }
-    const step=Math.min(CAPTURE_STEP_MS,CAPTURE_SPREAD_MS/Math.max(1,...depth.values()));
+    const step=CAPTURE_STEP_MS;
     const lines=[];
     for(const s of taken)for(const n of neighbors(s,SIZE))
       if(n===placed || dead.has(n) && board[n]===board[s] && n>s){
