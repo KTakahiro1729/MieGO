@@ -802,11 +802,12 @@ body{overflow:hidden}
 /* How near the end is: three steps under 採点を始める, lit from the left. The
    button turns gold at the last one (終局をご検討ください). */
 #endPropose{display:grid;place-items:center;align-content:center;gap:4px;padding:4px 12px}
-.end-stage{display:flex;gap:3px;width:96px}
+/* 序盤 and 終盤 name its two ends. */
+.end-stage{display:flex;align-items:center;gap:6px}
 .end-stage[hidden]{display:none}
-.end-stage b{flex:1;height:3px;border-radius:var(--radius-hair);background:var(--slate-46)}
-.end-stage[data-stage="1"] b:nth-child(-n+1),.end-stage[data-stage="2"] b:nth-child(-n+2),.end-stage[data-stage="3"] b{background:var(--gold)}
-#endPropose:has(.end-stage[data-stage="3"]:not([hidden])){border-color:var(--accent-edge);color:var(--accent-text)}
+.end-stage i{flex:none;font-style:normal;font-size:var(--font-caption);line-height:1;color:var(--slate-46);font-weight:var(--weight-regular)}
+.end-stage[data-stage="1"] i:nth-of-type(1),.end-stage[data-stage="2"] i:nth-of-type(2),.end-stage[data-stage="3"] i:nth-of-type(3),.end-stage[data-stage="4"] i:nth-of-type(3){color:var(--gold);font-weight:var(--weight-bold);text-shadow:0 0 6px var(--gold-85-a40)}
+#endPropose:has(.end-stage[data-stage="4"]:not([hidden])){border-color:var(--accent-edge);color:var(--accent-text)}
 .endgame-bar .end-action[hidden]{display:none!important}
 /* The bar asks this player for a decision (an offer, the other side's pass,
    the advice to end): the message turns gold and its buttons glow twice. */
@@ -958,8 +959,14 @@ body{overflow:hidden}
 .game-panel.is-scoring .score-instruction{display:block;max-width:100%;margin:0;font-size:var(--font-small);line-height:16px;color:var(--muted);white-space:nowrap}
 .score-table{grid-template-columns:1fr;row-gap:2px;width:100%;max-width:200px;margin:0 auto;padding-top:0;border-top:0}
 /* After a game whose style can be read, 棋風診断 sits after the result. */
-.score-style{flex:none;min-height:0;height:24px;margin:0 0 0 8px;padding:0 10px;font-size:var(--font-small);white-space:nowrap}
-.score-style[hidden]{display:none}
+.game-panel.is-finished .action-row .score-style{flex:0 0 48px;width:48px;min-width:48px;padding:5px 0;display:grid;place-content:center;gap:1px;line-height:1.15}
+.action-row .score-style small{font-size:var(--font-caption);font-weight:var(--weight-medium);opacity:.75}
+/* With 棋風 in the row, a 320px screen tightens the row so 新規対戦 and もう一局 keep their room. */
+@media(max-width:359px){
+  .game-panel.is-finished .action-row:has(.score-style:not([hidden])){gap:var(--space-sm)}
+  .game-panel.is-finished .action-row:has(.score-style:not([hidden])) #openHistory{padding:9px var(--space-sm)}
+  .game-panel.is-finished .action-row:has(.score-style:not([hidden])) :is(.score-style,.share-game){flex-basis:44px;width:44px;min-width:44px}
+}
 .score-table .score-row{gap:4px;line-height:20px}
 .score-table .score-total,.score-table .score-name{line-height:20px}
 /* On narrow phones the stone alone names the side, so the breakdown keeps one line. */
@@ -1088,12 +1095,22 @@ body.style-page{overflow:auto}
 .style-evidence li{display:flex;flex-direction:column;gap:1px;font-size:var(--font-body)}
 .style-evidence strong{color:var(--btn-text)}
 .style-evidence span{color:var(--muted);font-size:var(--font-small)}
+.style-moves h2{margin:22px 0 8px;font-size:var(--font-title)}
+.style-moves-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.style-move{display:flex;flex-direction:column;gap:6px;min-width:0}
+.style-move-rank{margin:0;font-weight:var(--weight-bold);color:var(--btn-text)}
+.style-move-board{display:block;border-radius:4px}
+.style-move-board svg{display:block;width:100%;height:auto}
+.style-move-step{margin:0;font-weight:var(--weight-medium)}
+.style-move-reasons{margin:0;color:var(--muted);font-size:var(--font-small);line-height:1.5;flex:1}
+.style-moves>.style-note{margin:10px 0 0}
+.style-move-fallback{margin-top:8px;width:100%;min-height:50px;max-height:110px;background:var(--slate-23);border:1px solid var(--slate-56);color:var(--gray-96);padding:6px;border-radius:var(--radius-inset);font-size:var(--font-input)}
 .style-picture h2{margin:22px 0 4px;font-size:var(--font-title)}
 .style-picture .style-note{margin:0 0 10px}
 .style-picture-text{margin-top:10px;font-size:var(--font-small);color:var(--muted)}
 .style-picture-text summary{cursor:pointer;padding:12px 0}
 .style-picture-text pre{margin:6px 0 0;padding:10px;white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid var(--edge);border-radius:var(--radius-inset);background:var(--surface);font:inherit;color:var(--btn-text)}
-.style-compat{margin-top:14px}
+.style-compat,.style-partner{margin-top:14px}
 .style-compat-pair{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0}
 .style-compat-pair .style-code{font-size:32px}
 .style-compat-x{color:var(--muted);font-size:var(--font-title)}
