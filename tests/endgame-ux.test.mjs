@@ -32,7 +32,7 @@ test("the bar draws attention when a decision is asked, and honours reduced moti
 });
 test("a stone tapped during the playout is corrected on top of its result",()=>{
   assert.match(app,/if\(settleControl\.tap\(position\)\)return;/);
-  assert.match(settle,/settle\.taps=\[\.\.\.\(settle\.taps\|\|\[\]\),position\];skip\(\);return true;/);
+  assert.match(settle,/settle\.taps=\[\.\.\.\(settle\.taps\|\|\[\]\),position\];return true;/);
   assert.match(app,/for\(const position of run\.taps\|\|\[\]\)\n\s*apply\(\{type:"dead",position,selected:!game\.dead\.includes\(position\)\}\);/);
 });
 test("a playout stopped at its move limit is not described as settled",()=>{

@@ -39,14 +39,37 @@ test("a stone tapped during the playout is taken by it; with no playout the tap 
   assert.equal(control.tap(3), true);
 });
 
-test("the territory colours already known for the board stay on until KataGo's first answer", () => {
+test("the territory colours already known for the board stay as they are through the playout", () => {
   const known = Array(81).fill(0.9);
   const {control} = setup(known);
   control.start(1);
   assert.equal(control.view().ownership, known);
-  const answer = Array(81).fill(-0.9);
-  control.receive({id:1, engine:"katago", ownership:answer, policy:Array(81).fill(0)});
-  assert.equal(control.view().ownership, answer);
+  control.receive({id:1, engine:"katago", ownership:Array(81).fill(-0.9), policy:Array(81).fill(0)});
+  assert.equal(control.view().ownership, known);
+});
+
+test("with no estimate kept, KataGo's first answer is shown and later ones do not change it", () => {
+  const {control, posted} = setup();
+  control.start(1);
+  assert.equal(control.view().ownership, null);
+  const first = Array(81).fill(0.5), policy = Array(81).fill(0);
+  control.receive({id:1, engine:"katago", ownership:first, policy});
+  assert.equal(control.view().ownership, first);
+  assert.equal(posted.length, 2);
+  control.receive({id:1, engine:"katago", ownership:Array(81).fill(-0.5), policy});
+  assert.equal(control.view().ownership, first);
+});
+
+test("the playout's moves stay off the board, which keeps the real stones", () => {
+  const {control, posted} = setup();
+  control.start(1);
+  const policy = Array(81).fill(0);
+  control.receive({id:1, engine:"katago", ownership:Array(81).fill(0), policy});
+  const view = control.view();
+  assert.equal(view.live, true);
+  assert.deepEqual(view.board, view.base);
+  assert.equal(view.last, null);
+  assert.equal(posted.at(-1).state.passes, 1);
 });
 
 test("an estimate for another board is not shown during the playout", () => {
