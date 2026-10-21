@@ -649,6 +649,7 @@ const boardRenderer = createBoardRenderer({
     illegalCandidate,
     keptPlayout:keptPlayout(),
     lastPosition,
+    linkStones:appearance.linkStones(),
     opacity:appearance.opacity(),
     palette:shownPalette(),
     sampleStones:appearance.editingBoard(),
