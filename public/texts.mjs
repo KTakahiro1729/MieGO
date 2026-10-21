@@ -616,7 +616,9 @@ export const TEXT = {
     shareNone: "この対局はまだ診断できません。囲碁で、打った人がそれぞれ10手以上打つと出ます。",
     // 履歴: several saved games read together.
     historyButton: "履歴からまとめて棋風診断",
-    fromResult: "棋風診断 ›",
+    fromResult: "棋風",
+    fromResultNote: "診断",
+    fromResultAria: "この一局の棋風診断を見る",
     historyPick: "まとめたい対局の下にある「黒番」「白番」から、自分が打った方を押してください。最近のCOMや友人との対局は選んであります。",
     historyOpen: "診断を見る",
     historyNone: "石を選ぶと、ここに診断が出ます。",
