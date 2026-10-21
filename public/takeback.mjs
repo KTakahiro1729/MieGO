@@ -23,6 +23,8 @@ export function takeBackTo(state, keep) {
   // Two passes followed by 対局を再開 must come back as a playable position,
   // with the turn of the side that moved first after it.
   if(game.status==="scoring")game=resume(game,-state.moves[keep].color);
+  // The side whose move was taken back plays again, even where a 再開 had handed the turn over.
+  else if(!isFree(game))game={...game,next:state.moves[keep].color};
   // Time spent stays spent: 待った does not give the clock back.
   if(state.clock)game={...game,clock:state.clock};
   // The counter lets reconnecting peers tell a rewound line from a stale one.
