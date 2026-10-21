@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, copyFileSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { resolve, dirname } from "node:path";
 
@@ -97,4 +99,35 @@ test("the KataGo worker's build is kept by browsers, and only under a content-ha
 test("Workers Builds puts back public/ files its build cache replaced before anything is built", () => {
   const { scripts } = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
   for (const name of ["pretest", "predeploy"]) assert.match(scripts[name], /^node scripts\/restore-sources\.mjs && /);
+});
+test("Workers Builds removes untracked public/ files a cached build added, and keeps ignored ones", () => {
+  const dir = mkdtempSync(resolve(tmpdir(), "restore-sources-"));
+  try {
+    const git = (...args) => execFileSync("git", args, { cwd: dir, encoding: "utf8" });
+    mkdirSync(resolve(dir, "scripts"));
+    mkdirSync(resolve(dir, "public/katago"), { recursive: true });
+    copyFileSync(resolve(root, "scripts/restore-sources.mjs"), resolve(dir, "scripts/restore-sources.mjs"));
+    writeFileSync(resolve(dir, ".gitignore"), "public/katago/\npublic/index.html\n");
+    writeFileSync(resolve(dir, "public/app.mjs"), "tracked\n");
+    git("init", "-q");
+    git("add", ".");
+    git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "init");
+    // What another branch's cached build leaves behind.
+    writeFileSync(resolve(dir, "public/app.mjs"), "replaced\n");
+    mkdirSync(resolve(dir, "public/extra"));
+    writeFileSync(resolve(dir, "public/extra/page.mjs"), "added\n");
+    writeFileSync(resolve(dir, "public/other-branch.mjs"), "added\n");
+    writeFileSync(resolve(dir, "public/katago/model.bin"), "cached\n");
+    writeFileSync(resolve(dir, "public/index.html"), "generated\n");
+    const log = execFileSync(process.execPath, ["scripts/restore-sources.mjs"],
+      { cwd: dir, encoding: "utf8", env: { ...process.env, WORKERS_CI: "1" } });
+    assert.equal(readFileSync(resolve(dir, "public/app.mjs"), "utf8"), "tracked\n");
+    assert.equal(existsSync(resolve(dir, "public/other-branch.mjs")), false);
+    assert.equal(existsSync(resolve(dir, "public/extra")), false);
+    assert.ok(existsSync(resolve(dir, "public/katago/model.bin")), "Ignored KataGo files must stay cached");
+    assert.ok(existsSync(resolve(dir, "public/index.html")));
+    assert.match(log, /Removed 2 untracked files the build cache had added: .*public\/other-branch\.mjs/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

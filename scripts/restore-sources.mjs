@@ -1,5 +1,6 @@
 // Workers Builds can restore a cached copy of public/ from another branch's build
-// over the fresh checkout. On Workers Builds only, put the tracked files in public/ back.
+// over the fresh checkout. On Workers Builds only, put the tracked files in public/ back
+// and remove the untracked ones another branch added. Ignored files (KataGo models and builds) stay cached.
 import { execFileSync } from "node:child_process";
 
 if (process.env.WORKERS_CI === "1") {
@@ -8,4 +9,8 @@ if (process.env.WORKERS_CI === "1") {
     execFileSync("git", ["checkout", "--", "public"]);
     console.log("Restored " + changed.length + " tracked files the build cache had replaced: " + changed.slice(0, 10).join(", "));
   }
+  const removed = execFileSync("git", ["clean", "-fd", "--", "public"], { encoding: "utf8" })
+    .split("\n").filter(Boolean).map(line => line.replace(/^Removing /, ""));
+  if (removed.length)
+    console.log("Removed " + removed.length + " untracked files the build cache had added: " + removed.slice(0, 10).join(", "));
 }
