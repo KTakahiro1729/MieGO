@@ -759,6 +759,37 @@ export const TEXT = {
         text: "この一局では、攻めと守り、模様と実利、自由と律儀のどれにも偏らず、盤面に合わせて打ち方を変えた。4つの軸すべてが真ん中に収まる人は少なく、相手に読ませない強さがある。ただ、自分らしい一手を探して迷うことも。",
       },
     },
+    // AIで絵にする: text the player pastes into an image-making AI. How to draw
+    // (the art style included) is in ai.md, which the text points to.
+    picture: {
+      title: "AIで絵にする",
+      note: "絵を描けるAI（ChatGPT、Gemini など）に貼り付けると、あなたの型の絵を描いてくれます。MieGO からは何も送りません。",
+      copy: "絵を描くための文をコピー",
+      show: "コピーする文を見る",
+      // Motifs by type; the colour comes from the last two letters.
+      motifs: {
+        AHFQ: "鷹", AHFT: "狐", AHRT: "唐獅子", AHRQ: "虎",
+        ALFQ: "釣り竿", ALFT: "瓢箪", ALRT: "算盤", ALRQ: "鋏",
+        GLFQ: "太鼓橋", GLFT: "茅葺きの家", GLRT: "城", GLRQ: "石灯籠",
+        GHFQ: "柳", GHFT: "藤", GHRT: "松", GHRQ: "竹",
+        BLNC: "碁石",
+      },
+      colours: { FQ: "空青", FT: "藤色", RT: "淡朱", RQ: "若草", BLNC: "墨" },
+      prompt: ({ guide, code, name, catchLine, text, numbers, motif, colour }) => [
+        "囲碁アプリ MieGO の「棋風診断」の結果を、1枚の絵にしてください。",
+        "描き方（画風、構図、入れるもの、入れないもの）は " + guide + " の「棋風診断の絵」に書いてあります。そのページを読んで、その指示どおりに描いてください。",
+        "",
+        "型：" + name + "（" + code + "）",
+        "ひとこと：" + catchLine,
+        "診断：" + text,
+        ...(numbers.length ? ["数字：" + numbers.join("、")] : []),
+        "モチーフ：" + motif,
+        "色：" + colour,
+        "",
+        "あなたが普段の私について知っていることがあれば、小物か背景に1〜2個だけ混ぜてください。知らなければ足さず、聞き返さずに描いてください。",
+        "ページを読めないときは、墨の筆線と淡い水彩の和の挿絵で、モチーフを主役に、上の色を差し色1色だけ使って、縦長（9:16）に描いてください。文字は入れず、私の顔、名前、住んでいる場所、勤め先は描かないでください。",
+      ].join("\n"),
+    },
     // 相性診断: two types side by side, read axis by axis.
     compat: {
       title: "相性診断",
