@@ -1,7 +1,7 @@
 name: Pull request checks
 on:
   pull_request:
-    branches: [main]
+    branches: [main, release, 'feature/**']
 permissions:
   contents: read
 jobs:
