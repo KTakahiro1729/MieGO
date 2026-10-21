@@ -322,6 +322,12 @@ test("two styles read together: every pair has something, and the link carries t
   const read=readStyleLink(styleLink(black,white).split("?")[1]);
   assert.equal(read.partner.type,white.type);
   assert.equal(read.partner.leans.length,4);
+  // The partner from the same game comes whole: its side, ranks and reasons, for its own card on the page.
+  assert.equal(read.partner.color,white.color);
+  assert.deepEqual(read.partner.ranks,readStyleLink(styleLink(white).split("?")[1]).ranks);
+  assert.deepEqual(read.partner.evidence,readStyleLink(styleLink(white).split("?")[1]).evidence);
+  const page=readFileSync(new URL("../public/play-style-page.mjs",import.meta.url),"utf8");
+  assert.match(page,/renderResult\(found\.partner, \$\("stylePartnerResult"\), false\)/);
   assert.equal(readStyleLink("?t=AHFT&u=XXXX").partner,null,"an unknown partner is dropped");
 });
 
