@@ -98,10 +98,8 @@ export const TEXT = {
     playing: "終局はまだまだです",
     near: "そろそろ終局です",
     ready: "終局してよさそうです",
-    // The steps of the meter under 終局を提案; the current one lights.
-    stageEnd: "終",
-    stageMiddle: "中",
-    stageOpening: "序",
+    // The stage under 終局を提案, in four steps; the last also marks the button.
+    stages: ["まだ序盤", "いま中盤", "もう終盤", "そろそろどう？"],
     unavailable: "終局は自分で判断してください。目安を出せません",
     gomoku: "縦・横・斜めに5つ並べたら勝ち",
     free: "交点をタップして置く・取り除く・色を替える",
@@ -122,6 +120,9 @@ export const TEXT = {
     detailUnsettledAi: "COMが受ければ採点に入ります。まだ決まっていない所は、どちらの地にもなりません。",
     detailAi: "終局はいつでも提案できます。パスとは別の操作です。",
     comDeclined: "COMが終局を見送りました",
+    // After the COM declined, the player may still score on their own judgement.
+    forceScoring: "それでも採点",
+    detailComDeclined: "COMはまだ打つ所があると見ています。それでも採点すると、あなたの判断で死石の確認に進みます。",
     // While watching (or without KataGo), the count is the viewer's decision alone.
     detailWatchScoring: "あなたの判断で採点へ進みます。COMが終局を承認するわけではありません。",
     detailLocal: "採点に進み、死石を確認します。対局の再開もできます。",

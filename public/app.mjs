@@ -39,7 +39,7 @@ import {
 } from "./core.mjs";
 import { replayPlayout } from "./settle-playout.mjs";
 import { createSettleControl } from "./settle-control.mjs";
-import { EndgameAdvisor } from "./endgame.mjs";
+import { EndgameAdvisor, endingNear } from "./endgame.mjs";
 import { endgameBarView } from "./endgame-bar.mjs";
 import {
   BYOYOMI_CHOICES,
@@ -475,9 +475,10 @@ function peerAgreed() {
   return game.agreed[theirs] && !game.agreed[mine];
 }
 // A pass is a move, against a COM too; ending the game is an offer, which the
-// COM makes or answers when the board has settled or when it sees the game lost.
+// COM makes when the board has settled and accepts from そろそろ, as もう終盤
+// under the button shows it (endgame.mjs), or either when it sees the game lost.
 const comEnds = color => endgameAdvisor.stage==="ready" && !endgameAdvisor.held || resignWatch.lost(color);
-const comAcceptsEnd = color => endgameAdvisor.stage==="near" || comEnds(color);
+const comAcceptsEnd = color => endingNear(endgameAdvisor) || comEnds(color);
 // The COM moves only once an offer on the board is answered.
 const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" && !game.endProposal &&
   (watching ? !intervening : game.next === -humanColor);
@@ -1572,6 +1573,14 @@ $("endAccept").onclick=()=>{
   const color=myColorForEnd();
   if(!room && endExpanded && !game.endProposal && repeatedPosition(game)>0){
     apply({type:"void",number:game.moveNumber,before:boardHash(game.board)});return;
+  }
+  // After the COM declined, それでも採点 scores on the player's own judgement, as without KataGo.
+  if(!room && !endExpanded && !game.endProposal && gameMode==="ai" && !watching &&
+     endNotice?.text===TEXT.endgame.comDeclined && endNotice.number===game.moveNumber &&
+     endNotice.hash===boardHash(game.board)){
+    if(aiThinking)return;
+    apply({type:"solo_scoring",number:game.moveNumber,before:boardHash(game.board)});
+    return;
   }
   if(!room && endExpanded && !game.endProposal){
     // 対COM, the player's offer is an offer, as with a friend, not a pass: the COM
