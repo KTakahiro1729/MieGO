@@ -801,10 +801,8 @@ body{overflow:hidden}
    button turns gold at the last one (終局をご検討ください). */
 #endPropose{display:grid;place-items:center;align-content:center;gap:4px;padding:4px 12px}
 /* 序盤 and 終盤 name its two ends. */
-.end-stage{display:flex;align-items:center;gap:6px}
+.end-stage{display:block;font-size:var(--font-caption);line-height:1;color:var(--gold);font-weight:var(--weight-bold);text-shadow:0 0 6px var(--gold-85-a40)}
 .end-stage[hidden]{display:none}
-.end-stage i{flex:none;font-style:normal;font-size:var(--font-caption);line-height:1;color:var(--slate-46);font-weight:var(--weight-regular)}
-.end-stage[data-stage="1"] i:nth-of-type(1),.end-stage[data-stage="2"] i:nth-of-type(2),.end-stage[data-stage="3"] i:nth-of-type(3),.end-stage[data-stage="4"] i:nth-of-type(3){color:var(--gold);font-weight:var(--weight-bold);text-shadow:0 0 6px var(--gold-85-a40)}
 #endPropose:has(.end-stage[data-stage="4"]:not([hidden])){border-color:var(--accent-edge);color:var(--accent-text)}
 .endgame-bar .end-action[hidden]{display:none!important}
 /* The bar asks this player for a decision (an offer, the other side's pass,
