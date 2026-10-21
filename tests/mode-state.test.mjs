@@ -38,9 +38,12 @@ test("自分の石・COMのキャラ・盤・ルール・時間 are one row of t
   for(const key of ["Board","Rules","Side","Strength","Time"])assert.match(sheet,new RegExp('id="setupPanel'+key+'" class="setup-panel" role="tabpanel"'));
   for(const size of [9,13,19])assert.match(sheet,new RegExp('name="boardSize" value="'+size+'"'));
   assert.equal((sheet.match(/name="boardSize"[^>]*><span class="choice"><svg class="size-icon"/g)||[]).length,3);
-  // No 詳細設定 disclosure: handicap sits under ルール's choices; the sampling-variance setting is gone.
+  // No 詳細設定 disclosure: handicap sits under 自分の石's choices, since it fixes who plays Black;
+  // the sampling-variance setting is gone.
   assert.doesNotMatch(sheet,/id="newGameAdvanced"/);
-  for(const id of ["handicap","gomokuForbidden","hideStones"])assert.match(panel("Rules"),new RegExp('id="'+id+'"'));
+  assert.ok(panel("Side").indexOf('id="sideNote"')<panel("Side").indexOf('id="handicap"'));
+  assert.doesNotMatch(panel("Rules"),/id="handicap"/);
+  for(const id of ["gomokuForbidden","hideStones"])assert.match(panel("Rules"),new RegExp('id="'+id+'"'));
   const handicap=between(sheet,'<select id="handicap"','</select>');
   for(const stones of [0,2,3,4,5,6,7,8,9])assert.match(handicap,new RegExp('<option value="'+stones+'"'));
   assert.doesNotMatch(html+app,/aiHints|policyHints|aiLevel/);
