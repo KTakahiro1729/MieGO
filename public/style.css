@@ -1101,3 +1101,6 @@ body.style-page{overflow:auto}
 .style-compat .secondary.full{width:100%;margin-top:12px}
 .style-privacy{margin:28px 0 0;color:var(--muted);font-size:var(--font-small);line-height:1.7}
 .share-style-note{margin:6px 0 0;color:var(--muted);font-size:var(--font-small);line-height:1.6}
+.share-style-moves{margin-top:12px}
+.share-style-moves-title{display:flex;align-items:center;gap:6px;margin:0 0 6px;font-weight:var(--weight-medium)}
+.share-style-fallback{margin-top:8px;width:100%;max-height:110px;min-height:50px;background:var(--slate-23);border:1px solid var(--slate-56);color:var(--gray-96);padding:6px;border-radius:var(--radius-inset);font-size:var(--font-input)}

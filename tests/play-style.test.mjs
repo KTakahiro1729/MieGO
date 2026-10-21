@@ -17,12 +17,14 @@ import {
   reportPlayStyles,
   statPayload,
   styleLink,
+  styleMoves,
   styleRanks,
   typeShare
 } from "../public/play-style.mjs";
 import {createHistoryStyle} from "../public/history-style.mjs";
 import {installDom} from "./helpers/fake-dom.mjs";
 import {renderStylePage} from "../scripts/build-html.mjs";
+import {makeReviewUrl,makeStyleMovesPrompt} from "../public/sgf-link.mjs";
 import {readFileSync} from "node:fs";
 import {TEXT} from "../public/texts.mjs";
 
@@ -317,4 +319,56 @@ test("two styles read together: every pair has something, and the link carries t
   assert.equal(read.partner.type,white.type);
   assert.equal(read.partner.leans.length,4);
   assert.equal(readStyleLink("?t=AHFT&u=XXXX").partner,null,"an unknown partner is dropped");
+});
+
+test("あなたらしかった手: two moves apart that lean furthest towards the type, with a question for an AI",()=>{
+  const game=highAndLow(),style=playStyle(game,BLACK);
+  const picks=styleMoves(game,BLACK,style);
+  assert.equal(picks.length,2);
+  // Black's own moves, ten or more apart, high on the 4th line and far from White;
+  // the first move, with no White stone to be far from, is not one.
+  for(const pick of picks){
+    assert.equal(game.moves[pick.step-1].color,BLACK);
+    assert.ok(pick.step>1);
+    assert.deepEqual(pick.reasons.map(r=>[r.axis,r.high]),[[1,true],[2,true]]);
+  }
+  assert.ok(picks[1].step-picks[0].step>=10);
+  // White answered each move next to it from the 3rd line.
+  const white=styleMoves(game,WHITE,playStyle(game,WHITE));
+  assert.ok(white.every(pick=>pick.reasons.some(r=>r.axis===2 && !r.high && r.far===1)));
+  assert.equal(TEXT.playStyle.moves.reasons[2](white[0].reasons.find(r=>r.axis===2)),"相手の石に接する手");
+  // Through fewer moves, only those are read; no style, no moves.
+  assert.ok(styleMoves(game,BLACK,playStyle(game,BLACK,{through:24}),{through:24}).every(pick=>pick.step<=24));
+  assert.deepEqual(styleMoves(game,BLACK,null),[]);
+  const urls=picks.map(pick=>({...pick,url:makeReviewUrl("https://miego.fun",{snapshot:game},pick.step)}));
+  assert.ok(urls.every(pick=>new URL(pick.url).searchParams.get("move")===String(pick.step)));
+  const prompt=makeStyleMovesPrompt(style,urls);
+  assert.ok(prompt.includes(style.type+" "+TEXT.playStyle.types[style.type].name));
+  assert.ok(urls.every(pick=>prompt.includes(pick.url) && prompt.includes(pick.step+"手目")));
+  assert.equal(prompt.match(/◇/g).length,4);
+});
+
+test("あなたらしかった手 leave out moves that only save stones in atari",()=>{
+  // Black's 3rd move escapes from the atari White's 2nd put it in.
+  const at=(x,y)=>y*9+x;
+  let state=newGame(true,{size:9});
+  for(const point of [at(4,4),at(4,3),at(2,6),at(5,4),at(6,2),at(3,4),at(4,5)])state=play(state,point);
+  for(let i=0;i<14;i++){
+    const free=state.board.findIndex((v,p)=>v===0 && p>=54 && !state.board[p-1] && !state.board[p+1]);
+    state=play(state,free<0 ? null : free);
+  }
+  // Read as high and near, the escape on the 4th line next to White would lead.
+  const style={...playStyle(state,BLACK),type:"GHRQ"};
+  const picks=styleMoves(state,BLACK,style);
+  assert.equal(picks.length,2);
+  assert.ok(picks.every(pick=>pick.step!==7));
+});
+
+test("the share sheet shows each player's あなたらしかった手 under the types",()=>{
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const share=readFileSync(new URL("../public/share-images.mjs",import.meta.url),"utf8");
+  assert.match(html,/id="sharePlayStyleList"[^>]*><\/div>\s*<div id="sharePlayStyleMoves"><\/div>/);
+  assert.match(share,/styleMoves\(snapshot,[^;]*\{through:step,recall\}\)/);
+  assert.match(share,/makeReviewUrl\(location\.origin,\{snapshot,sgfMeta:metadata\},pick\.step\)/);
+  assert.match(share,/copyWithFallback\(makeStyleMovesPrompt\(style,style\.picks\)/);
 });

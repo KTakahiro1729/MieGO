@@ -8,7 +8,14 @@ import {
 import { shareLabels, shareFrameSize, paintShareFrame, buildGameAnimation, loadShareFonts } from "./share-image.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
 import { influence } from "./influence.mjs";
-import { playStyle, reportPlayStyles, styleLink } from "./play-style.mjs";
+import {
+  playStyle,
+  reportPlayStyles,
+  styleLink,
+  styleMoves
+} from "./play-style.mjs";
+import { makeReviewUrl, makeStyleMovesPrompt } from "./sgf-link.mjs";
+import { copyWithFallback } from "./clipboard.mjs";
 import { stoneMark } from "./player-row.mjs";
 import { TEXT } from "./texts.mjs";
 
@@ -50,14 +57,21 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
   }
   // 棋風診断 of each person who played, counted (by type only) the first time it is shown.
   function playStyles(){
-    const {snapshot,step,gameId}=sharedPosition();
+    const {snapshot,metadata,step,gameId}=sharedPosition();
     try{
       const recall=state=>gameId===null ? null : ownershipStore.recall(gameId,state.board);
       const read=color=>playStyle(snapshot,color,{through:step,recall});
       const styles=playedSides().map(read).filter(Boolean);
       reportPlayStyles(gameId+":"+step+":"+styles.map(s=>s.type).join(","),snapshot,styles);
       const watched=watchedSides().map(read).filter(Boolean).map(style=>({...style,com:true}));
-      return [...styles,...watched];
+      // あなたらしかった手, each with the replay opening at it; none where the link would be too long.
+      return [...styles,...watched].map(style=>{
+        try{
+          const picks=styleMoves(snapshot,style.color==="B" ? BLACK : WHITE,style,{through:step,recall})
+            .map(pick=>({...pick,url:makeReviewUrl(location.origin,{snapshot,sgfMeta:metadata},pick.step)}));
+          return {...style,picks};
+        }catch(error){console.warn("Style moves not read",error);return {...style,picks:[]};}
+      });
     }catch(error){console.warn("Play style not read",error);return [];}
   }
   // An animation frame: the replayed position with the ownership recorded for
@@ -143,6 +157,38 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
       pair.onclick=()=>window.open(styleLink(shownStyles[0],shownStyles[1]),"_blank","noopener");
       $("sharePlayStyleList").append(pair);
     }
+    const picked=shownStyles.filter(style=>style.picks?.length);
+    $("sharePlayStyleMoves").replaceChildren(...picked.map(styleMovesBlock),
+      ...(picked.length ? [Object.assign(document.createElement("p"),{className:"share-style-note",textContent:TEXT.playStyle.moves.criterion})] : []));
+  }
+  // Under the types, each player's あなたらしかった手: each opens its replay in a
+  // new tab, and one more copies a question for an AI chat on why they are like the player.
+  function styleMovesBlock(style){
+    const M=TEXT.playStyle.moves;
+    const block=Object.assign(document.createElement("div"),{className:"share-style-moves"});
+    const title=Object.assign(document.createElement("p"),{className:"share-style-moves-title"});
+    title.append(stoneMark(style.color==="B" ? BLACK : WHITE),M.title(style.com));
+    const list=Object.assign(document.createElement("div"),{className:"fused fused-column"});
+    const status=Object.assign(document.createElement("p"),{className:"share-style-note"});
+    status.setAttribute("role","status");
+    const field=Object.assign(document.createElement("textarea"),{className:"share-style-fallback",readOnly:true,hidden:true});
+    field.setAttribute("aria-label",TEXT.share.manualCopy);
+    const described=(text,note)=>{
+      const button=Object.assign(document.createElement("button"),{type:"button",className:"secondary full described"});
+      button.append(Object.assign(document.createElement("span"),{textContent:text}),
+        Object.assign(document.createElement("small"),{textContent:note}));
+      return button;
+    };
+    for(const pick of style.picks){
+      const button=described(M.move(pick.step)+" "+M.open,pick.reasons.map(r=>M.reasons[r.axis](r)).join(M.join));
+      button.onclick=()=>window.open(pick.url,"_blank","noopener");
+      list.append(button);
+    }
+    const ask=described(M.ask(style.com),M.askNote);
+    ask.onclick=()=>void copyWithFallback(makeStyleMovesPrompt(style,style.picks),status,field,M.copied);
+    list.append(ask);
+    block.append(title,list,status,field);
+    return block;
   }
   async function prepareShareImages(){
     clearShareImages();
