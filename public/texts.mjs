@@ -179,7 +179,6 @@ export const TEXT = {
     turnBlack: "黒の番です",
     turnWhite: "白の番です",
     freeTurn: "自由に置く",
-    freeMenuLabel: "この交点に",
     freeRemove: "取り除く",
     freeToBlack: "● 黒にする",
     freeToWhite: "○ 白にする",

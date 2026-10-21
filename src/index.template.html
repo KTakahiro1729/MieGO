@@ -126,6 +126,7 @@
           </div>
           <button id="openHistory" class="secondary" type="button" hidden>{{help.history.summary}}</button>
           <button id="confirm" class="primary" type="button" disabled><span id="confirmStone" class="button-stone" aria-hidden="true"></span><span id="confirmLabel">{{game.confirmPick}}</span></button>
+          <div id="freeChoices" class="fused free-choices" hidden><button id="freeFirst" class="secondary" type="button" disabled>{{common.sideBlack}}</button><button id="freeSecond" class="secondary" type="button" disabled>{{common.sideWhite}}</button></div>
           <!-- One fused button, two ways to the next game: choose its settings, or keep this one's. -->
           <div class="fused next-game">
             <button id="newMatchSheet" class="secondary" type="button" aria-label="{{game.newGameAria}}" title="{{game.newGameAria}}" hidden><span>{{header.newGame}}</span><small aria-hidden="true">{{game.newGameNote}}</small></button>
@@ -489,7 +490,6 @@
         </details>
       </section>
     </aside>
-    <div id="freeStoneMenu" class="fused free-stone-menu" role="group" aria-label="{{game.freeMenuLabel}}" hidden><button id="freeStoneFirst" class="secondary" type="button"></button><button id="freeStoneSecond" class="secondary" type="button"></button></div>
     <div id="helpPopover" class="help-popover" role="dialog" aria-labelledby="helpPopoverTitle" hidden>
       <div class="help-popover-head"><strong id="helpPopoverTitle"></strong><button id="closeHelpPopover" class="icon-button" type="button" aria-label="{{help.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <div id="helpPopoverBody" class="help-popover-body"></div>

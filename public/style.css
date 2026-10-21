@@ -679,6 +679,8 @@ body{overflow:hidden}
 .game-panel.is-finished .action-row .secondary{flex:1}
 .game-panel.is-finished .action-row #openHistory{flex:0 0 auto;padding:9px 12px}
 .action-row .next-game{flex:1 1 0}
+.action-row .free-choices{flex:1 1 auto}
+.action-row .free-choices>button{padding:9px 4px;font-size:14px}
 .action-row .next-game>button{display:grid;place-content:center;gap:1px;padding:5px 6px;line-height:1.15}
 .action-row .next-game>#newMatch{flex:1.3 1 0}
 .action-row .next-game small{font-size:10px;font-weight:600;opacity:.75}
@@ -786,13 +788,6 @@ body{overflow:hidden}
 .help-popover-head .icon-button{margin-right:-10px}
 .help-popover-body .help-list{margin-top:0}
 .help-popover-body .explanation{margin:0 0 12px}
-/* 自由に置く: the menu at a tapped point, with a pointer to it. */
-.free-stone-menu{position:fixed;z-index:12;overflow:visible;border-radius:var(--radius-sm);--fused-edge:#556074;box-shadow:0 10px 32px #000b}
-.free-stone-menu>button{flex:0 0 auto;min-width:88px;min-height:var(--control-h);padding:8px 14px;font-size:15px;border-radius:0}
-.free-stone-menu>button:first-child{border-radius:calc(var(--radius-sm) - 1px) 0 0 calc(var(--radius-sm) - 1px)}
-.free-stone-menu>button:last-child{border-radius:0 calc(var(--radius-sm) - 1px) calc(var(--radius-sm) - 1px) 0}
-.free-stone-menu::after{content:"";position:absolute;left:calc(var(--pointer-x,50%) - 6px);top:100%;border:6px solid transparent;border-top-color:#556074}
-.free-stone-menu.is-below::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:#556074}
 
 /* Scoreboard: totals right-aligned in one column; the leader is bright. */
 .score-head .score-stone{display:none}

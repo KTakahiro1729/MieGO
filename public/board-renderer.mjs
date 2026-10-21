@@ -263,6 +263,16 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     }
   }
 
+  // 自由に置く: the chosen point gets a gold ring until a button below says what goes there.
+  function paintFreePick(position,gap,pad) {
+    ctx.save();
+    ctx.strokeStyle="#f2c875";
+    ctx.lineWidth=Math.max(3,gap*.08);
+    ctx.beginPath();
+    ctx.arc(pad+(position%SIZE)*gap,pad+Math.floor(position/SIZE)*gap,gap*.47,0,Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // While the player edits カスタム's colours on an empty board, a few stones
   // in the middle (the last with its move mark) show the chosen stone colours.
@@ -382,6 +392,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     if(scoring)paintPrisonerFill(theme,fill,view.palette,gap,pad);
     if(scoring)paintRegionLabels(scoring.regions,gap,pad);
     paintLastMove(theme,view,display,gap,pad);
+    if(!view.boardReview && Number.isInteger(view.freePick))paintFreePick(view.freePick,gap,pad);
     if(sparks.length || pops.length || waves.length)paintSparks(gap,pad);
     if(view.sampleStones && !counting && !view.candidate && !view.illegalCandidate && display.board.every(v=>!v))
       paintSampleStones(theme,gap,pad);

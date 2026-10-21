@@ -131,7 +131,6 @@ import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
-import { createFreeStoneMenu } from "./free-stone-menu.mjs";
 import { createHelpSheet } from "./help-sheet.mjs";
 import {
   activeReviewSnapshot,
@@ -234,10 +233,12 @@ function persistOnline(){
     storageError(new UserError(TEXT.online.checkpointFailed));
 }
 let game = newGame(), candidate = null, illegalCandidate = null, seq = 0, pending = null, lastPosition = null;
+// 自由に置く: the point chosen on the board and the stone on it then (0 when empty).
+let freePick = null;
 let illegalPromptCopied = false;
 /** Drops the provisional stone, legal or forbidden, and the forbidden-move prompt. */
 function clearProvisional() {
-  candidate=null;illegalCandidate=null;illegalPromptCopied=false;
+  candidate=null;illegalCandidate=null;illegalPromptCopied=false;freePick=null;
   $("illegalPromptFallbackPanel").hidden=true;
 }
 // "石を隠す" is fixed for a whole game: the 新規対戦 choice applies to the
@@ -627,6 +628,7 @@ const boardRenderer = createBoardRenderer({
     burst:dopa.level(),
     candidate,
     displayedOwnership,
+    freePick:freePick?.position ?? null,
     game:shownGame(),
     hideStones:hidingStones(),
     humanTurn:isHumanTurn(),
@@ -639,8 +641,6 @@ const boardRenderer = createBoardRenderer({
   })
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
-const freeStoneMenu=createFreeStoneMenu({$,getGame:()=>game,
-  onChoose:({position,...choice})=>submitMove(position,false,choice)});
 /** While KataGo settles the dead stones, the board counts with the ones an estimate already gives. */
 function shownGame() {
   const playout=settleControl.view();
@@ -905,7 +905,9 @@ worker.onmessage=onWorkerMessage;
 function show() {
   // A replay leaves the game's clock running.
   syncClock();
-  if(boardReview)freeStoneMenu.close();else freeStoneMenu.sync();
+  // A free board's chosen point lapses when that point or the game changes under it.
+  if(freePick && (boardReview || !isFree(game) || game.status!=="playing" ||
+    game.board[freePick.position]!==freePick.stone))freePick=null;
   if(boardReview){renderBoardReview();return;}
   // The forbidden stone is a provisional UI selection, never part of game state.
   if(illegalCandidate && (illegalCandidate.source!==game || game.status!=="playing")) {
@@ -972,8 +974,12 @@ function show() {
   $("confirmStone").classList.toggle("white",game.next===WHITE);
   $("copyIllegalPrompt").hidden=!blocked;
   $("copyIllegalPrompt").classList.toggle("is-copied",illegalPromptCopied);
+  // 自由に置く: ここに打つ splits into what can go on the chosen point.
+  const choices=freeChoices();
+  $("freeFirst").textContent=choices[0].label;$("freeSecond").textContent=choices[1].label;
+  $("freeFirst").disabled=$("freeSecond").disabled=!freePick || !myTurn;
   // With a provisional stone the button discards it; otherwise it is 待った.
-  const provisional=!!candidate || blocked;
+  const provisional=!!candidate || blocked || !!freePick;
   const takeBack=!provisional && canTakeBack();
   // After 介入する, × goes back to watching, with or without a provisional stone.
   const stepIn=spectating && intervening;
@@ -1040,8 +1046,10 @@ function show() {
   if(gomoku)$("pass").disabled=true;
   $("confirm").hidden=isScoring || isFinished;
   $("copyIllegalPrompt").hidden=isScoring || isFinished || !blocked;
-  // 自由に置く: the colour is chosen at the tapped point, so 待った stands alone.
-  if(isFree(game))for(const id of ["resign","pass","confirm"])$(id).hidden=true;
+  // 自由に置く: 待った and the two buttons for the chosen point (黒・白, or 取り除く and the other colour).
+  const free=isFree(game) && game.status==="playing";
+  $("freeChoices").hidden=!free;
+  if(free)for(const id of ["resign","pass","confirm"])$(id).hidden=true;
   $("actionRow").classList.toggle("finished-actions",isFinished);
   // COM同士: 介入する and 一時停止 (再開); stepping in shows × and ここに打つ instead.
   const watchingPlay=spectating && game.status==="playing";
@@ -1294,13 +1302,8 @@ canvas.addEventListener("click",e=>{
   }
   // While watching, the board takes stones only after 介入する.
   if(game.status!=="playing" || !isHumanTurn())return;
-  // A free board asks at the point what to do there; 待った undoes it.
-  if(isFree(game)){
-    const pitch=rect.width/(SIZE+1);
-    freeStoneMenu.openAt(position,{x:rect.left+(x+1)*pitch,y:rect.top+(y+1)*rect.height/(SIZE+1)},pitch,
-      $("boardFrame").getBoundingClientRect().top);
-    return;
-  }
+  // A free board marks the point; the two buttons in place of ここに打つ say what goes there.
+  if(isFree(game)){freePick={position,stone:game.board[position]};show();return;}
   if(!room && endExpanded)endExpanded=false;
   // Occupied intersections cannot hold a provisional stone.
   if(game.board[position]!==0)return;
@@ -1319,6 +1322,22 @@ $("confirm").onclick=()=>{
     submitMove(position);
   }
 };
+/** What the two buttons put on the chosen point of a free board. */
+function freeChoices() {
+  const stone=freePick?.stone;
+  return stone?[{label:TEXT.game.freeRemove,color:stone},
+      {label:stone===BLACK?TEXT.game.freeToWhite:TEXT.game.freeToBlack,color:-stone,replace:true}]:
+    [{label:TEXT.common.sideBlack,color:BLACK},{label:TEXT.common.sideWhite,color:WHITE}];
+}
+const chooseFree=index=>{
+  if(!freePick || game.board[freePick.position]!==freePick.stone)return;
+  const {position}=freePick,choice=freeChoices()[index];
+  freePick=null;
+  submitMove(position,false,choice);
+  show();
+};
+$("freeFirst").onclick=()=>chooseFree(0);
+$("freeSecond").onclick=()=>chooseFree(1);
 $("cancel").onclick=()=>{
   if(isWatching() && intervening){
     // Back to watching: the COMs resume after a pause a little longer than a move's.
@@ -1326,7 +1345,7 @@ $("cancel").onclick=()=>{
     intervening=false;watchReturning=!watchPaused;lastWatchMoveAt=performance.now()+WATCH_RESUME_MS-watchStep();
     show();requestAnalysis();return;
   }
-  if(!candidate && !illegalCandidate) {
+  if(!candidate && !illegalCandidate && !freePick) {
     if(!canTakeBack())return;
     // A takeback is itself reversible by replaying the move, so no second tap.
     if(room)apply({type:"takeback_request",color:myOnlineColor(),
