@@ -68,7 +68,7 @@ test("score breakdown shows white area and komi separately so it matches the boa
   for(let y=0;y<9;y++)for(let x=0;x<9;x++)game.board[at(x,y)]=x<5?BLACK:WHITE;
   assert.equal(scoreBreakdown(game),"黒：45\n白：36＋コミ7.5＝43.5");
   const handicap={...newGame(true,{handicap:3}),status:"scoring"};
-  assert.equal(scoreBreakdown(handicap),"黒：81\n白：0＋コミ0.5＋置き石補正3＝3.5");
+  assert.equal(scoreBreakdown(handicap),"黒：81\n白：0＋置き石補正3＝3");
 });
 
 test("scoreboard rows keep the white breakdown apart from the totals and name the leader",()=>{
@@ -78,5 +78,5 @@ test("scoreboard rows keep the white breakdown apart from the totals and name th
     black:{area:45,detail:"",total:45},
     white:{area:36,detail:"36＋コミ7.5",total:43.5},leader:"black"});
   const handicap={...newGame(true,{handicap:3}),status:"scoring"};
-  assert.equal(scoreRows(handicap).white.detail,"0＋コミ0.5＋置き石補正3");
+  assert.equal(scoreRows(handicap).white.detail,"0＋置き石補正3");
 });

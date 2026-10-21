@@ -6,6 +6,7 @@ import {
   initialGame,
   isFree,
   komiOf,
+  repeatedPosition,
   rulesOf,
   scoreResult,
   WHITE,
@@ -68,7 +69,7 @@ export function saveCheckpoint(storage, room, value) {
 // and those of games without a friend.
 const OWN_COLOR_ACTIONS=new Set(["agree","agree_dead","end_offer","end_answer","rematch","resume","takeback_request","takeback_answer","time_out"]);
 const OWNER_ACTIONS=new Set(["dead_auto","dead_unavailable"]);
-const SOLO_ACTIONS=new Set(["solo_scoring","solo_score","solo_dead"]);
+const SOLO_ACTIONS=new Set(["solo_scoring","solo_score","solo_dead","void"]);
 /** A peer plays only on its own turn and offers, answers or agrees only for its own color.
  * On a free board either player places either colour, or takes a stone off, at any time. */
 export function isPeerAction(action, game, {peerColor, peerIsOwner=false}) {
@@ -96,6 +97,8 @@ export function isConsistentSnapshot(game) {
      !isOffer(game.rematchRequest))
     return false;
   if(replayed.status==="finished")return game.status==="finished" && game.result===replayed.result;
+  // 無勝負 ends a game whose last stone repeated a position.
+  if(game.status==="finished" && game.result==="Void")return replayed.status==="playing" && repeatedPosition(replayed)>0;
   // A loss on time ends the game with no move: the side to move ran out.
   if(game.status==="finished" && /\+T$/.test(game.result||"") && replayed.status==="playing" && timeControlOf(game.timeControl))
     return game.result===(replayed.next===BLACK?"W+T":"B+T");

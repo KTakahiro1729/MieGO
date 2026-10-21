@@ -8,13 +8,13 @@ import { TEXT } from "../public/texts.mjs";
 
 const japanese = (extra = {}) => ({ ...newGame(true, { rules: "japanese" }), status: "scoring", ...extra });
 
-test("Japanese games default to 6.5 komi; handicap games get 0.5 and no per-stone bonus", () => {
+test("Japanese games default to 6.5 komi; handicap games get no komi and no per-stone bonus", () => {
   const even = newGame(true, { rules: "japanese" });
   assert.equal(even.rules, "japanese");
   assert.equal(komiOf(even), 6.5);
   const handicap = newGame(true, { rules: "japanese", handicap: 3 });
-  assert.equal(whiteCompensation(handicap), 0.5);
-  assert.equal(whiteCompensation(newGame(true, { handicap: 3 })), 3.5);
+  assert.equal(whiteCompensation(handicap), 0);
+  assert.equal(whiteCompensation(newGame(true, { handicap: 3 })), 3);
   assert.equal(newGame().rules, "chinese");
   assert.equal(initialGame(even).rules, "japanese");
   // Records saved before rules existed stay Chinese.

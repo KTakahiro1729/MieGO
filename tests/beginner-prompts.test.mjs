@@ -52,7 +52,7 @@ test("the position question carries the board, the turn and handicap rules",()=>
   assert.match(text,/棋譜URL: https:\/\/miego\.example\/\?sgf=x&move=1/);
   // Point 40 is the centre of 9x9: fifth row, fifth column.
   assert.match(text,/現在の盤面：\n(.+\n){4}(・ ){4}● (・ ){3}・\n/);
-  assert.match(makePositionPrompt(newGame(true,{size:9,handicap:3})),/置き石3子、コミ0\.5目＋置き石補正3目/);
+  assert.match(makePositionPrompt(newGame(true,{size:9,handicap:3})),/置き石3子、コミなし · 置き石補正3目/);
 });
 
 test("the position question never carries a private room URL",()=>{

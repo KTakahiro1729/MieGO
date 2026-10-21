@@ -45,7 +45,7 @@ function playStyleStat(value) {
   const { size, rules, styles } = value;
   if (![9, 13, 19].includes(size) || !["chinese", "japanese"].includes(rules)) return null;
   if (!Array.isArray(styles) || styles.length < 1 || styles.length > 2) return null;
-  if (!styles.every(s => s && ["B", "W"].includes(s.color) && /^[AG][HL][FR][TQ]$/.test(s.type))) return null;
+  if (!styles.every(s => s && ["B", "W"].includes(s.color) && /^(?:[AG][HL][FR][TQ]|BLNC)$/.test(s.type))) return null;
   if (new Set(styles.map(s => s.color)).size !== styles.length) return null;
   return { size, rules, styles: styles.map(({ color, type }) => ({ color, type })) };
 }
