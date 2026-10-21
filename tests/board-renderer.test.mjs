@@ -375,7 +375,7 @@ test("盤の線 draws one side's breath in at a time, at one speed, only to the 
   assert.ok(out.length && out.every(([,y])=>y>74&&y<85+1e-9),"out of the gap, never over it");
   assert.ok(corner(line*2).some(([x,y])=>x===50&&y===50),"to the stone");
   assert.ok(corner(line*2).some(([x,y])=>x===75&&y===50),"between the stones");
-  assert.equal(corner(breathTakes(2)-BREATH_GATHER_MS).length,0,"through");
+  assert.equal(corner(breathTakes(2)-BREATH_GATHER_MS+1).length,0,"through");
   assert.equal(lines().some(([x,y])=>x===50&&y>50&&y<100),false,"no dashes while breathing");
   // Past its first line it runs one line each BREATH_LINE_MS, so a deeper group takes longer.
   assert.equal(breathReached(line*3)-breathReached(line*2),1);
@@ -389,15 +389,15 @@ test("盤の線 draws one side's breath in at a time, at one speed, only to the 
   // In atari it never gets past the white stone's edge, and is gone sooner.
   const edge=atari(line).concat(atari(line*1.2));
   assert.ok(edge.length && edge.every(([,y])=>y<=450-22+1e-9),"the white stone in atari only to its edge");
-  assert.equal(atari(line*2.2).length,0);
+  assert.equal(atari(BREATH_TRAIL_MS+line*2).length,0);
 });
 
-test("盤の線 breathes each group of a side a little apart, holding a shared liberty's dot for all of them",()=>{
+test("盤の線 breathes each group of a side apart, holding a shared liberty's dot for all of them",()=>{
   const game=newGame();
   // Two black stones apart that both need (3,4), and one with a liberty of its own.
   game.board[at(2,4)]=BLACK;game.board[at(4,4)]=BLACK;
   const [left,right]=[breathDelay(at(2,4)),breathDelay(at(4,4))];
-  assert.ok(left!==right && Math.max(left,right)<=BREATH_STAGGER_MS,"apart, but only a little");
+  assert.ok(left!==right && Math.max(left,right)<=BREATH_STAGGER_MS,"apart, within the stagger");
   let time=0;
   const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"always"}),
     {requestFrame:()=>{},now:()=>time,stillMotion:()=>false});

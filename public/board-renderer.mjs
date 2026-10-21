@@ -37,8 +37,8 @@ export const CAPTURE_FADE_MS=200;
 // trailing what it covered in the last BREATH_TRAIL_MS, until it has passed
 // the deepest stone. A deeper group takes longer, never faster. Each group
 // starts its breath up to BREATH_STAGGER_MS late, so the groups of a side
-// breathe a little apart.
-export const BREATH_GATHER_MS=900, BREATH_LINE_MS=250, BREATH_TRAIL_MS=250, BREATH_STAGGER_MS=200, BREATH_REST_MS=200;
+// breathe apart.
+export const BREATH_GATHER_MS=900, BREATH_LINE_MS=200, BREATH_TRAIL_MS=250, BREATH_STAGGER_MS=1100, BREATH_REST_MS=200;
 // How far a breath has run, in lines, BREATH_GATHER_MS after it started.
 export const breathReached=t=>t<=0?0:t<BREATH_LINE_MS?t*t/(2*BREATH_LINE_MS**2):.5+(t-BREATH_LINE_MS)/BREATH_LINE_MS;
 // How long, after it starts, a breath takes to run d lines with its trail.
