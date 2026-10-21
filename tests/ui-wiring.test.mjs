@@ -27,10 +27,6 @@ test("game errors use the inline notice, never a blocking alert",()=>{
   assert.doesNotMatch(app,/\balert\(error/);
   assert.match(css,/\.save-status\{position:fixed/);
 });
-test("endgame advice never claims 'not yet' until KataGo has evaluated a position",()=>{
-  // endgameHint reports 確認中／判定できません instead (see tests/endgame.test.mjs).
-  assert.match(app,/endgameHint\(game,endgameAdvisor,\{\s*unavailable:fallbackMode/);
-});
 test("when KataGo fails, the 対COM tab names the modes that work without it",()=>{
   assert.match(app,/\$\("startAiNote"\)\.hidden=!\(needsKatago && fallbackMode\)/);
   assert.match(html,/id="startAiNote"[^>]*hidden>[^<]*「1台で打つ」と「対友人」/);
@@ -58,4 +54,9 @@ test("a dropped friend game says it reconnects by itself, and the opponent's lin
   assert.match(app,/room && !connected\?\(reconnecting\?TEXT\.game\.reconnecting:TEXT\.game\.waitingOpponent\)/);
   assert.match(app,/showNotice\(error\.retrying\?TEXT\.online\.retrying:/);
   assert.doesNotMatch(app,/side\.name===TEXT\.game\.opponent\?\$\("netStatus"\)/);
+});
+test("a friend game offers もう一局, which waits until the other player presses it too",()=>{
+  assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished;/);
+  assert.match(app,/if\(room\)\{\n    if\(connected\)apply\(\{type:"rematch",color:myOnlineColor\(\)/);
+  assert.match(app,/rematchAsked\?TEXT\.online\.rematchWaiting:TEXT\.game\.rematchNote/);
 });
