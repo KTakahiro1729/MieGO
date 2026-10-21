@@ -22,7 +22,7 @@ export function dateLabel(timestamp) {
 }
 
 export function recordIcon(record) {
-  return record.source==="variation"?"↪":record.source==="sgf"?"SGF":record.mode==="online"?"↗":record.mode==="ai"?"AI":"●";
+  return record.source==="variation"?"↪":record.source==="sgf"?"SGF":record.mode==="online"?"↗":record.mode==="ai"?"COM":"●";
 }
 
 export function recordSummary(record,includeKomi=false) {
