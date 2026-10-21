@@ -19,7 +19,7 @@ test("results read the same plain way everywhere",()=>{
   for(const r of ["B+3.5","W+R","B+T"])assert.doesNotMatch(resultLabel(r),/中押|目半/);
   const app=source("app.mjs");
   const history=source("history-navigation.mjs");
-  assert.match(app,/querySelector\("strong"\)\.textContent=resultLabel\(result\)/);
+  assert.match(app,/\$\("scoreTitle"\)\.textContent=resultLabel\(result\)/);
   assert.match(history,/resultLabel\(record\.snapshot\.result\)\|\|TEXT\.history\.statusFinished/);
 });
 

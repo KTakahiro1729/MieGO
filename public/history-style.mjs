@@ -48,8 +48,9 @@ export function createHistoryStyle({$,gameLibrary,ownSide=()=>null,recall=()=>()
     $("historyStyle").hidden=!!picks;
     if(!picks)return;
     const style=pooled();
+    const readable=listed().some(record=>sides(record).length);
     $("historyStyleResult").textContent=style ?
-      T.historyResult(style.type,T.types[style.type].name,style.games) : T.historyNone;
+      T.historyResult(style.type,T.types[style.type].name,style.games) : readable ? T.historyNone : T.historyEmpty;
     $("historyStyleOpen").disabled=!style;
     $("historyStyleOpen").onclick=()=>{if(style)open(styleLink(style));};
   }
@@ -81,8 +82,11 @@ export function createHistoryStyle({$,gameLibrary,ownSide=()=>null,recall=()=>()
     const choices=sides(record);
     item.onclick=()=>{if(choices.length)toggle(record,picks.get(record.id) ?? choices[0]);};
     item.setAttribute("aria-pressed",String(picks.has(record.id)));
+    // A game that cannot be read (watched, too short, 五目並べ) is hidden while picking.
+    if(!choices.length){row.classList.add("is-unreadable");return;}
     const group=document.createElement("span");
     group.className="history-style-sides";
+    group.append(Object.assign(document.createElement("span"),{className:"history-style-sides-label",textContent:T.sidePrompt}));
     for(const color of choices) {
       const chip=document.createElement("button");
       chip.type="button";chip.className="history-style-side";
@@ -94,9 +98,7 @@ export function createHistoryStyle({$,gameLibrary,ownSide=()=>null,recall=()=>()
       chip.onclick=()=>toggle(record,color);
       group.append(chip);
     }
-    // A game that cannot be read (watched, too short, 五目並べ) stays listed, dimmed.
-    if(choices.length)row.append(group);
-    else row.classList.add("is-unreadable");
+    row.append(group);
   }
   $("historyStyle").onclick=start;
   $("historyStyleCancel").onclick=stop;

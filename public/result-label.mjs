@@ -8,6 +8,7 @@ const OTHER = {B:"W",W:"B"};
 export function resultLabel(result) {
   if(typeof result!=="string" || !result)return null;
   if(/^(0|Draw|Jigo)$/i.test(result))return TEXT.result.draw;
+  if(/^Void$/i.test(result))return TEXT.result.void;
   const match=/^([BW])\+(.*)$/.exec(result);
   if(!match)return null;
   const [,side,detail]=match;
@@ -17,8 +18,8 @@ export function resultLabel(result) {
   return TEXT.result.win(side);
 }
 
-/** The winner's colour ("B"/"W"), or null for a draw, an unfinished or unknown result. */
+/** The winner's colour ("B"/"W"), or null for a draw, 無勝負, an unfinished or unknown result. */
 export function resultWinner(result) {
   const label=resultLabel(result);
-  return label && label!==TEXT.result.draw ? result[0] : null;
+  return label && label!==TEXT.result.draw && label!==TEXT.result.void ? result[0] : null;
 }

@@ -50,7 +50,7 @@ function layout(page){
       button.getClientRects().length && !button.closest("[hidden],.hidden,.visually-hidden,details:not([open]) .review-menu-popover"))
       .map(button=>({id:button.id||button.textContent.trim(),className:button.className,...button.getBoundingClientRect().toJSON()}));
     // Everything stacked under the board, top to bottom, that is on screen now.
-    const stack=["boardFrame","ownershipLegend","captureCounts","endgameBar","scoreBox","actionRow"]
+    const stack=["boardFrame","ownershipLegend","endgameBar","scoreBox","actionRow"]
       .map(id=>({id,...box(id)})).filter(part=>part.top!==undefined);
     return {height:innerHeight,width:innerWidth,scrolled:document.querySelector(".game-layout").scrollTop,
       // The header's own items: on a PC they sit beside the board, not above it.
@@ -144,7 +144,6 @@ test("scoring and the result fit above the action row on every screen",{skip,tim
     }
     await step(page,at,"scoring",()=>page.locator("#gamePanel.is-scoring").waitFor());
     const phases=[["決着手順",await layout(page)]];
-    if(await page.locator("#settleSkip").isVisible())await page.locator("#settleSkip").click();
     await step(page,at,"dead-stone check",()=>page.waitForFunction(()=>!document.getElementById("agree").disabled,null,{timeout:60000}));
     phases.push(["死石の確認",await layout(page)]);
     await page.locator("#agree").click();

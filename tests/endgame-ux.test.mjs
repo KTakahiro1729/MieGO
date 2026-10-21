@@ -1,15 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {settleStepMs} from "../public/settle-playout.mjs";
 import {TEXT} from "../public/texts.mjs";
 const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
 const settle=readFileSync(new URL("../public/settle-control.mjs",import.meta.url),"utf8");
 const css=readFileSync(new URL("../public/style.css",import.meta.url),"utf8");
 
-test("a full-length playout is shown in about ten seconds on every board",()=>{
-  assert.deepEqual([9,13,19].map(settleStepMs),[333,161,120]);
-  for(const size of [9,13,19])assert.ok(Math.round(size*size/3)*settleStepMs(size)<=15000);
+test("the playout stays off the board: no pause between its moves, no 再生 and no スキップ",()=>{
+  const html=readFileSync(new URL("../src/index.template.html",import.meta.url),"utf8");
+  assert.doesNotMatch(settle,/setTimeout|replay|skip/);
+  // The board shows the count of the real position meanwhile, not a playout view.
+  assert.doesNotMatch(app,/settle:settleControl\.view\(\)/);
+  assert.doesNotMatch(html,/settleSkip|settleReplay/);
+  assert.equal(TEXT.scoring.settleSkip,undefined);
+  assert.equal(TEXT.scoring.settleReplay,undefined);
 });
 test("after one pass the bar says who passed and that the next pass starts scoring",()=>{
   assert.equal(TEXT.endgame.passedLocal("W"),"パスで採点へ。白はパス済み");
@@ -27,17 +31,15 @@ test("keeping on playing holds back the strongest advice in every mode",()=>{
 });
 test("the bar draws attention when a decision is asked, and honours reduced motion",()=>{
   assert.match(app,/for\(const \[name,on\] of Object\.entries\(classes\)\)\$\(id\)\.classList\.toggle\(name,on\);/);
-  assert.match(css,/\.endgame-bar\.is-calling\{[^}]*animation:end-call/);
+  assert.match(css,/\.endgame-bar\.is-calling \.end-action:not\(\[hidden\]\)\{[^}]*animation:end-call/);
+  // The glow is on the buttons themselves: a frame round the bar would read as a button holding buttons.
+  assert.doesNotMatch(css,/\.endgame-bar\.is-calling\{/);
   assert.match(css,/prefers-reduced-motion:reduce\)\{\*,\*::before,\*::after\{[^}]*animation:none!important/);
 });
 test("a stone tapped during the playout is corrected on top of its result",()=>{
   assert.match(app,/if\(settleControl\.tap\(position\)\)return;/);
-  assert.match(settle,/settle\.taps=\[\.\.\.\(settle\.taps\|\|\[\]\),position\];skip\(\);return true;/);
+  assert.match(settle,/settle\.taps=\[\.\.\.\(settle\.taps\|\|\[\]\),position\];return true;/);
   assert.match(app,/for\(const position of run\.taps\|\|\[\]\)\n\s*apply\(\{type:"dead",position,selected:!game\.dead\.includes\(position\)\}\);/);
-});
-test("a playout stopped at its move limit is not described as settled",()=>{
-  assert.match(TEXT.scoring.settleCut(27),/^上限の27手で停止/);
-  assert.match(settle,/run\.cut=run\.state\.status==="playing";/);
 });
 test("a playout runs to two passes, with no stop to carry it on",()=>{
   const html=readFileSync(new URL("../src/index.template.html",import.meta.url),"utf8");

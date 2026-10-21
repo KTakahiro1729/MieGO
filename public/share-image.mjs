@@ -27,7 +27,7 @@ const GOTHIC = "'Zen Kaku Gothic New', 'Hiragino Sans', 'Noto Sans JP', system-u
 // Every glyph the card can paint, taken from its wording in texts.mjs.
 const CARD_WORDS = [TEXT.share.cardMoves(""),TEXT.share.cardAllMoves(""),TEXT.share.cardUntil(""),
   TEXT.share.cardHandicap(""),TEXT.share.cardKomi(""),TEXT.share.cardLegend,TEXT.share.cardPlay,
-  TEXT.share.cardContribute,TEXT.common.playing,TEXT.common.whiteArea,TEXT.common.blackArea,TEXT.result.draw,
+  TEXT.share.cardContribute,TEXT.common.playing,TEXT.common.whiteArea,TEXT.common.blackArea,TEXT.result.draw,TEXT.result.void,
   TEXT.result.byResign("B","W"),TEXT.result.byTime("W","B"),TEXT.result.byPoints("B",""),
   ...Object.values(TEXT.playStyle.types).map(t=>t.name)];
 export const FONT_TEXT = [...new Set("MieGO0123456789.+〜·"+CARD_WORDS.join("")+

@@ -8,6 +8,10 @@
 // - Code comments and developer-only log messages stay next to the code.
 
 const color = c => c === "B" ? "黒" : "白";
+// A handicap game's komi: none (older saves keep their 0.5), plus White's
+// point per stone under Chinese counting.
+const handicapKomi = (komi, handicap, japanese) => (komi ? "コミ" + komi + "目" : "コミなし") +
+  (japanese ? "" : (komi ? "＋" : " · ") + "置き石補正" + handicap + "目");
 
 export const TEXT = {
   common: {
@@ -82,6 +86,7 @@ export const TEXT = {
 
   result: {
     draw: "引き分け",
+    void: "無勝負",
     byResign: (winner, loser) => color(loser) + "の投了で" + color(winner) + "が勝利",
     byTime: (winner, loser) => color(loser) + "の時間切れで" + color(winner) + "が勝利",
     byPoints: (winner, points) => color(winner) + "が" + points + "目差で勝利",
@@ -94,7 +99,7 @@ export const TEXT = {
     ready: "終局してよさそうです",
     unavailable: "終局は自分で判断してください。目安を出せません",
     gomoku: "縦・横・斜めに5つ並べたら勝ち",
-    free: "交点をタップして置く・取り除く",
+    free: "交点をタップして置く・取り除く・色を替える",
     checking: "終局の目安を確認中",
     updating: "終局の目安を更新中",
     offline: "相手を待っています",
@@ -105,7 +110,14 @@ export const TEXT = {
     startScoring: "採点を始める",
     goScoring: "採点へ進む",
     detailIncoming: "受け入れると採点に進みます。打ち続けることもできます。",
-    detailLocalAi: "あなたの判断で採点へ進みます。COMが終局を承認するわけではありません。",
+    // 対COM: 採点を始める is the player's pass, and the COM's pass starts the count.
+    passToEnd: "パスする",
+    detailLocalAi: "あなたがパスし、COMもパスしたら採点に入ります。COMが打てば対局は続きます。",
+    detailUnsettledAi: "あなたがパスし、COMもパスしたら採点に入ります。まだ決まっていない所は、どちらの地にもなりません。",
+    detailAi: "採点を始めると、あなたがパスしてCOMの返事を待ちます。",
+    comKeptPlaying: "COMはまだ打つ所があると見て打ちました",
+    // While watching (or without KataGo), the count is the viewer's decision alone.
+    detailWatchScoring: "あなたの判断で採点へ進みます。COMが終局を承認するわけではありません。",
     detailLocal: "採点に進み、死石を確認します。対局の再開もできます。",
     detailUnsettled: "まだ決まっていない所は、どちらの地にもなりません。打ち続けることもできます。",
     detailWaiting: "相手の返答待ちです。提案は取り下げられます。",
@@ -121,6 +133,16 @@ export const TEXT = {
     passedWatch: c => color(c) + "がパス。次もパスなら採点へ",
     // The COM's pass opens the same question as 採点を始める; 採点へ進む is the player's pass.
     askAiPassed: "COMがパスしました\n採点を始めますか？",
+    // 同一局面反復 (日本囲碁規約 第十二条): both sides may end the game as no result.
+    repeated: "同じ局面がくり返されています",
+    void: "無勝負にする",
+    proposeVoid: "無勝負を提案",
+    askVoid: "無勝負にしますか？",
+    voidProposed: "無勝負が提案されました",
+    detailRepeated: "三劫などで同じ局面がくり返されたら、双方の同意で無勝負にできます。打ち続けることもできます。",
+    detailVoidIncoming: "受け入れると無勝負で終わります。打ち続けることもできます。",
+    detailVoidAi: "COMは無勝負に同意します。勝ち負けは付きません。",
+    detailVoidLocal: "2人とも同意したら押してください。勝ち負けは付きません。",
     detailAiPassed: "採点へ進むと、あなたもパスして死石の確認に入ります。打ち続けることもできます。",
     declinedByPeer: "相手が終局を見送りました",
     withdrawnByPeer: "相手が提案を取り下げました",
@@ -162,10 +184,6 @@ export const TEXT = {
     reviewUnavailable: "死石をタップで指定してください。自動判定なし",
     reviewChecking: "死石を確認しています…",
     settling: moves => "石をタップで修正。ダメを詰め中（" + moves + "手）",
-    settleCut: moves => "上限の" + moves + "手で停止。死石の候補を示します",
-    settleDone: moves => moves ? moves + "手でダメ詰め。死石の候補を示します" : "詰めるダメがなく、そのまま判定します",
-    settleSkip: "スキップ",
-    settleReplay: "決着手順を再生",
     // Each row: { area, detail, total } from scoreRows.
     breakdown: (black, white) => "黒：" + (black.detail ? black.detail + "＝" : "") + black.total +
       "\n白：" + (white.detail ? white.detail + "＝" : "") + white.total,
@@ -182,9 +200,10 @@ export const TEXT = {
   game: {
     turnBlack: "黒の番です",
     turnWhite: "白の番です",
-    freeBlack: "黒を置きます",
-    freeWhite: "白を置きます",
-    freeColorLabel: "置く石の色",
+    freeTurn: "自由に置く",
+    freeRemove: "取り除く",
+    freeToBlack: "● 黒にする",
+    freeToWhite: "○ 白にする",
     yourTurn: "あなたの番",
     opponentTurn: "相手の番",
     waitingOpponent: "対局相手を待っています",
@@ -223,11 +242,11 @@ export const TEXT = {
     localPractice: "1台で打つ",
     boardLabel: size => size + "路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。",
     ruleSummary: (size, komi, handicap, japanese = false, forbidden = false) => japanese === "free" ?
-      size + "路盤 · 自由に置く（ルールなし：空いた交点に置き、石をタップすると取り除く）" : japanese === "gomoku" ?
+      size + "路盤 · 自由に置く（ルールなし：空いた交点に黒か白を置き、石は取り除くか色を替える）" : japanese === "gomoku" ?
       size + "路盤 · 五目並べ" + (forbidden ? "（禁じ手あり：黒は三三・四四・長連を打てず、ちょうど5つで勝ち。白は5つ以上で勝ち）" :
         "（禁じ手なし：5つ以上並べたら勝ち）") : size + "路盤 · " +
       (japanese ? "日本式ルール · " : "中国式ルール · ") + (handicap ?
-      "置き石" + handicap + "子 · コミ" + komi + (japanese ? "目" : "＋置き石補正" + handicap + "目") : "コミ" + komi),
+      "置き石" + handicap + "子 · " + handicapKomi(komi, handicap, japanese) : "コミ" + komi),
     // The short form of ruleSummary, shown in the turn row above the board.
     ruleLabel: (size, rules, komi, handicap, forbidden = false) => size + "路 · " +
       (rules === "free" ? "自由に置く" : rules === "gomoku" ? "五目並べ" + (forbidden ? " · 禁じ手あり" : "") : (rules === "japanese" ? "日本式" : "中国式") +
@@ -332,13 +351,16 @@ export const TEXT = {
       high: "序盤に4線より内側の高い手で勢力を作ります。",
     },
     tenukiStops: { low: "応じる", mid: "ふつう", high: "手を抜く" },
+    resignStops: { low: "最後まで", mid: "大差で投了", high: "早めに投了" },
     tenukiNotes: {
       low: "相手が打った手の近くで応じます。",
       mid: "応じるか離れるかを特に好みません。",
       high: "相手の手に付き合わず、離れた場所へ打ちます。",
     },
-    unavailable: "ページを開き直してください。COMを読み込めず、対局できません。",
-    unavailableContinue: "ページを開き直してください。COMを読み込めず、対局を続けられません。",
+    unavailable: "ページを開き直してください。COMを読み込めず、対局できません。「1台で打つ」と「対友人」はCOMなしで遊べます。",
+    unavailableContinue: "ページを開き直してください。COMを読み込めず、対局を続けられません。「1台で打つ」と「対友人」はCOMなしで遊べます。",
+    // Under the disabled start button of the 対COM tab, when KataGo failed to load.
+    startUnavailableNote: "ページを開き直すと直ることがあります。「1台で打つ」と「対友人」はCOMなしで遊べます。",
     waitingLoad: "COMの準備が終わるまでお待ちください。",
     thinking: "COMが次の手を考え中…",
     strongestLoading: percent => "最強のCOMを読み込み中… " + percent + "%",
@@ -370,6 +392,7 @@ export const TEXT = {
     reinforcement: "補強度",
     stance: "戦い方",
     tenuki: "相手の手に",
+    resign: "投了",
   },
 
   handicap: {
@@ -379,8 +402,8 @@ export const TEXT = {
     noteAi: "あなたが黒、COMが白です。置き石が先手の代わりなので、白が先に打ちます。",
     noteOnline: "黒を持つ側が置き石を受けます。置き石が先手の代わりなので、白が先に打ちます。",
     noteLocal: "置き石が先手の代わりなので、白が先に打ちます。",
-    noteRule: "コミ0.5目、白に置き石の数だけ加点（中国式）。",
-    noteRuleJapanese: "コミ0.5目（日本式）。",
+    noteRule: "コミなし、白に置き石の数だけ加点（中国式）。",
+    noteRuleJapanese: "コミなし（日本式）。",
     note9: "9路は5子まで。",
   },
 
@@ -420,6 +443,9 @@ export const TEXT = {
     mismatch: "ページを開き直してください。相手と盤面が食い違い、対局を止めています。",
     peerOutOfSync: "そのままお待ちください。相手の操作を反映できず、盤面を合わせ直しています。",
     connected: "相手とつながっています",
+    // Opening miego.fun/ again while a friend game is unfinished on this device.
+    resumeNotice: "終わっていない友人対局があります。",
+    resumeOpen: "友人対局に戻る",
     // もう一局 in a friend game starts once both players press it.
     rematchOffered: "「もう一局」を押すと始まります。相手がもう一局を申し込みました。",
     rematchWaiting: "相手を待っています",
@@ -445,6 +471,8 @@ export const TEXT = {
     statusFinished: "終局済み",
     unknownDate: "日時不明",
     summary: (status, moves, date) => status + " · " + moves + "手 · " + date,
+    // A played game's title names its players: 対友人 · 黒 たろう・白 はなこ.
+    players: (mode, black, white) => mode + " · " + [black && "黒 " + black, white && "白 " + white].filter(Boolean).join("・"),
     komi: komi => " · コミ " + komi,
     noteVariation: "元の棋譜とは別に保存した試し打ちです。",
     favoriteOn: "お気に入りにする",
@@ -470,7 +498,7 @@ export const TEXT = {
     sharedLoadFailed: "共有した人にURLをもう一度送ってもらってください。このURLは開けません。",
     intro: "棋譜を選ぶと大きな碁盤に表示します。",
     importSgf: "SGFファイルを読み込む",
-    empty: "保存された棋譜はまだありません。",
+    empty: "打ち始めると、棋譜がここに残ります。",
   },
 
   review: {
@@ -540,7 +568,7 @@ export const TEXT = {
     cardAllMoves: total => "全" + total + "手",
     cardUntil: step => step + "手目まで",
     cardHandicap: handicap => handicap + "子局 · ",
-    cardKomi: komi => "コミ" + komi + "目",
+    cardKomi: komi => komi ? "コミ" + komi + "目" : "コミなし",
     cardLegend: "地合いの推定",
     cardPlay: "自分でプレイする",
     cardContribute: "開発に参加する",
@@ -579,14 +607,18 @@ export const TEXT = {
     playCta: "MieGOで一局打つ",
     back: "MieGOに戻る",
     sideLabel: color => color === "B" ? "黒番" : "白番",
+    sidePrompt: "自分の石",
     shareSheetNote: "打った人ごとの、この一局の診断です。ページで説明と4つの軸を見られます。履歴の対局をまとめて診断すると、結果が安定します。",
     openPage: "診断ページを開く",
+    openPageCom: "COMの打ち方です。診断ページを開く",
     shareNone: "この対局はまだ診断できません。囲碁で、打った人がそれぞれ10手以上打つと出ます。",
     // 履歴: several saved games read together.
     historyButton: "履歴からまとめて棋風診断",
-    historyPick: "まとめる対局で、自分が打った石を選んでください。最近のCOMや友人との対局は選んであります。",
+    fromResult: "棋風診断 ›",
+    historyPick: "まとめたい対局の下にある「● 黒番」「○ 白番」から、自分が打った方を押してください。最近のCOMや友人との対局は選んであります。",
     historyOpen: "診断を見る",
     historyNone: "石を選ぶと、ここに診断が出ます。",
+    historyEmpty: "まとめられる対局が履歴にまだありません。囲碁で10手以上打つと、ここで選べるようになります。",
     historyResult: (type, name, games) => type + " " + name + "（" + games + "局のまとめ）",
     historyCancel: "やめる",
     // Each type's text speaks of one game; read together, it speaks of the games picked.
@@ -721,7 +753,7 @@ export const TEXT = {
     ruleLine: (komi, handicap, japanese = false) => (japanese ?
       "ルール：日本ルール（地とアゲハマの合計で数え、セキの地は数えない）、" :
       "ルール：中国ルール（盤上の石と地の合計で数える）、") +
-      (handicap ? "置き石" + handicap + "子、コミ" + komi + "目" + (japanese ? "" : "＋置き石補正" + handicap + "目") : "コミ" + komi + "目"),
+      (handicap ? "置き石" + handicap + "子、" + handicapKomi(komi, handicap, japanese) : "コミ" + komi + "目"),
     playing: (size, ruleLine) => "囲碁アプリMieGOで" + size + "路盤を打っています。" + ruleLine + "。",
     playingGomoku: (size, forbidden) => "囲碁アプリMieGOの" + size + "路盤で五目並べを打っています。ルール：" +
       (forbidden ? "禁じ手あり（黒だけ三三・四四・長連を打てず、ちょうど5つで勝ち。白は5つ以上で勝ち）" :
@@ -788,11 +820,16 @@ export const TEXT = {
     title: "設定",
     close: "設定を閉じる",
     reset: "初期状態に戻す",
+    name: "表示名",
+    nameNote: "対局の名前の欄、対友人の相手の画面、履歴と棋譜（SGF）に出ます。空欄なら「あなた」です。",
     sound: "効果音",
     soundNote: "石を打つ・取る、秒読み、終局で鳴らします",
     dopa: "ドパガキモード",
     dopaNote: "打つ・取る・勝つ、良い手、振り返りの勝負どころ、秒読みを派手にします",
     board: "碁盤",
+    linkStones: "呼吸点とつながった石",
+    linkStonesNote: "縦横に隣り合う同じ色の石は、取られるときも一緒です",
+    linkModes: { off: "なし", candidate: "仮置き時", always: "常に" },
     themes: { wood: "木目", light: "ライト", dark: "ダーク", custom: "カスタム" },
     boardColours: { board: "盤", line: "線", black: "黒石", white: "白石" },
     customBoardColours: "盤の色（カスタム）",
@@ -844,7 +881,7 @@ export const TEXT = {
     rules: "ルール",
     // Under the rule choices: what komi is, one line at 320px.
     komiNote: komi => "先手の黒が有利なので白にコミ" + komi + "目。",
-    komiNoteHandicap: (komi, japanese) => "置き碁なので白にコミ" + komi + "目" + (japanese ? "。" : "＋置き石の数。"),
+    komiNoteHandicap: japanese => "置き碁なのでコミなし" + (japanese ? "。同点は引き分け。" : "。白に置き石の数を足す。"),
     rulesChoices: { chinese: "中国式", japanese: "日本式", gomoku: "五目並べ", free: "自由" },
     aiOptions: "COMの打ち方",
     rulesOptions: "ルールの追加設定",
@@ -925,7 +962,7 @@ export const TEXT = {
     ownershipTopic: {
       summary: "地合いの表示",
       items: [
-        "<strong>盤の色は何？</strong>：その場所が黒と白のどちらの地になりそうかを推定して塗っています。濃いほど、ほぼ決まった場所です。推定なので、確定した地ではありません。",
+        "<strong>盤の色は何？</strong>：その場所が黒と白のどちらの地になりそうかを推定して塗っています。濃いほど、ほぼ決まった場所です。片方の石だけで囲み終えた場所は、決まった地として濃く塗ります。日本式では石を数えないので、生きている石の上は塗りません。推定なので、確定した地ではありません。",
         "<strong>さかのぼると出るグラフ</strong>：灰色の部分が広いほど黒、白い部分が広いほど白が優勢という推定です。",
       ],
     },
@@ -934,7 +971,7 @@ export const TEXT = {
       items: [
         "<strong>何を目指すゲーム？</strong>：黒と白が交互に1つずつ石を置き、最後に自分の石で囲んだ空き点（地）が多いほうが勝ちです。相手の石は、周りを囲むと取れます。",
         "<strong>白を選んだのに石がある</strong>：囲碁は黒が先に打つので、対COMで白を選ぶと、始まった時点でCOMの黒がもう1手打っています。",
-        "<strong>7.5の0.5や「目」</strong>：コミに0.5が付くのは、引き分けをなくすためです。点数の単位「目（もく）」は、空き点1つ分です。",
+        "<strong>7.5の0.5や「目」</strong>：コミに0.5が付くのは、引き分けをなくすためです。置き碁はコミなしなので、引き分け（持碁）もあります。点数の単位「目（もく）」は、空き点1つ分です。",
         "<strong>置き石</strong>：力の差を埋めるためのハンデです。",
       ],
       current: "現在の対局：",
@@ -954,7 +991,7 @@ export const TEXT = {
     online: {
       summary: "対友人",
       items: [
-        "<strong>ページを閉じてしまった</strong>：同じブラウザなら、開き直すだけで続きから打てます。別の端末では「別の端末で続ける」のリンクを使います。",
+        "<strong>ページを閉じてしまった</strong>：同じブラウザなら、開き直して「友人対局に戻る」を押すと続きから打てます。別の端末では「別の端末で続ける」のリンクを使います。",
       ],
     },
     history: {
