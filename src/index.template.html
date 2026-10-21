@@ -166,6 +166,11 @@
     <div id="settingsBackdrop" class="settings-backdrop" hidden></div>
     <aside id="settingsPanel" class="settings-panel" role="dialog" aria-modal="true" aria-label="{{settings.title}}" hidden>
       <div class="settings-head"><h2>{{settings.title}}</h2><button id="resetAppearance" class="reset-button" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span>{{settings.reset}}</span></button><button id="closeSettings" class="icon-button" type="button" aria-label="{{settings.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <section class="settings-section name-settings">
+        <label class="setting-label" for="playerName">{{settings.name}}</label>
+        <input id="playerName" type="text" autocomplete="nickname" enterkeyhint="done" spellcheck="false" placeholder="{{game.you}}">
+        <p class="setting-note">{{settings.nameNote}}</p>
+      </section>
       <section class="settings-section sound-settings">
         <div class="mode"><div><strong>{{settings.sound}}</strong><p>{{settings.soundNote}}</p></div><input id="soundEffects" type="checkbox" aria-label="{{settings.sound}}"></div>
         <div class="mode"><div><strong>{{settings.dopa}}</strong><p>{{settings.dopaNote}}</p></div><input id="dopaMode" type="checkbox" aria-label="{{settings.dopa}}"></div>

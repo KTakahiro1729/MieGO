@@ -89,7 +89,8 @@ import {
 } from "./dopa-mode.mjs";
 import { choosePolicyMove } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
-import { playerSides } from "./player-row.mjs";
+import { cleanName, createPlayerName } from "./player-name.mjs";
+import { playerSides, recordNames } from "./player-row.mjs";
 import { DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
 import {
   CUSTOM_CHARACTER,
@@ -205,6 +206,8 @@ let linkKey=inviteKey;
 let ownerColor=null,onlineSession=null,guestInviteKey=null,issuedSide=null,onlineRevision=0;
 // The other seat's count of sign-ins on another device that this player has seen.
 let seenPeerSignins=null;
+// The friend's 表示名, as their device last sent it; "" until it does.
+let peerName="";
 let p2pTransport;
 const myOnlineColor=()=>ownerColor===null?null:playerColor(p2pRole,ownerColor);
 const currentSideSelection=()=>document.querySelector('input[name="onlineSide"]:checked')?.value||"random";
@@ -253,6 +256,11 @@ const hidingStones = () => (boardReview ? boardReview.snapshot : game)?.hideSton
 const appearance = createAppearanceSettings({$,canvas,getGame:()=>game,hidingStones,isCounting,show,draw,
   onOverlayOn:()=>boardReview?requestReviewOwnership():requestAnalysis()});
 const {shownPalette,overlayOn,updateGradient}=appearance;
+// 表示名: the player's own name in the turn row, in a friend's game and in saved games.
+const playerName = createPlayerName({$,onChange:()=>{
+  show();
+  if(room && connected)p2pTransport.sendSync();
+}});
 // 効果音: off until the 設定 sheet turns them on. ドパガキモード swaps in louder voices.
 const sound = createSoundEffects({$,voices:()=>dopa.level()==="off"?CALM_VOICES:DOPA_VOICES});
 const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),graph:$("reviewGraph"),
@@ -1633,7 +1641,7 @@ function isCounting(){
 function save(){
   try {
     const record=gameLibrary.save({id:currentGameId,mode:room?"online":gameMode,
-      roomId:room||null,snapshot:game,lastPosition,humanColor,aiCom,seat,
+      roomId:room||null,snapshot:game,lastPosition,humanColor,aiCom,seat,names:recordNames(playersShown()),
       watch:gameMode==="ai" && watching,watchAi},currentRevision);
     currentGameId=record.id;currentRevision=record.revision;
     if(!room)gameLibrary.setActive(gameMode,record.id);
@@ -1666,7 +1674,7 @@ function leaveOnlineRoom() {
   const oldUrl=new URL(location.href);oldUrl.searchParams.delete("room");oldUrl.hash="";
   room=null;seat="host";connected=false;reconnecting=false;ownerColor=null;onlineSession=null;
   inviteKey=null;guestInviteKey=null;issuedSide=null;onlineRevision=0;p2pRole="owner";
-  linkKey=null;seenPeerSignins=null;
+  linkKey=null;seenPeerSignins=null;peerName="";
   history.replaceState(null,"",oldUrl.pathname+oldUrl.search);
   $("inviteDetails").classList.add("hidden");
   $("inviteStatus").textContent="";
@@ -1738,6 +1746,9 @@ function onPeerSync(message){
     showSeatNotice(TEXT.online.mismatch);
     show();return false;
   }
+  // A device from before 表示名 sends none, and its player stays 相手.
+  const theirName=typeof message.name==="string"?cleanName(message.name):peerName;
+  if(theirName!==peerName){peerName=theirName;if(result.kind!=="adopt")save();}
   if(result.kind==="adopt"){
     // A もう一局 agreed while this device was away starts a new record, too.
     if(roundOf(result.game)!==roundOf(game)){currentGameId=null;currentRevision=null;}
@@ -1799,7 +1810,7 @@ p2pTransport=createP2PTransport({
     }
     show();
   },
-  getSnapshot:()=>({game,revision:onlineRevision,lastPosition,
+  getSnapshot:()=>({game,revision:onlineRevision,lastPosition,name:playerName.name(),
     scoringReview:game.status==="scoring" &&
     REVIEW_DONE.has(deadReview)?deadReview:null})
 });
@@ -2053,13 +2064,17 @@ function saveReviewVariation(){
     $("reviewNotice").textContent=TEXT.review.variationSaved;
   }catch(error){$("reviewNotice").textContent=messageFor(error,TEXT.review.variationSaveFailed);}
 }
+/** Who plays each colour, for the turn row and the names a saved game keeps. */
+function playersShown(){
+  return {mode:room?"online":gameMode,watching:isWatching(),humanColor,aiCom,watchAi,
+    onlineColor:room?myOnlineColor():null,myName:playerName.name(),peerName};
+}
 /** Both players in the turn row: who each colour is, and whether it is to move. */
 function renderPlayers(shown, waiting=null) {
   $("players").hidden=!shown;
   $("statusRow").querySelector(".status-main").classList.toggle("has-players",shown);
   if(!shown)return;
-  const sides=playerSides({mode:room?"online":gameMode,watching:isWatching(),humanColor,aiCom,watchAi,
-    onlineColor:room?myOnlineColor():null});
+  const sides=playerSides(playersShown());
   for(const color of [BLACK,WHITE]){
     const side=sides[color],box=$(color===BLACK?"playerBlack":"playerWhite");
     const toMove=game.next===color;
@@ -2309,12 +2324,17 @@ function forkBoardReview(kind="local") {
   clearBoardReview();
   save();closePanels();show();requestAnalysis();
 }
+/** SGF's PB and PW from a game's names, or null when it has none. */
+function namesMetadata(names){
+  return names?.black || names?.white?{blackName:names.black,whiteName:names.white}:null;
+}
 // Everything in the share sheet works on the displayed board: the replayed
 // line and step while replaying, otherwise the live game as it stands.
 function sharedPosition() {
   if(boardReview)return {...variationForSharing(boardReview,game),
     gameId:boardReview.source==="live" ? currentGameId : boardReview.record?.id ?? null};
-  return {snapshot:game,metadata:null,step:game.moves.filter(m=>m.position!=="resign").length,
+  return {snapshot:game,metadata:namesMetadata(recordNames(playersShown())),
+    step:game.moves.filter(m=>m.position!=="resign").length,
     gameId:currentGameId};
 }
 function sharedUrl() {
@@ -2349,7 +2369,7 @@ function openSavedBoard(record) {
     // old URL in the address bar after opening another saved record.
     if(boardReview?.source==="url")clearImportedReviewUrl();
     closePanels();
-    enterBoardReview(record.snapshot,count,"archive",record.sgfMeta,record);
+    enterBoardReview(record.snapshot,count,"archive",record.sgfMeta||namesMetadata(record.names),record);
     $("reviewBack").focus();
   }catch(error){
     $("historySaveNotice").textContent=TEXT.history.showFailed;
@@ -2399,7 +2419,7 @@ function openSharePanel(){
 $("stepBack").onclick=()=>{
   if(boardReview){setBoardReviewStep(boardReview.step-1);return;}
   if(!game.moves.length)return;
-  try{enterBoardReview(game,game.moves.length-1,"live");}
+  try{enterBoardReview(game,game.moves.length-1,"live",namesMetadata(recordNames(playersShown())));}
   catch{showNotice(TEXT.history.replayFailed);}
 };
 $("stepForward").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1);
@@ -2703,7 +2723,12 @@ if(room){
     seenPeerSignins=Number.isInteger(stored.seenPeerSignins)?stored.seenPeerSignins:null;
     game=stored.game;lastPosition=stored.lastPosition;
     const prior=gameLibrary.list().find(r=>r.mode==="online"&&r.roomId===room);
-    if(prior){currentGameId=prior.id;currentRevision=prior.revision;}
+    if(prior){
+      currentGameId=prior.id;currentRevision=prior.revision;
+      // Until the friend's device sends its 表示名 again, the one kept with the game stands.
+      const theirs=myOnlineColor()===BLACK?prior.names?.white:prior.names?.black;
+      peerName=cleanName(theirs);
+    }
     endExpanded=!!game.endProposal;
     if(issuedSide){
       const input=document.querySelector('input[name="onlineSide"][value="'+issuedSide+'"]');
