@@ -106,14 +106,38 @@ export const CALM_VOICES = {
 
 // C major from C5 up: the notes ドパガキモード climbs through.
 const SCALE = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
-/** ドパガキモード's louder sounds: a capture rings one rising note per stone taken (up to 8), a win plays a fanfare. */
+/**
+ * ドパガキモード's louder sounds: each stone adds a bright chime, a capture
+ * rings one rising note per stone taken (at least three, up to 8), a win plays a fanfare,
+ * 秒読み beeps twice as hard, a turning point of the replay lands with a low ドン
+ * and a good move rings a bright rising chord.
+ */
 export const DOPA_VOICES = {
   ...CALM_VOICES,
   capture(ctx, out, at, { count = 1 } = {}) {
     CALM_VOICES.capture(ctx, out, at);
-    const notes = Math.max(1, Math.min(SCALE.length, count));
+    const notes = Math.max(3, Math.min(SCALE.length, count + 2));
     for (let i = 0; i < notes; i++)
-      tone(ctx, out, at + .05 + i * .06, { frequency: SCALE[i], gain: .12, length: .18 });
+      tone(ctx, out, at + .04 + i * .05, { frequency: SCALE[i], gain: .14, length: .2 });
+  },
+  countdown(ctx, out, at) {
+    CALM_VOICES.countdown(ctx, out, at);
+    tone(ctx, out, at + .1, { frequency: 880, gain: .12, length: .09 });
+  },
+  countdownLast(ctx, out, at) {
+    CALM_VOICES.countdownLast(ctx, out, at);
+    tone(ctx, out, at + .1, { frequency: 1760, gain: .14, length: .12 });
+  },
+  don(ctx, out, at) {
+    knock(ctx, out, at, { frequency: 120, gain: .3, length: .35 });
+    tone(ctx, out, at, { frequency: 98, gain: .22, length: .5 });
+  },
+  good(ctx, out, at) {
+    [2, 4, 5, 7].forEach((note, i) => tone(ctx, out, at + .08 + i * .06, { frequency: SCALE[note], gain: .12, length: .4 }));
+  },
+  move(ctx, out, at) {
+    CALM_VOICES.move(ctx, out, at);
+    tone(ctx, out, at + .02, { frequency: SCALE[5], gain: .07, length: .16 });
   },
   end(ctx, out, at) {
     [0, 2, 3, 5].forEach((note, i) => tone(ctx, out, at + i * .11, { frequency: SCALE[note], gain: .13, length: .35 }));

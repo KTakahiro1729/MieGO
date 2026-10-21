@@ -42,11 +42,11 @@ test("labels and hints retain the display distinctions for saved records",()=>{
   const local=saved(),ai=saved({mode:"ai"}),online=saved({mode:"online"});
   const imported=saved({source:"sgf",sgfMeta:{komi:"6.5"}});
   assert.equal(recordName(local),"1台で打つ");
-  assert.equal(recordName(ai),"AIと対戦");
+  assert.equal(recordName(ai),"COMと対戦");
   assert.equal(recordName(online),"友人と対戦");
   assert.equal(recordName(imported),"SGFから読み込んだ棋譜");
   assert.deepEqual([recordIcon(local),recordIcon(ai),recordIcon(online),recordIcon(imported)],
-    ["●","AI","↗","SGF"]);
+    ["●","COM","↗","SGF"]);
   assert.equal(recordStatus(imported),"読み込み済み");
   assert.equal(recordStatus(saved({snapshot:{...local.snapshot,status:"scoring"}})),"採点中");
   assert.equal(recordStatus(saved({snapshot:{...local.snapshot,status:"finished"}})),"終局済み");

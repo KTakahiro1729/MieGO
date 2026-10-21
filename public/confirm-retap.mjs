@@ -3,12 +3,18 @@ import { TEXT } from "./texts.mjs";
 // Irreversible actions (投了, leaving a friend's match) are confirmed in place:
 // the first tap arms the button itself (danger color and a trailing ？ on its
 // label), optionally explaining below it; only a second tap on it proceeds.
-export function createRetapConfirm() {
+// A second tap sooner than RETAP_MIN_MS is a double-tap or a bounce, not a
+// decision, so it leaves the button armed.
+export const RETAP_MIN_MS=500;
+export function createRetapConfirm({now=()=>performance.now()}={}) {
   let armedConfirm=null;
   function confirmByRetap(button,message=null,armedAria=null) {
-    if(armedConfirm?.button===button){disarmConfirm();return true;}
+    if(armedConfirm?.button===button){
+      if(now()-armedConfirm.armedAt<RETAP_MIN_MS)return false;
+      disarmConfirm();return true;
+    }
     disarmConfirm();
-    armedConfirm={button,note:null,label:button.textContent,aria:button.getAttribute("aria-label")};
+    armedConfirm={button,note:null,label:button.textContent,aria:button.getAttribute("aria-label"),armedAt:now()};
     if(message){
       const note=document.createElement("p");
       note.id="armedConfirmNote";note.className="armed-note";note.setAttribute("role","status");
@@ -39,6 +45,10 @@ export function createRetapConfirm() {
   }
   document.addEventListener("pointerdown",e=>{
     if(armedConfirm && !armedConfirm.button.contains(e.target))disarmConfirm();
+  });
+  // A held Enter repeats clicks after any interval; only a fresh press confirms.
+  document.addEventListener("keydown",e=>{
+    if(e.repeat && armedConfirm?.button.contains(e.target))e.preventDefault();
   });
   return {confirmByRetap,keepArmedLabel,disarmConfirm};
 }

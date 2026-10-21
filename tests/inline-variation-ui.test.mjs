@@ -67,7 +67,7 @@ test("replay does not write moves to an active live or P2P session",()=>{
   assert.match(app,/const updates=source==="live"/);
 });
 test("saved records open directly on the main board from the saved-game entries",()=>{
-  assert.match(html,/id="openHistoryFromNew"[^>]*><span>[\s\S]*?<strong>対戦履歴を見る<\/strong><\/span><\/label>/);
+  assert.match(html,/id="openHistoryFromNew"[^>]*><span>[\s\S]*?<strong>履歴を見る<\/strong><\/span><\/label>/);
   assert.match(app,/if\(kind==="history"\)historyPanel\.showHistory\(\);/);
   assert.match(app,/enterBoardReview\(record\.snapshot,count,"archive",record\.sgfMeta,record\)/);
 });
@@ -105,7 +105,7 @@ test("sharing lives in one header sheet, not in the replay tools",()=>{
  // Only the AI copy needs words: what to do with the copied text.
  // Explanations live inside their buttons; the sheet has no loose notes.
  assert.doesNotMatch(sheet,/class="explanation"/);
- assert.match(sheet,/id="shareAiLink"[^>]*><span>AI向けにコピー<\/span><small>今の盤面と棋譜URLの読み方をコピーします。好きなAIに貼り付けると、この局面を相談できます<\/small><\/button>/);
+ assert.match(sheet,/id="shareAiLink"[^>]*><span>チャットAI向けにコピー<\/span><small>今の盤面と棋譜URLの読み方をコピーします。好きなチャットAIに貼り付けると、この局面を相談できます<\/small><\/button>/);
  assert.match(sheet,/id="shareSgf"[^>]*><span>SGFを保存<\/span><small>[^<]+<\/small><\/button>/);
  // Still image or game animation side by side, then one share-or-save button.
  // Each choice shows the image it would share.
