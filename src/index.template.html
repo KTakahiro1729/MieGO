@@ -57,8 +57,8 @@
           </div>
         </div>
         <div id="ownershipLegend" class="ownership-legend" aria-label="{{analysis.legendLabel}}">
-          <div class="bar-line"><span class="end-stone white" aria-hidden="true"></span><div class="gradient" id="gradient" aria-hidden="true"></div><span class="end-stone black" aria-hidden="true"></span></div>
-          <div class="legend-labels"><span id="legendWhite" class="legend-area visually-hidden">{{common.whiteArea}}</span><span id="legendNeutral" class="legend-area" hidden>{{common.neutral}}</span><span class="rule-line"><span id="ruleLabel" class="rule-label">{{game.ruleLabel(9,0,7.5,0)}}</span><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span><span id="legendBlack" class="legend-area visually-hidden">{{common.blackArea}}</span></div>
+          <div class="bar-line"><span class="end-stone black" aria-hidden="true"></span><div class="gradient" id="gradient" aria-hidden="true"></div><span class="end-stone white" aria-hidden="true"></span></div>
+          <div class="legend-labels"><span id="legendBlack" class="legend-area visually-hidden">{{common.blackArea}}</span><span id="legendNeutral" class="legend-area" hidden>{{common.neutral}}</span><span class="rule-line"><span id="ruleLabel" class="rule-label">{{game.ruleLabel(9,0,7.5,0)}}</span><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span><span id="legendWhite" class="legend-area visually-hidden">{{common.whiteArea}}</span></div>
         </div>
         <div id="infoPanel" class="info-panel">
         <div id="reviewTools" class="review-tools" role="group" aria-label="{{review.menu}}" hidden>
@@ -218,24 +218,24 @@
         <div class="setting-group ownership-tuning">
           <div class="setting-label" id="colourLabel">{{settings.colour}}</div>
           <div class="ramp" role="group" aria-labelledby="colourLabel">
-            <div class="ramp-ends" aria-hidden="true"><span class="ramp-stone white"></span><span>{{common.whiteArea}}</span><span class="ramp-spacer"></span><span>{{common.blackArea}}</span><span class="ramp-stone black"></span></div>
+            <div class="ramp-ends" aria-hidden="true"><span class="ramp-stone black"></span><span>{{common.blackArea}}</span><span class="ramp-spacer"></span><span>{{common.whiteArea}}</span><span class="ramp-stone white"></span></div>
             <div class="ramp-track">
               <div class="ramp-preview" id="rampPreview" aria-hidden="true"></div>
               <span class="ramp-neutral" aria-hidden="true"></span>
-              <span class="ramp-stop" style="--at:0%" id="colour-whiteSettled" aria-hidden="true"></span>
-              <span class="ramp-stop" style="--at:27%" id="colour-whiteLeaning" aria-hidden="true"></span>
-              <span class="ramp-stop" style="--at:73%" id="colour-blackLeaning" aria-hidden="true"></span>
-              <span class="ramp-stop" style="--at:100%" id="colour-blackSettled" aria-hidden="true"></span>
+              <span class="ramp-stop" style="--at:0%" id="colour-blackSettled" aria-hidden="true"></span>
+              <span class="ramp-stop" style="--at:27%" id="colour-blackLeaning" aria-hidden="true"></span>
+              <span class="ramp-stop" style="--at:73%" id="colour-whiteLeaning" aria-hidden="true"></span>
+              <span class="ramp-stop" style="--at:100%" id="colour-whiteSettled" aria-hidden="true"></span>
             </div>
             <div class="ramp-captions" aria-hidden="true"><span style="--at:0%">{{settings.settled}}</span><span style="--at:27%">{{settings.leaning}}</span><span style="--at:50%">{{common.neutral}}</span><span style="--at:73%">{{settings.leaning}}</span><span style="--at:100%">{{settings.settled}}</span></div>
           </div>
         </div>
         <div class="setting-group ownership-tuning custom-colours" id="customPaletteColours" hidden>
           <div class="custom-colours-head"><span>{{settings.customPaletteColours}}</span><button class="done-button" type="button" data-done>{{settings.done}}</button></div>
-          <div class="colour-row" role="radiogroup" aria-label="{{settings.whiteSettled}}" id="paletteColour-whiteSettled"></div>
-          <div class="colour-row" role="radiogroup" aria-label="{{settings.whiteLeaning}}" id="paletteColour-whiteLeaning"></div>
-          <div class="colour-row" role="radiogroup" aria-label="{{settings.blackLeaning}}" id="paletteColour-blackLeaning"></div>
           <div class="colour-row" role="radiogroup" aria-label="{{settings.blackSettled}}" id="paletteColour-blackSettled"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.blackLeaning}}" id="paletteColour-blackLeaning"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.whiteLeaning}}" id="paletteColour-whiteLeaning"></div>
+          <div class="colour-row" role="radiogroup" aria-label="{{settings.whiteSettled}}" id="paletteColour-whiteSettled"></div>
         </div>
         <fieldset class="setting-group ownership-tuning shape-choices">
           <legend class="setting-label">{{settings.strength}}</legend>

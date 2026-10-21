@@ -16,8 +16,8 @@ test("every mode stacks header, board, bar with komi, ◁ endgame ▷, turn, act
 });
 test("the rules and komi sit in the bar's legend between its two ends",()=>{
   const labels=html.slice(html.indexOf('class="legend-labels"'),html.indexOf('id="statusRow"'));
-  assert.ok(labels.indexOf('id="legendWhite"')<labels.indexOf('id="ruleLabel"'));
-  assert.ok(labels.indexOf('id="ruleLabel"')<labels.indexOf('id="legendBlack"'));
+  assert.ok(labels.indexOf('id="legendBlack"')<labels.indexOf('id="ruleLabel"'));
+  assert.ok(labels.indexOf('id="ruleLabel"')<labels.indexOf('id="legendWhite"'));
 });
 test("◁ and ▷ step one move in the live game and in a replay",()=>{
   assert.match(app,/\$\("stepBack"\)\.onclick=\(\)=>\{\s*if\(boardReview\)\{setBoardReviewStep\(boardReview\.step-1\);return;\}/);
