@@ -41,3 +41,13 @@ test("iOS neither zooms into the manual copy fields nor on a double tap of a but
     assert.match(css,new RegExp(rule.replace(/[.#]/g,"\\$&")+"\\{[^}]*font-size:16px"));
   assert.match(css,/\nbutton\{[^}]*touch-action:manipulation/);
 });
+test("states that only screen readers heard are also shown in the notice",()=>{
+  // The turn row cuts ページを開き直してください… short, and the player row keeps reading 最強.
+  assert.match(app,/\$\("aiMatchStatus"\)\.textContent = TEXT\.ai\.unavailable;\n    showNotice\(TEXT\.ai\.unavailable\);/);
+  assert.match(app,/showNotice\(TEXT\.ai\.strongestFailed\)/);
+});
+test("a friend game's status line says what it waits for, and the sheet the check opened closes",()=>{
+  assert.match(app,/async function joinRoom\(\)\{[\s\S]*?\$\("netStatus"\)\.textContent=TEXT\.online\.waitingConnection;\n  try\{/);
+  assert.match(app,/callback:token=>\{if\(opened\)closePanels\(\);resolve\(token\);\}/);
+  assert.match(app,/onConnected:\(\)=>\{[\s\S]*?TEXT\.online\.requestFailed\)\$\("saveStatus"\)\.hidden=true;/);
+});
