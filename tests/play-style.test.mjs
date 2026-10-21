@@ -10,6 +10,7 @@ import {
   PLAY_STYLE_RE,
   playStyle,
   readResignReason,
+  RESCUE_REASON,
   pooledPlayStyle,
   readStyleLink,
   reportPlayStyles,
@@ -208,15 +209,29 @@ test("each way to 棋風診断 leads on to the others",async()=>{
     assert.doesNotMatch(TEXT.playStyle.pooledText(text),/この一局/);
 });
 
-test("引き際 has a rank among people only where people were measured",()=>{
-  const game=highAndLow(),black=playStyle(game,BLACK);
-  // Black won by resignation: 粘り強い with nothing to compare.
-  assert.equal(black.type[3],"T");
-  assert.equal(styleRanks(black.score)[3],null);
-  const link=styleLink(black);
-  assert.match(link,/&p=\d+,\d+,\d+,&/);
-  assert.deepEqual(readStyleLink(link.split("?")[1]).ranks.slice(3),[null]);
-  assert.equal(readStyleLink("?t=AHFT&p=,,,").ranks,null,"no rank at all reads as none");
+test("letting dead stones go is 潔い, reaching for them in vain 粘り強い",()=>{
+  const at=(x,y)=>y*19+x;
+  // White plays a line along the edge, each stone next to the last (or one apart), while Black plays far away.
+  const game=step=>{
+    let state=newGame(true,{size:19});
+    for(let i=0;i<12;i++){state=play(state,at(i,10)); state=play(state,at(i*step,0));}
+    return state;
+  };
+  // White's stones are Black's, so dead, while the count stays about even.
+  const recall=state=>state.board.map(v=>v===WHITE ? 0.8 : 0);
+  const clinging=playStyle(game(1),WHITE,{recall}),letting=playStyle(game(2),WHITE,{recall});
+  assert.equal(clinging.score.grit,0.5,"every chance a futile rescue: as far as people go");
+  assert.equal(clinging.type[3],"T");
+  assert.equal(letting.score.grit,-0.25,"never a rescue, as more than half of people");
+  assert.equal(letting.type[3],"Q");
+  assert.equal(clinging.score.shares[3],RESCUE_REASON+100);
+  assert.equal(letting.score.shares[3],RESCUE_REASON);
+  assert.ok(styleRanks(clinging.score)[3]<styleRanks(letting.score)[3]);
+  const read=readStyleLink(styleLink(clinging).split("?")[1]);
+  assert.equal(read.evidence[3],RESCUE_REASON+100);
+  assert.equal(TEXT.playStyle.evidence[3]({rescue:100}),"死んだ自分の石がある局面で、その石を助けに行った手が100%");
+  // Without ownership there is nothing to read, and 引き際 stays where the rest left it.
+  assert.equal(playStyle(game(1),WHITE).score.grit,0);
 });
 
 test("a resignation is the more 潔い the closer the game and the sooner after it was lost",()=>{

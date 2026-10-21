@@ -4,6 +4,7 @@ import {
   pairShare,
   readResignReason,
   readStyleLink,
+  RESCUE_REASON,
   typeShare,
 } from "./play-style.mjs";
 import { TEXT } from "./texts.mjs";
@@ -54,8 +55,10 @@ function evidenceList(found) {
     const balanced = found.type === BALANCE;
     item.append(el("strong", null, balanced ? axis.highName + "・" + axis.lowName :
       letterName(found, i) + (found.ranks?.[i] != null ? " " + T.rank(found.ranks[i]) : "")));
-    // 引き際's reason below 0 is a resignation's timing.
-    const shown = i === 3 && found.evidence?.[i] < 0 ? readResignReason(found.evidence[i]) : found.evidence?.[i];
+    // 引き際's reason below 0 is a resignation's timing, from RESCUE_REASON a rescue share.
+    const given = found.evidence?.[i];
+    const shown = i !== 3 || given == null ? given : given < 0 ? readResignReason(given) :
+      given >= RESCUE_REASON ? { rescue: given - RESCUE_REASON } : given;
     const say = T.evidence[i];
     const line = shown == null || !say ? null : typeof say === "function" ? say(shown) : say[shown];
     if (line) item.append(el("span", null, line));

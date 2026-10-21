@@ -595,9 +595,11 @@ export const TEXT = {
       n => "相手を攻める手が" + n + "%",
       n => "序盤の2〜3線の手が" + n + "%",
       n => "相手の手から2路以内への応手が" + n + "%",
-      // A number: played on behind that often. Otherwise a resignation, with
+      // A number: played on behind that often. {rescue}: the share of moves with
+      // dead stones that reached for them in vain. Otherwise a resignation, with
       // how far behind and how many own moves after falling far behind, where known.
       n => typeof n === "number" ? "10目以上負けている局面の" + n + "%でも打ち続けた" :
+        n.rescue != null ? "死んだ自分の石がある局面で、その石を助けに行った手が" + n.rescue + "%" :
         n.deficit === null ? "投了で対局を終えた" :
         "形勢 約" + n.deficit + "目差で投了" + (n.late === null ? "" : n.late === 0 ? "（大差がつく前）" : "（大差がついてから" + n.late + "手後）"),
     ],
@@ -633,7 +635,7 @@ export const TEXT = {
       { high: "F", low: "R", highName: "自由", lowName: "律儀",
         about: "相手が打った手の近くに応じるか、離れた場所に打つか" },
       { high: "T", low: "Q", highName: "粘り強い", lowName: "潔い",
-        about: "負けていても打ち続けたか、投了や先のパスで区切りをつけたか。投了は、差が小さいうちに、大差がついたらすぐに投げるほど潔い" },
+        about: "負けていても打ち続けたか、投了や先のパスで区切りをつけたか。投了は、差が小さいうちに、大差がついたらすぐに投げるほど潔い。死んだ石を助けに行かず見切るのも潔い" },
     ],
     // Rows are motifs (動物 AH, 道具 AL, 建造物 GL, 植物 GH) and columns colours
     // (空青 FQ, 藤色 FT, 淡朱 RT, 若草 RQ); neighbours differ in one letter. /style lists them in this order.
