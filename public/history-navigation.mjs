@@ -5,7 +5,9 @@ import { TEXT } from "./texts.mjs";
 export function recordName(record) {
   if(record.source==="variation")return TEXT.history.titleVariation;
   if(record.source==="sgf")return TEXT.history.titleSgf;
-  return record.mode==="ai"?TEXT.common.modeAi:record.mode==="online"?TEXT.common.modeOnline:TEXT.common.modeLocal;
+  const mode=record.mode==="ai"?TEXT.common.modeAi:record.mode==="online"?TEXT.common.modeOnline:TEXT.common.modeLocal;
+  const names=record.names;
+  return names?.black || names?.white?TEXT.history.players(mode,names.black,names.white):mode;
 }
 
 export function recordStatus(record) {

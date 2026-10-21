@@ -180,6 +180,9 @@ select:disabled{opacity:.45}
 .mode input[type=checkbox]:checked::after{transform:translateX(20px)}
 .mode input[type=checkbox]:disabled{opacity:.4;cursor:not-allowed}
 .settings-section.sound-settings .mode{margin:0}
+/* 16px keeps iOS from zooming in on the field. */
+.settings-section.name-settings input{font-size:16px}
+.name-settings .setting-note{margin:6px 0 0}
 .settings-section.sound-settings .mode+.mode{margin-top:16px}
 /* ドパガキモード: confetti and the 勝利／圧勝 shout over the board, the board's shake on a capture and quake on a big one or a win. */
 .dopa-stage{position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit;z-index:3;container-type:size}

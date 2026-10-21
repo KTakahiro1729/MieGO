@@ -330,6 +330,7 @@ export const TEXT = {
       high: "序盤に4線より内側の高い手で勢力を作ります。",
     },
     tenukiStops: { low: "応じる", mid: "ふつう", high: "手を抜く" },
+    resignStops: { low: "最後まで", mid: "大差で投了", high: "早めに投了" },
     tenukiNotes: {
       low: "相手が打った手の近くで応じます。",
       mid: "応じるか離れるかを特に好みません。",
@@ -368,6 +369,7 @@ export const TEXT = {
     reinforcement: "補強度",
     stance: "戦い方",
     tenuki: "相手の手に",
+    resign: "投了",
   },
 
   handicap: {
@@ -446,6 +448,8 @@ export const TEXT = {
     statusFinished: "終局済み",
     unknownDate: "日時不明",
     summary: (status, moves, date) => status + " · " + moves + "手 · " + date,
+    // A played game's title names its players: 対友人 · 黒 たろう・白 はなこ.
+    players: (mode, black, white) => mode + " · " + [black && "黒 " + black, white && "白 " + white].filter(Boolean).join("・"),
     komi: komi => " · コミ " + komi,
     noteVariation: "元の棋譜とは別に保存した試し打ちです。",
     favoriteOn: "お気に入りにする",
@@ -643,6 +647,8 @@ export const TEXT = {
     title: "設定",
     close: "設定を閉じる",
     reset: "初期状態に戻す",
+    name: "表示名",
+    nameNote: "対局の名前の欄、対友人の相手の画面、履歴と棋譜（SGF）に出ます。空欄なら「あなた」です。",
     sound: "効果音",
     soundNote: "石を打つ・取る、秒読み、終局で鳴らします",
     dopa: "ドパガキモード",

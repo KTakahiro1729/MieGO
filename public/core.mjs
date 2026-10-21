@@ -285,11 +285,17 @@ export function setDeadCandidates(state, positions) {
   return {...state,dead:[...marked].sort((a,b)=>a-b),scoringStep:"dead",
     agreed:{black:false,white:false}};
 }
-export function resume(state) {
+/**
+ * 対局を再開. When the player who asks is known (`by`), the opponent moves
+ * first: 日本囲碁規約 第九条 gives the side asked to resume the right to play
+ * first. Without `by` (one board for two players, a replay) the turn stays.
+ */
+export function resume(state, by = null) {
   if (state.status !== "scoring") throw new Error("Not scoring");
   // The playout's fill stones belong to this count only.
   const { fill, ...rest } = state;
-  return { ...rest, status: "playing", scoringStep: "dead", passes: 0, endProposal: null, dead: [],
+  const next = by === BLACK || by === WHITE ? -by : state.next;
+  return { ...rest, next, status: "playing", scoringStep: "dead", passes: 0, endProposal: null, dead: [],
     agreed: { black: false, white: false } };
 }
 /**
@@ -335,10 +341,21 @@ export function countingBoard(state) {
 export function areaScore(state) {
   return isJapanese(state) ? territoryScore(state) : chineseAreaScore(state);
 }
+/**
+ * Area scoring. The playout's fill stones close the borders but count for
+ * nobody: they fill the dame after the players stopped, and those points are
+ * shared (中国围棋竞赛规则 2002年版 第九条: 双方活棋之间的空点各得一半), which
+ * is the same difference as no one's. Dame filled as moves during the match
+ * are real stones and still count for the side that played them. Counting
+ * them would give the side that fills first, the one that passed first, the
+ * odd point.
+ */
 function chineseAreaScore(state) {
   const board = countingBoard(state), owned = Array(board.length).fill(0);
+  const fill = new Set(fillStones(state).map(s => s.position));
   let black = 0, white = whiteCompensation(state);
   for (let i = 0; i < board.length; i++) {
+    if (fill.has(i)) continue;
     if (board[i] === BLACK) { black++; owned[i] = BLACK; }
     if (board[i] === WHITE) { white++; owned[i] = WHITE; }
   }
