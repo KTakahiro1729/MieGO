@@ -1,4 +1,12 @@
-import { BALANCE, compatibility, pairShare, readStyleLink, typeShare } from "./play-style.mjs";
+import {
+  BALANCE,
+  compatibility,
+  LET_GO_REASON,
+  pairShare,
+  readResignReason,
+  readStyleLink,
+  typeShare,
+} from "./play-style.mjs";
 import { TEXT } from "./texts.mjs";
 
 // The /style page: one 棋風診断 from a share sheet's link, or the 17 types.
@@ -47,7 +55,10 @@ function evidenceList(found) {
     const balanced = found.type === BALANCE;
     item.append(el("strong", null, balanced ? axis.highName + "・" + axis.lowName :
       letterName(found, i) + (found.ranks?.[i] != null ? " " + T.rank(found.ranks[i]) : "")));
-    const shown = found.evidence?.[i];
+    // 引き際's reason below 0 is a resignation's timing, from LET_GO_REASON where stones were let go.
+    const given = found.evidence?.[i];
+    const shown = i !== 3 || given == null ? given : given < 0 ? readResignReason(given) :
+      given >= LET_GO_REASON ? { letGo: given - LET_GO_REASON } : given;
     const say = T.evidence[i];
     const line = shown == null || !say ? null : typeof say === "function" ? say(shown) : say[shown];
     if (line) item.append(el("span", null, line));

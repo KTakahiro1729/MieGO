@@ -1,4 +1,4 @@
-import {BLACK,isFree,isGomoku} from "./core.mjs";
+import {BLACK,group,isFree,isGomoku,neighbors} from "./core.mjs";
 import {personalityFeatures} from "./ai-personality.mjs";
 import {replayLine} from "./ownership-prefetch.mjs";
 import {leadFromOwnership} from "./score-graph.mjs";
@@ -10,7 +10,7 @@ import {leadFromOwnership} from "./score-graph.mjs";
 //   A 攻め / G 守り   attack and invasion against reinforcement (the COM's 戦い方)
 //   H 模様 / L 実利   the 4th line and above against the 2nd and 3rd (序盤)
 //   F 自由 / R 律儀   playing away from the opponent's last move or next to it
-//   T 粘り強い / Q 潔い  playing on 10 points behind, or resigning and passing first
+//   T 粘り強い / Q 潔い  playing on 10 points behind, or resigning (the sooner the more) and passing first
 
 // The middle of each axis, so that players split about evenly between the two
 // letters; the mean, not the median, so a share of a few opening moves never lands on it.
@@ -40,6 +40,91 @@ const lineOf = (point, size) => {
   return Math.min(x,y,size-1-x,size-1-y)+1;
 };
 
+// How 潔い a resignation is, from -1 (most) to -0.5, half from each of two
+// timings, both scaled to 19路 by board area. How far behind: up to 10 points
+// is the earliest, DEFICIT_LATE and more the latest. How long after the game
+// was lost: own moves played since falling DECIDED points or more behind for
+// good; none is the earliest, LATE_MOVES and more the latest. Each runs from
+// about the 10th to the 75th percentile of resigning players on Fox (see
+// below). A timing with no ownership kept to read it reads halfway.
+const DECIDED = 20, DEFICIT_LATE = 90, LATE_MOVES = 45;
+const ramp = (value, from, to) => value===null ? 0.5 : Math.max(0,Math.min(1,(value-from)/(to-from)));
+const resignGrit = (deficit, late) => -1+(ramp(deficit,10,DEFICIT_LATE)+ramp(late,0,LATE_MOVES))/4;
+
+// A resignation's reason for the /style page, as one negative number: -1 when
+// nothing is known, else -2 less the points behind (to 999) less 1000 times
+// one more than the own moves played since falling far behind (0: unknown).
+const resignReason = (deficit, late) => deficit===null ? -1 :
+  -2-Math.min(999,Math.max(0,Math.round(deficit)))-1000*(late===null ? 0 : late+1);
+/** The points behind and own moves played far behind of a resignation's reason; null where unknown. */
+export function readResignReason(n) {
+  if(n>=-1)return {deficit:null,late:null};
+  const v=-n-2;
+  return {deficit:v%1000,late:v<1000 ? null : Math.floor(v/1000)-1};
+}
+
+/**
+ * At the resignation (the last of `states`): how many points `color` was
+ * behind, and how many of its own moves it had played since falling DECIDED
+ * (scaled to the board) or more behind for good; null where no ownership tells.
+ */
+function resignTiming(states, moves, color, recall) {
+  const decided=DECIDED*states[0].board.length/361;
+  const deficitAt=state=>{
+    const lead=state ? leadFromOwnership(state,recall(state) ?? null) : null;
+    return lead===null ? null : -lead*color;
+  };
+  const deficit=deficitAt(states.at(-1));
+  if(deficit===null || deficit<decided)return {deficit,late:deficit===null ? null : 0};
+  // Back from the resignation over own moves, to the last one known to be closer.
+  let late=0, unknown=false;
+  for(let i=moves.length-1;i>=0;i--){
+    if(moves[i].color!==color || !Number.isInteger(moves[i].position))continue;
+    const behind=deficitAt(states[i]);
+    if(behind!==null && behind<decided)return {deficit,late};
+    unknown||=behind===null;
+    late++;
+  }
+  // Far behind from the first move, or never known to be closer.
+  return {deficit,late:unknown ? null : late};
+}
+
+const groupOwnership = (stones, ownership, color) =>
+  stones.reduce((total,stone)=>total+Number(ownership[stone])*color,0)/stones.length;
+
+/**
+ * Where `color` let its own weak groups go: for each, its stones' mean
+ * ownership, -1 to 0, at the last own move next to it. A group is weak while
+ * that mean is below 0. Groups that lived count as well as those that died,
+ * which keeps the reading nearly apart from strength (see LET_GO).
+ */
+function letGoPoints(states, moves, color, recall) {
+  const size=Math.round(Math.sqrt(states[0].board.length));
+  const touches=[];
+  moves.forEach((move,i)=>{
+    const state=states[i], ownership=state ? recall(state) ?? null : null;
+    if(move.color!==color || !Number.isInteger(move.position) || !state || ownership?.length!==state.board.length)return;
+    const seen=new Set();
+    for(const point of neighbors(move.position,size)){
+      if(state.board[point]!==color || seen.has(point))continue;
+      const stones=[...group(state.board,point).stones];
+      stones.forEach(stone=>seen.add(stone));
+      const mean=groupOwnership(stones,ownership,color);
+      if(mean<0)touches.push({i,mean,stones});
+    }
+  });
+  // Touches sharing a stone follow one group; its last touch is where the player let go.
+  const lastOf=new Map(), owner=new Map();
+  touches.forEach((touch,k)=>{
+    const joined=new Set(touch.stones.filter(stone=>owner.has(stone)).map(stone=>owner.get(stone)));
+    for(const old of joined)lastOf.delete(old);
+    touch.stones.forEach(stone=>owner.set(stone,k));
+    for(const [stone,o] of owner)if(joined.has(o))owner.set(stone,k);
+    lastOf.set(k,touch);
+  });
+  return [...lastOf.values()].map(touch=>touch.mean);
+}
+
 /** One side's tallies over one game, or null for too few moves. */
 function tallyMoves(states, moves, color, recall, resigned=false) {
   let count=0, stance=0, attack=0, attacks=0, opening=0, height=0, lows=0, replies=0, tenuki=0, nears=0, behind=0;
@@ -64,13 +149,20 @@ function tallyMoves(states, moves, color, recall, resigned=false) {
     if(lead!==null && lead*color<=-BEHIND)behind++;
   });
   if(count<MIN_MOVES)return null;
-  // Resigning is 潔い; playing on behind is 粘り強い; otherwise whoever passed first let go first.
-  const resign=resigned || moves.some(m=>m.color===color && m.position==="resign");
+  // Resigning is 潔い, the more so the sooner (resignGrit); playing on behind
+  // is 粘り強い; otherwise whoever passed first let go first.
+  const resignAt=moves.findIndex(m=>m.color===color && m.position==="resign");
+  const shown=resignAt>=0 ? moves.slice(0,resignAt) : resigned ? moves : null;
   const firstPass=moves.find(m=>m.position===null)?.color;
-  const grit=resign ? -1 : behind/count>=0.2 ? 1 : firstPass===color ? -0.5 : firstPass===-color ? 0.5 : 0;
-  // The reason the /style page gives: resigned (-1), or how often played on behind.
-  const reason=resign ? -1 : grit===1 ? Math.round(behind/count*100) : null;
-  return {count,stance,attack,attacks,opening,height,lows,replies,tenuki,nears,grit,reason};
+  let grit=behind/count>=0.2 ? 1 : firstPass===color ? -0.5 : firstPass===-color ? 0.5 : 0, reason=grit===1 ? Math.round(behind/count*100) : null;
+  if(shown){
+    const {deficit,late}=resignTiming(states.slice(0,shown.length+1),shown,color,recall);
+    const scale=361/states[0].board.length;
+    grit=resignGrit(deficit===null ? null : deficit*scale,late===null ? null : late*scale);
+    reason=resignReason(deficit,late);
+  }
+  const letGo=letGoPoints(states,moves,color,recall);
+  return {count,stance,attack,attacks,opening,height,lows,replies,tenuki,nears,grit,reason,letGo};
 }
 
 /**
@@ -82,17 +174,33 @@ function scoreTallies(tallies) {
   const sum=key=>tallies.reduce((total,tally)=>total+tally[key],0);
   const opening=sum("opening"), replies=sum("replies");
   return {stance:sum("stance")/sum("count"),attack:sum("attack")/sum("count"),height:opening ? sum("height")/opening : 0,
-    tenuki:replies ? sum("tenuki")/replies : 0,grit:sum("grit")/tallies.length,
+    tenuki:replies ? sum("tenuki")/replies : 0,grit:withLetGo(sum("grit")/tallies.length,tallies.flatMap(tally=>tally.letGo)),
     // What the /style page shows as the reasons: shares of the player's own moves, in percent.
     shares:[sum("attacks")/sum("count"),opening ? sum("lows")/opening : null,replies ? sum("nears")/replies : null]
-      .map(v=>v===null ? null : Math.round(v*100)).concat(tallies.length===1 ? tallies[0].reason : null)};
+      .map(v=>v===null ? null : Math.round(v*100)).concat(tallies.length===1 ? tallies[0].reason ?? letGoReason(tallies[0].letGo) : null)};
 }
+
+// Letting weak stones go early is 潔い, reaching for them till they are gone
+// 粘り強い: with MIN_LET_GO groups or more, where the median of letGoPoints
+// stands among people (LET_GO) moves 引き際 by up to half, as far as
+// resigning, playing on or passing first left it open.
+const MIN_LET_GO = 2;
+const median = values => {
+  const sorted=[...values].sort((a,b)=>a-b), mid=sorted.length>>1;
+  return sorted.length%2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
+};
+const withLetGo = (grit, points) => points.length<MIN_LET_GO ? grit :
+  grit+(0.5-shareBelow(LET_GO,median(points)))*(1-Math.abs(grit));
+// The /style page's reason for letting go when the stones were n% likely lost: LET_GO_REASON + n.
+export const LET_GO_REASON = 1000;
+const letGoReason = points => points.length<MIN_LET_GO ? null : LET_GO_REASON+Math.round((1-median(points))/2*100);
 
 const letter = (value, high, low) => value>=0 ? high : low;
 // Within half a standard deviation of people on the first three axes (Fox, as PEOPLE).
-const MIDDLE = Object.freeze({attack:0.040, height:0.104, tenuki:0.038});
+// 引き際 is in the middle with no resignation, playing on or passing first, and letting go as most do.
+const MIDDLE = Object.freeze({attack:0.040, height:0.104, tenuki:0.038, grit:0.25});
 const balanced = score => Math.abs(score.attack)<MIDDLE.attack && Math.abs(score.height)<MIDDLE.height &&
-  Math.abs(score.tenuki)<MIDDLE.tenuki && score.grit===0;
+  Math.abs(score.tenuki)<MIDDLE.tenuki && Math.abs(score.grit)<=MIDDLE.grit;
 const typeOf = score => balanced(score) ? BALANCE : letter(score.stance,"A","G")+letter(score.height,"H","L")+
   letter(score.tenuki,"F","R")+letter(score.grit,"T","Q");
 
@@ -157,10 +265,12 @@ export function reportPlayStyles(key, snapshot, styles, send=globalThis.navigato
   }catch{return false;}
 }
 
-// Where people stand on the first three axes: every 2.5% of the scores of 7,401
-// sides of even 19路 games on the Fox server, 攻め read by attacking alone.
+// Where people stand on each axis, every 2.5%: the first three over 7,401
+// sides of even 19路 games on the Fox server, 攻め read by attacking alone;
+// 引き際 put together from the resignations, playing on and LET_GO below.
 const PEOPLE = Object.freeze({
   attack:[-0.224,-0.153,-0.127,-0.112,-0.098,-0.088,-0.078,-0.071,-0.064,-0.057,-0.052,-0.045,-0.04,-0.035,-0.03,-0.024,-0.02,-0.015,-0.01,-0.005,-0.001,0.004,0.009,0.014,0.019,0.024,0.028,0.034,0.04,0.045,0.05,0.057,0.063,0.07,0.077,0.085,0.096,0.109,0.126,0.155,0.519],
+  grit:[-1,-1,-0.983,-0.942,-0.896,-0.85,-0.793,-0.739,-0.683,-0.631,-0.569,-0.506,-0.483,-0.448,-0.4,-0.35,-0.318,-0.275,-0.2,-0.133,-0.05,0,0,0,0,0,0,0,0.083,0.175,0.261,0.343,0.45,1,1,1,1,1,1,1,1],
   height:[-0.434,-0.309,-0.309,-0.309,-0.309,-0.184,-0.184,-0.184,-0.184,-0.184,-0.184,-0.184,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.005,0.066,0.066,0.066,0.066,0.066,0.066,0.066,0.066,0.191,0.191,0.191,0.191,0.191,0.191,0.316,0.316,0.316,0.441,0.566],
   tenuki:[-0.346,-0.137,-0.114,-0.101,-0.091,-0.082,-0.073,-0.066,-0.06,-0.054,-0.048,-0.043,-0.038,-0.034,-0.03,-0.025,-0.02,-0.016,-0.013,-0.008,-0.004,0.001,0.005,0.01,0.015,0.019,0.025,0.029,0.034,0.039,0.045,0.051,0.058,0.065,0.072,0.08,0.091,0.104,0.124,0.154,0.654],
 });
@@ -176,10 +286,15 @@ function shareBelow(points, value) {
   return (lo+(value-points[lo])/(points[hi]-points[lo]))/last;
 }
 
-// 引き際 among people: 35.7% of sides resigned. How often people play on
-// behind, or pass first, is not measured yet, so those have no rank.
-const RESIGNED = 0.357;
-const gritShare = grit => grit<=-1 ? RESIGNED : null;
+// 引き際 among people, from KataGo's small network on Fox 19路 games (15級 to
+// 1段). LET_GO every 5%: the median of letGoPoints over the 429 of 574 sides
+// with two or more weak groups. Its correlation with the Fox rank is 0.14;
+// over groups that died alone it was 0.28 (15級 -0.77, 1段 -0.54), and the
+// game's own loss per move, standing for strength, took little of it away
+// (0.25). Resignations: 661 of 931 games, 52 points behind and 18
+// own moves since falling 20 behind at the median. 17.9% of sides played on
+// behind like 粘り強い's first rule.
+const LET_GO = [-1,-0.87,-0.74,-0.67,-0.6,-0.51,-0.46,-0.42,-0.36,-0.33,-0.3,-0.26,-0.24,-0.21,-0.17,-0.13,-0.11,-0.07,-0.05,-0.03,0];
 
 /**
  * Where the player stands among people on each axis, towards their own letter:
@@ -193,7 +308,7 @@ export function styleRanks(score) {
   };
   const ranks=[towards(PEOPLE.attack,score.attack ?? score.stance,score.stance>=0),
     towards(PEOPLE.height,score.height,score.height>=0),towards(PEOPLE.tenuki,score.tenuki,score.tenuki>=0),
-    gritShare(score.grit)];
+    towards(PEOPLE.grit,score.grit,score.grit>=0)];
   return ranks.map(rank=>rank===null ? null : Math.max(1,Math.min(50,Math.round(rank*100))));
 }
 
@@ -201,9 +316,9 @@ export function styleRanks(score) {
 export const evidence = score => (score.shares ?? [null,null,null,null]).map(v=>v ?? "");
 
 // Each type's share of people, in percent: Fox 19路, the first three axes as
-// PEOPLE and 引き際 as RESIGNED, read as independent.
-const TYPE_SHARES = Object.freeze({AHFQ:3.9,AHFT:6.4,AHRQ:4.4,AHRT:7.3,ALFQ:4.9,ALFT:8.3,ALRQ:4.3,ALRT:7.3,BLNC:5.3,
-  GHFQ:3.6,GHFT:5.9,GHRQ:4.9,GHRT:8.1,GLFQ:4.6,GLFT:7.8,GLRQ:4.8,GLRT:8});
+// PEOPLE and 引き際 as PEOPLE.grit (52% Q), read as independent.
+const TYPE_SHARES = Object.freeze({AHFQ:5.5,AHFT:5,AHRQ:6.2,AHRT:5.7,ALFQ:7,ALFT:6.5,ALRQ:6.2,ALRT:5.7,BLNC:3.4,
+  GHFQ:5,GHFT:4.7,GHRQ:6.9,GHRT:6.4,GLFQ:6.6,GLFT:6.1,GLRQ:6.8,GLRT:6.3});
 export const typeShare = type => TYPE_SHARES[type] ?? null;
 /** How often two people of these types meet, in percent, to one decimal (at least 0.1). */
 export function pairShare(a, b) {
@@ -254,7 +369,7 @@ export function readStyleLink(search) {
   // A rank may be missing (null) where people were not measured, but not all of them.
   const ranked=ints(query.get("p"),v=>v>=1 && v<=50);
   const ranks=ranked?.length===4 && ranked.some(v=>v!==null) ? ranked : null;
-  const shown=ints(query.get("e"),v=>Math.abs(v)<=999);
+  const shown=ints(query.get("e"),v=>v>=-999999 && v<=LET_GO_REASON+100);
   const games=Number(query.get("n"));
   const partner=PLAY_STYLE_RE.test(query.get("u") ?? "") ? {type:query.get("u"),leans:four("ul",v=>Math.abs(v)<=100)} : null;
   return {type,color,leans,ranks,evidence:shown?.length===4 ? shown : null,
