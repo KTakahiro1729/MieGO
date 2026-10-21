@@ -1675,6 +1675,24 @@ function resumeModeGame(mode) {
   game=savedGame(mode);resetPositionState();
   save();closePanels();show();requestAnalysis();
 }
+// The room whose 友人対局に戻る was closed is not offered again.
+const RESUME_DISMISSED_KEY="miego-friend-resume-dismissed";
+// The server forgets a room a week after it was made.
+const ROOM_LIFETIME_MS=7*24*60*60*1000;
+/** The newest friend game on this device, when it is unfinished and this browser still holds its seat. */
+function resumableRoom(){
+  let record=null,dismissed=null;
+  try{record=gameLibrary.list().find(r=>r.mode==="online");dismissed=localStorage.getItem(RESUME_DISMISSED_KEY);}catch{}
+  if(!record || record.roomId===room || record.roomId===dismissed)return null;
+  if(!(Date.now()-Date.parse(record.updatedAt)<ROOM_LIFETIME_MS))return null;
+  const stored=readCheckpoint(localStorage,record.roomId);
+  return stored?.session && stored.game.status!=="finished"?record.roomId:null;
+}
+/** Reopens a friend room the way its address does: the saved seat rejoins and reconnects. */
+function openFriendRoom(target){
+  save();
+  location.assign(roomUrl(location.origin,target));
+}
 /**
  * The 新規対戦 sheet's way back, shown in every mode at the same place: the
  * unfinished saved game of the chosen offline mode when another mode is on the
@@ -1683,7 +1701,10 @@ function resumeModeGame(mode) {
 function returnTarget(kind) {
   // A finished game has nothing to continue, so the button names the board instead.
   const current={mode:null,label:!boardReview && game.status==="finished"?TEXT.history.returnBoard:TEXT.history.returnCurrent};
-  // Friend rooms reopen from the saved games.
+  if(kind==="online" && !room){
+    const target=resumableRoom();
+    if(target)return {mode:null,room:target,label:TEXT.online.resumeOpen};
+  }
   if(kind==="history" || kind==="online" || kind===(room?"online":gameMode))return current;
   let record=null;
   try{record=gameLibrary.active(kind);}catch{}
@@ -1696,6 +1717,7 @@ function syncReturnButton(kind) {
 }
 $("returnToGame").onclick=()=>{
   const target=returnTarget(newGameModeKind());
+  if(target.room){openFriendRoom(target.room);return;}
   if(target.mode){resumeModeGame(target.mode);return;}
   if(boardReview){clearBoardReview();show();requestAnalysis();}
   closePanels();$("newGameButton").focus();
@@ -2725,4 +2747,12 @@ if(!room && params.has("sgf")){
   }
 }
 compactOwnership();
+// An unfinished friend game is offered when the page opens on something else.
+const resumeRoom=room?null:resumableRoom();
+$("friendResume").hidden=!resumeRoom;
+$("friendResumeOpen").onclick=()=>openFriendRoom(resumeRoom);
+$("friendResumeClose").onclick=()=>{
+  try{localStorage.setItem(RESUME_DISMISSED_KEY,resumeRoom);}catch{}
+  $("friendResume").hidden=true;
+};
 show();requestAnalysis();
