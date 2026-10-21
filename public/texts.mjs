@@ -162,10 +162,6 @@ export const TEXT = {
     reviewUnavailable: "死石をタップで指定してください。自動判定なし",
     reviewChecking: "死石を確認しています…",
     settling: moves => "石をタップで修正。ダメを詰め中（" + moves + "手）",
-    settleCut: moves => "上限の" + moves + "手で停止。死石の候補を示します",
-    settleDone: moves => moves ? moves + "手でダメ詰め。死石の候補を示します" : "詰めるダメがなく、そのまま判定します",
-    settleSkip: "スキップ",
-    settleReplay: "決着手順を再生",
     // Each row: { area, detail, total } from scoreRows.
     breakdown: (black, white) => "黒：" + (black.detail ? black.detail + "＝" : "") + black.total +
       "\n白：" + (white.detail ? white.detail + "＝" : "") + white.total,
