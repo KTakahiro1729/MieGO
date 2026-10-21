@@ -188,6 +188,7 @@ export const TEXT = {
     yourTurn: "あなたの番",
     opponentTurn: "相手の番",
     waitingOpponent: "対局相手を待っています",
+    reconnecting: "自動でつなぎ直しています",
     aiStopped: "ページを開き直してください",
     aiTurn: "COMの番です",
     // While 最強 thinks: the turn label, and what it is doing on the line under it.
@@ -390,6 +391,8 @@ export const TEXT = {
     copyInvite: "招待リンクをコピー",
     checkpointFailed: "このページを閉じずに対局してください。この端末に保存できませんでした。",
     requestFailed: "電波やWi-Fiを確認して、もう一度お試しください。",
+    // Shown while the friend game reconnects by itself, so it asks for no retry.
+    retrying: "電波やWi-Fiを確認してください。つながると自動で続きに戻ります。",
     createFailed: "時間をおいて、もう一度お試しください。対局を作れませんでした。",
     rateLimited: "しばらく待ってから、もう一度お試しください。",
     sessionExpired: "招待URLか自分用の再入室リンクから開き直してください。",
