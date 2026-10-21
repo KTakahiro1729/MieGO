@@ -371,7 +371,8 @@ export const TEXT = {
     comSummary: (strength, leans) => ["強さ「" + strength + "」",
       ...leans.map(([name, value]) => name + "「" + value + "」")].join("・"),
     playingWith: (character, summary) => "「" + character + "」と対局中（" + summary + "）",
-    playingGomoku: "五目並べのCOMは、並びの長さを数える簡単な読みで打ちます（強さの設定は使いません）。",
+    // 五目並べ's COM reads lines itself (gomoku-ai.mjs) at the chosen strength.
+    playingGomoku: strength => "五目並べのCOMが強さ「" + strength + "」で打っています。",
     ready: "COMの準備ができました。対局を始められます。",
     startUnavailable: "COMを使えません",
     startLoading: "COMを準備中…",
