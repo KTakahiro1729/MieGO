@@ -114,6 +114,10 @@ test("a watched game that nobody is computing a move for asks for it again",()=>
 test("a COM that sees its game lost offers to end, a watched one plays on, and a resigned game keeps its territory",()=>{
   assert.doesNotMatch(body("finishAiMove"),/submitMove\("resign",true\)/);
   assert.match(body("finishAiMove"),/if\(watching\)\{if\(lost\)resignWish=game\.next;/);
+  // Its side of the turn row says so in place of 考え中, and the row stays to change the COM.
+  assert.match(body("renderPlayers"),/watching && resignWish===color\?TEXT\.game\.comWantsEnd:TEXT\.game\.comThinking/);
+  assert.match(body("renderPlayers"),/offering\?TEXT\.game\.comOffering:/);
+  assert.match(body("applySeats"),/game=\{\.\.\.game,endProposal:null\};/);
   assert.match(body("finishAiMove"),/else if\(!comOfferDeclined && game\.passes===0 && comEnds\(game\.next\)\)\{/);
   assert.match(body("requestAnalysis"),/if\(showsEndedTerritory\(game\)\)requestOwnership\(\);/);
 });

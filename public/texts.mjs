@@ -98,6 +98,9 @@ export const TEXT = {
     playing: "終局はまだまだです",
     near: "そろそろ終局です",
     ready: "終局してよさそうです",
+    // The ends of the meter under 終局を提案.
+    stageFrom: "序盤",
+    stageTo: "終盤",
     unavailable: "終局は自分で判断してください。目安を出せません",
     gomoku: "縦・横・斜めに5つ並べたら勝ち",
     free: "交点をタップして置く・取り除く・色を替える",
@@ -105,7 +108,6 @@ export const TEXT = {
     updating: "終局の目安を更新中",
     offline: "相手を待っています",
     proposed: "終局が提案されました",
-    comProposed: "COMが終局を提案しています",
     waiting: "相手の返答を待っています",
     askLocal: "採点を始めますか？",
     askCom: "COMに終局を提案しますか？",
@@ -114,7 +116,7 @@ export const TEXT = {
     goScoring: "採点を始める",
     detailIncoming: "受け入れると採点に進みます。対局を続けることもできます。",
     // 対COM, ending is an offer the COM answers at once, not a pass.
-    offerCom: "提案する",
+    offerCom: "終局を提案",
     detailLocalAi: "COMが受ければ採点に入ります。断られても盤も手番もそのままです。",
     detailUnsettledAi: "COMが受ければ採点に入ります。まだ決まっていない所は、どちらの地にもなりません。",
     detailAi: "終局はいつでも提案できます。パスとは別の操作です。",
@@ -134,7 +136,6 @@ export const TEXT = {
     passedLocal: c => "パスで採点へ。" + color(c) + "はパス済み",
     // While watching, nobody is asked to pass: the line only says what happened.
     passedWatch: c => color(c) + "がパス。次もパスなら採点へ",
-    wantsEnd: c => color(c) + "が終局を提案したがっています",
     // 同一局面反復 (日本囲碁規約 第十二条): both sides may end the game as no result.
     repeated: "同じ局面がくり返されています",
     void: "無勝負にする",
@@ -227,6 +228,8 @@ export const TEXT = {
     playersLabel: "対局者",
     toMove: "打つ番です",
     comThinking: "考え中",
+    comOffering: "終局を提案中",
+    comWantsEnd: "終局を提案したい",
     // 最強's side of the turn row has about 80px on a 320px phone; the full line is read out.
     sideDownloading: percent => "読込中 " + percent + "%",
     sidePreparing: "準備中",

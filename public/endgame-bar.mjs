@@ -25,7 +25,7 @@ export function passNotice({game, room, gameMode, watching, color}) {
  * `notices` the one-off texts a 待った or an answered offer left for this position.
  */
 export function endgameBarView({game, color, room, connected, gameMode, watching, endExpanded,
-  katagoReady, fallbackMode, advisor, aiThinking, notices, illegalCandidate, resignWish=null}) {
+  katagoReady, fallbackMode, advisor, aiThinking, notices, illegalCandidate}) {
   const view={text:{},hidden:{},disabled:{},classes:{},attributes:{},help:null};
   const playing=game.status==="playing";
   const offer=playing?game.endProposal:null;
@@ -76,7 +76,8 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
   // Against a COM, ending is an offer the COM may decline, as with a friend.
   const asksCom=comGame && !fallbackMode;
   let status=!playing?"":offline?TEXT.endgame.offline:
-    incoming?(voidOffer?TEXT.endgame.voidProposed:room?TEXT.endgame.proposed:TEXT.endgame.comProposed):
+    // The COM's offer reads on its side of the turn row, which stays to change the COM.
+    incoming?(voidOffer?TEXT.endgame.voidProposed:room?TEXT.endgame.proposed:""):
     waiting?TEXT.endgame.waiting:
     voidPrompt?TEXT.endgame.askVoid:
     localPrompt?(unsettled?hint+"\n":"")+(asksCom?TEXT.endgame.askCom:TEXT.endgame.askLocal):
@@ -117,9 +118,6 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
   view.text.endNote=playing && isGomoku(game) && !offline && !offer && !localPrompt?TEXT.endgame.gomoku:"";
   const notice=notices.find(n=>n?.number===game.moveNumber && n.hash===boardHash(game.board));
   if(playing && !offer && !localPrompt && !passed && notice)status=notice.text;
-  // While watching, a COM that sees its game lost plays on, and the bar says it would offer to end.
-  if(playing && watching && resignWish && !offer && !localPrompt && !passed && !notice)
-    status=TEXT.endgame.wantsEnd(resignWish===BLACK?"B":"W");
   // A decision is asked of this player: an offer, the other side's pass, or the advice to end.
   view.classes.endgameBar={"is-asking":localPrompt,"is-calling":playing && !offline &&
     (incoming || !!passed?.second || !status && hint===TEXT.endgame.ready ||

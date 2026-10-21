@@ -332,7 +332,7 @@ let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
 // A COM set to 終局の提案 offers to end once its game has looked lost for a few turns.
 const resignWatch = createResignWatch();
-// While watching, a COM that would offer keeps playing and the bar says so;
+// While watching, a COM that would offer keeps playing and its side of the turn row says so;
 // the colour that wants to, or null.
 let resignWish = null;
 // The player said 対局を続ける to the COM's offer: it plays the game out.
@@ -457,7 +457,7 @@ function myColorForEnd() {
 function updateEndUi() {
   const view=endgameBarView({game,color:myColorForEnd(),room:!!room,connected,gameMode,watching:isWatching(),
     endExpanded,katagoReady,fallbackMode,advisor:endgameAdvisor,aiThinking,
-    notices:[takebackNotice,endNotice],illegalCandidate,resignWish});
+    notices:[takebackNotice,endNotice],illegalCandidate});
   for(const [id,text] of Object.entries(view.text))$(id).textContent=text;
   for(const [id,hidden] of Object.entries(view.hidden))$(id).hidden=hidden;
   for(const [id,disabled] of Object.entries(view.disabled))$(id).disabled=disabled;
@@ -2172,14 +2172,19 @@ function renderPlayers(shown, waiting=null) {
   for(const color of [BLACK,WHITE]){
     const side=sides[color],box=$(color===BLACK?"playerBlack":"playerWhite");
     const toMove=game.next===color;
-    const thinking=toMove && side.com && !watchPaused && !intervening;
+    // A COM whose offer to end waits for an answer is not thinking: its side says so.
+    const offering=side.com && game.endProposal?.from===color;
+    const thinking=toMove && side.com && !offering && !watchPaused && !intervening;
     box.classList.toggle("is-turn",toMove);
     box.querySelector(".player-wait").hidden=!thinking;
     // A person's 持ち時間 takes the place of their line.
     box.querySelector(".player-name").textContent=side.name;
     // The connection stays in the line under the turn, which takes this row's place when it drops.
     box.querySelector(".player-detail-text").textContent=
-      thinking?(waiting?.short || TEXT.game.comThinking):clockShown(color)?"":toMove && !side.com?TEXT.game.toMove:side.detail;
+      // While watching, a COM that sees its game lost plays on and says it would offer to end.
+      thinking?(waiting?.short || (watching && resignWish===color?TEXT.game.comWantsEnd:TEXT.game.comThinking)):
+      offering?TEXT.game.comOffering:
+      clockShown(color)?"":toMove && !side.com?TEXT.game.toMove:side.detail;
   }
   $("playersMove").textContent=TEXT.game.moveLabel(game.moveNumber);
 }
@@ -2709,6 +2714,10 @@ function applySeats(match) {
   if(!canChangeSeats())return;
   stopAiTurn(); // A move being computed for a seat that changed is dropped.
   candidate=null;illegalCandidate=null;
+  // The COM that offered to end may be gone: the seats as they are now decide again.
+  if(game.endProposal && gameMode==="ai" && !watching && game.endProposal.from!==humanColor)
+    game={...game,endProposal:null};
+  endExpanded=false;resetResignWatch();
   gameMode=match.mode;
   setWatching(match.watching);
   if(match.watching){watchAi=match.watchAi;lastWatchMoveAt=performance.now();}
