@@ -70,6 +70,10 @@ test("a game with a capture, scoring and stepping back runs without a script err
   await page.locator("#gamePanel.is-finished").waitFor();
   await page.locator("#stepBack").click();
   await page.waitForFunction(()=>document.getElementById("reviewGraphPlot").innerHTML!=="",null,{timeout:30000});
+  // ◁ again moves within the replay; the step must not report that the game cannot be replayed.
+  await page.locator("#stepBack").click();
+  await page.locator("#turn",{hasText:"3手目"}).waitFor();
+  assert.equal(await page.locator("#reviewNotice").textContent(),"");
   assert.deepEqual(errors,[]);
   await page.close();
 });
