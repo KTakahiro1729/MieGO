@@ -1,6 +1,7 @@
 import {
   BALANCE,
   compatibility,
+  FAR_REASON,
   LET_GO_REASON,
   pairShare,
   readResignReason,
@@ -55,10 +56,11 @@ function evidenceList(found) {
     const balanced = found.type === BALANCE;
     item.append(el("strong", null, balanced ? axis.highName + "・" + axis.lowName :
       letterName(found, i) + (found.ranks?.[i] != null ? " " + T.rank(found.ranks[i]) : "")));
-    // 引き際's reason below 0 is a resignation's timing, from LET_GO_REASON where stones were let go.
+    // 自由/律儀's reason from FAR_REASON is a distance. 引き際's reason below 0 is a
+    // resignation's timing, from LET_GO_REASON where stones were let go.
     const given = found.evidence?.[i];
-    const shown = i !== 3 || given == null ? given : given < 0 ? readResignReason(given) :
-      given >= LET_GO_REASON ? { letGo: given - LET_GO_REASON } : given;
+    const shown = given == null ? given : i === 2 ? (given >= FAR_REASON ? { apart: (given - FAR_REASON) / 10 } : given) :
+      i !== 3 ? given : given < 0 ? readResignReason(given) : given >= LET_GO_REASON ? { letGo: given - LET_GO_REASON } : given;
     const say = T.evidence[i];
     const line = shown == null || !say ? null : typeof say === "function" ? say(shown) : say[shown];
     if (line) item.append(el("span", null, line));

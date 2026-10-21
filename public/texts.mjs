@@ -594,7 +594,10 @@ export const TEXT = {
     evidence: [
       n => "相手を攻める手が" + n + "%",
       n => "序盤の2〜3線の手が" + n + "%",
-      n => "相手の手から2路以内への応手が" + n + "%",
+      // {apart}: the mean lines from the opponent's stones, to one decimal. A number:
+      // a link made before, with the share of replies near the opponent's last move.
+      n => typeof n === "number" ? "相手の手から2路以内への応手が" + n + "%" :
+        "序盤〜中盤の手が、相手の石から平均" + n.apart.toFixed(1) + "路",
       // A number: played on behind that often. {letGo}: how likely lost (%) the
       // player's weak stones were when last reached for. Otherwise a resignation, with
       // how far behind and how many own moves after falling far behind, where known.
@@ -603,7 +606,7 @@ export const TEXT = {
         n.deficit === null ? "投了で対局を終えた" :
         "形勢 約" + n.deficit + "目差で投了" + (n.late === null ? "" : n.late === 0 ? "（大差がつく前）" : "（大差がついてから" + n.late + "手後）"),
     ],
-    peopleSource: "％は、野狐囲碁の19路の対局（15級〜3段の7,401人分）と比べた値です。",
+    peopleSource: "％は、野狐囲碁の19路の対局（15級〜3段の7,401人分。自由・律儀は32,854人分）と比べた値です。",
     privacy: "診断はこの端末の中で計算します。棋譜は送りません。数えるのは型と盤の大きさ、黒番か白番か、ルールだけです。",
     axesTitle: "4つの軸",
     allTitle: "17のタイプ",
@@ -633,7 +636,7 @@ export const TEXT = {
       { high: "H", low: "L", highName: "模様", lowName: "実利",
         about: "序盤に4線より上の高い場所と、2〜3線の低い場所のどちらに打つか" },
       { high: "F", low: "R", highName: "自由", lowName: "律儀",
-        about: "相手が打った手の近くに応じるか、離れた場所に打つか" },
+        about: "序盤から中盤にかけて、相手の石から離れた場所に打つか、相手の石の近くに打つか（相手を攻める手は数えない）" },
       { high: "T", low: "Q", highName: "粘り強い", lowName: "潔い",
         about: "負けていても打ち続けたか、投了や先のパスで区切りをつけたか。投了は、差が小さいうちに、大差がついたらすぐに投げるほど潔い。取られそうな石を早めに見切るのも潔い" },
     ],
