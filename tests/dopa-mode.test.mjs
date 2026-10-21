@@ -88,9 +88,10 @@ test("the 設定 switch starts off, is remembered and goes back to off with 初�
   p.$("dopaMode").onchange({ target: { checked: true } });
   assert.equal(p.saved.get("miego-dopa"), "on");
   assert.equal(p.$("dopaMode").checked, true);
+  // 初期状態に戻す resets the board's look only: the mode stays on.
   p.$("resetAppearance").listeners.forEach(listener => listener());
-  assert.equal(p.dopa.level(), "off");
-  assert.equal(p.saved.get("miego-dopa"), "off");
+  assert.equal(p.dopa.level(), "on");
+  assert.equal(p.saved.get("miego-dopa"), "on");
   assert.equal(page({ level: "on" }).dopa.level(), "on");
   assert.equal(page({ level: "ultra" }).dopa.level(), "on", "the old ULTRA reads as on");
 });

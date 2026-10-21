@@ -10,8 +10,9 @@ function fakePage() {
     return elements.get(id);
   };
   const handlers = [];
-  const target = { addEventListener: (type, listener) => handlers.push(listener) };
-  return { $, target, tap: () => handlers.forEach(handler => handler()) };
+  const target = { addEventListener: (type, listener) => handlers.push({ type, listener }) };
+  const fire = type => handlers.filter(handler => handler.type === type).forEach(handler => handler.listener());
+  return { $, target, fire, tap: () => fire("pointerdown") };
 }
 class FakeContext {
   static made = 0;
@@ -46,10 +47,10 @@ test("turning 効果音 on is remembered and plays a stone to hear it", () => {
   assert.deepEqual(heard, ["move"]);
   sound.play("capture");
   assert.deepEqual(heard, ["move", "capture"]);
-  // 初期状態に戻す turns them off again.
+  // 初期状態に戻す resets the board's look only: the sound stays on.
   page.$("resetAppearance").listeners.forEach(listener => listener());
-  assert.equal(sound.enabled(), false);
-  assert.equal(saved.get("miego-sound"), "off");
+  assert.equal(sound.enabled(), true);
+  assert.equal(saved.get("miego-sound"), "on");
 });
 
 test("a saved switch waits for the first tap before playing", () => {
@@ -60,6 +61,15 @@ test("a saved switch waits for the first tap before playing", () => {
   page.tap();
   sound.play("move");
   assert.deepEqual(heard, ["move"]);
+});
+
+test("a finger's tap wakes the sound when it is lifted, as a phone counts it", () => {
+  for (const type of ["pointerup", "touchend"]) {
+    const { page, sound, heard } = setup(new Map([["miego-sound", "on"]]));
+    page.fire(type);
+    sound.play("move");
+    assert.deepEqual(heard, ["move"], type);
+  }
 });
 
 test("blocked storage starts off and still switches", () => {
@@ -111,4 +121,38 @@ test("a voices getter is read at each play, and a capture's count reaches the vo
 
 test("ドパガキモード's voices cover every calm sound", () => {
   for (const name of Object.keys(CALM_VOICES)) assert.equal(typeof DOPA_VOICES[name], "function", name);
+});
+
+// An audio context that only notes the frequencies its oscillators start at.
+function recordingContext() {
+  const heard = [];
+  const param = () => ({ value: 0, setValueAtTime(v) { this.value = v; }, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} });
+  const node = extra => ({ connect: next => next, start() {}, stop() {}, ...extra });
+  const ctx = {
+    sampleRate: 8000, currentTime: 0,
+    createBuffer: (channels, length) => ({ getChannelData: () => new Float32Array(length) }),
+    createBufferSource: () => node(),
+    createBiquadFilter: () => node({ frequency: param(), Q: param() }),
+    createDynamicsCompressor: () => node({ threshold: param(), knee: param(), ratio: param(), attack: param(), release: param() }),
+    createGain: () => node({ gain: param() }),
+    createOscillator() {
+      const oscillator = node({ frequency: param(), start: () => heard.push(oscillator.frequency.value) });
+      return oscillator;
+    },
+  };
+  return { ctx, heard };
+}
+
+test("ドパガキモード's capture grows with the stones it takes, and stays in tune", () => {
+  const run = count => { const { ctx, heard } = recordingContext(); DOPA_VOICES.capture(ctx, {}, 0, { count }); return heard; };
+  for (let count = 1; count <= 30; count++)
+    assert.ok(run(count).every(frequency => Number.isFinite(frequency) && frequency > 0), `count ${count}`);
+  assert.ok(run(4).length > run(1).length, "a big capture's ドーン echoes");
+});
+
+test("ドパガキモード cheers only a win: a loss or a draw ends as calmly as usual", () => {
+  const end = (voices, detail) => { const { ctx, heard } = recordingContext(); voices.end(ctx, {}, 0, detail); return heard; };
+  assert.deepEqual(end(DOPA_VOICES, undefined), end(CALM_VOICES));
+  assert.ok(end(DOPA_VOICES, { kind: "win", big: false }).length > end(CALM_VOICES).length);
+  assert.ok(end(DOPA_VOICES, { kind: "win", big: true }).length > end(DOPA_VOICES, { kind: "win", big: false }).length);
 });
