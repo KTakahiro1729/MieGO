@@ -31,6 +31,19 @@ test("game errors use the inline notice, never a blocking alert",()=>{
   assert.doesNotMatch(app,/\balert\(error/);
   assert.match(css,/\.save-status\{position:fixed/);
 });
+test("when KataGo fails, the 対COM tab names the modes that work without it",()=>{
+  assert.match(app,/\$\("startAiNote"\)\.hidden=!\(needsKatago && fallbackMode\)/);
+  assert.match(html,/id="startAiNote"[^>]*hidden>[^<]*「1台で打つ」と「対友人」/);
+  // The note sits beside the start buttons of every mode, so it follows the 対COM section's visibility.
+  assert.match(html,/id="aiSetup"[\s\S]*?<\/section>\s*<p id="startAiNote"/);
+  assert.match(css,/#aiSetup\[hidden\]~\.start-note\{display:none\}/);
+});
+test("iOS neither zooms into the manual copy fields nor on a double tap of a button",()=>{
+  // Safari zooms into a focused field under 16px; manipulation drops the double-tap zoom only.
+  for(const rule of ["#shareCopyFallback",".illegal-prompt-fallback textarea",".help-copy-fallback"])
+    assert.match(css,new RegExp(rule.replace(/[.#]/g,"\\$&")+"\\{[^}]*font-size:16px"));
+  assert.match(css,/\nbutton\{[^}]*touch-action:manipulation/);
+});
 test("states that only screen readers heard are also shown in the notice",()=>{
   // The turn row cuts ページを開き直してください… short, and the player row keeps reading 最強.
   assert.match(app,/\$\("aiMatchStatus"\)\.textContent = TEXT\.ai\.unavailable;\n    showNotice\(TEXT\.ai\.unavailable\);/);
@@ -50,4 +63,9 @@ test("a friend game offers もう一局, which waits until the other player pres
   assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished;/);
   assert.match(app,/if\(room\)\{\n    if\(connected\)apply\(\{type:"rematch",color:myOnlineColor\(\)/);
   assert.match(app,/rematchAsked\?TEXT\.online\.rematchWaiting:TEXT\.game\.rematchNote/);
+});
+test("opening the page again offers an unfinished friend game whose seat this browser holds",()=>{
+  assert.match(app,/const stored=readCheckpoint\(localStorage,record\.roomId\);\n  return stored\?\.session && stored\.game\.status!=="finished"\?record\.roomId:null;/);
+  assert.match(app,/const resumeRoom=room\?null:resumableRoom\(\);\n\$\("friendResume"\)\.hidden=!resumeRoom;/);
+  assert.match(app,/location\.assign\(roomUrl\(location\.origin,target\)\)/);
 });

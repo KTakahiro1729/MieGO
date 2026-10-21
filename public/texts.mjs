@@ -94,7 +94,7 @@ export const TEXT = {
     ready: "終局してよさそうです",
     unavailable: "終局は自分で判断してください。目安を出せません",
     gomoku: "縦・横・斜めに5つ並べたら勝ち",
-    free: "交点をタップして置く・取り除く",
+    free: "交点をタップして置く・取り除く・色を替える",
     checking: "終局の目安を確認中",
     updating: "終局の目安を更新中",
     offline: "相手を待っています",
@@ -162,10 +162,6 @@ export const TEXT = {
     reviewUnavailable: "死石をタップで指定してください。自動判定なし",
     reviewChecking: "死石を確認しています…",
     settling: moves => "石をタップで修正。ダメを詰め中（" + moves + "手）",
-    settleCut: moves => "上限の" + moves + "手で停止。死石の候補を示します",
-    settleDone: moves => moves ? moves + "手でダメ詰め。死石の候補を示します" : "詰めるダメがなく、そのまま判定します",
-    settleSkip: "スキップ",
-    settleReplay: "決着手順を再生",
     // Each row: { area, detail, total } from scoreRows.
     breakdown: (black, white) => "黒：" + (black.detail ? black.detail + "＝" : "") + black.total +
       "\n白：" + (white.detail ? white.detail + "＝" : "") + white.total,
@@ -182,9 +178,10 @@ export const TEXT = {
   game: {
     turnBlack: "黒の番です",
     turnWhite: "白の番です",
-    freeBlack: "黒を置きます",
-    freeWhite: "白を置きます",
-    freeColorLabel: "置く石の色",
+    freeTurn: "自由に置く",
+    freeRemove: "取り除く",
+    freeToBlack: "● 黒にする",
+    freeToWhite: "○ 白にする",
     yourTurn: "あなたの番",
     opponentTurn: "相手の番",
     waitingOpponent: "対局相手を待っています",
@@ -223,7 +220,7 @@ export const TEXT = {
     localPractice: "1台で打つ",
     boardLabel: size => size + "路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。",
     ruleSummary: (size, komi, handicap, japanese = false, forbidden = false) => japanese === "free" ?
-      size + "路盤 · 自由に置く（ルールなし：空いた交点に置き、石をタップすると取り除く）" : japanese === "gomoku" ?
+      size + "路盤 · 自由に置く（ルールなし：空いた交点に黒か白を置き、石は取り除くか色を替える）" : japanese === "gomoku" ?
       size + "路盤 · 五目並べ" + (forbidden ? "（禁じ手あり：黒は三三・四四・長連を打てず、ちょうど5つで勝ち。白は5つ以上で勝ち）" :
         "（禁じ手なし：5つ以上並べたら勝ち）") : size + "路盤 · " +
       (japanese ? "日本式ルール · " : "中国式ルール · ") + (handicap ?
@@ -332,13 +329,16 @@ export const TEXT = {
       high: "序盤に4線より内側の高い手で勢力を作ります。",
     },
     tenukiStops: { low: "応じる", mid: "ふつう", high: "手を抜く" },
+    resignStops: { low: "最後まで", mid: "大差で投了", high: "早めに投了" },
     tenukiNotes: {
       low: "相手が打った手の近くで応じます。",
       mid: "応じるか離れるかを特に好みません。",
       high: "相手の手に付き合わず、離れた場所へ打ちます。",
     },
-    unavailable: "ページを開き直してください。COMを読み込めず、対局できません。",
-    unavailableContinue: "ページを開き直してください。COMを読み込めず、対局を続けられません。",
+    unavailable: "ページを開き直してください。COMを読み込めず、対局できません。「1台で打つ」と「対友人」はCOMなしで遊べます。",
+    unavailableContinue: "ページを開き直してください。COMを読み込めず、対局を続けられません。「1台で打つ」と「対友人」はCOMなしで遊べます。",
+    // Under the disabled start button of the 対COM tab, when KataGo failed to load.
+    startUnavailableNote: "ページを開き直すと直ることがあります。「1台で打つ」と「対友人」はCOMなしで遊べます。",
     waitingLoad: "COMの準備が終わるまでお待ちください。",
     thinking: "COMが次の手を考え中…",
     strongestLoading: percent => "最強のCOMを読み込み中… " + percent + "%",
@@ -370,6 +370,7 @@ export const TEXT = {
     reinforcement: "補強度",
     stance: "戦い方",
     tenuki: "相手の手に",
+    resign: "投了",
   },
 
   handicap: {
@@ -420,6 +421,9 @@ export const TEXT = {
     mismatch: "ページを開き直してください。相手と盤面が食い違い、対局を止めています。",
     peerOutOfSync: "そのままお待ちください。相手の操作を反映できず、盤面を合わせ直しています。",
     connected: "相手とつながっています",
+    // Opening miego.fun/ again while a friend game is unfinished on this device.
+    resumeNotice: "終わっていない友人対局があります。",
+    resumeOpen: "友人対局に戻る",
     // もう一局 in a friend game starts once both players press it.
     rematchOffered: "「もう一局」を押すと始まります。相手がもう一局を申し込みました。",
     rematchWaiting: "相手を待っています",
@@ -445,6 +449,8 @@ export const TEXT = {
     statusFinished: "終局済み",
     unknownDate: "日時不明",
     summary: (status, moves, date) => status + " · " + moves + "手 · " + date,
+    // A played game's title names its players: 対友人 · 黒 たろう・白 はなこ.
+    players: (mode, black, white) => mode + " · " + [black && "黒 " + black, white && "白 " + white].filter(Boolean).join("・"),
     komi: komi => " · コミ " + komi,
     noteVariation: "元の棋譜とは別に保存した試し打ちです。",
     favoriteOn: "お気に入りにする",
@@ -470,7 +476,7 @@ export const TEXT = {
     sharedLoadFailed: "共有した人にURLをもう一度送ってもらってください。このURLは開けません。",
     intro: "棋譜を選ぶと大きな碁盤に表示します。",
     importSgf: "SGFファイルを読み込む",
-    empty: "保存された棋譜はまだありません。",
+    empty: "打ち始めると、棋譜がここに残ります。",
   },
 
   review: {
@@ -576,14 +582,17 @@ export const TEXT = {
     playCta: "MieGOで一局打つ",
     back: "MieGOに戻る",
     sideLabel: color => color === "B" ? "黒番" : "白番",
+    sidePrompt: "自分の石",
     shareSheetNote: "打った人ごとの、この一局の診断です。ページで説明と4つの軸を見られます。履歴の対局をまとめて診断すると、結果が安定します。",
     openPage: "診断ページを開く",
     shareNone: "この対局はまだ診断できません。囲碁で、打った人がそれぞれ10手以上打つと出ます。",
     // 履歴: several saved games read together.
     historyButton: "履歴からまとめて棋風診断",
-    historyPick: "まとめる対局で、自分が打った石を選んでください。最近のCOMや友人との対局は選んであります。",
+    fromResult: "棋風診断 ›",
+    historyPick: "まとめたい対局の下にある「● 黒番」「○ 白番」から、自分が打った方を押してください。最近のCOMや友人との対局は選んであります。",
     historyOpen: "診断を見る",
     historyNone: "石を選ぶと、ここに診断が出ます。",
+    historyEmpty: "まとめられる対局が履歴にまだありません。囲碁で10手以上打つと、ここで選べるようになります。",
     historyResult: (type, name, games) => type + " " + name + "（" + games + "局のまとめ）",
     historyCancel: "やめる",
     // Each type's text speaks of one game; read together, it speaks of the games picked.
@@ -827,11 +836,16 @@ export const TEXT = {
     title: "設定",
     close: "設定を閉じる",
     reset: "初期状態に戻す",
+    name: "表示名",
+    nameNote: "対局の名前の欄、対友人の相手の画面、履歴と棋譜（SGF）に出ます。空欄なら「あなた」です。",
     sound: "効果音",
     soundNote: "石を打つ・取る、秒読み、終局で鳴らします",
     dopa: "ドパガキモード",
     dopaNote: "打つ・取る・勝つ、良い手、振り返りの勝負どころ、秒読みを派手にします",
     board: "碁盤",
+    linkStones: "呼吸点とつながった石",
+    linkStonesNote: "縦横に隣り合う同じ色の石は、取られるときも一緒です",
+    linkModes: { off: "なし", candidate: "仮置き時", always: "常に" },
     themes: { wood: "木目", light: "ライト", dark: "ダーク", custom: "カスタム" },
     boardColours: { board: "盤", line: "線", black: "黒石", white: "白石" },
     customBoardColours: "盤の色（カスタム）",
@@ -964,7 +978,7 @@ export const TEXT = {
     ownershipTopic: {
       summary: "地合いの表示",
       items: [
-        "<strong>盤の色は何？</strong>：その場所が黒と白のどちらの地になりそうかを推定して塗っています。濃いほど、ほぼ決まった場所です。推定なので、確定した地ではありません。",
+        "<strong>盤の色は何？</strong>：その場所が黒と白のどちらの地になりそうかを推定して塗っています。濃いほど、ほぼ決まった場所です。片方の石だけで囲み終えた場所は、決まった地として濃く塗ります。日本式では石を数えないので、生きている石の上は塗りません。推定なので、確定した地ではありません。",
         "<strong>さかのぼると出るグラフ</strong>：灰色の部分が広いほど黒、白い部分が広いほど白が優勢という推定です。",
       ],
     },
@@ -993,7 +1007,7 @@ export const TEXT = {
     online: {
       summary: "対友人",
       items: [
-        "<strong>ページを閉じてしまった</strong>：同じブラウザなら、開き直すだけで続きから打てます。別の端末では「別の端末で続ける」のリンクを使います。",
+        "<strong>ページを閉じてしまった</strong>：同じブラウザなら、開き直して「友人対局に戻る」を押すと続きから打てます。別の端末では「別の端末で続ける」のリンクを使います。",
       ],
     },
     history: {

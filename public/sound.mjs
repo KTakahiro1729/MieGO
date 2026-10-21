@@ -9,6 +9,10 @@ import { clockSeconds } from "./game-clock.mjs";
 // (ドパガキモード) passes a getter that picks its own voices for the same names.
 // The browser keeps audio blocked until the page is tapped, so the context is
 // made, or resumed, inside the first tap or key press after the switch is on.
+// A finger's pointerdown does not count as a tap (the HTML standard lets
+// pointerup and touchend do that for touch), so those wake it too: otherwise,
+// on a phone, a context suspended by a reload or by leaving the app resumed
+// only inside the move itself, often too late for its sound.
 const SOUND_KEY = "miego-sound";
 const stored = key => { try { return localStorage.getItem(key); } catch { return null; } };
 const store = (key, value) => { try { localStorage.setItem(key, value); } catch {} };
@@ -21,6 +25,12 @@ export function moveSound(before, after, position) {
   if (!Number.isInteger(position)) return null;
   const taken = state => (state?.captures?.black || 0) + (state?.captures?.white || 0);
   return taken(after) > taken(before) ? "capture" : "move";
+}
+
+/** Whether `after` holds a もう一局, end or 待った proposal that `before` did not. */
+export function proposalArrived(before, after) {
+  return ["rematchRequest", "endProposal", "takebackRequest"]
+    .some(key => after?.[key] && after[key].from !== before?.[key]?.from);
 }
 
 /** The 秒読み beep for a clock reading: the last 10 seconds, higher in the last 5. */
@@ -65,6 +75,13 @@ function envelope(ctx, at, gain, length) {
   level.gain.exponentialRampToValueAtTime(.0001, at + length);
   return level;
 }
+// A struck bell: the note with its octave and twelfth, quieter and dying
+// sooner, so it rings softly and stays under 2.5kHz.
+function bell(ctx, out, at, { frequency, gain, length }) {
+  tone(ctx, out, at, { frequency, gain, length });
+  tone(ctx, out, at, { frequency: frequency * 2, gain: gain * .2, length: length * .5 });
+  tone(ctx, out, at, { frequency: frequency * 3, gain: gain * .06, length: length * .3 });
+}
 function tone(ctx, out, at, { frequency, gain, length }) {
   const oscillator = ctx.createOscillator();
   oscillator.type = "sine";
@@ -102,46 +119,175 @@ export const CALM_VOICES = {
     tone(ctx, out, at + .12, { frequency: 783.99, gain: .08, length: .7 });
   },
   move(ctx, out, at) { knock(ctx, out, at, { frequency: 900, gain: .09, length: .09 }); },
+  // The other side asks something (もう一局, the end, 待った, or the COM's
+  // pass) or a friend arrives: a doorbell's ピンポン, E5 down to C5, kept
+  // under the end's chord.
+  offer(ctx, out, at, { gain = .07 } = {}) {
+    bell(ctx, out, at, { frequency: 659.25, gain: gain, length: .5 });
+    bell(ctx, out, at + .18, { frequency: 523.25, gain: gain * .9, length: .8 });
+  },
 };
 
-// C major from C5 up: the notes ドパガキモード climbs through.
-const SCALE = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
+// From this many stones taken (as the board's quake) a capture's ドーン echoes.
+const ECHO_FROM = 4;
+// Most stones a capture's sound grows for: past this it is as big as it gets.
+const GROW_MOST = 10;
+// When the crackle after a firework's ドーン pops, in seconds after it: a few,
+// spread out, as fast pops of bright noise are the kind of sound people hate.
+const CRACKLE = [.08, .17, .29, .41, .57];
+
+// ドパガキモード is louder and layered, so its bigger sounds run through a
+// compressor that holds their peaks down: a big capture or a win sounds
+// bigger, not harsher.
+const limiters = new WeakMap();
+function limited(ctx, out) {
+  if (!limiters.has(ctx)) {
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -16;
+    limiter.knee.value = 6;
+    limiter.ratio.value = 12;
+    limiter.attack.value = .002;
+    limiter.release.value = .15;
+    const trim = ctx.createGain();
+    trim.gain.value = .9;
+    limiter.connect(trim).connect(out);
+    limiters.set(ctx, limiter);
+  }
+  return limiters.get(ctx);
+}
+function wave(ctx, out, at, { type, frequency, to = frequency, gain, length, attack = .003 }) {
+  const oscillator = ctx.createOscillator();
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, at);
+  if (to !== frequency) oscillator.frequency.exponentialRampToValueAtTime(to, at + length);
+  const level = ctx.createGain();
+  level.gain.setValueAtTime(.0001, at);
+  level.gain.linearRampToValueAtTime(gain, at + attack);
+  level.gain.exponentialRampToValueAtTime(.0001, at + length);
+  oscillator.connect(level).connect(out);
+  oscillator.start(at);
+  oscillator.stop(at + length + .01);
+}
+// ピューン: a square, softened by a low-pass, gliding from `from` to `to`
+// with a sine under it; falling, it flies off, rising, it is launched.
+function pew(ctx, out, at, { from, to, gain, length }) {
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 2500;
+  filter.connect(out);
+  wave(ctx, filter, at, { type: "square", frequency: from, to, gain: gain * .5, length });
+  wave(ctx, out, at, { type: "sine", frequency: from, to, gain, length });
+}
+// Noise through a low-pass that closes from `from` to `to`: a blast's rumble.
+function rumble(ctx, out, at, { from, to, gain, length }) {
+  const source = ctx.createBufferSource();
+  source.buffer = noise(ctx);
+  source.loop = true;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(from, at);
+  filter.frequency.exponentialRampToValueAtTime(to, at + length);
+  source.connect(filter).connect(envelope(ctx, at, gain, length)).connect(out);
+  source.start(at);
+  source.stop(at + length + .01);
+}
+// ドーン: a drum falling fast from 140Hz to 45Hz under the rumble of a blast.
+// A phone's speaker plays little below 400Hz, so its 2nd and 3rd harmonics
+// carry the weight there; nothing goes lower than can be heard.
+function boom(ctx, out, at, { gain, length }) {
+  wave(ctx, out, at, { type: "sine", frequency: 140, to: 45, gain, length });
+  wave(ctx, out, at, { type: "sine", frequency: 280, to: 90, gain: gain * .35, length: length * .6 });
+  wave(ctx, out, at, { type: "sine", frequency: 420, to: 135, gain: gain * .2, length: length * .4 });
+  rumble(ctx, out, at, { from: 2500, to: 120, gain: gain * .45, length: length * 1.2 });
+}
+// Pops of bright noise after a firework bursts.
+function crackle(ctx, out, at, gain) {
+  for (const [i, later] of CRACKLE.entries()) {
+    const source = ctx.createBufferSource();
+    source.buffer = noise(ctx);
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 1800 + i % 3 * 500;
+    const pop = at + later;
+    source.connect(filter).connect(envelope(ctx, pop, gain * (1 - i * .12), .03)).connect(out);
+    source.start(pop);
+    source.stop(pop + .04);
+  }
+}
+// ヒュ～ドーン: a whistle climbing into a burst that crackles.
+function firework(ctx, out, at, { gain }) {
+  wave(ctx, out, at, { type: "sine", frequency: 500, to: 2200, gain: gain * .35, length: .45 });
+  const burst = at + .45;
+  boom(ctx, out, burst, { gain, length: .9 });
+  crackle(ctx, out, burst, gain * .3);
+}
+
 /**
- * ドパガキモード's louder sounds: each stone adds a bright chime, a capture
- * rings one rising note per stone taken (at least three, up to 8), a win plays a fanfare,
- * 秒読み beeps twice as hard, a turning point of the replay lands with a low ドン
- * and a good move rings a bright rising chord.
+ * ドパガキモード's louder sounds: game-like ピューン and ドーン rather than
+ * notes. Each stone lands with a short ピュン and a thump; a capture flies off
+ * with a longer ピューン into a ドーン, both bigger the more stones it took
+ * (echoing from 4); a good move rises with a キュイーン; the viewer's win is a
+ * firework, ヒュ～ドーン (three for 圧勝), while a loss or a draw ends as
+ * calmly as usual; 秒読み beeps twice; a question rings a brighter ピンポン;
+ * a turning point of the replay lands with a ドーン. It grows with what
+ * happened in that one move, never with a streak, and the limiter keeps the
+ * bigger ones from peaking.
  */
 export const DOPA_VOICES = {
-  ...CALM_VOICES,
   capture(ctx, out, at, { count = 1 } = {}) {
-    CALM_VOICES.capture(ctx, out, at);
-    const notes = Math.max(3, Math.min(SCALE.length, count + 2));
-    for (let i = 0; i < notes; i++)
-      tone(ctx, out, at + .04 + i * .05, { frequency: SCALE[i], gain: .14, length: .2 });
+    const bus = limited(ctx, out);
+    const stones = Math.max(1, Math.min(GROW_MOST, count));
+    CALM_VOICES.move(ctx, bus, at);
+    const flight = .22 + stones * .03;
+    pew(ctx, bus, at, { from: 1800, to: 180, gain: .16, length: flight });
+    boom(ctx, bus, at + flight * .6, { gain: .3 + stones * .03, length: .45 + stones * .06 });
+    if (stones >= ECHO_FROM) boom(ctx, bus, at + flight * .6 + .28, { gain: .25, length: .5 });
   },
   countdown(ctx, out, at) {
-    CALM_VOICES.countdown(ctx, out, at);
-    tone(ctx, out, at + .1, { frequency: 880, gain: .12, length: .09 });
+    const bus = limited(ctx, out);
+    for (const later of [0, .1]) {
+      tone(ctx, bus, at + later, { frequency: 880, gain: .12, length: .09 });
+      wave(ctx, bus, at + later, { type: "triangle", frequency: 1760, gain: .04, length: .07 });
+    }
   },
   countdownLast(ctx, out, at) {
-    CALM_VOICES.countdownLast(ctx, out, at);
-    tone(ctx, out, at + .1, { frequency: 1760, gain: .14, length: .12 });
+    const bus = limited(ctx, out);
+    tone(ctx, bus, at, { frequency: 1320, gain: .14, length: .09 });
+    tone(ctx, bus, at + .1, { frequency: 1760, gain: .14, length: .12 });
+    wave(ctx, bus, at + .1, { type: "square", frequency: 1760, gain: .025, length: .1 });
   },
   don(ctx, out, at) {
-    knock(ctx, out, at, { frequency: 120, gain: .3, length: .35 });
-    tone(ctx, out, at, { frequency: 98, gain: .22, length: .5 });
+    const bus = limited(ctx, out);
+    boom(ctx, bus, at, { gain: .55, length: .8 });
+    knock(ctx, bus, at, { frequency: 120, gain: .3, length: .35 });
+  },
+  end(ctx, out, at, detail) {
+    if (detail?.kind !== "win") return CALM_VOICES.end(ctx, out, at);
+    const bus = limited(ctx, out);
+    firework(ctx, bus, at, { gain: .5 });
+    if (!detail.big) return;
+    firework(ctx, bus, at + .55, { gain: .45 });
+    firework(ctx, bus, at + 1.1, { gain: .55 });
   },
   good(ctx, out, at) {
-    [2, 4, 5, 7].forEach((note, i) => tone(ctx, out, at + .08 + i * .06, { frequency: SCALE[note], gain: .12, length: .4 }));
+    const bus = limited(ctx, out);
+    // キュイーン: two glides up, a fifth apart.
+    pew(ctx, bus, at + .05, { from: 300, to: 2400, gain: .07, length: .35 });
+    wave(ctx, bus, at + .05, { type: "sine", frequency: 450, to: 3600, gain: .04, length: .35 });
   },
   move(ctx, out, at) {
+    // Heard every move, so it stays well under a capture or a win: it skips
+    // the limiter, whose make-up gain would lift it as high as they are.
     CALM_VOICES.move(ctx, out, at);
-    tone(ctx, out, at + .02, { frequency: SCALE[5], gain: .07, length: .16 });
+    pew(ctx, out, at, { from: 1600, to: 500, gain: .05, length: .1 });
+    wave(ctx, out, at, { type: "sine", frequency: 160, to: 60, gain: .12, length: .16 });
   },
-  end(ctx, out, at) {
-    [0, 2, 3, 5].forEach((note, i) => tone(ctx, out, at + i * .11, { frequency: SCALE[note], gain: .13, length: .35 }));
-    for (const note of [0, 2, 3, 5]) tone(ctx, out, at + .5, { frequency: SCALE[note], gain: .08, length: 1.1 });
+  offer(ctx, out, at) {
+    // The calm ピンポン with a hollow triangle on each note: brighter, but
+    // still a question, so it skips the limiter and stays under a win.
+    CALM_VOICES.offer(ctx, out, at, { gain: .11 });
+    wave(ctx, out, at, { type: "triangle", frequency: 659.25, gain: .06, length: .35 });
+    wave(ctx, out, at + .18, { type: "triangle", frequency: 523.25, gain: .055, length: .5 });
   },
 };
 
@@ -161,7 +307,7 @@ export function createSoundEffects({ $, voices = CALM_VOICES, AudioContextClass 
     return ctx;
   }
   const primer = () => { wake(); };
-  for (const type of ["pointerdown", "keydown"]) target.addEventListener?.(type, primer, { capture: true });
+  for (const type of ["keydown", "pointerdown", "pointerup", "touchend"]) target.addEventListener?.(type, primer, { capture: true });
   function setEnabled(on) {
     enabled = !!on;
     toggle.checked = enabled;
@@ -172,7 +318,6 @@ export function createSoundEffects({ $, voices = CALM_VOICES, AudioContextClass 
     // Turning it on is a tap, so the sound can be heard right away.
     if (enabled) { wake(); play("move"); }
   };
-  $("resetAppearance").addEventListener?.("click", () => setEnabled(false));
   function play(name, detail) {
     const voice = (typeof voices === "function" ? voices() : voices)?.[name];
     if (!enabled || !voice) return;

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {newGame,play} from "../public/core.mjs";
 import {
-  recordName,recordStatus,recordIcon,recordSummary,readOnlyHint,navigationState,dateLabel
+  isBlankRecord,recordName,recordStatus,recordIcon,recordSummary,readOnlyHint,navigationState,dateLabel
 } from "../public/history-navigation.mjs";
 import {createHistoryPanel} from "../public/history-panel.mjs";
 
@@ -77,4 +77,12 @@ test("history panel is only a list and importer; main board owns replay state",(
   assert.equal(typeof history.importHistoryFile,"function");
   assert.equal("selection" in history,false);
   assert.equal("step" in history,false);
+});
+
+test("a game with no move yet stays out of the list, but an empty SGF or a finished game does not",()=>{
+  // The game saved on first visit would otherwise fill the empty list with 対局中 · 0手.
+  assert.equal(isBlankRecord(saved({snapshot:newGame()})),true);
+  assert.equal(isBlankRecord(saved()),false);
+  assert.equal(isBlankRecord(saved({source:"sgf",snapshot:newGame()})),false);
+  assert.equal(isBlankRecord(saved({snapshot:{...newGame(),status:"finished"}})),false);
 });

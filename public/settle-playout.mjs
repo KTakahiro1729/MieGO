@@ -31,10 +31,6 @@ import { OWNERSHIP_BANDS } from "./territory-view.mjs";
  * recaptures, so a triple ko could cycle): four thirds of the board (108,
  * 225 or 481 moves). Real playouts end with two passes long before it. */
 export const settleMax = size => Math.round(size * size * 4 / 3);
-/** The pause between shown playout moves: 333ms on 9x9, shorter on bigger
- * boards, so a playout over a third of the board takes about ten seconds
- * (at most 15 on 19x19). */
-export const settleStepMs = size => Math.min(360, Math.max(120, Math.round(9000 / Math.round(size * size / 3))));
 
 /** A scratch position to play out from: the scoring position, playable again. */
 export function settleStart(game) {

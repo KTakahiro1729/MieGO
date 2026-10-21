@@ -2,7 +2,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { newGame, play, at, boardHash } from "../public/core.mjs";
-import { legalAiMoves, choosePolicyMove, canConsiderAiPass, scorePolicyCandidates, personalityFeatures } from "../public/ai-opponent.mjs";
+import {
+  answersPass,
+  canConsiderAiPass,
+  choosePolicyMove,
+  createResignWatch,
+  legalAiMoves,
+  personalityFeatures,
+  scorePolicyCandidates,
+} from "../public/ai-opponent.mjs";
 const logits=point=>{const a=Array(81).fill(-100);a[point]=100;return a;};
 test("KataGo policy selects legal moves and excludes occupied points",()=>{
   const g=newGame();
@@ -85,4 +93,42 @@ test("AI pass eligibility is the same on every board size",()=>{
     assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"playing",random:()=>.5}),0);
     assert.equal(choosePolicyMove(s,p,1000,{endgameStage:"near",random:()=>.5}),null);
   }
+});
+
+test("after the other side passes, the AI passes back instead of playing on a settled point",()=>{
+  let state=play(newGame(),at(2,2));
+  state=play(state,null);
+  const ownership=Array(state.board.length).fill(0.9);
+  ownership[at(6,6)]=0.2;
+  assert.equal(answersPass(state,at(4,4),ownership,"ready"),true);
+  assert.equal(answersPass(state,at(6,6),ownership,"ready"),false,"an open point is still played");
+  assert.equal(answersPass(state,at(4,4),ownership,"playing"),false,"an unsettled board plays on");
+  assert.equal(answersPass(play(state,at(5,5)),at(4,4),ownership,"ready"),false,"only right after a pass");
+  assert.equal(answersPass(state,null,ownership,"ready"),false);
+});
+
+test("a COM set to 投了 resigns only after three hopeless turns in a row",()=>{
+  const s=newGame(true,{size:9});s.moveNumber=30;
+  const lost={winRate:.01,lead:-30},close={winRate:.4,lead:-2};
+  const watch=createResignWatch();
+  // 最後まで never resigns.
+  for(let i=0;i<5;i++)assert.equal(watch.observe(s,0,lost),false);
+  assert.equal(watch.observe(s,50,lost),false);
+  assert.equal(watch.observe(s,50,close),false);
+  assert.equal(watch.observe(s,50,lost),false);
+  assert.equal(watch.observe(s,50,lost),false);
+  assert.equal(watch.observe(s,50,lost),true);
+  // 大差 waits for a quarter of the board; 早め gives up at an eighth.
+  const behind={winRate:.05,lead:-15},fresh=createResignWatch();
+  for(let i=0;i<3;i++)assert.equal(fresh.observe(s,50,behind),false);
+  for(let i=0;i<2;i++)assert.equal(fresh.observe(s,100,behind),false);
+  assert.equal(fresh.observe(s,100,behind),true);
+  // Nobody resigns in the opening, and White reads the numbers from its side.
+  const early=newGame(true,{size:9}),opening=createResignWatch();
+  for(let i=0;i<4;i++)assert.equal(opening.observe(early,100,lost),false);
+  const white=newGame(true,{size:9});white.moveNumber=30;white.next=-1;
+  const w=createResignWatch();
+  for(let i=0;i<4;i++)assert.equal(w.observe(white,100,lost),false);
+  for(let i=0;i<2;i++)w.observe(white,100,{winRate:.99,lead:30});
+  assert.equal(w.observe(white,100,{winRate:.99,lead:30}),true);
 });

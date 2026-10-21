@@ -155,7 +155,9 @@ test("in 履歴, the person's own side in recent games is picked and can be chan
   const rows=()=>records.map(record=>{
     const row=dom.document.createElement("div"),item=dom.document.createElement("button");
     row.append(item);style.decorateRow(row,record,item);
-    return {row,item,sides:row.children[1]?.children ?? []};
+    const group=row.children[1];
+    return {row,item,label:group?.children[0]?.textContent,
+      sides:[...group?.children ?? []].filter(el=>el.className==="history-style-side")};
   });
   assert.equal(rows()[0].sides.length,0,"nothing is added until picking starts");
   dom.$("historyStyle").click();
@@ -163,7 +165,8 @@ test("in 履歴, the person's own side in recent games is picked and can be chan
   let [com,watched,local]=rows();
   assert.deepEqual(com.sides.map(chip=>chip.getAttribute("aria-pressed")),["true"],"only the COM game's own side, picked");
   assert.equal(watched.sides.length,0,"a watched game has no side of theirs");
-  assert.ok(watched.row.classList.contains("is-unreadable"));
+  assert.ok(watched.row.classList.contains("is-unreadable"),"hidden while picking");
+  assert.equal(local.label,"自分の石","the side buttons say what they pick");
   assert.deepEqual(local.sides.map(chip=>chip.getAttribute("aria-pressed")),["false","false"],"either side may be theirs");
   const white=playStyle(game,WHITE);
   assert.match(dom.$("historyStyleResult").textContent,new RegExp("^"+white.type+" .*1局"));
@@ -191,6 +194,9 @@ test("each way to 棋風診断 leads on to the others",async()=>{
   // The /style page links back to 履歴's reading, which the app opens from the address.
   assert.match(page,/href="\/\?open=history-style"/);
   assert.match(app,/params\.get\("open"\)==="history-style"/);
+  // A finished game of 囲碁 opens the share sheet at its 棋風診断.
+  assert.match(html,/<div id="scoreBox"[\s\S]*?id="scoreStyle"/);
+  assert.match(app,/\$\("scoreStyle"\)\.onclick=\(\)=>\{openSharePanel\(\);\$\("sharePlayStyles"\)\.scrollIntoView/);
   // Read together, a type's text no longer speaks of one game.
   for(const {text} of Object.values(TEXT.playStyle.types))
     assert.doesNotMatch(TEXT.playStyle.pooledText(text),/この一局/);
