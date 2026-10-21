@@ -14,15 +14,20 @@ import {
   pooledPlayStyle,
   readResignReason,
   readStyleLink,
+  readStyleMovesHash,
   reportPlayStyles,
   statPayload,
   styleLink,
+  styleMoves,
+  styleMovesHash,
   styleRanks,
   typeShare
 } from "../public/play-style.mjs";
 import {createHistoryStyle} from "../public/history-style.mjs";
 import {installDom} from "./helpers/fake-dom.mjs";
 import {renderStylePage} from "../scripts/build-html.mjs";
+import {makeReviewUrl,makeStyleMovesPrompt} from "../public/sgf-link.mjs";
+import {exportSGF} from "../public/sgf.mjs";
 import {readFileSync} from "node:fs";
 import {TEXT} from "../public/texts.mjs";
 
@@ -318,4 +323,76 @@ test("two styles read together: every pair has something, and the link carries t
   assert.equal(read.partner.type,white.type);
   assert.equal(read.partner.leans.length,4);
   assert.equal(readStyleLink("?t=AHFT&u=XXXX").partner,null,"an unknown partner is dropped");
+});
+
+test("あなたらしかった手: two moves apart that lean furthest towards the type, with a question for an AI",()=>{
+  const game=highAndLow(),style=playStyle(game,BLACK);
+  const picks=styleMoves(game,BLACK,style);
+  assert.equal(picks.length,2);
+  // Black's own moves, ten or more apart, high on the 4th line and far from White;
+  // the first move, with no White stone to be far from, is not one.
+  for(const pick of picks){
+    assert.equal(game.moves[pick.step-1].color,BLACK);
+    assert.ok(pick.step>1);
+    assert.deepEqual(pick.reasons.map(r=>[r.axis,r.high]),[[1,true],[2,true]]);
+  }
+  assert.ok(Math.abs(picks[1].step-picks[0].step)>=10);
+  // White answered each move next to it from the 3rd line.
+  const white=styleMoves(game,WHITE,playStyle(game,WHITE));
+  assert.ok(white.every(pick=>pick.reasons.some(r=>r.axis===2 && !r.high && r.far===1)));
+  assert.equal(TEXT.playStyle.moves.reasons[2](white[0].reasons.find(r=>r.axis===2)),"相手の石に接する手");
+  // Through fewer moves, only those are read; no style, no moves.
+  assert.ok(styleMoves(game,BLACK,playStyle(game,BLACK,{through:24}),{through:24}).every(pick=>pick.step<=24));
+  assert.deepEqual(styleMoves(game,BLACK,null),[]);
+  // Each one's question carries its replay URL and the board before it, ◇ where it was played.
+  const pick={...picks[1],rank:1,url:makeReviewUrl("https://miego.fun",{snapshot:game},picks[1].step)};
+  assert.equal(new URL(pick.url).searchParams.get("move"),String(pick.step));
+  const prompt=makeStyleMovesPrompt({type:style.type,color:"B"},[pick]);
+  assert.ok(prompt.includes("私（黒番）の打ち方は「"+style.type+" "+TEXT.playStyle.types[style.type].name+"」"));
+  assert.ok(prompt.includes(pick.url) && prompt.includes("2番目："+pick.step+"手目（序盤の4線の高い手・相手の石から"));
+  assert.ok(prompt.includes("この手が、なぜこの棋風の私らしい"));
+  assert.equal(prompt.match(/◇/g).length,2);
+  assert.ok(makeStyleMovesPrompt({type:style.type,color:null,com:true},[pick]).startsWith("囲碁アプリMieGOの棋風診断で、COMの打ち方は"));
+});
+
+test("あなたらしかった手 leave out moves that only save stones in atari",()=>{
+  // Black's 4th move (the 7th) escapes from the atari White's 3rd put it in.
+  const at=(x,y)=>y*9+x;
+  let state=newGame(true,{size:9});
+  for(const point of [at(4,4),at(4,3),at(2,6),at(5,4),at(6,2),at(3,4),at(4,5)])state=play(state,point);
+  for(let i=0;i<14;i++){
+    const free=state.board.findIndex((v,p)=>v===0 && p>=54 && !state.board[p-1] && !state.board[p+1]);
+    state=play(state,free<0 ? null : free);
+  }
+  // Read as high and near, the escape on the 4th line next to White would lead.
+  const style={...playStyle(state,BLACK),type:"GHRQ"};
+  const picks=styleMoves(state,BLACK,style);
+  assert.equal(picks.length,2);
+  assert.ok(picks.every(pick=>pick.step!==7));
+});
+
+test("the /style link carries あなたらしかった手 and the game in its fragment only",()=>{
+  const game=highAndLow(),style=playStyle(game,BLACK),picks=styleMoves(game,BLACK,style);
+  const sgf=exportSGF({snapshot:game}),hash=styleMovesHash(picks,sgf);
+  assert.match(hash,/^#k=\d+_H4\.F4,\d+_H4\.F4&sgf=/);
+  const read=readStyleMovesHash(hash);
+  assert.equal(read.sgf,sgf);
+  assert.equal(read.com,false);
+  assert.deepEqual(read.picks.map(pick=>pick.step),picks.map(pick=>pick.step));
+  assert.deepEqual(read.picks[0].reasons,picks[0].reasons.map(r=>({...r,attack:false,invasion:false,reinforcement:false,
+    line:r.axis===1 ? r.line : null,far:r.axis===2 ? r.far : null})));
+  const reasons=[{axis:0,high:true,attack:true,invasion:true},{axis:0,high:false,reinforcement:true},{axis:2,high:false,far:1}];
+  const back=readStyleMovesHash(styleMovesHash([{step:5,reasons}],sgf,true));
+  assert.equal(back.com,true);
+  assert.deepEqual(back.picks[0].reasons.map(r=>[r.axis,r.high,r.attack,r.invasion,r.reinforcement,r.far]),
+    [[0,true,true,true,false,null],[0,false,false,false,true,null],[2,false,false,false,false,1]]);
+  assert.equal(styleMovesHash([],sgf),"");
+  for(const bad of ["","#k=5_Z1&sgf=x","#k=0_H4&sgf=x","#k=5_H4"])assert.equal(readStyleMovesHash(bad),null);
+  // The share sheet opens the page with them; the page shows them, and its link for a partner leaves them out.
+  const share=readFileSync(new URL("../public/share-images.mjs",import.meta.url),"utf8");
+  const page=readFileSync(new URL("../public/play-style-page.mjs",import.meta.url),"utf8");
+  assert.match(share,/styleMovesHash\(picks,exportSGF\(\{snapshot,sgfMeta:metadata\}\),style\.com\)/);
+  assert.match(share,/window\.open\(styleLink\(style\)\+\(style\.moves \?\? ""\),"_blank","noopener"\)/);
+  assert.match(page,/readStyleMovesHash\(location\.hash\)/);
+  assert.match(page,/const link = location\.href\.split\("#"\)\[0\];/);
 });

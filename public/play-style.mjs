@@ -149,9 +149,24 @@ function nearestOpponent(board, point, color) {
   return far;
 }
 
+/**
+ * Whether a move had no real choice to it: saving an own group from atari,
+ * or taking back the stone the opponent just played into atari.
+ */
+function obvious(state, point, color) {
+  const size=Math.round(Math.sqrt(state.board.length)), last=state.moves.at(-1)?.position;
+  return neighbors(point,size).some(n=>{
+    if(state.board[n]===0)return false;
+    const {stones,liberties}=group(state.board,n);
+    return liberties.size===1 && (state.board[n]===color || stones.has(last));
+  });
+}
+
 /** One side's tallies over one game, or null for too few moves. */
 function tallyMoves(states, moves, color, recall, resigned=false) {
   let count=0, stance=0, attack=0, attacks=0, opening=0, height=0, lows=0, quiet=0, tenuki=0, apart=0, behind=0;
+  // Each own move's share of the first three axes, for styleMoves: null where it is not counted.
+  const leans=[];
   moves.forEach((move,i)=>{
     const state=states[i];
     if(move.color!==color || !Number.isInteger(move.position) || !state)return;
@@ -163,15 +178,20 @@ function tallyMoves(states, moves, color, recall, resigned=false) {
     attack+=(f.attack>=0.6)-NEUTRAL.attack; attacks+=f.attack>=0.6;
     // As the COM's 戦い方: attacking and invading half each, against reinforcing.
     // Where no ownership was kept, attacking alone tells.
-    stance+=ownership ? ((f.attack>=0.6)+(f.invasion>=0.5))/2-(f.reinforcement>=0.3)-NEUTRAL.stance :
-      ((f.attack>=0.6)-NEUTRAL.attack)/2;
-    const line=lineOf(move.position,Math.round(Math.sqrt(state.board.length)));
+    const lean={i,line:lineOf(move.position,Math.round(Math.sqrt(state.board.length))),far:null,
+      attack:f.attack>=0.6,invasion:!!ownership && f.invasion>=0.5,reinforcement:!!ownership && f.reinforcement>=0.3,
+      stance:ownership ? ((f.attack>=0.6)+(f.invasion>=0.5))/2-(f.reinforcement>=0.3)-NEUTRAL.stance :
+        ((f.attack>=0.6)-NEUTRAL.attack)/2,height:null,tenuki:null,obvious:obvious(state,move.position,color),
+      alone:!state.board.includes(-color)};
+    stance+=lean.stance;
+    const line=lean.line;
     // Each move is read against its own board's middle, so games of two sizes pool.
-    if(i<OPENING && line>1){opening++; lows+=line<=3; height+=NEUTRAL.low-(line<=3);}
+    if(i<OPENING && line>1){opening++; lows+=line<=3; height+=lean.height=NEUTRAL.low-(line<=3);}
     if(f.attack<0.3 && state.board.filter(v=>v===0).length>=APART.empty*state.board.length){
-      const far=nearestOpponent(state.board,move.position,color);
-      quiet++; apart+=far; tenuki+=(far-NEUTRAL.apart)*APART.scale;
+      const far=lean.far=nearestOpponent(state.board,move.position,color);
+      quiet++; apart+=far; tenuki+=lean.tenuki=(far-NEUTRAL.apart)*APART.scale;
     }
+    leans.push(lean);
     const lead=leadFromOwnership(state,ownership);
     if(lead!==null && lead*color<=-BEHIND)behind++;
   });
@@ -189,7 +209,7 @@ function tallyMoves(states, moves, color, recall, resigned=false) {
     reason=resignReason(deficit,late);
   }
   const letGo=letGoPoints(states,moves,color,recall);
-  return {count,stance,attack,attacks,opening,height,lows,quiet,tenuki,apart,grit,reason,letGo};
+  return {count,stance,attack,attacks,opening,height,lows,quiet,tenuki,apart,grit,reason,letGo,leans};
 }
 
 /**
@@ -274,6 +294,98 @@ export function poolTallies(found) {
   if(!tallies.length)return null;
   const score=scoreTallies(tallies);
   return {type:typeOf(score),score,games:tallies.length};
+}
+
+// あなたらしかった手: the own moves where the type showed most. 引き際 is read
+// from how a game ended, not from single moves, so only the first three axes
+// count. On each, a move's lean towards the type's letter is taken over the
+// game's furthest such lean (so 0 to 1), weighted by how few people lean that
+// far (styleRanks: 1% weighs 1, 50% 0.2). On 攻め/守り only a move that
+// attacked, invaded or reinforced counts. Moves with no real choice (obvious)
+// are left out, and the second pick lies STYLE_MOVE_GAP moves or more from the
+// first, the first pick's strongest axis counting half, so the two show
+// different moments and, where they can, different sides of the type. The
+// balanced type shows one move leaning each way on the first axis where it has both.
+export const STYLE_MOVES = 2;
+const STYLE_MOVE_GAP = 10;
+const LEAN_KEYS = ["stance","height","tenuki"];
+
+/**
+ * Up to STYLE_MOVES of `color`'s moves that are most like `style` (from
+ * playStyle, read with the same options), the most like it first: each
+ * {step, reasons}, step being the move's number (the replay step showing it)
+ * and reasons [{axis, high, ...what the move did}] strongest first.
+ */
+export function styleMoves(snapshot, color, style, options) {
+  const tally=style ? styleTally(snapshot,color,options) : null;
+  if(!tally)return [];
+  const leans=tally.leans.filter(lean=>!lean.obvious);
+  // 攻め/守り counts a move that attacked, invaded or reinforced, and 自由/律儀 one
+  // with an opponent stone to be far from: the rest only tell by being many.
+  const acted=(lean, axis, high) => axis===1 || (axis===2 ? !lean.alone : high ? lean.attack || lean.invasion : lean.reinforcement);
+  const toward=(lean, axis, high) => lean[LEAN_KEYS[axis]]===null || !acted(lean,axis,high) ? 0 :
+    Math.max(0,(high ? 1 : -1)*lean[LEAN_KEYS[axis]]);
+  const reason=(lean, axis, high) => ({axis,high,attack:lean.attack,invasion:lean.invasion,
+    reinforcement:lean.reinforcement,line:lean.line,far:lean.far});
+  const pick=(lean, reasons) => ({step:lean.i+1,reasons});
+  const apart=(lean, first) => Math.abs(lean.i-first.i)>=STYLE_MOVE_GAP;
+  const best=(scored) => scored.filter(([,score])=>score>0).sort((a,b)=>b[1]-a[1] || a[0].i-b[0].i)[0]?.[0] ?? null;
+  if(style.type===BALANCE){
+    for(const axis of [0,1,2]){
+      const high=best(leans.map(lean=>[lean,toward(lean,axis,true)]));
+      const low=high && best(leans.filter(lean=>apart(lean,high)).map(lean=>[lean,toward(lean,axis,false)]));
+      if(low)return [pick(high,[reason(high,axis,true)]),pick(low,[reason(low,axis,false)])];
+    }
+    return [];
+  }
+  const highs=[0,1,2].map(axis=>style.type[axis]===HIGHS[axis]);
+  const most=[0,1,2].map(axis=>Math.max(0,...leans.map(lean=>toward(lean,axis,highs[axis]))));
+  const ranks=styleRanks(style.score);
+  const weight=ranks.slice(0,3).map(rank=>rank===null ? 0.6 : 0.2+0.8*(50-rank)/49);
+  const parts=lean => [0,1,2].map(axis=>most[axis] ? weight[axis]*toward(lean,axis,highs[axis])/most[axis] : 0);
+  const sum=values => values.reduce((total,value)=>total+value,0);
+  const reasonsOf=lean => parts(lean).map((part,axis)=>[part,axis]).filter(([part])=>part>0)
+    .sort((a,b)=>b[0]-a[0]).map(([,axis])=>reason(lean,axis,highs[axis]));
+  const first=best(leans.map(lean=>[lean,sum(parts(lean))]));
+  if(!first)return [];
+  const main=reasonsOf(first)[0].axis;
+  const second=best(leans.filter(lean=>apart(lean,first))
+    .map(lean=>[lean,sum(parts(lean).map((part,axis)=>axis===main ? part/2 : part))]));
+  return [first,second].filter(Boolean).map(lean=>pick(lean,reasonsOf(lean)));
+}
+
+// The /style page shows them from the link's fragment, which never reaches the
+// server: k= each pick as its step and reasons, the strongest first, and sgf= the game.
+// A reason is its side's letter with what the move did: A with a (attacked),
+// i (invaded) or b (both), G (reinforced), H or L with the line, F or R with
+// the lines to the nearest opponent stone.
+const reasonToken = r => r.axis===0 ? (r.high ? "A"+(r.attack && r.invasion ? "b" : r.attack ? "a" : "i") : "G") :
+  (r.axis===1 ? (r.high ? "H" : "L")+r.line : (r.high ? "F" : "R")+r.far);
+const REASON_RE = /^(?:A[abi]|G|[HL]\d{1,2}|[FR][1-4])$/;
+function readReason(token) {
+  const axis="AGHLFR".indexOf(token[0])>>1, high="AHF".includes(token[0]), value=Number(token.slice(1));
+  return {axis,high,attack:"ab".includes(token[1] ?? "-"),invasion:"ib".includes(token[1] ?? "-"),
+    reinforcement:token==="G",line:axis===1 ? value : null,far:axis===2 ? value : null};
+}
+
+/** The fragment carrying `picks` (from styleMoves) and their game's SGF to the /style page; "" for none. */
+export function styleMovesHash(picks, sgf, com=false) {
+  if(!picks?.length || !sgf)return "";
+  return "#k="+picks.map(pick=>pick.step+"_"+pick.reasons.map(reasonToken).join(".")).join(",")+
+    (com ? "&com=1" : "")+"&sgf="+encodeURIComponent(sgf);
+}
+
+/** The picks, SGF and whether a COM played them from a /style fragment, or null. */
+export function readStyleMovesHash(hash) {
+  const query=new URLSearchParams((hash ?? "").replace(/^#/,""));
+  const sgf=query.get("sgf"), given=query.get("k");
+  if(!sgf || !given)return null;
+  const picks=given.split(",").slice(0,STYLE_MOVES).map(part=>{
+    const [step,reasons=""]=part.split("_"), tokens=reasons.split(".");
+    return /^[1-9]\d{0,3}$/.test(step) && tokens.every(token=>REASON_RE.test(token)) ?
+      {step:Number(step),reasons:tokens.map(readReason)} : null;
+  });
+  return picks.every(Boolean) ? {picks,sgf,com:query.get("com")==="1"} : null;
 }
 
 /** What /api/stat counts for one shown 棋風診断: no player, game or device is named. */

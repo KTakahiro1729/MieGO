@@ -8,7 +8,14 @@ import {
 import { shareLabels, shareFrameSize, paintShareFrame, buildGameAnimation, loadShareFonts } from "./share-image.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
 import { influence } from "./influence.mjs";
-import { playStyle, reportPlayStyles, styleLink } from "./play-style.mjs";
+import {
+  playStyle,
+  reportPlayStyles,
+  styleLink,
+  styleMoves,
+  styleMovesHash
+} from "./play-style.mjs";
+import { exportSGF } from "./sgf.mjs";
 import { stoneMark } from "./player-row.mjs";
 import { TEXT } from "./texts.mjs";
 
@@ -50,14 +57,20 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
   }
   // 棋風診断 of each person who played, counted (by type only) the first time it is shown.
   function playStyles(){
-    const {snapshot,step,gameId}=sharedPosition();
+    const {snapshot,metadata,step,gameId}=sharedPosition();
     try{
       const recall=state=>gameId===null ? null : ownershipStore.recall(gameId,state.board);
       const read=color=>playStyle(snapshot,color,{through:step,recall});
       const styles=playedSides().map(read).filter(Boolean);
       reportPlayStyles(gameId+":"+step+":"+styles.map(s=>s.type).join(","),snapshot,styles);
       const watched=watchedSides().map(read).filter(Boolean).map(style=>({...style,com:true}));
-      return [...styles,...watched];
+      // The /style page shows each player's あなたらしかった手 from its link's fragment.
+      return [...styles,...watched].map(style=>{
+        try{
+          const picks=styleMoves(snapshot,style.color==="B" ? BLACK : WHITE,style,{through:step,recall});
+          return {...style,moves:styleMovesHash(picks,exportSGF({snapshot,sgfMeta:metadata}),style.com)};
+        }catch(error){console.warn("Style moves not read",error);return style;}
+      });
     }catch(error){console.warn("Play style not read",error);return [];}
   }
   // An animation frame: the replayed position with the ownership recorded for
@@ -133,7 +146,7 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
       name.append(stoneMark(style.color==="B" ? BLACK : WHITE),TEXT.share.cardPlayStyle(style.type,TEXT.playStyle.types[style.type].name));
       note.textContent=style.com ? TEXT.playStyle.openPageCom : TEXT.playStyle.openPage;
       button.append(name,note);
-      button.onclick=()=>window.open(styleLink(style),"_blank","noopener");
+      button.onclick=()=>window.open(styleLink(style)+(style.moves ?? ""),"_blank","noopener");
       return button;
     }));
     // Two people played: their 相性診断, Black's type first.

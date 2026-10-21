@@ -1,6 +1,6 @@
 import { isFree } from "./core.mjs";
 import { exportSGF, parseSGF, replaySteps } from "./sgf.mjs";
-import { formatBoardSection } from "./board-text.mjs";
+import { formatBoardForAi, formatBoardSection } from "./board-text.mjs";
 import { TEXT } from "./texts.mjs";
 import { UserError } from "./user-error.mjs";
 
@@ -75,4 +75,23 @@ export function makeAiHandoff(reviewUrl) {
     "",
     TEXT.prompts.handoffGuide(guide.href)
   ].join("\n");
+}
+
+/**
+ * A question for an AI chat on why あなたらしかった手 are like the player's
+ * 棋風: `style` {type, color ("B", "W" or null), com}, `picks` from
+ * styleMoves, each with `url`, the public replay at that move, and `rank`
+ * (0 for the most like the player).
+ */
+export function makeStyleMovesPrompt(style, picks) {
+  const T=TEXT.playStyle, P=TEXT.prompts, M=T.moves;
+  const lines=[P.styleIntro(style.color ? T.sideLabel(style.color) : null,style.type,T.types[style.type].name,style.com),
+    P.styleTypeText(T.types[style.type].text),"",P.styleAxesHeading,...T.axes.map(P.styleAxis),"",P.styleMovesHeading(style.com)];
+  for(const pick of picks){
+    const review=readReviewUrl(shareableReviewUrl(pick.url).href);
+    const before=replaySteps(review.snapshot,pick.step-1);
+    lines.push("",P.styleMove(M.ranks[pick.rank],pick.step,pick.reasons.map(r=>M.reasons[r.axis](r)).join(M.join)),P.reviewUrl(pick.url),
+      P.styleBoard,formatBoardForAi(before.board,{selectedPosition:review.snapshot.moves[pick.step-1].position}));
+  }
+  return [...lines,"",P.styleAsk(style.com,picks.length>1),"",P.styleUrlNote,P.handoffGuide(new URL("/ai.md",picks[0].url).href)].join("\n");
 }
