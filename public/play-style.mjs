@@ -274,9 +274,12 @@ export function playStyle(snapshot, color, options) {
   return {color:color===BLACK ? "B" : "W",type:typeOf(score),score};
 }
 
+/** Whether this page shows 棋風診断: production builds leave it out (scripts/build-html.mjs). */
+export const playStyleShown = () => !globalThis.document?.documentElement?.hasAttribute("data-no-play-style");
+
 /** Whether `color`'s moves in `snapshot` are enough for a 棋風診断. */
 export const canReadStyle = (snapshot, color) => {
-  if(isGomoku(snapshot) || isFree(snapshot))return false;
+  if(!playStyleShown() || isGomoku(snapshot) || isFree(snapshot))return false;
   return snapshot.moves.filter(m=>m.color===color && Number.isInteger(m.position)).length>=MIN_MOVES;
 };
 

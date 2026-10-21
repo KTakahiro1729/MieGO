@@ -117,7 +117,10 @@ export default {
     }
     // Legacy clients cannot use the unprotected TURN/STUN discovery API.
     if (path.startsWith("/api/")) return json({error:"Not found"},404);
-    return env.ASSETS.fetch(request);
+    const asset = await env.ASSETS.fetch(request);
+    // Production leaves the 棋風診断 page out (scripts/build-html.mjs); its shared links open the app.
+    if (path === "/style" && asset.status === 404) return Response.redirect(new URL("/", url.origin), 302);
+    return asset;
   }
 };
 

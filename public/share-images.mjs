@@ -10,6 +10,7 @@ import { createBoardRenderer } from "./board-renderer.mjs";
 import { influence } from "./influence.mjs";
 import {
   playStyle,
+  playStyleShown,
   reportPlayStyles,
   styleLink,
   styleMoves,
@@ -57,6 +58,7 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
   }
   // 棋風診断 of each person who played, counted (by type only) the first time it is shown.
   function playStyles(){
+    if(!playStyleShown())return [];
     const {snapshot,metadata,step,gameId}=sharedPosition();
     try{
       const recall=state=>gameId===null ? null : ownershipStore.recall(gameId,state.board);

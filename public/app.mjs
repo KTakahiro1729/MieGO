@@ -134,7 +134,7 @@ import { createReviewPrefetch, createScoreGraph } from "./review-estimates.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { createHistoryStyle } from "./history-style.mjs";
-import { canReadStyle, readStyleLink } from "./play-style.mjs";
+import { canReadStyle, playStyleShown, readStyleLink } from "./play-style.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { createHelpSheet } from "./help-sheet.mjs";
@@ -2952,7 +2952,7 @@ if(!room && params.get("open")==="history-style"){
   const [type,...leans]=(params.get("with") ?? "").split(",");
   stylePartner=readStyleLink("?t="+type+"&s="+leans.join(","));
   history.replaceState(null,"",location.pathname);
-  openHistoryStyle();
+  if(playStyleShown())openHistoryStyle();
 }
 compactOwnership();
 // An unfinished friend game is offered when the page opens on something else.
