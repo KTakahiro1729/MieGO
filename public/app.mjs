@@ -1302,7 +1302,8 @@ function apply(action, remote=false, isAiMove=false) {
     const good=action.type==="move" && !remote && !isAiMove && !isFree(before) &&
       positionPolicy?.number===before.moveNumber && positionPolicy.hash===boardHash(before.board) &&
       goodMove(positionPolicy.policy,before.board,action.position);
-    if(cue)sound.play(cue,cheer?.kind==="capture"?{count:cheer.count}:undefined);
+    // ドパガキモード's voices grow with the capture or win, and step up with the move number.
+    if(cue)sound.play(cue,{...cheer,moveNumber:game.moveNumber});
     if(good)sound.play("good");
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||

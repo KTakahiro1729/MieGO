@@ -112,3 +112,49 @@ test("a voices getter is read at each play, and a capture's count reaches the vo
 test("ドパガキモード's voices cover every calm sound", () => {
   for (const name of Object.keys(CALM_VOICES)) assert.equal(typeof DOPA_VOICES[name], "function", name);
 });
+
+// An audio context that only notes the frequencies its oscillators start at.
+function recordingContext() {
+  const heard = [];
+  const param = () => ({ value: 0, setValueAtTime(v) { this.value = v; }, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} });
+  const node = extra => ({ connect: next => next, start() {}, stop() {}, ...extra });
+  const ctx = {
+    sampleRate: 8000, currentTime: 0,
+    createBuffer: (channels, length) => ({ getChannelData: () => new Float32Array(length) }),
+    createBufferSource: () => node(),
+    createBiquadFilter: () => node({ frequency: param(), Q: param() }),
+    createDynamicsCompressor: () => node({ threshold: param(), knee: param(), ratio: param(), attack: param(), release: param() }),
+    createGain: () => node({ gain: param() }),
+    createOscillator() {
+      const oscillator = node({ frequency: param(), start: () => heard.push(oscillator.frequency.value) });
+      return oscillator;
+    },
+  };
+  return { ctx, heard };
+}
+
+test("ドパガキモード's capture runs longer and higher the more stones it takes, and stays in tune", () => {
+  const run = count => { const { ctx, heard } = recordingContext(); DOPA_VOICES.capture(ctx, {}, 0, { count }); return heard; };
+  for (let count = 1; count <= 30; count++)
+    assert.ok(run(count).every(frequency => Number.isFinite(frequency) && frequency > 0), `count ${count}`);
+  assert.ok(run(4).length > run(1).length);
+  // The run's bells, above the stone and below its taps.
+  const top = count => Math.max(...run(count).filter(frequency => frequency > 500 && frequency < 2200));
+  assert.ok(top(8) > top(1));
+});
+
+test("ドパガキモード cheers only a win: a loss or a draw ends as calmly as usual", () => {
+  const end = (voices, detail) => { const { ctx, heard } = recordingContext(); voices.end(ctx, {}, 0, detail); return heard; };
+  assert.deepEqual(end(DOPA_VOICES, undefined), end(CALM_VOICES));
+  assert.ok(end(DOPA_VOICES, { kind: "win", big: false }).length > end(CALM_VOICES).length);
+  assert.ok(end(DOPA_VOICES, { kind: "win", big: true }).length > end(DOPA_VOICES, { kind: "win", big: false }).length);
+});
+
+test("ドパガキモード's stones step up a scale with the move number", () => {
+  const stone = recordingContext();
+  CALM_VOICES.move(stone.ctx, {}, 0);
+  // The first sound beyond the calm stone is the step's chime.
+  const first = moveNumber => { const { ctx, heard } = recordingContext(); DOPA_VOICES.move(ctx, {}, 0, { moveNumber }); return heard.find(frequency => !stone.heard.includes(frequency)); };
+  assert.ok(first(2) > first(1));
+  assert.equal(first(11), first(1), "it goes round after ten");
+});
