@@ -160,13 +160,14 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   // Empty points that count for neither side get a small ring (not a dot,
-  // which would read as a star point).
-  function paintNeutralPoints(game,score,gap,pad){
-    const dead=new Set(game.dead||[]);
+  // which would read as a star point). The playout's fill stones count for
+  // nobody under area scoring too, but they are drawn, so they need no ring.
+  function paintNeutralPoints(game,score,kept,gap,pad){
+    const dead=new Set(game.dead||[]),filled=new Set(kept.map(k=>k.position));
     ctx.save();
     ctx.strokeStyle=NEUTRAL_MARK;ctx.lineWidth=Math.max(1.5,gap*.035);
     for(let i=0;i<score.owned.length;i++){
-      if(score.owned[i] || (game.board[i] && !dead.has(i)))continue;
+      if(score.owned[i] || (game.board[i] && !dead.has(i)) || filled.has(i))continue;
       ctx.beginPath();
       ctx.arc(pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap,gap*.13,0,Math.PI*2);
       ctx.stroke();
@@ -403,7 +404,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       {prisonerPoints:new Set([...fill.black,...fill.white])}:{}):null;
     if(scoring)paintCountingArea(view,scoring,gap,pad);
     paintStarPoints(theme,gap,pad);
-    if(scoring)paintNeutralPoints(game,scoring,gap,pad);
+    if(scoring)paintNeutralPoints(game,scoring,kept,gap,pad);
     const live=!boardReview && game.status==="playing";
     if(!live){fading=[];sparks=[];pops=[];waves=[];}
     shownAlpha=[];

@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  BLACK,
+  WHITE,
   agreeScore,
   areaScore,
   at,
@@ -12,7 +14,11 @@ import {
   resume,
   toggleDead,
 } from "../public/core.mjs";
-import { exportSGF } from "../public/sgf.mjs";
+import {
+  exportSGF,
+  parseSGF,
+  replaySteps,
+} from "../public/sgf.mjs";
 
 test("initial game and alternating moves", () => {
   let g = newGame(); g = play(g, at(0, 0)); g = play(g, at(1, 0));
@@ -61,6 +67,22 @@ test("dead marks from a resumed count do not carry into the next count", () => {
   g = play(play(g, null), null);
   assert.equal(g.status, "scoring");
   assert.deepEqual(g.dead, []);
+});
+
+test("対局を再開: the opponent of the side that resumes moves first", () => {
+  // Black plays, then White and Black pass: Black, who passed last, is not to move.
+  const g = play(play(play(newGame(), 40), null), null);
+  assert.equal(g.status, "scoring");
+  assert.equal(g.next, WHITE);
+  assert.equal(resume(g, WHITE).next, BLACK);
+  assert.equal(resume(g, BLACK).next, WHITE);
+  // Nobody in particular asks on one board for two players: the turn stays.
+  assert.equal(resume(g).next, WHITE);
+  // A record with the resumer's opponent moving first replays, and exports and imports again.
+  const resumed = play(resume(g, WHITE), 0);
+  assert.equal(resumed.moves.at(-1).color, BLACK);
+  assert.equal(replaySteps(resumed).next, WHITE);
+  assert.equal(parseSGF(exportSGF(resumed)).snapshot.board[0], BLACK);
 });
 
 test("groups yields every group of stones once, with its colour and liberties", () => {

@@ -1182,7 +1182,7 @@ function apply(action, remote=false, isAiMove=false) {
       stopAiTurn();
       game=loseOnTime(game,action.color);
     }
-    else if(action.type==="resume") game=resume(game);
+    else if(action.type==="resume") game=resume(game,action.color);
     else if(action.type==="rematch") {
       const round=roundOf(game);
       game=requestRematch(game,action.color);
@@ -1459,7 +1459,12 @@ $("agree").onclick=()=>{
   if(!room)apply({type:deadStep?"solo_dead":"solo_score"});
   else apply({type:deadStep?"agree_dead":"agree",color});
 };
-$("resume").onclick=()=>apply({type:"resume"});
+// 日本囲碁規約 第九条: the opponent of the side that resumes moves first. On one
+// board for two players (or while watching) nobody in particular asks, so the turn stays.
+$("resume").onclick=()=>{
+  const color=room?myOnlineColor():gameMode==="ai" && !isWatching()?humanColor:null;
+  apply(color?{type:"resume",color}:{type:"resume"});
+};
 $("backToDead").onclick=()=>apply({type:"back_to_dead"});
 $("endPropose").onclick=()=>{
   if(game.status!=="playing" || game.endProposal || game.takebackRequest)return;

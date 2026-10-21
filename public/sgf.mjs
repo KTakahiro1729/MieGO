@@ -135,8 +135,9 @@ export function parseSGF(text) {
     if(++seen>MAX_STEPS)throw new UserError(TEXT.sgf.tooLong);
     if(node[key].length!==1)throw broken();
     const color=key==="B"?BLACK:WHITE;
+    // After a count, the side that moves first is the one the resumer asked.
+    if(state.status==="scoring")state=resume(state,-color);
     if(state.next!==color)throw new UserError(TEXT.sgf.wrongOrder(seen));
-    if(state.status==="scoring")state=resume(state);
     try{state=play(state,decodeMove(node[key][0],size));}
     catch{throw new UserError(TEXT.sgf.illegalMove(seen));}
   }
@@ -177,8 +178,9 @@ export function replaySteps(game,through=game.moves.length){
   let state=initialGame(game);
   for(let i=0;i<through;i++){
     const {color,position}=game.moves[i];
+    // After a count, the side that moves first is the one the resumer asked.
+    if(state.status==="scoring")state=resume(state,-color);
     if(color!==state.next && !isFree(state))throw broken();
-    if(state.status==="scoring")state=resume(state);
     try { state=replayMove(state,{color,position}); }
     catch {throw broken();}
   }
