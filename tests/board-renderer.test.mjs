@@ -482,3 +482,17 @@ test("with 盤の線 on, the grey runs while the taking move is only placed, and
   at_(5000+CAPTURE_FADE_MS);
   assert.equal(ghost(100),undefined);
 });
+
+test("盤の線 breathes a group in atari grey",()=>{
+  const game=newGame();
+  // White (8,8) in atari, its one liberty (8,7) at (450,400); black (0,0)
+  // with its liberty (0,1) at (50,100).
+  game.board[at(8,8)]=WHITE;game.board[at(7,8)]=BLACK;game.board[at(0,0)]=BLACK;
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"always"}),
+    {requestFrame:()=>{},stillMotion:()=>true});
+  draw();
+  const grey="rgb(128,124,118)";
+  const toward=(x,y)=>calls.filter(c=>c.kind==="line"&&c.args[0]===x&&c.args[1]===y).map(c=>c.style);
+  assert.ok(toward(450,400).includes(grey),"the group in atari");
+  assert.equal(toward(50,100).includes(grey),false,"not the others");
+});
