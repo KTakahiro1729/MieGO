@@ -1,3 +1,5 @@
+import { createScoreGraph } from "../public/review-estimates.mjs";
+import { newGame } from "../public/core.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {renderIndex} from "../scripts/build-html.mjs";
@@ -68,7 +70,11 @@ test("a COM's pass while watching says what happened, without asking the viewer 
 
 test("stepping back through a watched game pauses it and shows the score graph",()=>{
   assert.match(body("enterBoardReview"),/if\(source==="live" && isWatching\(\) && game\.status==="playing"\)\{\s*stopAiTurn\(\);watchPaused=true;/);
-  assert.match(app,/!\(boardReview\.source==="live" && game\.status!=="finished" && !isWatching\(\)\)/);
+  const graph=(status,watching)=>createScoreGraph({getReview:()=>({source:"live",display:newGame()}),
+    getGame:()=>({status}),isWatching:()=>watching}).shown();
+  assert.equal(graph("playing",true),true);
+  assert.equal(graph("playing",false),false);
+  assert.equal(graph("finished",false),true);
 });
 
 test("a watched game is saved and resumed as watched",()=>{
@@ -97,4 +103,15 @@ test("each COM of a watched game plays with its own character",()=>{
   assert.match(body("syncWatchSliderRows"),/\$\("watchAiOptions"\)\.hidden=!two;\s*\$\("aiStrengthRow"\)\.hidden=two;/);
   // The COM left playing after a take-over keeps its own settings.
   assert.match(body("takeOverWatchedGame"),/=watchAi\[color===BLACK\?"white":"black"\]/);
+});
+
+test("a watched game that nobody is computing a move for asks for it again",()=>{
+  // The pause before a move clears its timer when it fires, so a pending timer means a move is coming.
+  assert.match(body("watchDue"),/watchTimer=setTimeout\(\(\)=>\{watchTimer=null;requestAnalysis\(\);\},wait\);/);
+  const check=app.slice(app.indexOf("const WATCH_STALL_MS"),app.indexOf("},3000);"));
+  assert.match(check,/if\(!isWatching\(\) \|\| !isAiTurn\(\) \|\| watchPaused \|\| endExpanded \|\| boardReview \|\| fallbackMode \|\| document\.hidden\)return;/);
+  // A small-network move left unanswered is asked for again; 最強 reports its own progress.
+  assert.match(check,/if\(!aiJob \|\| aiJob\.strong \|\| performance\.now\(\)-aiJob\.at<WATCH_STALL_MS\)return;\s*stopAiTurn\(\);/);
+  assert.match(check,/else if\(watchTimer \|\| !katagoReady && !isGomoku\(game\)\)return;\s*requestAnalysis\(\);/);
+  assert.match(app,/aiJob=\{id,number:game\.moveNumber,hash:boardHash\(game\.board\),strong,at:performance\.now\(\)\};/);
 });
