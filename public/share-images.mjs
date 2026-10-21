@@ -2,6 +2,7 @@ import { sizeOf, komiOf, handicapOf } from "./core.mjs";
 import { shareLabels, shareFrameSize, paintShareFrame, buildGameAnimation, loadShareFonts } from "./share-image.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
 import { influence } from "./influence.mjs";
+import { playStyle, reportPlayStyles, styleLink } from "./play-style.mjs";
 import { TEXT } from "./texts.mjs";
 
 export function downloadBlob(blob,name){
@@ -14,7 +15,9 @@ export function downloadBlob(blob,name){
 
 // The 画像 part of the share sheet. sharedPosition() is the board the sheet
 // works on; stillColoured() tells whether that board now shows ownership.
-export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ownershipStore,
+// playedSides() lists the colours a person played (a COM's style is its setting);
+// watchedSides() lists the COMs' colours in a watched game, read and shown but not counted.
+export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ownershipStore,playedSides,watchedSides=()=>[],
                                    appearance:{shownPalette,overlayOn,opacity,boardTheme}}) {
   // Shared images end on the board exactly as drawn (board look, ownership
   // colours, marks and labels come from the canvas itself), set in a card
@@ -23,7 +26,7 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
   const SHARE_KINDS=["still","animation"];
   let shareImageKind="still",shareImageJob=0;
   let shareImages={},sharePreviewUrls=[];
-  let frameRenderer=null,frameState=null,frameOwnership=null;
+  let frameRenderer=null,frameState=null,frameOwnership=null,shownStyles=[];
   const ANIMATION_SIZE=600;
   const frameCanvas=(width,height)=>Object.assign(document.createElement("canvas"),{width,height});
   function shareImageDetails(animated){
@@ -36,7 +39,19 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
     return {snapshot,step,gameId,labels:{...shareLabels({step,total,result,animated,
         komi:Number.isFinite(Number(metadata?.komi)) ? Number(metadata.komi) : komiOf(snapshot),
         handicap:handicapOf(snapshot)}),boardSize:sizeOf(snapshot.board),
-      theme:boardTheme(),legend:coloured ? {palette:shownPalette(),opacity:opacity()} : null}};
+      theme:boardTheme(),legend:coloured ? {palette:shownPalette(),opacity:opacity()} : null,styles:shownStyles}};
+  }
+  // 棋風診断 of each person who played, counted (by type only) the first time it is shown.
+  function playStyles(){
+    const {snapshot,step,gameId}=sharedPosition();
+    try{
+      const recall=state=>gameId===null ? null : ownershipStore.recall(gameId,state.board);
+      const read=color=>playStyle(snapshot,color,{through:step,recall});
+      const styles=playedSides().map(read).filter(Boolean);
+      reportPlayStyles(gameId+":"+step+":"+styles.map(s=>s.type).join(","),snapshot,styles);
+      const watched=watchedSides().map(read).filter(Boolean).map(style=>({...style,com:true}));
+      return [...styles,...watched];
+    }catch(error){console.warn("Play style not read",error);return [];}
   }
   // An animation frame: the replayed position with the ownership recorded for
   // it, or the replay view's quick estimate where none was recorded.
@@ -101,9 +116,25 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
   }
   // The images are made before the tap: sharing must start straight from the
   // tap, and a long game's animation takes a moment to encode.
+  // Each player's type in the sheet, opening its /style page in a new tab.
+  function renderPlayStyles(){
+    // The way to several games stays even when this one has no type yet.
+    $("sharePlayStyleNone").hidden=!!shownStyles.length;
+    $("sharePlayStyleList").replaceChildren(...shownStyles.map(style=>{
+      const button=Object.assign(document.createElement("button"),{type:"button",className:"secondary full described"});
+      const name=document.createElement("span"),note=document.createElement("small");
+      name.textContent=(style.color==="B" ? "● " : "○ ")+TEXT.share.cardPlayStyle(style.type,TEXT.playStyle.types[style.type].name);
+      note.textContent=style.com ? TEXT.playStyle.openPageCom : TEXT.playStyle.openPage;
+      button.append(name,note);
+      button.onclick=()=>window.open(styleLink(style),"_blank","noopener");
+      return button;
+    }));
+  }
   async function prepareShareImages(){
     clearShareImages();
     const job=shareImageJob;
+    shownStyles=playStyles();
+    renderPlayStyles();
     renderShareImages();
     for(const kind of SHARE_KINDS){
       try{

@@ -135,8 +135,9 @@ export function parseSGF(text) {
     if(++seen>MAX_STEPS)throw new UserError(TEXT.sgf.tooLong);
     if(node[key].length!==1)throw broken();
     const color=key==="B"?BLACK:WHITE;
+    // After a count, the side that moves first is the one the resumer asked.
+    if(state.status==="scoring")state=resume(state,-color);
     if(state.next!==color)throw new UserError(TEXT.sgf.wrongOrder(seen));
-    if(state.status==="scoring")state=resume(state);
     try{state=play(state,decodeMove(node[key][0],size));}
     catch{throw new UserError(TEXT.sgf.illegalMove(seen));}
   }
@@ -150,7 +151,8 @@ export function parseSGF(text) {
   };
   if(!/^-?\d+(?:\.\d+)?$/.test(metadata.komi))
     throw broken();
-  if(result && /^(B|W)\+(R|\d+(?:\.\d+)?)$/.test(result))
+  // 0 (持碁) and Void (無勝負) end a game too.
+  if(result && /^(B|W)\+(R|\d+(?:\.\d+)?)$|^(0|Void)$/.test(result))
     state={...state,status:"finished",result};
   return {snapshot:state,metadata,variationsIgnored:hasVariations(parseTree(text)),steps:seen};
 }
@@ -176,10 +178,11 @@ export function replaySteps(game,through=game.moves.length){
     throw broken();
   let state=initialGame(game);
   for(let i=0;i<through;i++){
-    const {color,position}=game.moves[i];
-    if(color!==state.next && !isFree(state))throw broken();
-    if(state.status==="scoring")state=resume(state);
-    try { state=replayMove(state,{color,position}); }
+    const move=game.moves[i];
+    // After a count, the side that moves first is the one the resumer asked.
+    if(state.status==="scoring")state=resume(state,-move.color);
+    if(move.color!==state.next && !isFree(state))throw broken();
+    try { state=replayMove(state,move); }
     catch {throw broken();}
   }
   return state;

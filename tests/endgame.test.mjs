@@ -184,3 +184,34 @@ test("a restored game picks the advice up from the estimates kept while it was p
   // Positions with no kept estimate leave the advice where a new game starts.
   assert.equal(new EndgameAdvisor().restore(states,()=>null),"playing");
 });
+
+test("an estimate that leans harder on one side's turn does not read as stones moving it",()=>{
+  // Settled 9x9: Black's wall on column 3, White's on column 5. The small
+  // network reads the stones less surely with White to move.
+  const board=Array(81).fill(0);
+  for(let y=0;y<9;y++){board[at(3,y)]=BLACK;board[at(5,y)]=WHITE;}
+  const reading=next=>board.map((stone,i)=>{
+    const sure=next===BLACK?.98:.6;
+    return stone?stone*sure:i%9<3?.98:i%9>5?-.98:0;
+  });
+  const advisor=new EndgameAdvisor();
+  let stage;
+  for(const moveNumber of [40,41,42,43]){
+    const next=moveNumber%2?WHITE:BLACK;
+    stage=advisor.observe({...newGame(),board,moveNumber,next},reading(next));
+  }
+  assert.equal(stage,"ready","each estimate is weighed against the last one with the same side to move");
+});
+
+test("a dead group in atari inside a closed area does not hold back the advice",()=>{
+  // White's area on the right holds a Black stone in atari, which the
+  // estimate gives to White only faintly.
+  const board=Array(81).fill(0);
+  for(let y=0;y<9;y++){board[at(3,y)]=BLACK;board[at(5,y)]=WHITE;}
+  board[at(7,4)]=BLACK;board[at(6,4)]=WHITE;board[at(8,4)]=WHITE;board[at(7,3)]=WHITE;
+  const ownership=board.map((stone,i)=>i===at(7,4)?-.3:stone?stone*.95:i%9<3?.9:i%9>5?-.5:0);
+  const advisor=new EndgameAdvisor();
+  let stage;
+  for(const moveNumber of [40,41,42])stage=advisor.observe({...newGame(),board,moveNumber},ownership);
+  assert.equal(stage,"ready");
+});

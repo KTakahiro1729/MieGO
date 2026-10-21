@@ -22,6 +22,10 @@ test("automatic dead-stone inference reuses scoring panel, no new permanent UI",
   assert.doesNotMatch(html,/id="autoDeadButton"/);
   assert.match(worker,/event\.data\.kind === "settle"/);
 });
+test("対局を再開 names the side that asks, so its opponent moves first",()=>{
+  assert.match(app,/game=resume\(game,action\.color\)/);
+  assert.match(app,/const color=room\?myOnlineColor\(\):gameMode==="ai" && !isWatching\(\)\?humanColor:null;\n  apply\(color\?\{type:"resume",color\}:\{type:"resume"\}\);/);
+});
 test("scoring agreements do not restart model selection of dead stones",()=>{
   assert.match(app,/\["move","resume","mode","solo_scoring"\]\.includes\(action\.type\)/);
   assert.doesNotMatch(app,/\["move","resume","mode","solo_scoring","solo_score"\]/);
@@ -29,4 +33,14 @@ test("scoring agreements do not restart model selection of dead stones",()=>{
 });
 test("tapping a counting stone on empty territory is ignored instead of alerting",()=>{
   assert.match(app,/game\.status==="scoring"\)\{\n\s*if\(room&&!connected\)return;\n(?:\s*\/\/.*\n)?\s*if\(!game\.board\[position\]\)return;/);
+});
+test("無勝負: one board and the COM end at once, a friend is asked, and a watched cycle ends by itself",()=>{
+  assert.match(app,/else if\(action\.type==="void"\) \{/);
+  assert.match(app,/apply\(\{type:"void",number:game\.moveNumber,before:boardHash\(game\.board\)\}\)/);
+  assert.match(app,/apply\(\{type:"end_offer",color,\.\.\.kind,/);
+  assert.match(app,/if\(isAiMove && watching && repeatedPosition\(game\)>=2\)\{stopAiTurn\(\);game=voidGame\(game\);\}/);
+});
+test("対COM, 採点を始める is the player's pass and waits for the COM's",()=>{
+  assert.match(app,/if\(gameMode==="ai" && !watching && !fallbackMode\)\{\n      if\(!isHumanTurn\(\)\)return;\n      endExpanded=false;askedComToEnd=game\.moveNumber\+1;submitMove\(null\);return;/);
+  assert.match(app,/askedComToEnd===before\.moveNumber && action\.position!==null/);
 });

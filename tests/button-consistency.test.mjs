@@ -56,7 +56,9 @@ test("related buttons fuse into one group; the primary stays apart (UX policy §
   for(const id of ["cancel","resign","pass"])assert.match(moves,new RegExp('id="'+id+'"'));
   assert.doesNotMatch(moves,/id="confirm"|class="primary/);
   assert.equal((html.slice(html.indexOf('class="new-game-modes"'),html.indexOf('id="newGameSetup"')).match(/class="fused"/g)||[]).length,2);
-  assert.doesNotMatch(html,/class="fused[^"]*"[^>]*>\s*<button[^>]*class="[^"]*primary/);
+  // The one exception: 自由に置く splits ここに打つ itself into ● 黒┃○ 白.
+  assert.doesNotMatch(html.replace(/<div id="freeChoices"[^]*?<\/div>/,""),/class="fused[^"]*"[^>]*>\s*<button[^>]*class="[^"]*primary/);
+  assert.match(group("free-choices"),/id="freeFirst" class="primary"[^]*id="freeSecond" class="primary"/);
   // Hidden members leave no stray divider; an all-hidden group disappears.
   assert.match(css,/\.fused\{display:flex;gap:1px;/);
   assert.match(css,/\.fused:not\(:has\(>:not\(\[hidden\]\)\)\)\{display:none\}/);
@@ -65,7 +67,6 @@ test("related buttons fuse into one group; the primary stays apart (UX policy §
 test("every row under the board has a fixed height, so the board never changes size",()=>{
   // The board takes the height these rows leave; content must not change them.
   assert.match(css,/\.ownership-legend\{box-sizing:border-box;height:32px\}/);
-  assert.match(css,/\.capture-counts\[hidden\]\{display:flex!important;visibility:hidden\}/);
   assert.match(css,/\.info-panel\{box-sizing:border-box;height:114px\}/);
   assert.match(css,/\.action-row,\.review-panel\{box-sizing:border-box;\s*height:calc\(var\(--action-h\) \+ var\(--action-pad-top\) \+ max\(6px,env\(safe-area-inset-bottom\)\)\)\}/);
   assert.match(css,/\.endgame-bar\{height:48px/);

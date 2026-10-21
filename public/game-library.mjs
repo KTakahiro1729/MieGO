@@ -7,6 +7,8 @@ const PREFIX="miego:game:v1:";
 const ACTIVE="miego:active:v1:";
 const MIGRATED="miego:library:migrated:v1";
 const MODES=new Set(["local","ai","online"]);
+// A game on this device changes between 1台 and 対COM when この対局の打ち手 changes a seat.
+const OFFLINE=new Set(["local","ai"]);
 const ROOM_RE=/^[a-f0-9]{32}$/;
 // No single MieGO value comes near this; a larger one is not worth emptying the library for.
 const MAX_EVICTING_VALUE=1_000_000;
@@ -21,6 +23,12 @@ export function isQuotaError(error) {
 export function cleanWatchAi(value) {
   if(!value?.black || !value?.white)return null;
   return {black:readCom(value.black),white:readCom(value.white)};
+}
+/** Each colour's name in a played game; a colour named now keeps it, and one not named keeps the earlier name. */
+export function cleanNames(value,previous=null) {
+  const one=name=>typeof name==="string" && name.trim()?[...name.trim()].slice(0,40).join(""):null;
+  const black=one(value?.black)??one(previous?.black),white=one(value?.white)??one(previous?.white);
+  return black||white?{black,white}:null;
 }
 export class GameLibrary {
   /** onRemove(record) runs after a game is deleted; keep() names games that must stay. */
@@ -98,11 +106,11 @@ export class GameLibrary {
     return updated;
   }
   save({id=null,mode,snapshot,roomId=null,lastPosition=null,humanColor=1,
-        aiCom=null,aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null,watch=false,watchAi=null},expectedRevision=null) {
+        aiCom=null,aiStrength="strong",invasion=50,reinforcement=50,seat=null,source="played",sgfMeta=null,watch=false,watchAi=null,names=null},expectedRevision=null) {
     const previous=id===null?null:this.load(id);
     // Nothing that cannot be read back is written.
     if(!MODES.has(mode) || !parseGameSnapshot(JSON.stringify(snapshot)) ||
-       (mode==="online" && !ROOM_RE.test(roomId||"")) || (previous && previous.mode!==mode))
+       (mode==="online" && !ROOM_RE.test(roomId||"")) || (previous && previous.mode!==mode && !(OFFLINE.has(previous.mode) && OFFLINE.has(mode))))
       throw Error("Record would not read back");
     if(id!==null && !previous)throw new UserError(TEXT.history.recordMissing);
     if(previous && expectedRevision!==null && previous.revision!==expectedRevision)
@@ -130,6 +138,8 @@ export class GameLibrary {
       watch:mode==="ai" && watch===true,
       // Each colour's COM in a watched game: strength and personality.
       watchAi:mode==="ai" && watch===true ? cleanWatchAi(watchAi) : null,
+      // The players' names as they played: 表示名 and the COMs' characters.
+      names:cleanNames(names,previous?.names),
       seat:mode==="online"?(seat==="guest"?"guest":seat==="host"?"host":null):null,
       source:previous?.source==="sgf" || previous?.source==="variation"?previous.source:
         source==="sgf" || source==="variation"?source:"played",

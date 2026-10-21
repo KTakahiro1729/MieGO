@@ -31,7 +31,9 @@ test("keeping on playing holds back the strongest advice in every mode",()=>{
 });
 test("the bar draws attention when a decision is asked, and honours reduced motion",()=>{
   assert.match(app,/for\(const \[name,on\] of Object\.entries\(classes\)\)\$\(id\)\.classList\.toggle\(name,on\);/);
-  assert.match(css,/\.endgame-bar\.is-calling\{[^}]*animation:end-call/);
+  assert.match(css,/\.endgame-bar\.is-calling \.end-action:not\(\[hidden\]\)\{[^}]*animation:end-call/);
+  // The glow is on the buttons themselves: a frame round the bar would read as a button holding buttons.
+  assert.doesNotMatch(css,/\.endgame-bar\.is-calling\{/);
   assert.match(css,/prefers-reduced-motion:reduce\)\{\*,\*::before,\*::after\{[^}]*animation:none!important/);
 });
 test("a stone tapped during the playout is corrected on top of its result",()=>{
