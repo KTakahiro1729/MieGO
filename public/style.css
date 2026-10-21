@@ -978,5 +978,16 @@ body.style-page{overflow:auto}
 .style-evidence li{display:flex;flex-direction:column;gap:1px;font-size:14px}
 .style-evidence strong{color:var(--btn-text)}
 .style-evidence span{color:var(--muted);font-size:13px}
+.style-compat{margin-top:14px}
+.style-compat-pair{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0}
+.style-compat-pair .style-code{font-size:32px}
+.style-compat-x{color:var(--muted);font-size:20px}
+.style-compat-names{margin:4px 0 0;font-size:14px}
+.style-compat-percent{margin:12px 0 0;font-size:34px;font-weight:800;color:var(--gold)}
+.style-compat-headline{margin:2px 0 6px;font-size:20px}
+.style-compat-lines{margin:8px 0 0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;line-height:1.6;font-size:14px}
+.style-compat-pick{display:flex;flex-direction:column;gap:6px;margin:12px 0;font-size:13px;color:var(--muted)}
+.style-compat-pick select{min-height:var(--control-h);padding:0 12px;border:1px solid var(--btn-edge);border-radius:var(--radius-sm);background:var(--btn-bg);color:var(--btn-text);font-size:16px}
+.style-compat .secondary.full{width:100%;margin-top:12px}
 .style-privacy{margin:28px 0 0;color:var(--muted);font-size:12px;line-height:1.7}
 .share-style-note{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.6}

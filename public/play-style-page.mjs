@@ -1,4 +1,4 @@
-import { BALANCE, readStyleLink, typeShare } from "./play-style.mjs";
+import { BALANCE, compatibility, pairShare, readStyleLink, typeShare } from "./play-style.mjs";
 import { TEXT } from "./texts.mjs";
 
 // The /style page: one 棋風診断 from a share sheet's link, or the 17 types.
@@ -88,6 +88,57 @@ function renderResult(found) {
   document.title = T.pageTitle(found.type);
 }
 
+const C = T.compat;
+// Two types read together: the partner's from the link, or one picked here.
+function compatCard(found, partner) {
+  const result = compatibility(found, partner);
+  const card = el("div", "style-compat-card");
+  const pair = el("p", "style-compat-pair");
+  pair.append(el("span", "style-code", found.type), el("span", "style-compat-x", "×"), el("span", "style-code", partner.type));
+  const headline = result.headline.startsWith("differ") ? C.headlines.differ[Number(result.headline.slice(6))] : C.headlines[result.headline];
+  card.append(pair, el("p", "style-compat-names", T.types[found.type].name + " × " + T.types[partner.type].name),
+    el("p", "style-compat-percent", C.percent(result.percent)), el("h2", "style-compat-headline", headline));
+  const share = pairShare(found.type, partner.type);
+  if (share != null) card.append(el("p", "style-rarity", C.pairShare(share)));
+  const lines = el("ul", "style-compat-lines");
+  // With the balanced type, each line names the side the other player leans to.
+  const other = found.type === BALANCE ? partner : found;
+  if (other.type === BALANCE) lines.append(el("li", null, C.bothBalance));
+  else result.relations.forEach((relation, i) => lines.append(el("li", null,
+    relation === "balance" ? C.balance[i](letterName(other, i)) : C[relation][i])));
+  card.append(lines);
+  return card;
+}
+
+function renderCompat(found) {
+  const box = $("styleCompat");
+  if (!found || !T.types[found.type]) return;
+  box.replaceChildren(el("p", "style-kicker", C.title));
+  const holder = el("div");
+  if (found.partner) holder.append(compatCard(found, found.partner));
+  else {
+    // Pick a partner here, or send this page to them.
+    const label = el("label", "style-compat-pick");
+    const select = el("select");
+    select.append(Object.assign(el("option", null, C.partnerNone), { value: "" }));
+    for (const [code, type] of Object.entries(T.types)) select.append(Object.assign(el("option", null, code + " " + type.name), { value: code }));
+    label.append(el("span", null, C.partnerLabel), select);
+    const card = el("div");
+    select.onchange = () => card.replaceChildren(...(select.value ? [compatCard(found, { type: select.value })] : []));
+    const status = el("p", "style-note");
+    const copy = el("button", "secondary full", C.copyLink);
+    copy.type = "button";
+    copy.onclick = async () => {
+      try { await navigator.clipboard.writeText(location.href); status.textContent = C.copied; } catch { status.textContent = location.href; }
+    };
+    const mine = el("a", "style-cta secondary", C.matchMine);
+    mine.href = "/?open=history-style&with=" + found.type + (found.leans ? "," + found.leans.join(",") : "");
+    holder.append(el("p", "style-note", C.partnerPick), label, card, copy, status, mine);
+  }
+  box.append(holder);
+  box.hidden = false;
+}
+
 function renderAxes() {
   $("styleAxes").replaceChildren(...T.axes.map(axis => {
     const item = el("li");
@@ -110,5 +161,6 @@ function renderTypes(current) {
 
 const found = readStyleLink(location.search);
 renderResult(found);
+renderCompat(found);
 renderAxes();
 renderTypes(found?.type);

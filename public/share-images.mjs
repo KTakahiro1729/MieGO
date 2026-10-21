@@ -126,6 +126,13 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
       button.onclick=()=>window.open(styleLink(style),"_blank","noopener");
       return button;
     }));
+    // Two people played: their 相性診断, Black's type first.
+    if(shownStyles.length===2){
+      const pair=Object.assign(document.createElement("button"),{type:"button",className:"secondary full",
+        textContent:TEXT.playStyle.compat.openFromShare});
+      pair.onclick=()=>window.open(styleLink(shownStyles[0],shownStyles[1]),"_blank","noopener");
+      $("sharePlayStyleList").append(pair);
+    }
   }
   async function prepareShareImages(){
     clearShareImages();
