@@ -7,7 +7,7 @@ import { textAt } from "../public/texts.mjs";
 // in src/index.template.html, then run `node scripts/build-html.mjs`.
 //   {{help.title}}            a string
 //   {{game.moveLabel(0)}}     a function, called with numbers or other keys
-//   {{help.basics.items}}     an array, rendered as <li> lines
+//   {{help.local.items}}      an array, rendered as <li> lines
 const TEMPLATE = resolve("src/index.template.html");
 const OUTPUT = resolve("public/index.html");
 // The 棋風診断 page at /style, rendered the same way.
