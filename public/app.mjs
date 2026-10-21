@@ -163,7 +163,7 @@ let fallbackMode = false;
 function switchToFallback(reason) {
   if (fallbackMode) return;
   fallbackMode = true;
-  endgameAdvisor.reset();resignWatch.reset();
+  endgameAdvisor.reset();resetResignWatch();
   katagoReady = false;
   aiThinking = false;
   aiJob = null;
@@ -337,6 +337,13 @@ let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
 // A COM set to 投了 resigns once its game has looked lost for a few turns.
 const resignWatch = createResignWatch();
+// While watching, a COM that would resign keeps playing and the bar says so;
+// the colour that wants to, or null.
+let resignWish = null;
+function resetResignWatch() {
+  resignWatch.reset();
+  resignWish = null;
+}
 let endExpanded = false, analysisContext = null;
 let deadEvaluation=null, deadReview="idle", deadReviewTouched=false;
 // 決着手順: KataGo's playout of the scoring position, and the one kept for 再生.
@@ -450,7 +457,7 @@ function myColorForEnd() {
 function updateEndUi() {
   const view=endgameBarView({game,color:myColorForEnd(),room:!!room,connected,gameMode,watching:isWatching(),
     endExpanded,aiPassAsks:aiPassAsks(),katagoReady,fallbackMode,advisor:endgameAdvisor,aiThinking,
-    notices:[takebackNotice,endNotice],keptPlaying:keptPlaying(),illegalCandidate});
+    notices:[takebackNotice,endNotice],keptPlaying:keptPlaying(),illegalCandidate,resignWish});
   for(const [id,text] of Object.entries(view.text))$(id).textContent=text;
   for(const [id,hidden] of Object.entries(view.hidden))$(id).hidden=hidden;
   for(const [id,disabled] of Object.entries(view.disabled))$(id).disabled=disabled;
@@ -653,6 +660,7 @@ const boardRenderer = createBoardRenderer({
     burst:dopa.level(),
     candidate,
     displayedOwnership,
+    endedTerritory:showsEndedTerritory(game),
     freePick:freePick?.position ?? null,
     game:shownGame(),
     hideStones:hidingStones(),
@@ -706,7 +714,7 @@ function requestAnalysis() {
   if(game.status==="scoring") {
     pending=++seq;
     analysisContext=null;
-    endgameAdvisor.reset();resignWatch.reset();
+    endgameAdvisor.reset();resetResignWatch();
     if(game.agreed.black || game.agreed.white) {
       deadReviewTouched=true;deadReview="modified";show();return;
     }
@@ -727,8 +735,9 @@ function requestAnalysis() {
   }
   if(game.status!=="playing") {
     pending=++seq;
-    endgameAdvisor.reset();resignWatch.reset();
+    endgameAdvisor.reset();resetResignWatch();
     updateEndUi();
+    if(showsEndedTerritory(game))requestOwnership();
     return;
   }
   if(isGomoku(game)){requestGomokuTurn();return;}
@@ -845,7 +854,9 @@ function finishAiMove(result) {
     if(valid)rememberOwnership(game.board,result.ownership);
     // Two COMs each play with their own settings.
     const com=comToMove();
-    if(resignWatch.observe(game,com.resign,result)){submitMove("resign",true);return;}
+    const resigns=resignWatch.observe(game,com.resign,result);
+    if(resigns && !watching){submitMove("resign",true);return;}
+    if(resigns)resignWish=game.next;else if(resignWish===game.next)resignWish=null;
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
       ...com,ownership:result.ownership,endgameStage:passStage,
       readMove:result.readMove,temperature:0.38
@@ -905,7 +916,10 @@ function handleAnalysis(event) {
   if(!Array.isArray(result.ownership) || result.ownership.length!==game.board.length) {
     switchToFallback("Invalid ownership output");return;
   }
-  if(game.status!=="playing")return;
+  if(game.status!=="playing"){
+    if(showsEndedTerritory(game) && overlayOn())transitionOwnership(result.ownership);
+    return;
+  }
   const context=analysisContext;
   if(context?.id===result.id && context.committed && !candidate &&
     context.number===game.moveNumber && context.hash===boardHash(game.board))
@@ -1600,7 +1614,11 @@ $("byoyomi").onchange=e=>{byoyomiChoice=toSeconds(e.target.value,BYOYOMI_CHOICES
 $("gomokuForbidden").onchange=e=>{gomokuForbiddenChoice=e.target.checked;rememberSettings();renderInviteButton();};
 // A player reads their own result first; a 1台 game or COM同士 has no "you".
 // A resignation, a loss on time or 無勝負 ends the game before any count.
-const endedEarly = result => /\+[RT]$|^Void$/.test(result||"");
+function endedEarly(result) { return /\+[RT]$|^Void$/.test(result||""); }
+// A game that ended before any count keeps showing the territory estimate.
+function showsEndedTerritory(state) {
+  return state.status==="finished" && endedEarly(state.result) && !isGomoku(state) && !isFree(state);
+}
 // 持ち時間: only a person's clock runs. COMs, a watched game and a free board
 // play without one. In a friend game both devices run the clock of the side
 // to move while connected; a dropped connection gives the turn's time back.
@@ -1817,7 +1835,7 @@ function onPeerSync(message){
     // A もう一局 agreed while this device was away starts a new record, too.
     if(roundOf(result.game)!==roundOf(game)){currentGameId=null;currentRevision=null;}
     game=result.game;onlineRevision=result.revision;lastPosition=message.lastPosition??null;
-    candidate=null;endgameAdvisor.reset();resignWatch.reset();
+    candidate=null;endgameAdvisor.reset();resetResignWatch();
     endExpanded=!!game.endProposal && game.endProposal.from!==myColorForEnd();
     deadReviewTouched=false;deadEvaluation=null;
     save();requestAnalysis();
@@ -2457,7 +2475,7 @@ function exportSharedSGF(){
 }
 /** A restored game carries on the endgame advice from the estimates kept while it was played. */
 function restoreEndgameAdvice(){
-  endgameAdvisor.reset();resignWatch.reset();
+  endgameAdvisor.reset();resetResignWatch();
   if(game.status!=="playing" || isFree(game) || isGomoku(game))return;
   let states=[];
   try{states=replayLine(game);}catch{return;}
@@ -2479,7 +2497,7 @@ function sharedGameSides(){
 function playedSides(){return sharedGameSides().played;}
 function watchedSides(){return sharedGameSides().watched;}
 const shareImages=createShareImages({$,canvas,draw,sharedPosition,ownershipStore,appearance,playedSides,watchedSides,
-  stillColoured:()=>boardReview ? !!boardReview.ownership : game.status==="playing" && !!displayedOwnership});
+  stillColoured:()=>boardReview ? !!boardReview.ownership : (game.status==="playing" || showsEndedTerritory(game)) && !!displayedOwnership});
 function openSharePanel(){
   openPanel("share");
   $("shareNotice").textContent="";
