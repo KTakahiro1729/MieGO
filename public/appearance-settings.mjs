@@ -10,7 +10,6 @@ import {
   setCustomBoardColours,
   surfaceCss,
 } from "./board-theme.mjs";
-import { DEFAULT_LIBERTY_MODE, isLibertyMode } from "./liberty-view.mjs";
 import { TEXT } from "./texts.mjs";
 
 // The 設定 sheet's 碁盤 and 地合いの表示 groups: the board look, the colour
@@ -32,13 +31,15 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
   try{setCustomBoardColours(JSON.parse(stored("miego-board-colours")||"null"));}catch{}
   const storedBoardTheme = stored("miego-board");
   let boardTheme = isBoardTheme(storedBoardTheme) ? storedBoardTheme : DEFAULT_BOARD_THEME;
-  const storedLiberties = stored("miego-liberties");
-  let liberties = isLibertyMode(storedLiberties) ? storedLiberties : DEFAULT_LIBERTY_MODE;
-  // つながった石: drawn apart ("off"), joined by a bar ("bridge"), or by
-  // dashes along the board's lines out to a dot on each liberty ("lines").
-  const LINK_MODES=["off","bridge","lines"];
-  const storedLink = stored("miego-link-stones");
-  let linkStones = LINK_MODES.includes(storedLink) ? storedLink : storedLink==="on" ? "bridge" : "off";
+  // 呼吸点とつながった石, drawn as 盤の線: never ("off"), only while a stone
+  // is being placed ("candidate"), or "always". Earlier choices of either of
+  // the two settings it replaces carry over.
+  const LINK_MODES=["off","candidate","always"];
+  const storedLink = stored("miego-link-stones"), storedLiberties = stored("miego-liberties");
+  let linkStones = LINK_MODES.includes(storedLink) ? storedLink :
+    ["on","bridge","lines"].includes(storedLink) ? "always" :
+    storedLiberties==="candidate" ? "candidate" :
+    ["atari","dots","count"].includes(storedLiberties) ? "always" : "off";
   document.querySelectorAll('input[name="linkStones"]').forEach(input => {
     input.onchange = e => {
       if (!e.target.checked) return;
@@ -73,14 +74,6 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
       store("miego-board",boardTheme);
       morphEditing(boardTheme===BOARD_CUSTOM?"board":null);
       updateGradient();draw();
-    };
-  });
-  document.querySelectorAll('input[name="liberties"]').forEach(input => {
-    input.onchange = e => {
-      if (!e.target.checked) return;
-      liberties=isLibertyMode(e.target.value)?e.target.value:DEFAULT_LIBERTY_MODE;
-      store("miego-liberties",liberties);
-      draw();
     };
   });
   // Changing カスタム's colours: the sheet shrinks to that group's swatches
@@ -195,8 +188,6 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
   $("resetAppearance").onclick=()=>{
     const wasOn=overlayOn();
     palette=DEFAULT_PALETTE;opacity=DEFAULT_OPACITY;boardTheme=DEFAULT_BOARD_THEME;
-    liberties=DEFAULT_LIBERTY_MODE;
-    store("miego-liberties",liberties);
     linkStones="off";
     store("miego-link-stones",linkStones);
     store("miego-palette",palette);
@@ -260,7 +251,6 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
   function syncControls(){
     check("palette",palette);
     check("boardTheme",boardTheme);
-    check("liberties",liberties);
     check("linkStones",linkStones);
     check("opacityShape",opacityShape());
     fillColourInputs();
@@ -268,7 +258,7 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
     $("opacityValue").textContent=Math.round(opacity*100)+"%";
     updateGradient();
   }
-  return {palette:()=>palette,opacity:()=>opacity,boardTheme:()=>boardTheme,liberties:()=>liberties,linkStones:()=>linkStones,
+  return {palette:()=>palette,opacity:()=>opacity,boardTheme:()=>boardTheme,linkStones:()=>linkStones,
     editingBoard:()=>editing==="board",
     shownPalette,overlayOn,updateGradient,syncControls};
 }

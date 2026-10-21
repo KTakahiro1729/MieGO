@@ -185,20 +185,12 @@
         </div>
       </section>
       <section class="settings-section">
-        <h3>{{settings.liberties}}</h3>
-        <fieldset class="palette-choices liberty-choices" aria-label="{{settings.liberties}}">
-          <label class="palette-choice"><input type="radio" name="liberties" value="off" checked><span>{{settings.libertyModes.off}}</span></label>
-          <label class="palette-choice"><input type="radio" name="liberties" value="candidate"><span>{{settings.libertyModes.candidate}}</span></label>
-          <label class="palette-choice"><input type="radio" name="liberties" value="atari"><span>{{settings.libertyModes.atari}}</span></label>
-          <label class="palette-choice"><input type="radio" name="liberties" value="dots"><span>{{settings.libertyModes.dots}}</span></label>
-          <label class="palette-choice"><input type="radio" name="liberties" value="count"><span>{{settings.libertyModes.count}}</span></label>
-        </fieldset>
         <h3>{{settings.linkStones}}</h3>
         <p class="setting-note">{{settings.linkStonesNote}}</p>
         <fieldset class="palette-choices link-choices" aria-label="{{settings.linkStones}}">
           <label class="palette-choice"><input type="radio" name="linkStones" value="off" checked><span>{{settings.linkModes.off}}</span></label>
-          <label class="palette-choice"><input type="radio" name="linkStones" value="bridge"><span>{{settings.linkModes.bridge}}</span></label>
-          <label class="palette-choice"><input type="radio" name="linkStones" value="lines"><span>{{settings.linkModes.lines}}</span></label>
+          <label class="palette-choice"><input type="radio" name="linkStones" value="candidate"><span>{{settings.linkModes.candidate}}</span></label>
+          <label class="palette-choice"><input type="radio" name="linkStones" value="always"><span>{{settings.linkModes.always}}</span></label>
         </fieldset>
       </section>
       <section class="settings-section ownership-settings" id="ownershipSettings">

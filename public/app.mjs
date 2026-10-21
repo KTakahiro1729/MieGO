@@ -705,7 +705,6 @@ const boardRenderer = createBoardRenderer({
     illegalCandidate,
     keptPlayout:keptPlayout(),
     lastPosition,
-    liberties:appearance.liberties(),
     linkStones:appearance.linkStones(),
     opacity:appearance.opacity(),
     palette:shownPalette(),
