@@ -117,3 +117,21 @@ test("a preview without the GameRoom namespace says so instead of failing", asyn
   assert.equal(response.status, 503);
   assert.equal((await response.json()).code, "rooms_unavailable");
 });
+
+test("/api/stat counts each shown 棋風診断 by type, colour, rules and size only", async () => {
+  const points = [];
+  const env = { STATS: { writeDataPoint: point => points.push(point) } };
+  const stat = (data, origin = "https://p.example", target = env) => worker.fetch(new Request("https://p.example/api/stat", {
+    method: "POST", headers: { Origin: origin }, body: JSON.stringify(data) }), target);
+  const valid = { size: 19, rules: "chinese", styles: [{ color: "B", type: "AHFT" }, { color: "W", type: "GLRQ" }] };
+  assert.equal((await stat(valid)).status, 204);
+  assert.deepEqual(points, [
+    { indexes: ["AHFT"], blobs: ["AHFT", "B", "chinese"], doubles: [19] },
+    { indexes: ["GLRQ"], blobs: ["GLRQ", "W", "chinese"], doubles: [19] }]);
+  for (const bad of [{ ...valid, size: 10 }, { ...valid, rules: "gomoku" }, { ...valid, styles: [] },
+    { ...valid, styles: [{ color: "B", type: "XXXX" }] }, { ...valid, styles: [{ color: "B", type: "AHFT" }, { color: "B", type: "AHFT" }] }])
+    assert.equal((await stat(bad)).status, 400);
+  assert.equal((await stat(valid, "https://evil.example")).status, 403);
+  assert.equal(points.length, 2);
+  assert.equal((await stat(valid, "https://p.example", {})).status, 204, "a preview without STATS counts nothing");
+});

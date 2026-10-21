@@ -36,6 +36,25 @@ test("a tap places the chosen colour on an empty point and takes a stone off",()
   assert.equal(game.status,"playing");
 });
 
+test("a stone turns into the other colour in one edit, and replays and 待った follow it",()=>{
+  let game=newGame(true,{rules:"free"});
+  game=put(game,at(4,4));
+  game=playFreeStone(game,at(4,4),WHITE,true);
+  assert.equal(game.board[at(4,4)],WHITE);
+  assert.deepEqual(game.moves.at(-1),{color:WHITE,position:at(4,4),replace:true});
+  assert.equal(game.moveNumber,2);
+  // A recorded edit without the flag still takes the stone off, as before.
+  game=put(game,at(4,4),BLACK);
+  assert.equal(game.board[at(4,4)],0);
+  // On an empty point the flag just places the stone.
+  assert.equal(playFreeStone(game,at(0,0),BLACK,true).moves.at(-1).replace,undefined);
+  game=playFreeStone(put(game,at(2,2)),at(2,2),WHITE,true);
+  assert.deepEqual(replaySteps(game).board,game.board);
+  assert.deepEqual(replayLine(game).at(-1).board,game.board);
+  assert.equal(isConsistentSnapshot(game),true);
+  assert.equal(takeBack(game,{scope:"ply"}).game.board[at(2,2)],BLACK,"待った turns it back");
+});
+
 test("a free board captures nothing and allows any shape, even without liberties",()=>{
   let game=newGame(true,{rules:"free"});
   for(const p of [at(1,0),at(0,1)])game=put(game,p);

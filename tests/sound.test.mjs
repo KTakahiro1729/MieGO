@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CALM_VOICES, countdownSound, createSoundEffects, DOPA_VOICES, moveSound } from "../public/sound.mjs";
+import {
+  CALM_VOICES,
+  countdownSound,
+  createSoundEffects,
+  DOPA_VOICES,
+  moveSound,
+  proposalArrived,
+} from "../public/sound.mjs";
 
 function fakePage() {
   const elements = new Map();
@@ -155,4 +162,26 @@ test("ドパガキモード cheers only a win: a loss or a draw ends as calmly a
   assert.deepEqual(end(DOPA_VOICES, undefined), end(CALM_VOICES));
   assert.ok(end(DOPA_VOICES, { kind: "win", big: false }).length > end(CALM_VOICES).length);
   assert.ok(end(DOPA_VOICES, { kind: "win", big: true }).length > end(DOPA_VOICES, { kind: "win", big: false }).length);
+});
+
+test("a proposal from the other side is new when it was not there before", () => {
+  const playing = { status: "playing" };
+  assert.equal(proposalArrived(playing, playing), false);
+  for (const key of ["rematchRequest", "endProposal", "takebackRequest"]) {
+    const asked = { ...playing, [key]: { from: -1 } };
+    assert.equal(proposalArrived(playing, asked), true, key);
+    // Still standing after another action: no second ring.
+    assert.equal(proposalArrived(asked, { ...asked }), false, key);
+  }
+  // Answering clears it, which is no question.
+  assert.equal(proposalArrived({ endProposal: { from: -1 } }, playing), false);
+});
+
+test("the ピンポン stays under 2.5kHz in both modes", () => {
+  for (const voices of [CALM_VOICES, DOPA_VOICES]) {
+    const { ctx, heard } = recordingContext();
+    voices.offer(ctx, {}, 0);
+    assert.ok(heard.length > 0);
+    assert.ok(heard.every(frequency => frequency < 2500), heard.join());
+  }
 });

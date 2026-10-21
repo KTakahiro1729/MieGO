@@ -1,4 +1,13 @@
-import {SIZE as DEFAULT_SIZE, BLACK, WHITE, isGomoku, sizeOf, starPoints} from "./core.mjs";
+import {
+  BLACK,
+  SIZE as DEFAULT_SIZE,
+  WHITE,
+  countingBoard,
+  isGomoku,
+  isJapanese,
+  sizeOf,
+  starPoints,
+} from "./core.mjs";
 import {
   countingOpacity,
   countingPalette,
@@ -6,6 +15,7 @@ import {
   ownershipPixel,
   prisonerOutline,
   showsOwnership,
+  shownOwnership,
 } from "./territory-view.mjs";
 import {boardTheme} from "./board-theme.mjs";
 import {stoneForPreview} from "./board-preview.mjs";
@@ -61,12 +71,15 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   function paintOwnership(view, gap, pad) {
-    const {game,boardReview,displayedOwnership,endedTerritory,palette,opacity} = view;
+    const {game,boardReview,candidate,displayedOwnership,endedTerritory,palette,opacity} = view;
     const values = boardReview ? boardReview.ownership : displayedOwnership;
     if(!boardReview && game.status!=="playing" && !endedTerritory)return;
     // An estimate for another board size (e.g. just after switching) is skipped.
     if(!showsOwnership(palette) || !values || values.length!==SIZE*SIZE)return;
-    paintOverlay(values,palette,opacity,gap,pad,true);
+    const shown=boardReview ? boardReview.preview||boardReview.display : candidate||game;
+    // Hidden stones would show through as clear points, so they keep their colour.
+    paintOverlay(shownOwnership(shown.board,values,{japanese:isJapanese(shown) && !view.hideStones}),
+      palette,opacity,gap,pad,true);
   }
 
   // One pixel per intersection, scaled up: smoothed for the estimate,
@@ -154,8 +167,12 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     }
   }
 
-  function paintCountingArea(view,score,gap,pad){
-    const values=score.owned.map(owner=>owner===BLACK?1:owner===WHITE?-1:0);
+  // 日本式 counts territory only: points with a living stone or a filled-in
+  // prisoner stay clear, and a dead stone's point is territory once lifted.
+  function paintCountingArea(view,score,gap,pad,game,fill){
+    const board=countingBoard(game),filled=new Set([...fill.black,...fill.white]);
+    const counted=i=>!isJapanese(game) || !board[i] && !filled.has(i);
+    const values=score.owned.map((owner,i)=>!counted(i)?0:owner===BLACK?1:owner===WHITE?-1:0);
     paintOverlay(values,countingPalette(view.palette),countingOpacity(view.opacity),gap,pad,false);
   }
 
@@ -263,6 +280,16 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     }
   }
 
+  // 自由に置く: the chosen point gets a gold ring until a button below says what goes there.
+  function paintFreePick(position,gap,pad) {
+    ctx.save();
+    ctx.strokeStyle="#f2c875";
+    ctx.lineWidth=Math.max(3,gap*.08);
+    ctx.beginPath();
+    ctx.arc(pad+(position%SIZE)*gap,pad+Math.floor(position/SIZE)*gap,gap*.47,0,Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // While the player edits カスタム's colours on an empty board, a few stones
   // in the middle (the last with its move mark) show the chosen stone colours.
@@ -368,7 +395,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const fill=counting?prisonerFill(game,{avoid:new Set(kept.map(k=>k.position))}):null;
     const scoring=counting?scoringRegions(game,prisonersFilled(game)?
       {prisonerPoints:new Set([...fill.black,...fill.white])}:{}):null;
-    if(scoring)paintCountingArea(view,scoring,gap,pad);
+    if(scoring)paintCountingArea(view,scoring,gap,pad,game,fill);
     paintStarPoints(theme,gap,pad);
     if(scoring)paintNeutralPoints(game,scoring,kept,gap,pad);
     const live=!boardReview && game.status==="playing";
@@ -382,6 +409,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     if(scoring)paintPrisonerFill(theme,fill,view.palette,gap,pad);
     if(scoring)paintRegionLabels(scoring.regions,gap,pad);
     paintLastMove(theme,view,display,gap,pad);
+    if(!view.boardReview && Number.isInteger(view.freePick))paintFreePick(view.freePick,gap,pad);
     if(sparks.length || pops.length || waves.length)paintSparks(gap,pad);
     if(view.sampleStones && !counting && !view.candidate && !view.illegalCandidate && display.board.every(v=>!v))
       paintSampleStones(theme,gap,pad);
