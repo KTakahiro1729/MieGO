@@ -269,7 +269,7 @@ const playerName = createPlayerName({$,onChange:()=>{
 }});
 // 効果音: off until the 設定 sheet turns them on. ドパガキモード swaps in louder voices.
 const sound = createSoundEffects({$,voices:()=>dopa.level()==="off"?CALM_VOICES:DOPA_VOICES});
-const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),graph:$("reviewGraph"),
+const dopa = createDopaMode({$,stage:$("dopaStage"),frame:$("boardFrame"),
   score:()=>$("scoreTitle")});
 // Whom ドパガキモード cheers for a win: the player's own colour, or either side
 // when watching the COMs or sharing one board.
@@ -2355,12 +2355,10 @@ function setBoardReviewStep(step) {
   if(!Number.isInteger(step)||step<0||step>snapshot.moves.length)return;
   try{
     const display=replaySteps(snapshot,step);
-    const moved=step!==boardReview.step;
     boardReview.display=display;boardReview.step=step;
     boardReview.preview=null;boardReview.previewPosition=null;
     reviewNotice("");
     show();requestReviewOwnership();
-    if(moved && scoreGraph.shown() && scoreGraph.marks().includes(step)){dopa.don();sound.play("don");}
   }catch(error){reviewNotice(TEXT.history.replayFailed);}
 }
 function clearBoardReview() {

@@ -71,14 +71,12 @@ function page({ level = null, reduced = false } = {}) {
   const classList = set => ({ add: c => set.add(c), remove: (...names) => names.forEach(c => set.delete(c)),
     toggle: (c, on) => on ? set.add(c) : set.delete(c) });
   const frame = { offsetWidth: 0, classList: classList(classes) };
-  const graphClasses = new Set();
-  const graph = { offsetWidth: 0, classList: classList(graphClasses) };
   const score = { textContent: "黒が12.5目差で勝利" };
   const later = [], frames = [];
   let time = 0;
-  const dopa = createDopaMode({ $, stage, frame, graph, score: () => score, ...(reduced === null ? {} : { reducedMotion: () => reduced }),
+  const dopa = createDopaMode({ $, stage, frame, score: () => score, ...(reduced === null ? {} : { reducedMotion: () => reduced }),
     random: () => .5, schedule: f => later.push(f), requestFrame: f => frames.push(f), now: () => time });
-  return { $, dopa, saved, children, classes, graphClasses, score, later, frames, tick: ms => { time += ms; frames.shift()?.(); } };
+  return { $, dopa, saved, children, classes, score, later, frames, tick: ms => { time += ms; frames.shift()?.(); } };
 }
 
 test("the 設定 switch starts off, is remembered and goes back to off with 初期状態に戻す", () => {
@@ -146,25 +144,6 @@ test("a good move shakes the board", () => {
     still.dopa.praise();
     assert.equal(still.classes.size, 0);
   }
-});
-
-test("a turning point of the replay lands with ドン！, a shake and a bouncing mark", () => {
-  const p = page({ level: "on" });
-  p.dopa.don();
-  assert.equal(p.children.find(c => c.className === "dopa-shout dopa-don")?.textContent, "ドン！");
-  assert.ok(p.classes.has("dopa-shake"));
-  assert.ok(p.graphClasses.has("dopa-bounce"));
-  p.later.forEach(f => f());
-  assert.equal(p.children.length, 0);
-  assert.equal(p.graphClasses.size, 0);
-
-  const still = page({ level: "on", reduced: true });
-  still.dopa.don();
-  assert.equal(still.children.length, 1, "reduced motion keeps the word, standing still");
-  assert.equal(still.classes.size + still.graphClasses.size, 0);
-  const off = page();
-  off.dopa.don();
-  assert.equal(off.children.length, 0);
 });
 
 test("秒読み grows the clock from 10 seconds and pulses the board's edge from 5", () => {
