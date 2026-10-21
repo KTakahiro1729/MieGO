@@ -1,5 +1,5 @@
 import {parseSGF} from "./sgf.mjs";
-import {recordName,recordIcon,recordSummary} from "./history-navigation.mjs";
+import {isBlankRecord,recordName,recordIcon,recordSummary} from "./history-navigation.mjs";
 import {recordThumbnailSvg} from "./board-thumbnail.mjs";
 import { TEXT } from "./texts.mjs";
 import { UserError, messageFor } from "./user-error.mjs";
@@ -26,9 +26,10 @@ export function createHistoryPanel({$,gameLibrary,storageError,onSelect=()=>{},g
   }
   function renderHistoryList() {
     const list=$("historyList");list.replaceChildren();
-    let records=[];
-    try{records=gameLibrary.list();}catch(error){storageError(error);}
-    $("historyEmpty").hidden=records.length!==0;
+    let records=[],failed=false;
+    try{records=gameLibrary.list().filter(record=>!isBlankRecord(record));}catch(error){failed=true;storageError(error);}
+    // When saving is blocked, storageError says so; 打ち始めると…残ります would not be true.
+    $("historyEmpty").hidden=failed||records.length!==0;
     for(const record of records){
       const item=document.createElement("button");
       item.type="button";item.className="history-list-item";
