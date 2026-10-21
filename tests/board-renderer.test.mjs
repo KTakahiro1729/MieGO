@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {at,BLACK,boardHash,newGame,play,WHITE} from "../public/core.mjs";
-import {BREATH_BLOOM_MS,BREATH_MS,BREATH_PULL_MS,BREATH_TRAIL_MS,BURST_MS,CAPTURE_FADE_MS} from "../public/board-renderer.mjs";
+import {BREATH_GATHER_MS,BREATH_MS,BREATH_PULL_MS,BREATH_TRAIL_MS,BURST_MS,CAPTURE_FADE_MS} from "../public/board-renderer.mjs";
 import {recordingBoard,baseView} from "./helpers/board-canvas.mjs";
 import {ownershipPixel,countingOpacity} from "../public/territory-view.mjs";
 
@@ -260,7 +260,7 @@ test("盤の線 set to 仮置き時 shows only while a stone is being placed",()
   assert.ok(toAbove(),"every group while one is");
 });
 
-test("盤の線 starts each breath with a dot on the liberties that spreads and fades",()=>{
+test("盤の線 starts each breath with a circle closing in on the liberties",()=>{
   const game=newGame();
   game.board[at(4,4)]=BLACK;game.board[at(4,5)]=WHITE;
   let time=0;
@@ -268,9 +268,9 @@ test("盤の線 starts each breath with a dot on the liberties that spreads and 
     {requestFrame:()=>{},now:()=>time,stillMotion:()=>false});
   const dots=(x,y)=>{calls.length=0;draw();return calls.filter(c=>c.kind==="arc"&&c.args[0]===x&&c.args[1]===y);};
   const [first]=dots(250,200);
-  time=BREATH_BLOOM_MS/2;
+  time=BREATH_GATHER_MS/2;
   const [later]=dots(250,200);
-  assert.ok(later.args[2]>first.args[2] && later.alpha<first.alpha,"spreads and fades");
+  assert.ok(later.args[2]<first.args[2] && later.alpha>first.alpha,"closes in and darkens");
   // With black on (5,4), black and white both need (5,5): a whole dot from
   // each side's own breath, half a breath apart.
   game.board[at(5,4)]=BLACK;time=0;
@@ -278,7 +278,7 @@ test("盤の線 starts each breath with a dot on the liberties that spreads and 
   time=BREATH_MS/2;
   const [white]=dots(300,300);
   for(const dot of [black,white])assert.deepEqual(dot.args.slice(3),[0,Math.PI*2],"whole dots in turn");
-  time=BREATH_BLOOM_MS;
+  time=BREATH_GATHER_MS;
   assert.equal(dots(250,200).length,0,"gone until the next breath");
 });
 
@@ -288,16 +288,17 @@ test("盤の線 draws a breath in from the liberties, speeding up, only to the s
   game.board[at(0,0)]=BLACK;game.board[at(1,0)]=BLACK;
   game.board[at(8,8)]=WHITE;game.board[at(7,8)]=BLACK;
   const frames=[];
-  let time=1700;
+  let time=2500;
   const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"always"}),
     {requestFrame:f=>frames.push(f),now:()=>time,stillMotion:()=>false});
   const lines=()=>{calls.length=0;draw();return calls.filter(c=>c.kind==="line").map(c=>c.args.join(","));};
-  // Between black's breath and white's: the board alone, no dashes.
+  // Black's breath is through and white's circles are still closing in:
+  // the board alone, no dashes.
   const board=lines();
   assert.equal(frames.length,1,"keeps breathing");
   assert.equal(board.some(e=>{const [x,y]=e.split(",").map(Number);return x===50&&y>50&&y<100;}),false,"no dashes while breathing");
   const breath=(start,ms)=>{time=start+ms;return lines().filter(e=>!board.includes(e)).map(e=>e.split(",").map(Number));};
-  const black=ms=>breath(BREATH_MS,ms), white=ms=>breath(BREATH_MS*1.5,ms);
+  const black=ms=>breath(BREATH_MS+BREATH_GATHER_MS,ms), white=ms=>breath(BREATH_MS*1.5+BREATH_GATHER_MS,ms);
   // It leaves the dot below (0,0) slowly: not halfway to the stone at first,
   // all the way there one BREATH_PULL_MS in.
   assert.ok(black(BREATH_PULL_MS/2).some(([x,y])=>x===50&&y>85&&y<100));

@@ -26,13 +26,13 @@ import {scoringRegions,prisonerFill,prisonersFilled} from "./scoring-regions.mjs
 export const CAPTURE_FADE_MS=200;
 // 盤の線 breathes: every BREATH_MS a breath sets out from all of one side's
 // liberties at once, about fifteen a minute as a person at rest, black and
-// white taking turns half a breath apart. Each breath is drawn in: it leaves
-// the liberties slowly and speeds up as it goes, a line in its first
-// BREATH_PULL_MS, four in twice that, trailing what it covered in the last
-// BREATH_TRAIL_MS, so it stretches as it speeds up.
-// Each breath starts as a dot on every liberty that spreads fast, then
-// slows and fades over BREATH_BLOOM_MS.
-export const BREATH_MS=4000, BREATH_PULL_MS=800, BREATH_TRAIL_MS=300, BREATH_BLOOM_MS=1200;
+// white taking turns half a breath apart. Each breath is drawn in: first a
+// faint wide circle around every liberty closes in on it, faster and denser
+// as it goes, over BREATH_GATHER_MS; then the breath leaves the liberties
+// slowly and speeds up as it goes, a line in its first BREATH_PULL_MS, four
+// in twice that, trailing what it covered in the last BREATH_TRAIL_MS, so it
+// stretches as it speeds up.
+export const BREATH_MS=4000, BREATH_GATHER_MS=1000, BREATH_PULL_MS=800, BREATH_TRAIL_MS=300;
 const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 // ドパガキモード: sparks fly from each taken stone, and a "+N" rises over them, for this long.
 export const BURST_MS=900;
@@ -271,8 +271,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   // lines from stone to stone and out toward every empty point next to it,
   // narrowing to a point short of it, so a group shows what holds it
   // together and the points it needs. Standing still these lines are dashes.
-  // While playing there are no dashes: each breath starts as a dot on every
-  // liberty that spreads and fades, and is drawn into the group as a stretch
+  // While playing there are no dashes: each breath starts as a circle closing
+  // in on every liberty, and is drawn into the group as a stretch
   // of solid line. A group in atari gets its breath only as far as the edge
   // of its stone, so nothing behind it is ever reached. Each side keeps its own colour on the colour map.
   function paintBoardLines(view,board,gap,pad,moving) {
@@ -286,7 +286,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const reached=t=>(Math.max(0,t)/BREATH_PULL_MS)**2;
     const fronts={[BLACK]:[],[WHITE]:[]};
     if(moving)for(const color of [BLACK,WHITE])for(let k=0;k<2;k++){
-      const t=since[color]+k*BREATH_MS;
+      const t=since[color]-BREATH_GATHER_MS+k*BREATH_MS;
       fronts[color].push([reached(t-BREATH_TRAIL_MS),reached(t)]);
     }
     const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
@@ -352,16 +352,16 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         ctx.restore();
       }
     }
-    // The breath's start: a dot on each liberty that spreads and fades. A
-    // liberty both sides need gets a whole dot from each in turn.
+    // The breath's start: a circle closing in on each liberty. A liberty both
+    // sides need gets a whole circle from each in turn.
     for(const [point,colors] of dots){
       const [x,y]=xy(point);
       for(const color of colors){
-        const bloom=moving?since[color]/BREATH_BLOOM_MS:1;
-        if(bloom>=1)continue;
-        ctx.globalAlpha=.8*(1-bloom)**2;
+        const gather=moving?since[color]/BREATH_GATHER_MS:1;
+        if(gather>=1)continue;
+        ctx.globalAlpha=.15+.7*gather;
         ctx.fillStyle=tone[color];ctx.beginPath();
-        ctx.arc(x,y,gap*(.08+.3*(1-(1-bloom)**2)),0,Math.PI*2);ctx.fill();
+        ctx.arc(x,y,gap*(.08+.32*(1-gather**2)),0,Math.PI*2);ctx.fill();
       }
     }
     ctx.restore();
