@@ -7,10 +7,13 @@ import {
   readStyleLink,
   typeShare,
 } from "./play-style.mjs";
+import { copyWithFallback } from "./clipboard.mjs";
+import { picturePrompt } from "./style-picture.mjs";
 import { TEXT } from "./texts.mjs";
 
 // The /style page: one 棋風診断 from a share sheet's link, or the 17 types.
 const T = TEXT.playStyle;
+const P = T.picture;
 const $ = id => document.getElementById(id);
 const el = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -45,6 +48,15 @@ function letterName(found, i) {
   return high ? axis.highName : axis.lowName;
 }
 
+// 引き際's reason below 0 is a resignation's timing, from LET_GO_REASON where stones were let go.
+function evidenceLine(found, i) {
+  const given = found.evidence?.[i];
+  const shown = i !== 3 || given == null ? given : given < 0 ? readResignReason(given) :
+    given >= LET_GO_REASON ? { letGo: given - LET_GO_REASON } : given;
+  const say = T.evidence[i];
+  return shown == null || !say ? null : typeof say === "function" ? say(shown) : say[shown];
+}
+
 function evidenceList(found) {
   const box = el("section", "style-evidence");
   box.append(el("h2", null, T.evidenceTitle));
@@ -55,16 +67,28 @@ function evidenceList(found) {
     const balanced = found.type === BALANCE;
     item.append(el("strong", null, balanced ? axis.highName + "・" + axis.lowName :
       letterName(found, i) + (found.ranks?.[i] != null ? " " + T.rank(found.ranks[i]) : "")));
-    // 引き際's reason below 0 is a resignation's timing, from LET_GO_REASON where stones were let go.
-    const given = found.evidence?.[i];
-    const shown = i !== 3 || given == null ? given : given < 0 ? readResignReason(given) :
-      given >= LET_GO_REASON ? { letGo: given - LET_GO_REASON } : given;
-    const say = T.evidence[i];
-    const line = shown == null || !say ? null : typeof say === "function" ? say(shown) : say[shown];
+    const line = evidenceLine(found, i);
     if (line) item.append(el("span", null, line));
     list.append(item);
   });
   box.append(list);
+  return box;
+}
+
+// AIで絵にする: the text to paste into the player's own image-making AI, shown before it is copied.
+function pictureSection(found) {
+  const box = el("section", "style-picture");
+  const text = picturePrompt(found, T.axes.map((axis, i) => evidenceLine(found, i)).filter(Boolean), location.origin);
+  const copy = el("button", "secondary full", P.copy);
+  copy.type = "button";
+  const status = el("p", "style-note");
+  status.setAttribute("role", "status");
+  const field = el("textarea", "help-copy-fallback");
+  Object.assign(field, { readOnly: true, hidden: true, rows: 8, spellcheck: false });
+  copy.onclick = () => void copyWithFallback(text, status, field, TEXT.prompts.copiedForAi);
+  const shown = el("details", "style-picture-text");
+  shown.append(el("summary", null, P.show), el("pre", null, text));
+  box.append(el("h2", null, P.title), el("p", "style-note", P.note), copy, status, field, shown);
   return box;
 }
 
@@ -92,6 +116,7 @@ function renderResult(found) {
   T.axes.forEach((axis, i) => bars.append(axisRow(axis, found.type === BALANCE ? null : found.type[i], found.leans?.[i])));
   box.append(bars);
   if (found.ranks || found.evidence) box.append(evidenceList(found));
+  box.append(pictureSection(found));
   box.append(el("p", "style-note", found.games > 1 ? T.pooled(found.games) : T.oneGame));
   if (found.ranks || typeShare(found.type) != null) box.append(el("p", "style-note", T.peopleSource));
   box.hidden = false;

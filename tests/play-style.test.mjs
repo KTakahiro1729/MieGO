@@ -305,3 +305,27 @@ test("two styles read together: every pair has something, and the link carries t
   assert.equal(read.partner.leans.length,4);
   assert.equal(readStyleLink("?t=AHFT&u=XXXX").partner,null,"an unknown partner is dropped");
 });
+test("AIで絵にする copies the type, its numbers and where ai.md says how to draw it",async()=>{
+  const {picturePrompt}=await import("../public/style-picture.mjs");
+  const text=picturePrompt({type:"AHFQ",games:1},["相手を攻める手が62%"],"https://miego.example");
+  assert.match(text,/https:\/\/miego\.example\/ai\.md の「棋風診断の絵」/);
+  for(const line of ["型：渡りの鷹（AHFQ）","数字：相手を攻める手が62%","モチーフ：鷹","色：空青"])
+    assert.ok(text.includes(line),line);
+  assert.match(text,/差し色1色だけ/);
+  assert.match(text,/顔、名前、住んでいる場所、勤め先は描かない/);
+  // A type alone has no numbers line; several games speak of the games picked.
+  const balance=picturePrompt({type:BALANCE,games:3},[],"https://miego.example");
+  assert.ok(balance.includes("色：墨") && balance.includes("診断：選んだ対局では、"));
+  assert.doesNotMatch(balance,/数字：/);
+});
+test("ai.md tells how to draw every type with the same motif and colour as the copied text",()=>{
+  const guide=readFileSync(new URL("../public/ai.md",import.meta.url),"utf8");
+  const P=TEXT.playStyle.picture;
+  assert.match(guide,/\n## 棋風診断の絵\n/);
+  for(const [code,type] of Object.entries(TEXT.playStyle.types)){
+    const colour=P.colours[code===BALANCE ? BALANCE : code.slice(2)];
+    assert.ok(P.motifs[code] && colour,code);
+    assert.ok(guide.includes("| "+code+" | "+type.name+" | "+P.motifs[code]+" | "+colour+" |"),code);
+    assert.ok(guide.includes("| "+colour+" | "),colour);
+  }
+});

@@ -1088,6 +1088,11 @@ body.style-page{overflow:auto}
 .style-evidence li{display:flex;flex-direction:column;gap:1px;font-size:var(--font-body)}
 .style-evidence strong{color:var(--btn-text)}
 .style-evidence span{color:var(--muted);font-size:var(--font-small)}
+.style-picture h2{margin:22px 0 4px;font-size:var(--font-title)}
+.style-picture .style-note{margin:0 0 10px}
+.style-picture-text{margin-top:10px;font-size:var(--font-small);color:var(--muted)}
+.style-picture-text summary{cursor:pointer;padding:12px 0}
+.style-picture-text pre{margin:6px 0 0;padding:10px;white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid var(--edge);border-radius:var(--radius-inset);background:var(--surface);font:inherit;color:var(--btn-text)}
 .style-compat{margin-top:14px}
 .style-compat-pair{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0}
 .style-compat-pair .style-code{font-size:32px}
