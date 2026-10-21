@@ -104,12 +104,13 @@ export function ownershipAlpha(value, opacity = 1, curve = shape) {
 export function ownershipPixel(value, palette = DEFAULT_PALETTE, opacity = 1) {
   return [...paletteAt(value,palette),Math.round(255*ownershipAlpha(value,opacity))];
 }
-// The legend runs from White (left) through neutral (centre) to Black (right),
-// sampled from the same function as the board.
+// The legend runs from Black (left) through neutral (centre) to White (right),
+// as every place that shows both sides puts Black first, sampled from the
+// same function as the board.
 export function paletteGradient(palette = DEFAULT_PALETTE, opacity = 1) {
   const stops=[];
   for(let i=0;i<=40;i++){
-    const v=i/20-1;
+    const v=1-i/20;
     const [r,g,b,a]=ownershipPixel(v===0?-0:v,palette,opacity);
     stops.push("rgba("+r+","+g+","+b+","+Number((a/255).toFixed(3))+") "+(i*2.5)+"%");
   }
@@ -121,12 +122,12 @@ export function paletteGradient(palette = DEFAULT_PALETTE, opacity = 1) {
 export const COUNTING_MIN_OPACITY = .5;
 export const countingPalette = palette => showsOwnership(palette) && isPaletteChoice(palette) ? palette : DEFAULT_PALETTE;
 export const countingOpacity = opacity => Math.max(Number.isFinite(opacity) ? clamp(opacity,0,1) : 0, COUNTING_MIN_OPACITY);
-// The counting legend: White's area | neutral (a small ring, as on the board) | Black's area.
+// The counting legend: Black's area | neutral (a small ring, as on the board) | White's area.
 export function countingGradient(palette = DEFAULT_PALETTE, opacity = 1) {
   const {white,black} = coloursFor(countingPalette(palette));
   const fill = s => "rgba("+s.rgb.join(",")+","+Number(ownershipAlpha(1,countingOpacity(opacity)).toFixed(3))+")";
   return "radial-gradient(circle at 50% 50%,transparent 2.4px,"+NEUTRAL_MARK+" 2.4px 3.6px,transparent 3.6px),"+
-    "linear-gradient(90deg,"+fill(white)+" 0 33%,transparent 33% 67%,"+fill(black)+" 67% 100%)";
+    "linear-gradient(90deg,"+fill(black)+" 0 33%,transparent 33% 67%,"+fill(white)+" 67% 100%)";
 }
 export const NEUTRAL_MARK = "rgba(96,92,84,.85)";
 // 日本式: prisoners filled into territory and the アゲハマ counter wear the

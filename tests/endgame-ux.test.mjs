@@ -51,14 +51,14 @@ test("starting scoring before the board has settled says open areas count for no
   // Worked out by endgameBarView (tests/endgame-bar.test.mjs).
   assert.match(TEXT.endgame.detailUnsettled,/どちらの地にもなりません/);
 });
-test("the COM's pass opens the same question as 採点を始める, and answering 採点を始める is the player's pass",()=>{
-  assert.match(TEXT.endgame.askAiPassed,/採点を始めますか？$/);
-  assert.equal(TEXT.endgame.askAiPassed.split("\n").at(-1),TEXT.endgame.askLocal);
-  assert.doesNotMatch(TEXT.endgame.detailAiPassed,/承認するわけではありません/);
-  // Only against a COM, never while watching two COMs.
-  assert.match(app,/const aiPassAsks = \(\) => !room && gameMode === "ai" && !watching/);
-  assert.match(app,/if\(action\.type==="move"\)endExpanded=isAiMove && aiPassAsks\(\);/);
-  assert.match(app,/if\(!room && endExpanded && aiPassAsks\(\)\)\{\n    endExpanded=false;submitMove\(null\);return;/);
-  // A reloaded game asks again rather than leaving the pass unanswered.
-  assert.equal(app.match(/endExpanded=!!game\.endProposal \|\| aiPassAsks\(\);/g).length,3);
+test("against a COM a pass is a move and the end is an offer, never one for the other",()=>{
+  // The COM's pass asks nothing; the bar only says the next pass starts the count.
+  assert.doesNotMatch(app,/aiPassAsks/);
+  assert.equal(TEXT.endgame.askAiPassed,undefined);
+  assert.match(app,/if\(action\.type==="move"\)endExpanded=false;/);
+  // The COM offers instead of a stone, and moves only once its offer is answered.
+  assert.match(app,/apply\(\{type:"end_offer",color:game\.next,number:game\.moveNumber,before:boardHash\(game\.board\)\},false,true\);/);
+  assert.match(app,/const isAiTurn = \(\) => !room && gameMode === "ai" && game\.status === "playing" && !game\.endProposal &&/);
+  // A reloaded game shows the COM's offer again rather than leaving it unanswered.
+  assert.equal(app.match(/endExpanded=!!game\.endProposal;/g).length,4);
 });

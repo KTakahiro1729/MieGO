@@ -74,9 +74,9 @@ test("finished view exposes next match and history without hidden menus",()=>{
   assert.match(app,/\$\("newMatchSheet"\)\.hidden=!isFinished/);
   assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished;/);
   assert.match(app,/\$\("openHistory"\)\.hidden=!isFinished/);
-  // The header's share glyph closes the row and opens the share sheet for the game just played.
+  // 棋風診断, then the header's share glyph, close the row; the glyph opens the share sheet for the game just played.
   const glyph=html.match(/id="shareToggle"[^>]*>\s*(<svg[\s\S]*?<\/svg>)/)[1].replace(/width="23" height="23"/,'width="22" height="22"');
-  assert.match(html,/<button id="newMatch" class="primary"[^>]*>[\s\S]*?<\/button>\s*<\/div>\s*<!--[^>]*-->\s*<button id="openShare" class="secondary share-game" type="button" aria-label="この試合を共有する"[^>]*hidden>/);
+  assert.match(html,/<button id="newMatch" class="primary"[^>]*>[\s\S]*?<\/button>\s*<\/div>\s*<!--[^>]*-->\s*<button id="scoreStyle" class="secondary score-style"[^>]*hidden>[\s\S]*?<\/button>\s*<button id="openShare" class="secondary share-game" type="button" aria-label="この試合を共有する"[^>]*hidden>/);
   assert.ok(html.includes('id="openShare" class="secondary share-game" type="button" aria-label="この試合を共有する" title="この試合を共有する" hidden>'+glyph+'</button>'));
   assert.match(app,/\$\("openShare"\)\.hidden=!isFinished/);
   assert.match(app,/\$\("openShare"\)\.onclick=openSharePanel/);
@@ -109,7 +109,7 @@ test("a gold button that cannot be pressed is an empty slot, and ここに打つ
 });
 test("solo endgame prompt names the COM only in COM games",()=>{
   // Worked out by endgameBarView (tests/endgame-bar.test.mjs).
-  assert.match(TEXT.endgame.detailLocalAi,/COMもパスしたら採点に入ります/);
+  assert.match(TEXT.endgame.detailLocalAi,/COMが受ければ採点に入ります/);
   assert.match(TEXT.endgame.detailWatchScoring,/COMが終局を承認するわけではありません/);
   assert.doesNotMatch(TEXT.endgame.detailLocal,/COM/);
 });

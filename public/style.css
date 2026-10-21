@@ -802,10 +802,14 @@ body{overflow:hidden}
 /* How near the end is: three steps under 採点を始める, lit from the left. The
    button turns gold at the last one (終局をご検討ください). */
 #endPropose{display:grid;place-items:center;align-content:center;gap:4px;padding:4px 12px}
-.end-stage{display:flex;gap:3px;width:96px}
+/* 序盤 and 終盤 name its two ends. */
+.end-stage{display:flex;align-items:center;gap:3px}
 .end-stage[hidden]{display:none}
-.end-stage b{flex:1;height:3px;border-radius:var(--radius-hair);background:var(--slate-46)}
-.end-stage[data-stage="1"] b:nth-child(-n+1),.end-stage[data-stage="2"] b:nth-child(-n+2),.end-stage[data-stage="3"] b{background:var(--gold)}
+.end-stage i{flex:none;font-style:normal;font-size:var(--font-caption);line-height:1;color:var(--muted);font-weight:var(--weight-regular)}
+.end-stage i:first-child{margin-right:2px}
+.end-stage i:last-child{margin-left:2px}
+.end-stage b{flex:none;width:22px;height:3px;border-radius:var(--radius-hair);background:var(--slate-46)}
+.end-stage[data-stage="1"] b:nth-of-type(-n+1),.end-stage[data-stage="2"] b:nth-of-type(-n+2),.end-stage[data-stage="3"] b{background:var(--gold)}
 #endPropose:has(.end-stage[data-stage="3"]:not([hidden])){border-color:var(--accent-edge);color:var(--accent-text)}
 .endgame-bar .end-action[hidden]{display:none!important}
 /* The bar asks this player for a decision (an offer, the other side's pass,
@@ -958,8 +962,14 @@ body{overflow:hidden}
 .game-panel.is-scoring .score-instruction{display:block;max-width:100%;margin:0;font-size:var(--font-small);line-height:16px;color:var(--muted);white-space:nowrap}
 .score-table{grid-template-columns:1fr;row-gap:2px;width:100%;max-width:200px;margin:0 auto;padding-top:0;border-top:0}
 /* After a game whose style can be read, 棋風診断 sits after the result. */
-.score-style{flex:none;min-height:0;height:24px;margin:0 0 0 8px;padding:0 10px;font-size:var(--font-small);white-space:nowrap}
-.score-style[hidden]{display:none}
+.game-panel.is-finished .action-row .score-style{flex:0 0 48px;width:48px;min-width:48px;padding:5px 0;display:grid;place-content:center;gap:1px;line-height:1.15}
+.action-row .score-style small{font-size:var(--font-caption);font-weight:var(--weight-medium);opacity:.75}
+/* With 棋風 in the row, a 320px screen tightens the row so 新規対戦 and もう一局 keep their room. */
+@media(max-width:359px){
+  .game-panel.is-finished .action-row:has(.score-style:not([hidden])){gap:var(--space-sm)}
+  .game-panel.is-finished .action-row:has(.score-style:not([hidden])) #openHistory{padding:9px var(--space-sm)}
+  .game-panel.is-finished .action-row:has(.score-style:not([hidden])) :is(.score-style,.share-game){flex-basis:44px;width:44px;min-width:44px}
+}
 .score-table .score-row{gap:4px;line-height:20px}
 .score-table .score-total,.score-table .score-name{line-height:20px}
 /* On narrow phones the stone alone names the side, so the breakdown keeps one line. */

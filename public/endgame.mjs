@@ -19,7 +19,7 @@ export function endgameHint(state,advisor,{unavailable=false}={}) {
   // Three steps. After the player chose to keep playing, the milder one
   // stands in for the strongest until the board has settled again.
   if(advisor.stage==="ready" && !advisor.held)return ENDGAME_HINTS.ready;
-  if(advisor.stage==="ready" || advisor.stage==="near")return ENDGAME_HINTS.near;
+  if(advisor.stage==="ready" || advisor.stage==="near" || advisor.mostlySettled)return ENDGAME_HINTS.near;
   return ENDGAME_HINTS.playing;
 }
 /** The advice reads the feel of the position, not move or stone counts: how
@@ -35,6 +35,12 @@ export function endgameHint(state,advisor,{unavailable=false}={}) {
  * about 36 points between White and Black to move), and that is not a stone
  * moving anything. Closed areas count as settled, as the board shows them. */
 export const ENDGAME_SWING = Object.freeze({near:2, ready:1, window:2});
+/** そろそろ also lights once this share of the board reads settled: the fights
+ * are over and what is left is closing borders, as 終盤 (ヨセ) is usually defined.
+ * On 9x9 COM同士 games it holds from about 70% of the game, where the swing
+ * alone (≤2) holds only from 75-80% and keeps going off again. It is advice
+ * only: the COM's pass and its offer to end still read the swing. */
+export const ENDGAME_SETTLED_SHARE = 0.7;
 export class EndgameAdvisor {
   constructor() { this.reset(); }
   reset() {
@@ -44,6 +50,7 @@ export class EndgameAdvisor {
     this.stage = "playing";
     this.held = false;
     this.fresh = 0;
+    this.mostlySettled = false;
   }
   /** 対局を続ける: the player sees something left to play. The strongest advice
    * comes back once it has been played and the board reads settled again,
@@ -73,6 +80,9 @@ export class EndgameAdvisor {
     // Estimates far apart say nothing about what one stone does.
     if (this.previous && state.moveNumber - this.previous.move > 3) this.swings = [];
     const values = shownOwnership(state.board, ownership);
+    // The raw estimate, stones included, so 日本式 (no colour on live stones) reads the same.
+    this.mostlySettled = ownership.filter(v => Math.abs(v) >= OWNERSHIP_BANDS.SETTLED).length >=
+      ownership.length * ENDGAME_SETTLED_SHARE;
     const same = this.recent.findLast(r => r.next === state.next && state.moveNumber - r.move <= 4);
     if (same) {
       const swing = values.reduce((s,v,i)=>s+Math.abs(v-same.values[i]),0)/2/(state.moveNumber-same.move);

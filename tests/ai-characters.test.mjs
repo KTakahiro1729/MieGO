@@ -118,13 +118,13 @@ test("settings that match no character open as カスタム, with every axis sna
   assert.equal(characterLabel(CUSTOM_CHARACTER),"カスタム");
 });
 
-test("投了 starts at 最後まで for every character, and choosing it makes the COM カスタム",()=>{
+test("終局の提案 starts at 最後まで for every character, and choosing it makes the COM カスタム",()=>{
   for(const c of Object.values(AI_CHARACTERS))assert.equal(c.resign,0);
-  // Saves from before 投了 play every game out.
+  // Saves from before the setting play every game out.
   assert.equal(normalizeCom({strength:"easy"}).resign,0);
   const com=setComValue({character:"chick",...AI_CHARACTERS.chick},"resign","50");
   assert.equal(com.character,CUSTOM_CHARACTER);
   assert.equal(com.resign,50);
-  assert.match(comSummary(com),/大差で投了/);
-  assert.doesNotMatch(comSummary(AI_CHARACTERS.chick),/投了/);
+  assert.match(comSummary(com),/終局の提案「大差で提案」/);
+  assert.doesNotMatch(comSummary(AI_CHARACTERS.chick),/終局の提案/);
 });

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {BLACK, WHITE, newGame, play} from "../public/core.mjs";
+import {BLACK, WHITE, boardHash, newGame, play} from "../public/core.mjs";
 import {endgameBarView, passNotice} from "../public/endgame-bar.mjs";
 import {forbiddenLines} from "../public/illegal-moves.mjs";
 import {TEXT} from "../public/texts.mjs";
@@ -8,17 +8,18 @@ import {TEXT} from "../public/texts.mjs";
 // The advisor has read the position once, and the board is still being played out.
 const reading={previous:{move:0},stage:"playing",held:false};
 const bar=(options={})=>endgameBarView({game:newGame(),color:BLACK,room:false,connected:true,gameMode:"ai",
-  watching:false,endExpanded:false,aiPassAsks:false,katagoReady:true,fallbackMode:false,advisor:reading,
-  aiThinking:false,notices:[],keptPlaying:false,illegalCandidate:null,...options});
+  watching:false,endExpanded:false,katagoReady:true,fallbackMode:false,advisor:reading,
+  aiThinking:false,notices:[],illegalCandidate:null,...options});
 
-test("the meter on 採点を始める never claims 'not yet' until KataGo has evaluated a position",()=>{
+test("the meter on the end button never claims 'not yet' until KataGo has evaluated a position",()=>{
   // The advice reads as the meter's lit steps and in the button's spoken name, never as a sentence.
   const label=view=>view.attributes.endPropose["aria-label"];
   const loading=bar({katagoReady:false,advisor:{previous:null}});
   assert.equal(loading.text.endStatus,"");
   assert.equal(loading.hidden.endStage,true);
-  assert.equal(label(loading),TEXT.endgame.startScoring);
-  assert.equal(label(bar({advisor:{previous:null}})),TEXT.endgame.startScoring+"（"+TEXT.endgame.checking+"）");
+  assert.equal(label(loading),TEXT.endgame.propose);
+  assert.equal(label(bar({advisor:{previous:null}})),TEXT.endgame.propose+"（"+TEXT.endgame.checking+"）");
+  // Without KataGo the COM cannot answer, and the player scores alone.
   assert.equal(label(bar({fallbackMode:true})),TEXT.endgame.startScoring+"（"+TEXT.endgame.unavailable+"）");
   const playing=bar();
   assert.equal(playing.text.endStatus,"");
@@ -29,7 +30,6 @@ test("after one pass the bar says who passed, and asks for the second when it is
   const passed=play(newGame(),null);
   assert.equal(bar({game:passed,color:WHITE}).text.endStatus,TEXT.endgame.passedAi);
   assert.equal(bar({game:passed,color:WHITE}).classes.endgameBar["is-calling"],true);
-  assert.equal(bar({game:passed,color:WHITE,keptPlaying:true}).classes.endgameBar["is-calling"],false);
   assert.equal(bar({game:passed}).text.endStatus,TEXT.endgame.passedSelf);
   assert.equal(bar({game:passed,gameMode:"local"}).text.endStatus,TEXT.endgame.passedLocal("B"));
 });
@@ -46,15 +46,16 @@ test("採点を始める waits for a computing move, except while watching",()=>
   assert.equal(bar({aiThinking:true,watching:true}).disabled.endPropose,false);
 });
 
-test("the solo prompt asks to score, and against the COM the answer is the player's pass",()=>{
+test("the solo prompt asks to score, and against the COM it offers the end, not a pass",()=>{
   const prompt=bar({endExpanded:true,advisor:{previous:{move:0},stage:"near"}});
-  assert.equal(prompt.text.endStatus,TEXT.endgame.askLocal);
+  assert.equal(prompt.text.endStatus,TEXT.endgame.askCom);
   assert.equal(prompt.text.endDetail,TEXT.endgame.detailLocalAi);
   assert.equal(bar({endExpanded:true,gameMode:"local",advisor:{previous:{move:0},stage:"near"}}).text.endDetail,
     TEXT.endgame.detailLocal);
   assert.deepEqual(prompt.classes.actionRow,{"end-prompt-open":true});
   assert.equal(prompt.classes.endgameBar["is-asking"],true);
-  assert.deepEqual([prompt.text.endProposeLabel,prompt.text.endAccept],[TEXT.endgame.startScoring,TEXT.endgame.passToEnd]);
+  assert.deepEqual([prompt.text.endProposeLabel,prompt.text.endAccept],[TEXT.endgame.propose,TEXT.endgame.offerCom]);
+  assert.equal(bar({endExpanded:true,gameMode:"local"}).text.endProposeLabel,TEXT.endgame.startScoring);
   // On one board, while watching or without KataGo, the count is the viewer's own decision.
   assert.equal(bar({endExpanded:true,gameMode:"local"}).text.endAccept,TEXT.endgame.goScoring);
   const watched=bar({endExpanded:true,watching:true,advisor:{previous:{move:0},stage:"near"}});
@@ -67,7 +68,8 @@ test("the solo prompt asks to score, and against the COM the answer is the playe
 
 test("starting scoring before the board has settled keeps the advice above the question",()=>{
   const prompt=bar({endExpanded:true});
-  assert.equal(prompt.text.endStatus,TEXT.endgame.playing+"\n"+TEXT.endgame.askLocal);
+  assert.equal(prompt.text.endStatus,TEXT.endgame.playing+"\n"+TEXT.endgame.askCom);
+  assert.equal(bar({endExpanded:true,gameMode:"local"}).text.endStatus,TEXT.endgame.playing+"\n"+TEXT.endgame.askLocal);
   assert.equal(prompt.text.endDetail,TEXT.endgame.detailUnsettledAi);
   assert.equal(bar({endExpanded:true,gameMode:"local"}).text.endDetail,TEXT.endgame.detailUnsettled);
 });
@@ -99,12 +101,27 @@ test("the help button explains the rules for 五目並べ and an illegal preview
   assert.equal(bar({game:newGame(true,{rules:"gomoku"})}).help,"rules");
 });
 
-test("while watching, the bar says when a COM wants to resign",()=>{
-  assert.equal(bar({watching:true,resignWish:WHITE}).text.endStatus,TEXT.endgame.wantsResign("W"));
+test("the COM's offer is answered like a friend's: two equal choices, and no pass in it",()=>{
+  const offered={...newGame(),endProposal:{from:WHITE,atMove:0}};
+  const incoming=bar({game:offered});
+  // The offer reads on the COM's side of the turn row, which stays so the COM can be changed.
+  assert.equal(incoming.text.endStatus,"");
+  assert.deepEqual([incoming.text.endAccept,incoming.text.endDecline],[TEXT.common.accept,TEXT.common.keepPlaying]);
+  assert.deepEqual(incoming.classes.endAccept,{primary:false});
+  assert.equal(incoming.hidden.endAccept,false);
+  assert.equal(incoming.hidden.endPropose,true);
+  assert.equal(incoming.classes.endgameBar["is-calling"],true);
+  assert.equal(offered.moves.length,0);
+  // A declined offer leaves a one-off line for the position.
+  const game=newGame();
+  const declined=bar({notices:[{number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.comDeclined}]});
+  assert.equal(declined.text.endStatus,TEXT.endgame.comDeclined);
+});
+
+test("while watching, a pass is what the bar reports",()=>{
   assert.equal(bar({watching:true}).text.endStatus,"");
-  // A pass just played is still what the bar reports.
   const passed=play(newGame(),null);
-  assert.equal(bar({game:passed,watching:true,resignWish:WHITE}).text.endStatus,TEXT.endgame.passedWatch("B"));
+  assert.equal(bar({game:passed,watching:true}).text.endStatus,TEXT.endgame.passedWatch("B"));
 });
 
 // A record whose last stone brought back an earlier board, Black to move both times.

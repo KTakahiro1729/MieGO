@@ -47,6 +47,7 @@ export const TEXT = {
 
   page: {
     description: "ブラウザで遊べる無料の囲碁アプリ。9路・13路・19路盤で、AI（KataGo）や友達と対局できます。どちらの地になりそうかを色で表示し、棋譜はURLや画像で共有できます。五目並べも遊べます。",
+    forAi: "AI向けの説明：",
     imageAlt: "MieGOの碁盤。地になりそうな所が色で表示されています。",
     title: "MieGO — 地合いを感じながら囲碁",
   },
@@ -97,6 +98,9 @@ export const TEXT = {
     playing: "終局はまだまだです",
     near: "そろそろ終局です",
     ready: "終局してよさそうです",
+    // The ends of the meter under 終局を提案.
+    stageFrom: "序盤",
+    stageTo: "終盤",
     unavailable: "終局は自分で判断してください。目安を出せません",
     gomoku: "縦・横・斜めに5つ並べたら勝ち",
     free: "交点をタップして置く・取り除く・色を替える",
@@ -106,16 +110,17 @@ export const TEXT = {
     proposed: "終局が提案されました",
     waiting: "相手の返答を待っています",
     askLocal: "採点を始めますか？",
+    askCom: "COMに終局を提案しますか？",
     propose: "終局を提案",
     startScoring: "採点を始める",
     goScoring: "採点を始める",
     detailIncoming: "受け入れると採点に進みます。対局を続けることもできます。",
-    // 対COM: 採点を始める is the player's pass, and the COM's pass starts the count.
-    passToEnd: "パスする",
-    detailLocalAi: "あなたがパスし、COMもパスしたら採点に入ります。COMが打てば対局は続きます。",
-    detailUnsettledAi: "あなたがパスし、COMもパスしたら採点に入ります。まだ決まっていない所は、どちらの地にもなりません。",
-    detailAi: "採点を始めると、あなたがパスしてCOMの返事を待ちます。",
-    comKeptPlaying: "COMはまだ打つ所があると見て打ちました",
+    // 対COM, ending is an offer the COM answers at once, not a pass.
+    offerCom: "終局を提案",
+    detailLocalAi: "COMが受ければ採点に入ります。断られても盤も手番もそのままです。",
+    detailUnsettledAi: "COMが受ければ採点に入ります。まだ決まっていない所は、どちらの地にもなりません。",
+    detailAi: "終局はいつでも提案できます。パスとは別の操作です。",
+    comDeclined: "COMが終局を見送りました",
     // While watching (or without KataGo), the count is the viewer's decision alone.
     detailWatchScoring: "あなたの判断で採点へ進みます。COMが終局を承認するわけではありません。",
     detailLocal: "採点に進み、死石を確認します。対局の再開もできます。",
@@ -131,9 +136,6 @@ export const TEXT = {
     passedLocal: c => "パスで採点へ。" + color(c) + "はパス済み",
     // While watching, nobody is asked to pass: the line only says what happened.
     passedWatch: c => color(c) + "がパス。次もパスなら採点へ",
-    wantsResign: c => color(c) + "が投了したがっています",
-    // The COM's pass opens the same question as the bar's 採点を始める; answering 採点を始める is the player's pass.
-    askAiPassed: "COMがパスしました\n採点を始めますか？",
     // 同一局面反復 (日本囲碁規約 第十二条): both sides may end the game as no result.
     repeated: "同じ局面がくり返されています",
     void: "無勝負にする",
@@ -144,7 +146,6 @@ export const TEXT = {
     detailVoidIncoming: "受け入れると無勝負で終わります。対局を続けることもできます。",
     detailVoidAi: "COMは無勝負に同意します。勝ち負けは付きません。",
     detailVoidLocal: "2人とも同意したら押してください。勝ち負けは付きません。",
-    detailAiPassed: "採点を始めると、あなたもパスして死石の確認に入ります。対局を続けることもできます。",
     declinedByPeer: "相手が終局を見送りました",
     withdrawnByPeer: "相手が提案を取り下げました",
     cancelledByMove: "相手の着手で提案は消えました",
@@ -227,6 +228,8 @@ export const TEXT = {
     playersLabel: "対局者",
     toMove: "打つ番です",
     comThinking: "考え中",
+    comOffering: "終局を提案中",
+    comWantsEnd: "終局を提案したい",
     // 最強's side of the turn row has about 80px on a 320px phone; the full line is read out.
     sideDownloading: percent => "読込中 " + percent + "%",
     sidePreparing: "準備中",
@@ -352,7 +355,7 @@ export const TEXT = {
       high: "序盤に4線より内側の高い手で勢力を作ります。",
     },
     tenukiStops: { low: "応じる", mid: "ふつう", high: "手を抜く" },
-    resignStops: { low: "最後まで", mid: "大差で投了", high: "早めに投了" },
+    resignStops: { low: "最後まで", mid: "大差で提案", high: "早めに提案" },
     tenukiNotes: {
       low: "相手が打った手の近くで応じます。",
       mid: "応じるか離れるかを特に好みません。",
@@ -393,7 +396,7 @@ export const TEXT = {
     reinforcement: "補強度",
     stance: "戦い方",
     tenuki: "相手の手に",
-    resign: "投了",
+    resign: "終局の提案",
   },
 
   handicap: {
@@ -620,7 +623,9 @@ export const TEXT = {
     shareNone: "この対局はまだ診断できません。囲碁で、打った人がそれぞれ10手以上打つと出ます。",
     // 履歴: several saved games read together.
     historyButton: "履歴からまとめて棋風診断",
-    fromResult: "棋風診断 ›",
+    fromResult: "棋風",
+    fromResultNote: "診断",
+    fromResultAria: "この一局の棋風診断を見る",
     historyPick: "まとめたい対局の下にある「黒番」「白番」から、自分が打った方を押してください。最近のCOMや友人との対局は選んであります。",
     historyOpen: "診断を見る",
     historyNone: "石を選ぶと、ここに診断が出ます。",
@@ -922,10 +927,10 @@ export const TEXT = {
     otherColour: item => item + "をほかの色に",
     ownership: "地合いの表示",
     palette: "配色",
-    palettes: { mono: "白〜黒", greenPurple: "緑〜紫", custom: "カスタム", none: "表示しない" },
+    palettes: { mono: "黒〜白", greenPurple: "紫〜緑", custom: "カスタム", none: "表示しない" },
     colour: "色",
     customPaletteColours: "地合いの色（カスタム）",
-    paletteColours: { whiteSettled: "白の地", whiteLeaning: "白寄り", blackLeaning: "黒寄り", blackSettled: "黒の地" },
+    paletteColours: { blackSettled: "黒の地", blackLeaning: "黒寄り", whiteLeaning: "白寄り", whiteSettled: "白の地" },
     whiteSettled: "白の地（確定）の色",
     whiteLeaning: "白寄りの色",
     blackLeaning: "黒寄りの色",

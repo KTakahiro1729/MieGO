@@ -24,8 +24,8 @@ export function passNotice({game, room, gameMode, watching, color}) {
  * player's colour (null for a spectator), `room` whether it is a friend's game,
  * `notices` the one-off texts a 待った or an answered offer left for this position.
  */
-export function endgameBarView({game, color, room, connected, gameMode, watching, endExpanded, aiPassAsks,
-  katagoReady, fallbackMode, advisor, aiThinking, notices, keptPlaying, illegalCandidate, resignWish=null}) {
+export function endgameBarView({game, color, room, connected, gameMode, watching, endExpanded,
+  katagoReady, fallbackMode, advisor, aiThinking, notices, illegalCandidate}) {
   const view={text:{},hidden:{},disabled:{},classes:{},attributes:{},help:null};
   const playing=game.status==="playing";
   const offer=playing?game.endProposal:null;
@@ -54,7 +54,9 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
     view.help="rules";
     return view;
   }
-  const incoming=!!(offer && room && color!==null && offer.from!==color);
+  // An offer from the other side: a friend's, or the COM's.
+  const comGame=!room && gameMode==="ai" && !watching;
+  const incoming=!!(offer && (room || comGame) && color!==null && offer.from!==color);
   // 同一局面反復 (a triple ko and the like): the bar offers 無勝負 instead of the count.
   // A watched COM同士 game ends by itself (app.mjs), so it is not asked.
   const repeated=playing && !watching && !isGomoku(game) && repeatedPosition(game)>0;
@@ -70,14 +72,15 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
   // Scoring an unsettled board counts its open areas for nobody (the playout only fills
   // dame): the same question then keeps the advice above it.
   const unsettled=localPrompt && hint===TEXT.endgame.playing;
-  const aiPassed=localPrompt && aiPassAsks && !repeated;
   const voidPrompt=localPrompt && repeated;
+  // Against a COM, ending is an offer the COM may decline, as with a friend.
+  const asksCom=comGame && !fallbackMode;
   let status=!playing?"":offline?TEXT.endgame.offline:
-    incoming?(voidOffer?TEXT.endgame.voidProposed:TEXT.endgame.proposed):
+    // The COM's offer reads on its side of the turn row, which stays to change the COM.
+    incoming?(voidOffer?TEXT.endgame.voidProposed:room?TEXT.endgame.proposed:""):
     waiting?TEXT.endgame.waiting:
     voidPrompt?TEXT.endgame.askVoid:
-    aiPassed?TEXT.endgame.askAiPassed:
-    localPrompt?(unsettled?hint+"\n"+TEXT.endgame.askLocal:TEXT.endgame.askLocal):
+    localPrompt?(unsettled?hint+"\n":"")+(asksCom?TEXT.endgame.askCom:TEXT.endgame.askLocal):
     passed?passed.text:repeated?TEXT.endgame.repeated:"";
   // How near the end is reads on 採点を始める's three-step meter, not as a sentence.
   const stage=[TEXT.endgame.playing,TEXT.endgame.near,TEXT.endgame.ready].indexOf(hint)+1;
@@ -85,44 +88,39 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
   view.attributes.endStage={"data-stage":String(stage)};
   // A repeated position offers 無勝負 in place of the count.
   const proposeLabel=repeated?(room?TEXT.endgame.proposeVoid:TEXT.endgame.void):
-    !room?TEXT.endgame.startScoring:TEXT.endgame.propose;
+    room || asksCom?TEXT.endgame.propose:TEXT.endgame.startScoring;
   view.attributes.endPropose={"aria-label":proposeLabel+(hint?"（"+hint+"）":"")};
   view.hidden.endPropose=!playing||!!offer||localPrompt||isGomoku(game);
   view.hidden.endAccept=!playing||!(incoming||localPrompt);
   view.hidden.endDecline=!playing||!(incoming||localPrompt||waiting);
   view.text.endProposeLabel=proposeLabel;
-  // 対COM, 採点を始める is the player's pass: the COM's pass starts the count.
-  const asksCom=localPrompt && gameMode==="ai" && !watching && !fallbackMode && !aiPassed && !voidPrompt;
-  view.text.endAccept=voidPrompt?TEXT.endgame.void:asksCom?TEXT.endgame.passToEnd:
-    !room?TEXT.endgame.goScoring:TEXT.common.accept;
+  const offering=localPrompt && asksCom && !voidPrompt;
+  view.text.endAccept=voidPrompt?TEXT.endgame.void:offering?TEXT.endgame.offerCom:
+    !room && !incoming?TEXT.endgame.goScoring:TEXT.common.accept;
   view.text.endDecline=waiting?TEXT.common.withdraw:TEXT.common.keepPlaying;
   for(const id of BUTTONS)view.disabled[id]=offline;
   // A move being computed is about to arrive; scoring waits for it instead of pausing the AI.
   // While watching, a COM is nearly always thinking, so 採点を始める stops it instead.
   if(aiThinking && !watching)view.disabled.endPropose=true;
   // Answering an opponent's offer is a negotiation: neither choice is emphasized.
-  view.classes.endAccept={primary:!room};
+  view.classes.endAccept={primary:!room && !incoming};
   view.classes.actionRow={"end-prompt-open":localPrompt};
   view.text.endDetail=incoming?(voidOffer?TEXT.endgame.detailVoidIncoming:TEXT.endgame.detailIncoming):
     voidPrompt?(gameMode==="ai"?TEXT.endgame.detailVoidAi:TEXT.endgame.detailVoidLocal):
-    aiPassed?TEXT.endgame.detailAiPassed:
-    asksCom?(unsettled?TEXT.endgame.detailUnsettledAi:TEXT.endgame.detailLocalAi):
+    offering?(unsettled?TEXT.endgame.detailUnsettledAi:TEXT.endgame.detailLocalAi):
     localPrompt?(unsettled?TEXT.endgame.detailUnsettled:gameMode==="ai"?TEXT.endgame.detailWatchScoring:
       TEXT.endgame.detailLocal):
     waiting?TEXT.endgame.detailWaiting:
     repeated?TEXT.endgame.detailRepeated:
     room?TEXT.endgame.detailOnline:
-    gameMode==="ai" && !watching && !fallbackMode?TEXT.endgame.detailAi:
+    asksCom?TEXT.endgame.detailAi:
     TEXT.endgame.detailOffline;
   view.text.endNote=playing && isGomoku(game) && !offline && !offer && !localPrompt?TEXT.endgame.gomoku:"";
   const notice=notices.find(n=>n?.number===game.moveNumber && n.hash===boardHash(game.board));
   if(playing && !offer && !localPrompt && !passed && notice)status=notice.text;
-  // While watching, a COM that would resign plays on, and the bar says it wants to.
-  if(playing && watching && resignWish && !offer && !localPrompt && !passed && !notice)
-    status=TEXT.endgame.wantsResign(resignWish===BLACK?"B":"W");
   // A decision is asked of this player: an offer, the other side's pass, or the advice to end.
   view.classes.endgameBar={"is-asking":localPrompt,"is-calling":playing && !offline &&
-    (incoming || (!!passed?.second && !keptPlaying) || !status && hint===TEXT.endgame.ready ||
+    (incoming || !!passed?.second || !status && hint===TEXT.endgame.ready ||
       status===TEXT.endgame.repeated)};
   // The stable left-hand status slot doubles as a rule explanation for illegal previews.
   // 五目並べ's forbidden moves are explained with its rules, not with ko and suicide.

@@ -217,7 +217,8 @@ test("each way to 棋風診断 leads on to the others",async()=>{
   assert.match(page,/href="\/\?open=history-style"/);
   assert.match(app,/params\.get\("open"\)==="history-style"/);
   // A finished game of 囲碁 opens the share sheet at its 棋風診断.
-  assert.match(html,/<div id="scoreBox"[\s\S]*?id="scoreStyle"/);
+  // It sits in the bottom row, just before the share glyph.
+  assert.match(html,/<div id="actionRow"[\s\S]*?id="scoreStyle"[^>]*>[\s\S]*?id="openShare"/);
   assert.match(app,/\$\("scoreStyle"\)\.onclick=\(\)=>\{openSharePanel\(\);\$\("sharePlayStyles"\)\.scrollIntoView/);
   // A watched COM同士 game shows both COMs' types (after the game and in the share sheet), uncounted.
   assert.match(app,/return \{played:\[\],watched:\[BLACK,WHITE\]\};/);
