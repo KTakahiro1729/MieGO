@@ -41,8 +41,9 @@ test("graph draws black's lead up, breaks at gaps and marks the step",()=>{
   const svg=scoreGraphSvg([0,10,null,-10],{width:300,height:48,step:1,marks:[1]});
   assert.match(svg,/^<svg viewBox="0 0 300 48"/);
   assert.match(svg,/d="M0 24L100 2M300 46"/);
-  assert.match(svg,/class="score-graph-mark" cx="100" cy="2"/);
+  assert.match(svg,/class="score-graph-mark is-current" cx="100" cy="2"/);
   assert.match(svg,/class="score-graph-step" x1="100"/);
+  assert.match(scoreGraphSvg([0,10,null,-10],{step:3,marks:[1]}),/class="score-graph-mark" cx/,"a mark away from the step is not current");
 });
 
 test("a close game stays near the axis and a big lead scales to fit",()=>{
