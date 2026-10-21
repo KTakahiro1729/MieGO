@@ -283,7 +283,7 @@ npm run dev
 
 依存関係は`package-lock.json`で固定しています。CIは`npm ci`で、ロックファイルどおりの版だけを導入します。依存を追加・更新するときは`npm install <パッケージ>`を実行し、更新された`package-lock.json`も一緒にコミットしてください。
 
-並行して作業するときの決まりは`CLAUDE.md`、モジュールごとの担当と境界は[`docs/MODULE_BOUNDARIES.md`](docs/MODULE_BOUNDARIES.md)、画面と文言の方針は[`docs/UX_POLICY_DRAFT.md`](docs/UX_POLICY_DRAFT.md)にあります。
+並行して作業するときの決まりは`CLAUDE.md`、モジュールごとの担当と境界は[`docs/MODULE_BOUNDARIES.md`](docs/MODULE_BOUNDARIES.md)、画面と文言の仕様（何がどこにあるか）は[`docs/UX_SPEC.md`](docs/UX_SPEC.md)、その原則（なぜそうするか）は[`docs/UX_PRINCIPLES.md`](docs/UX_PRINCIPLES.md)にあります。
 
 ### 文言の管理
 
