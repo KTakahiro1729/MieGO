@@ -188,7 +188,8 @@ test("every new game takes its options from nextGameOptions, so a new option is 
 test("every mode's start button reads 新しい対局を始める and stays at the bottom of the sheet",()=>{
  assert.equal(TEXT.newGame.start,"新しい対局を始める");
  assert.match(app,/function startLabel\(\)\{return continueFrom\?TEXT\.review\.continue:TEXT\.newGame\.start;\}/);
- assert.match(app,/\$\("copy"\)\.textContent=!room\?TEXT\.newGame\.start:/);
+ // 対友人 before a room exists: tests/invite.test.mjs.
+ assert.match(app,/\$\("copy"\)\.textContent=view\.label;/);
  assert.match(css,/\.mode-panel \.new-game-actions\{[^}]*position:sticky/);
  // 対友人's button is its own section, so it can stick like the others.
  assert.match(html,/<section id="onlineStart" class="settings-section" hidden>\s*<button id="copy"/);

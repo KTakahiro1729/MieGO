@@ -50,13 +50,16 @@ import {
   readClock,
   spendTime,
 } from "./game-clock.mjs";
-import { copyInviteText } from "./invite.mjs";
+import {
+  copyInviteText,
+  inviteButtonView,
+  seatLink,
+} from "./invite.mjs";
 import {
   colorLabel,
   guestUrl,
   isPeerAction,
   newPeerSignins,
-  ownUrl,
   playerColor,
   readCheckpoint,
   reconcileGame,
@@ -69,6 +72,7 @@ import {
   storageKey,
 } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
+import { verifyP2P } from "./p2p-verify.mjs";
 import { interpolateOwnership, prisonerOutline } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
 import {
@@ -207,23 +211,17 @@ const inviteMatchesChoice=()=>issuedSide===currentSideSelection() &&
   (connected || game.moveNumber>0 || (sizeOf(game.board)===boardSize && handicapOf(game)===onlineHandicap &&
     rulesOf(game)===gameRules && hasGomokuForbidden(game)===(gameRules==="gomoku" && gomokuForbiddenChoice)));
 // The player's own seat link moves the game to another device; it never sits in the address bar.
-function ownSeatLink() {
-  try{return room && inviteKey ? (p2pRole==="owner"?ownUrl:guestUrl)(location.origin,room,inviteKey) : null;}
-  catch{return null;}
-}
+const ownSeatLink=()=>seatLink({origin:location.origin,room,role:p2pRole,inviteKey});
 function renderInviteButton() {
   $("seatLinkBox").hidden=!ownSeatLink();
-  // Only the owner's device that created the room holds the guest's key, and
-  // the side cannot change once the game has started.
-  $("copy").disabled=!!room && (p2pRole!=="owner" || !guestInviteKey);
-  const locked=!!room && (connected || game.moveNumber>0);
+  const view=inviteButtonView({room,role:p2pRole,guestInviteKey,connected,moveNumber:game.moveNumber,issuedSide,
+    matches:inviteMatchesChoice()});
+  $("copy").disabled=view.copyDisabled;
   for(const input of document.querySelectorAll('input[name="onlineSide"]')) {
-    input.disabled=locked;
-    if(locked && issuedSide!==null)input.checked=input.value===issuedSide;
+    input.disabled=view.sideLocked;
+    if(view.sideLocked && issuedSide!==null)input.checked=input.value===issuedSide;
   }
-  $("copy").textContent=!room?TEXT.newGame.start:
-    issuedSide!==null && !inviteMatchesChoice()?
-      TEXT.online.renewInvite:TEXT.online.copyInvite;
+  $("copy").textContent=view.label;
   keepArmedLabel($("copy"));
 }
 function persistOnline(){
@@ -1702,29 +1700,6 @@ $("returnToGame").onclick=()=>{
   if(boardReview){clearBoardReview();show();requestAnalysis();}
   closePanels();$("newGameButton").focus();
 };
-async function verifyP2P(){
-  $("p2pVerify").hidden=false;
-  // A guest's sheet opens only for the check, so it closes once the check passes.
-  const opened=$("onlineSetup").hidden;
-  if(opened)openPanel("online");
-  const config=await fetch("/api/p2p/config").then(r=>r.json());
-  if(config.rooms===false)throw new UserError(TEXT.online.roomsUnavailable);
-  if(!config.siteKey)throw new UserError(TEXT.online.turnstileMissing);
-  if(!window.turnstile){
-    await new Promise((resolve,reject)=>{
-      const script=document.createElement("script");
-      script.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      script.onload=resolve;script.onerror=()=>reject(new UserError(TEXT.online.verifyLoadFailed));
-      document.head.append(script);
-    });
-  }
-  return new Promise((resolve,reject)=>{
-    $("p2pTurnstile").replaceChildren();
-    window.turnstile.render($("p2pTurnstile"),{sitekey:config.siteKey,action:"miego_p2p",
-      callback:token=>{if(opened)closePanels();resolve(token);},"error-callback":()=>reject(new UserError(TEXT.online.verifyFailed)),
-      "expired-callback":()=>reject(new UserError(TEXT.online.verifyExpired))});
-  });
-}
 function onPeerSync(message){
   const result=reconcileGame(game,onlineRevision,message.game,message.revision,
     {localIsOwner:p2pRole==="owner",localColor:myOnlineColor()});
@@ -1751,8 +1726,9 @@ function onPeerSync(message){
   if(result.kind==="send")p2pTransport.sendSync();
   connected=true;$("netStatus").textContent=TEXT.online.connected;show();return true;
 }
+const verifyHuman=()=>verifyP2P({$,openSheet:()=>openPanel("online"),closeSheet:closePanels});
 p2pTransport=createP2PTransport({
-  verify:verifyP2P,
+  verify:verifyHuman,
   onSession:({session,ownerColor:chosen,role})=>{
     onlineSession=session;p2pRole=role;ownerColor=chosen==="black"?BLACK:WHITE;linkKey=null;
     seat=role==="owner"?"host":"guest";persistOnline();show();
@@ -1826,7 +1802,7 @@ async function beginOnlineRoom(){
   if(room&&!confirmByRetap($("copy"),TEXT.confirm.renewInvite))return null;
   if(!room && game.moveNumber>0 &&
      !confirmByRetap($("copy"),TEXT.confirm.leaveForOnline))return null;
-  const color=selectColor(choice),token=await verifyP2P();
+  const color=selectColor(choice),token=await verifyHuman();
   const created=await p2pTransport.post("/api/rooms",
     {color:sideKey(color),turnstileToken:token});
   if(room){
