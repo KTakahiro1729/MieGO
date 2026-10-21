@@ -2,7 +2,7 @@
 import {isFree,isGomoku,isJapanese,play} from "./core.mjs";
 import {personalityFeatures,stanceOf,STYLE_AXES,styleSignal} from "./ai-personality.mjs";
 import {clamp,samplePolicyCandidate} from "./ai-policy-sampling.mjs";
-import {AI_STRENGTHS,pickWeakenedMove} from "./ai-strength.mjs";
+import {AI_STRENGTHS,pickWeakenedMove,STYLE_SLACK} from "./ai-strength.mjs";
 import {OWNERSHIP_BANDS} from "./territory-view.mjs";
 export {personalityFeatures,STYLE_AXES} from "./ai-personality.mjs";
 
@@ -20,6 +20,10 @@ export function legalAiMoves(state) {
   return moves;
 }
 
+// つよい samples at a low temperature (0.38), where a full ±3 decided most
+// moves and a styled COM almost never beat the neutral one; a quarter of it
+// still changes about one move in seven.
+const STRONG_STYLE_SCALE = 0.25;
 export function scorePolicyCandidates(state, logits, ownership, options={}) {
   if(!logits || logits.length!==state.board.length)throw new Error("Invalid KataGo policy logits");
   const legal=legalAiMoves(state).filter(p=>Number.isFinite(logits[p]));
@@ -27,13 +31,19 @@ export function scorePolicyCandidates(state, logits, ownership, options={}) {
   const best=Math.max(...legal.map(p=>logits[p]));
   // Weakened levels sample from every legal move, so keep the long tail.
   const window=options.allMoves ? Infinity : 8;
-  // Each axis is 0..100 with 50 neutral and adds at most ±3 to a logit.
+  // Each axis is 0..100 with 50 neutral. A style adds at most ±3 to a logit
+  // however many axes it leans on, so a character with two leanings pulls no
+  // harder than one with one.
   const values={...options,stance:stanceOf(options)};
-  const weights=Object.fromEntries(STYLE_AXES.map(axis=>
-    [axis,(bounded(values[axis] ?? 50)-50)/50 * 3]));
+  const lean=STYLE_AXES.map(axis=>(bounded(values[axis] ?? 50)-50)/50);
+  const scale=3/(lean.filter(Boolean).length || 1) * (options.allMoves ? 1 : STRONG_STYLE_SCALE);
+  const weights=Object.fromEntries(STYLE_AXES.map((axis,i)=>[axis,lean[i]*scale]));
   return legal.filter(p=>logits[p]>=best-window).map(position=>{
     const f=personalityFeatures(state,position,ownership);
-    const bonus=STYLE_AXES.reduce((sum,axis)=>sum+weights[axis]*styleSignal[axis](f),0);
+    // つよい samples every candidate, so a style only reorders those close to
+    // the best; weakened levels hold it to STYLE_SLACK among the drawn moves.
+    const near=options.allMoves || logits[position]>=best-STYLE_SLACK;
+    const bonus=near ? STYLE_AXES.reduce((sum,axis)=>sum+weights[axis]*styleSignal[axis](f),0) : 0;
     return {position,raw:logits[position],score:logits[position]+bonus,...f};
   });
 }

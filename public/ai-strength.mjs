@@ -20,9 +20,12 @@ export const AI_STRENGTHS = Object.freeze({
   strongest:{label:TEXT.ai.strengths.strongest,kyu:null}
 });
 export const DEFAULT_AI_STRENGTH = "beginner";
-// How far below the best drawn move (in policy logits) a weakened level may
-// go for a move its style prefers.
-export const STYLE_SLACK = 3;
+// How far below the best move (in policy logits) a style may go for a move it
+// prefers: the best drawn move at a weakened level, the best legal move at
+// つよい. At 3 a styled COM won 42-53% against the neutral one at ふつう and
+// 0-8% at つよい; at 1 every character is within reach of even
+// (docs/AI_PERSONALITIES.md).
+export const STYLE_SLACK = 1;
 // Saved games from before strength levels existed used the full policy.
 export const normalizeStrength = (value, fallback="strong") =>
   Object.hasOwn(AI_STRENGTHS,value) ? value : fallback;

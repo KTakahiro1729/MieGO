@@ -84,6 +84,19 @@ test("tenuki measures the distance from the opponent's last move",()=>{
   assert.ok(scoreOf(s,at(7,7),{tenuki:100})>scoreOf(s,at(3,2),{tenuki:100}));
 });
 
+test("a style pulls as hard on one axis as on two, and つよい reorders only moves close to the best",()=>{
+  const s=play(newGame(),at(2,2));
+  const policy=Array(81).fill(-50);policy[at(7,7)]=0;policy[at(3,2)]=-0.5;policy[at(6,6)]=-2;
+  const bonus=(options,point)=>{const c=scorePolicyCandidates(s,policy,null,options).find(c=>c.position===point);return c.score-c.raw;};
+  // 7,7 lies five lines from the last move, on the 2nd line: far (tenuki +1) and low (height -1).
+  const one=bonus({tenuki:100,allMoves:true},at(7,7)),two=bonus({tenuki:100,height:0,allMoves:true},at(7,7));
+  assert.equal(one,3);
+  assert.equal(two,3);
+  // つよい: a quarter of the pull, and none for a move further than STYLE_SLACK below the best.
+  assert.equal(bonus({tenuki:0},at(3,2)),0.75);
+  assert.equal(bonus({tenuki:100},at(6,6)),0);
+});
+
 test("neutral axes leave KataGo's policy untouched",()=>{
   const s=play(newGame(),at(2,2));
   const policy=Array.from({length:81},(_,p)=>-p/10);

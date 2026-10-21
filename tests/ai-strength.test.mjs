@@ -84,8 +84,8 @@ test("a weakened level's style picks only among drawn moves close to the best of
     return pickWeakenedMove(candidates,-Infinity,{strength:"normal",state:newGame(),
       random:()=>draws.shift() ?? 0});
   };
-  assert.equal(pick(-2),40);
-  assert.notEqual(pick(-2-STYLE_SLACK),40);
+  assert.equal(pick(-STYLE_SLACK/2),40);
+  assert.notEqual(pick(-STYLE_SLACK-0.5),40);
 });
 
 test("最強 plays the network's top move whatever the personality, and passes only when allowed",()=>{
