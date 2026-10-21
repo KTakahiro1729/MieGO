@@ -271,12 +271,13 @@ test("盤の線 starts each breath with a dot on the liberties that spreads and 
   time=BREATH_BLOOM_MS/2;
   const [later]=dots(250,200);
   assert.ok(later.args[2]>first.args[2] && later.alpha<first.alpha,"spreads and fades");
-  // With black on (5,4), black and white both need (5,5): each side's half
-  // comes with its own breath, half a breath apart.
+  // With black on (5,4), black and white both need (5,5): a whole dot from
+  // each side's own breath, half a breath apart.
   game.board[at(5,4)]=BLACK;time=0;
-  assert.equal(dots(300,300).length,1,"black breathes");
+  const [black]=dots(300,300);
   time=BREATH_MS/2;
-  assert.equal(dots(300,300).length,1,"then white");
+  const [white]=dots(300,300);
+  for(const dot of [black,white])assert.deepEqual(dot.args.slice(3),[0,Math.PI*2],"whole dots in turn");
   time=BREATH_BLOOM_MS;
   assert.equal(dots(250,200).length,0,"gone until the next breath");
 });

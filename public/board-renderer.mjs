@@ -312,8 +312,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       for(const s of g.stones)for(const n of neighbors(s,SIZE)){
         if(!board[n]){
           lines.push({a:n,b:s,from:0,to:depth.get(s),start:tip});
-          if(!dots.has(n))dots.set(n,[]);
-          dots.get(n).push({toward:s,color});
+          if(!dots.has(n))dots.set(n,new Set());
+          dots.get(n).add(color);
         }else if(g.stones.has(n) && n>s)lines.push({a:s,b:n,from:depth.get(s),to:depth.get(n),start:0});
       }
       const reach=g.liberties.size===1?1-.44:Infinity;
@@ -352,22 +352,16 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         ctx.restore();
       }
     }
-    // The breath's start: a dot on each liberty, split between the sides
-    // where both need it, that spreads and fades.
-    for(const [point,needs] of dots){
-      const [x,y]=xy(point), whole=needs.every(need=>need.color===needs[0].color);
-      for(const need of whole?needs.slice(0,1):needs){
-        const bloom=moving?since[need.color]/BREATH_BLOOM_MS:1;
+    // The breath's start: a dot on each liberty that spreads and fades. A
+    // liberty both sides need gets a whole dot from each in turn.
+    for(const [point,colors] of dots){
+      const [x,y]=xy(point);
+      for(const color of colors){
+        const bloom=moving?since[color]/BREATH_BLOOM_MS:1;
         if(bloom>=1)continue;
-        const radius=gap*(.08+.3*(1-(1-bloom)**2));
         ctx.globalAlpha=.8*(1-bloom)**2;
-        ctx.fillStyle=tone[need.color];ctx.beginPath();
-        if(whole)ctx.arc(x,y,radius,0,Math.PI*2);
-        else{
-          const [sx,sy]=xy(need.toward), angle=Math.atan2(sy-y,sx-x);
-          ctx.moveTo(x,y);ctx.arc(x,y,radius,angle-Math.PI/2,angle+Math.PI/2);ctx.closePath();
-        }
-        ctx.fill();
+        ctx.fillStyle=tone[color];ctx.beginPath();
+        ctx.arc(x,y,gap*(.08+.3*(1-(1-bloom)**2)),0,Math.PI*2);ctx.fill();
       }
     }
     ctx.restore();
