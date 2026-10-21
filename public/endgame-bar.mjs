@@ -120,6 +120,13 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
   view.text.endNote=playing && isGomoku(game) && !offline && !offer && !localPrompt?TEXT.endgame.gomoku:"";
   const notice=notices.find(n=>n?.number===game.moveNumber && n.hash===boardHash(game.board));
   if(playing && !offer && !localPrompt && !passed && notice)status=notice.text;
+  // The COM declined the player's offer: the player may still score on their own.
+  if(asksCom && playing && status===TEXT.endgame.comDeclined){
+    Object.assign(view.hidden,{endPropose:true,endAccept:false,endDecline:true});
+    view.text.endAccept=TEXT.endgame.forceScoring;
+    view.classes.endAccept={primary:false};
+    view.text.endDetail=TEXT.endgame.detailComDeclined;
+  }
   // A decision is asked of this player: an offer, the other side's pass, or the advice to end.
   view.classes.endgameBar={"is-asking":localPrompt,"is-calling":playing && !offline &&
     (incoming || !!passed?.second || !status && hint===TEXT.endgame.ready ||

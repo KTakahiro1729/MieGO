@@ -122,6 +122,9 @@ export const TEXT = {
     detailUnsettledAi: "COMが受ければ採点に入ります。まだ決まっていない所は、どちらの地にもなりません。",
     detailAi: "終局はいつでも提案できます。パスとは別の操作です。",
     comDeclined: "COMが終局を見送りました",
+    // After the COM declined, the player may still score on their own judgement.
+    forceScoring: "それでも採点",
+    detailComDeclined: "COMはまだ打つ所があると見ています。それでも採点すると、あなたの判断で死石の確認に進みます。",
     // While watching (or without KataGo), the count is the viewer's decision alone.
     detailWatchScoring: "あなたの判断で採点へ進みます。COMが終局を承認するわけではありません。",
     detailLocal: "採点に進み、死石を確認します。対局の再開もできます。",

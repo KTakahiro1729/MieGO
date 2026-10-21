@@ -127,6 +127,11 @@ test("the COM's offer is answered like a friend's: two equal choices, and no pas
   const game=newGame();
   const declined=bar({notices:[{number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.comDeclined}]});
   assert.equal(declined.text.endStatus,TEXT.endgame.comDeclined);
+  // The player may still score on their own judgement; offering again is not asked.
+  assert.deepEqual([declined.hidden.endAccept,declined.hidden.endPropose,declined.hidden.endDecline],[false,true,true]);
+  assert.equal(declined.text.endAccept,TEXT.endgame.forceScoring);
+  assert.deepEqual(declined.classes.endAccept,{primary:false});
+  assert.equal(declined.text.endDetail,TEXT.endgame.detailComDeclined);
 });
 
 test("while watching, a pass is what the bar reports",()=>{

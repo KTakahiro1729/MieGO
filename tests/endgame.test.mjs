@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { newGame, play, proposeEnd, answerEndProposal, beginSoloScoring, finalizeSoloScore, agreeScore, BLACK, WHITE, at } from "../public/core.mjs";
-import { EndgameAdvisor, endgameHint } from "../public/endgame.mjs";
+import { ENDGAME_ACCEPT_SHARE, EndgameAdvisor, endgameHint } from "../public/endgame.mjs";
 import { TEXT } from "../public/texts.mjs";
 
 test("end offer consumes no turn, move number or passes", () => {
@@ -241,4 +241,15 @@ test("the opening is over once a fifth of the board reads settled, and stays ove
   assert.equal(advisor.opened,true);
   advisor.reset();
   assert.equal(advisor.opened,false);
+});
+
+test("the COM accepts an offer to end a little before it would offer one, but not in a calm middle game",()=>{
+  const advisor=new EndgameAdvisor();
+  const at=(stage,settledShare,held=false)=>Object.assign(advisor,{stage,settledShare,held}).acceptsEnd();
+  assert.equal(at("near",ENDGAME_ACCEPT_SHARE),true);
+  assert.equal(at("ready",ENDGAME_ACCEPT_SHARE,true),true);
+  // A swing of 2 or less with most of the board still open is a pause, not the end.
+  assert.equal(at("near",ENDGAME_ACCEPT_SHARE-0.01),false);
+  // Settled, but a stone still moves more than 2 points.
+  assert.equal(at("playing",0.9),false);
 });
