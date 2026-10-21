@@ -644,10 +644,15 @@ body{overflow:hidden}
 .fused>.danger-armed{background:var(--danger-bg);color:var(--danger-text)}
 .fused>button:focus-visible,.fused input:focus-visible+span{outline-offset:-3px}
 .fused input:checked+span{box-shadow:inset 0 0 0 1px #efcb81}
-.fused>label:first-child>span{border-radius:calc(var(--radius) - 1px) 0 0 calc(var(--radius) - 1px)}
-.fused>label:last-child>span{border-radius:0 calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0}
-/* A group of one rounds all four corners, so its chosen edge reaches each one. */
-.fused>label:only-child>span{border-radius:calc(var(--radius) - 1px)}
+/* The end members round their own outer corners rather than lean on the
+   group's clip: Safari can drop that clip for a member whose filter changes
+   (the pressed brightness), and a chosen edge or focus ring should reach the
+   corner. Hidden members don't count, so a lone visible one rounds all four. */
+.fused>:nth-child(1 of :not([hidden])),.fused>label:nth-child(1 of :not([hidden]))>span{border-top-left-radius:calc(var(--radius) - 1px);border-bottom-left-radius:calc(var(--radius) - 1px)}
+.fused>:nth-last-child(1 of :not([hidden])),.fused>label:nth-last-child(1 of :not([hidden]))>span{border-top-right-radius:calc(var(--radius) - 1px);border-bottom-right-radius:calc(var(--radius) - 1px)}
+.fused-column>:nth-child(1 of :not([hidden])){border-radius:calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0}
+.fused-column>:nth-last-child(1 of :not([hidden])){border-radius:0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px)}
+.fused-column>:nth-child(1 of :not([hidden])):nth-last-child(1 of :not([hidden])){border-radius:calc(var(--radius) - 1px)}
 .fused-column{flex-direction:column}
 .fused-column>*{flex:none}
 .settings-panel .fused-column{margin-top:14px}
@@ -702,11 +707,14 @@ body{overflow:hidden}
 .action-row .free-choices>button{padding:9px 4px;font-size:14px}
 /* Before a point is chosen, the pair rests like a disabled ここに打つ: no gold, a dim label. */
 .action-row .free-choices:has(>:disabled){--fused-edge:var(--accent-edge)}
-.action-row .free-choices>.primary:disabled{background:#0d1018;border:0}
 .action-row .next-game>button{display:grid;place-content:center;gap:1px;padding:5px 6px;line-height:1.15}
 .action-row .next-game>#newMatch{flex:1.3 1 0}
 .action-row .next-game small{font-size:10px;font-weight:600;opacity:.75}
 .fused>.primary{background:linear-gradient(180deg,#f5d88f,#e4b85c)}
+/* A gold member that cannot be pressed yet rests as an empty slot, like a lone
+   disabled ここに打つ: no gold fill and no dashed edge of its own (the group draws
+   the edge), only the dimmed label of a disabled member. */
+.fused>.primary:disabled{background:#0d1018;border:0}
 .game-panel.is-finished .action-row .share-game{flex:0 0 48px;width:48px;min-width:48px;padding:0;display:grid;place-items:center}
 .inline-score-actions{display:flex;flex:1 1 auto;min-width:0;gap:8px;margin:0}
 .inline-score-actions>.fused{flex:1 1 auto}
