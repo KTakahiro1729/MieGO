@@ -130,6 +130,7 @@ import { createReviewPrefetch, createScoreGraph } from "./review-estimates.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { createHistoryStyle } from "./history-style.mjs";
+import { canReadStyle } from "./play-style.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { createHelpSheet } from "./help-sheet.mjs";
@@ -1046,6 +1047,8 @@ function show() {
       input.checked=input.value===sideKey(freeColor);
   }
   $("actionRow").classList.toggle("finished-actions",isFinished);
+  // After a game of 囲碁, its 棋風診断 is one tap away, in the share sheet.
+  $("scoreStyle").hidden=!isFinished || !playedSides().some(color=>canReadStyle(game,color));
   // COM同士: 介入する and 一時停止 (再開); stepping in shows × and ここに打つ instead.
   const watchingPlay=spectating && game.status==="playing";
   $("watchToggle").hidden=$("watchIntervene").hidden=!watchingPlay || intervening;
@@ -2465,6 +2468,7 @@ function resumeSelectedReview(){
 $("historyImportFile").onchange=e=>void importHistoryFile(e.target.files?.[0]);
 $("openHistory").onclick=openHistoryPanel;
 $("openShare").onclick=openSharePanel;
+$("scoreStyle").onclick=()=>{openSharePanel();$("sharePlayStyles").scrollIntoView({block:"start"});};
 // One game's 棋風診断 leads on to several games read together, in 履歴.
 function openHistoryStyle(){
   openPanel("history");

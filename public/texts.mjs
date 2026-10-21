@@ -559,14 +559,17 @@ export const TEXT = {
     playCta: "MieGOで一局打つ",
     back: "MieGOに戻る",
     sideLabel: color => color === "B" ? "黒番" : "白番",
+    sidePrompt: "自分の石",
     shareSheetNote: "打った人ごとの、この一局の診断です。ページで説明と4つの軸を見られます。履歴の対局をまとめて診断すると、結果が安定します。",
     openPage: "診断ページを開く",
     shareNone: "この対局はまだ診断できません。囲碁で、打った人がそれぞれ10手以上打つと出ます。",
     // 履歴: several saved games read together.
     historyButton: "履歴からまとめて棋風診断",
-    historyPick: "まとめる対局で、自分が打った石を選んでください。最近のCOMや友人との対局は選んであります。",
+    fromResult: "棋風診断 ›",
+    historyPick: "まとめたい対局の下にある「● 黒番」「○ 白番」から、自分が打った方を押してください。最近のCOMや友人との対局は選んであります。",
     historyOpen: "診断を見る",
     historyNone: "石を選ぶと、ここに診断が出ます。",
+    historyEmpty: "まとめられる対局が履歴にまだありません。囲碁で10手以上打つと、ここで選べるようになります。",
     historyResult: (type, name, games) => type + " " + name + "（" + games + "局のまとめ）",
     historyCancel: "やめる",
     // Each type's text speaks of one game; read together, it speaks of the games picked.

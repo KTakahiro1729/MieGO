@@ -491,10 +491,11 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .history-row.is-picking{flex-wrap:wrap}
 .history-row.is-picking .history-favorite{display:none}
 .history-row.is-picking .history-list-item[aria-pressed="true"]{border-color:#efcb81;background:#38342d}
-.history-style-sides{display:flex;gap:6px;flex:1 0 100%;justify-content:flex-end;margin-bottom:4px}
+.history-style-sides{display:flex;align-items:center;gap:6px;flex:1 0 100%;margin:-2px 0 6px;padding:0 4px}
+.history-style-sides-label{margin-right:auto;font-size:13px;color:#c9c2b4}
 .history-style-side{min-height:var(--control-h);padding:4px 14px;font-size:13px}
 .history-style-side[aria-pressed="true"]{border-color:#efcb81;background:#38342d;color:#f8ddac}
-.history-row.is-unreadable .history-list-item{opacity:.45}
+.history-row.is-picking.is-unreadable{display:none}
 #historyImportFile{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
 .history-import-row:has(#historyImportFile:focus-visible) .history-import-label{outline:3px solid #eed183;outline-offset:2px}
 
@@ -857,6 +858,8 @@ body{overflow:hidden}
 /* After the game the rule line under the turn label already says how it was counted. */
 .game-panel.is-finished .score-box>p{display:none}
 .score-box>p{grid-column:2;grid-row:1;min-width:0;margin:0}
+.score-style{grid-column:2;grid-row:1;justify-self:end;align-self:center;min-height:0;margin:0;padding:7px 12px;font-size:13px;white-space:nowrap}
+.score-style[hidden]{display:none}
 .score-table{grid-column:1/-1;grid-template-columns:1fr 1fr;column-gap:10px;margin-top:2px;padding-top:0;border-top:0}
 .score-table .score-row{gap:4px;line-height:20px}
 .score-table .score-total,.score-table .score-name{line-height:20px}
