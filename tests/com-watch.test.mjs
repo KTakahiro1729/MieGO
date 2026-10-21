@@ -110,3 +110,9 @@ test("a watched game that nobody is computing a move for asks for it again",()=>
   assert.match(check,/else if\(watchTimer \|\| !katagoReady && !isGomoku\(game\)\)return;\s*requestAnalysis\(\);/);
   assert.match(app,/aiJob=\{id,number:game\.moveNumber,hash:boardHash\(game\.board\),strong,at:performance\.now\(\)\};/);
 });
+
+test("a watched COM that would resign plays on, and a resigned game keeps its territory",()=>{
+  assert.match(body("finishAiMove"),/if\(resigns && !watching\)\{submitMove\("resign",true\);return;\}/);
+  assert.match(body("finishAiMove"),/if\(resigns\)resignWish=game\.next;/);
+  assert.match(body("requestAnalysis"),/if\(showsEndedTerritory\(game\)\)requestOwnership\(\);/);
+});

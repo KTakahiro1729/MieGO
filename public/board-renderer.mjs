@@ -85,9 +85,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   function paintOwnership(view, gap, pad) {
-    const {game,boardReview,candidate,displayedOwnership,palette,opacity} = view;
+    const {game,boardReview,candidate,displayedOwnership,endedTerritory,palette,opacity} = view;
     const values = boardReview ? boardReview.ownership : displayedOwnership;
-    if(!boardReview && game.status!=="playing")return;
+    if(!boardReview && game.status!=="playing" && !endedTerritory)return;
     // An estimate for another board size (e.g. just after switching) is skipped.
     if(!showsOwnership(palette) || !values || values.length!==SIZE*SIZE)return;
     const shown=boardReview ? boardReview.preview||boardReview.display : candidate||game;

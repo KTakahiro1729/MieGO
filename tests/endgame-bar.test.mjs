@@ -99,6 +99,14 @@ test("the help button explains the rules for 五目並べ and an illegal preview
   assert.equal(bar({game:newGame(true,{rules:"gomoku"})}).help,"rules");
 });
 
+test("while watching, the bar says when a COM wants to resign",()=>{
+  assert.equal(bar({watching:true,resignWish:WHITE}).text.endStatus,TEXT.endgame.wantsResign("W"));
+  assert.equal(bar({watching:true}).text.endStatus,"");
+  // A pass just played is still what the bar reports.
+  const passed=play(newGame(),null);
+  assert.equal(bar({game:passed,watching:true,resignWish:WHITE}).text.endStatus,TEXT.endgame.passedWatch("B"));
+});
+
 // A record whose last stone brought back an earlier board, Black to move both times.
 const cycled=()=>({...newGame(),moves:[0,1,2,3].map((position,i)=>({color:i%2?WHITE:BLACK,position})),
   moveNumber:4,next:BLACK,history:["h0","h1","h2","h3","h2"]});
