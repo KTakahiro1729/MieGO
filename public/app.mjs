@@ -1094,6 +1094,7 @@ function show() {
   $("newMatch").hidden=!isFinished || !!room;
   $("newMatch").disabled=gameMode==="ai" && !canRematchAi();
   $("openHistory").hidden=!isFinished;
+  $("openShare").hidden=!isFinished;
   if(isScoring)$("analysisStatus").textContent=TEXT.scoring.title;
   if(isFinished)$("analysisStatus").textContent="";
   $("scoringActions").hidden=!isScoring;
@@ -2552,6 +2553,7 @@ function resumeSelectedReview(){
 }
 $("historyImportFile").onchange=e=>void importHistoryFile(e.target.files?.[0]);
 $("openHistory").onclick=openHistoryPanel;
+$("openShare").onclick=openSharePanel;
 $("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
 $("seatNotice").onclick=()=>{$("seatNotice").hidden=true;};
 $("copySeatLink").onclick=()=>{

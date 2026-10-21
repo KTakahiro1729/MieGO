@@ -237,6 +237,9 @@ export const TEXT = {
     // After a game: 新規対戦 opens the sheet; もう一局 starts the same game again at once.
     rematch: "もう一局",
     rematchAria: "同じ設定でもう一局",
+    rematchNote: "同じ設定で",
+    newGameAria: "別の設定で新規対戦",
+    newGameNote: "別の設定で",
     hintIllegal: "禁止手の仮置き中。確定せず、理由を質問する文をコピーできます",
     hintCandidate: "仮置き中。確定か取り消しを選べます",
     // ここに打つ, while it cannot be pressed, says why. About 140px wide on a 320px phone.
@@ -496,6 +499,8 @@ export const TEXT = {
     title: "共有",
     close: "共有を閉じる",
     open: "共有を開く",
+    // After a game the row ends with the share glyph, for the game just played.
+    thisGame: "この試合を共有する",
     image: "画像",
     imageKind: "画像の種類",
     still: "静止画",
