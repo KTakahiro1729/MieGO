@@ -542,7 +542,8 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 /* One COM's カスタム rows sit under the character list, in the same grid without a card. */
 .com-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;margin-top:12px}
 /* One COM's strength sits above the character list. */
-.com-strength-rows{margin:0 0 12px}
+.com-strength-slider{margin:0 0 12px}
+.com-card .step-slider{margin:0}
 /* A watched COM's カスタム rows join its card's grid. */
 .com-custom{display:contents}
 /* On a phone, a card's label column leaves 勢力を作る too little room, so its rows put the label above. */
