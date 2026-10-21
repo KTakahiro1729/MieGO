@@ -289,7 +289,7 @@ let nextAiCom = aiCom;
 let takebackNotice = null;
 // What a friend's answer did to an end offer, shown once in the bar like takebackNotice.
 let endNotice = null;
-// 打ち続ける over the COM's pass: the position where the player said so.
+// 対局を続ける over the COM's pass: the position where the player said so.
 let keptPlayingAt = null;
 // The move number of the player's pass that asked the COM to end (採点を始める).
 let askedComToEnd = null;
@@ -478,7 +478,7 @@ function peerAgreed() {
 }
 /** After one pass: who passed, and whether this player's pass would start scoring. */
 /** Against a COM, its pass is its way of suggesting the end: the player is asked
- * 採点を始めますか？ at once, and 採点へ進む is the player's own pass. */
+ * 採点を始めますか？ at once, and answering 採点を始める is the player's own pass. */
 const aiPassAsks = () => !room && gameMode === "ai" && !watching && game.status === "playing" &&
   !game.endProposal && game.passes === 1 && game.moves.at(-1)?.position === null &&
   game.moves.at(-1).color === -humanColor;
@@ -1550,7 +1550,7 @@ $("endPropose").onclick=()=>{
   if(game.status!=="playing" || game.endProposal || game.takebackRequest)return;
   const color=myColorForEnd();
   if(!color || (room&&!connected))return;
-  // While watching, the COM's move waits for the answer; 打ち続ける asks for it again.
+  // While watching, the COM's move waits for the answer; 対局を続ける asks for it again.
   if(isWatching()){stopAiTurn();intervening=false;watchReturning=false;}
   if(!room){
     if(aiThinking)return;

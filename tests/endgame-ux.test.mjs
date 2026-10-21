@@ -51,7 +51,7 @@ test("starting scoring before the board has settled says open areas count for no
   // Worked out by endgameBarView (tests/endgame-bar.test.mjs).
   assert.match(TEXT.endgame.detailUnsettled,/どちらの地にもなりません/);
 });
-test("the COM's pass opens the same question as 採点を始める, and 採点へ進む is the player's pass",()=>{
+test("the COM's pass opens the same question as 採点を始める, and answering 採点を始める is the player's pass",()=>{
   assert.match(TEXT.endgame.askAiPassed,/採点を始めますか？$/);
   assert.equal(TEXT.endgame.askAiPassed.split("\n").at(-1),TEXT.endgame.askLocal);
   assert.doesNotMatch(TEXT.endgame.detailAiPassed,/承認するわけではありません/);

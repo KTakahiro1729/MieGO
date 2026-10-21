@@ -850,8 +850,10 @@ body{overflow:hidden}
   .review-navigation>.review-continue{padding:0 10px}
   /* The message and the buttons share one size: 14px, or 12px here. */
   .end-status,.endgame-bar .end-action,.endgame-bar .illegal-prompt-action,.action-row .inline-score-actions button{font-size:var(--font-small)}
-  /* Two answers share the slot beside its ?: 打ち続ける and 採点へ進む fit only with a narrower inside. */
-  .endgame-bar .end-action{padding-left:var(--space-sm);padding-right:var(--space-sm)}
+  /* Two answers share the slot beside its ?: 対局を続ける and 採点を始める (six
+     characters each) fit at 320px only with a thin inside and a tighter ?. */
+  .endgame-bar .end-action{padding-left:var(--space-hair);padding-right:var(--space-hair)}
+  .endgame-bar #endHelp{margin:0 var(--space-hair) 0 0}
 }
 @media(max-width:350px){
   .action-row .resign-control{flex-basis:44px;width:44px;min-width:44px}
