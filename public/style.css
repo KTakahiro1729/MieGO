@@ -671,8 +671,6 @@ body{overflow:hidden}
 .action-row .undo-button{flex:0 0 48px;min-width:48px;width:48px;padding:0;display:grid;place-items:center}
 .action-row #pass{flex:0 0 60px;min-width:60px;width:60px;padding:9px 5px}
 .action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;font-size:12px;padding:6px 2px}
-.action-row .free-colors{flex:1 1 auto}
-.action-row .free-colors span{display:grid;place-items:center;min-height:var(--action-h);padding:0 6px;font-size:14px;box-sizing:border-box}
 /* The AI question follows the reason text directly. It is drawn about one
    line tall to sit with the 14px text; ::after keeps a 44px tap target. */
 /* The reason wraps onto a second line inside the bar's fixed height (UX policy §3.5). */
@@ -700,6 +698,11 @@ body{overflow:hidden}
 .game-panel.is-finished .action-row .secondary{flex:1}
 .game-panel.is-finished .action-row #openHistory{flex:0 0 auto;padding:9px 12px}
 .action-row .next-game{flex:1 1 0}
+.action-row .free-choices{flex:1 1 auto}
+.action-row .free-choices>button{padding:9px 4px;font-size:14px}
+/* Before a point is chosen, the pair rests like a disabled ここに打つ: no gold, a dim label. */
+.action-row .free-choices:has(>:disabled){--fused-edge:var(--accent-edge)}
+.action-row .free-choices>.primary:disabled{background:#0d1018;border:0}
 .action-row .next-game>button{display:grid;place-content:center;gap:1px;padding:5px 6px;line-height:1.15}
 .action-row .next-game>#newMatch{flex:1.3 1 0}
 .action-row .next-game small{font-size:10px;font-weight:600;opacity:.75}

@@ -94,7 +94,7 @@ export const TEXT = {
     ready: "終局してよさそうです",
     unavailable: "終局は自分で判断してください。目安を出せません",
     gomoku: "縦・横・斜めに5つ並べたら勝ち",
-    free: "交点をタップして置く・取り除く",
+    free: "交点をタップして置く・取り除く・色を替える",
     checking: "終局の目安を確認中",
     updating: "終局の目安を更新中",
     offline: "相手を待っています",
@@ -178,9 +178,10 @@ export const TEXT = {
   game: {
     turnBlack: "黒の番です",
     turnWhite: "白の番です",
-    freeBlack: "黒を置きます",
-    freeWhite: "白を置きます",
-    freeColorLabel: "置く石の色",
+    freeTurn: "自由に置く",
+    freeRemove: "取り除く",
+    freeToBlack: "● 黒にする",
+    freeToWhite: "○ 白にする",
     yourTurn: "あなたの番",
     opponentTurn: "相手の番",
     waitingOpponent: "対局相手を待っています",
@@ -219,7 +220,7 @@ export const TEXT = {
     localPractice: "1台で打つ",
     boardLabel: size => size + "路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。",
     ruleSummary: (size, komi, handicap, japanese = false, forbidden = false) => japanese === "free" ?
-      size + "路盤 · 自由に置く（ルールなし：空いた交点に置き、石をタップすると取り除く）" : japanese === "gomoku" ?
+      size + "路盤 · 自由に置く（ルールなし：空いた交点に黒か白を置き、石は取り除くか色を替える）" : japanese === "gomoku" ?
       size + "路盤 · 五目並べ" + (forbidden ? "（禁じ手あり：黒は三三・四四・長連を打てず、ちょうど5つで勝ち。白は5つ以上で勝ち）" :
         "（禁じ手なし：5つ以上並べたら勝ち）") : size + "路盤 · " +
       (japanese ? "日本式ルール · " : "中国式ルール · ") + (handicap ?
