@@ -151,7 +151,8 @@ export function parseSGF(text) {
   };
   if(!/^-?\d+(?:\.\d+)?$/.test(metadata.komi))
     throw broken();
-  if(result && /^(B|W)\+(R|\d+(?:\.\d+)?)$/.test(result))
+  // 0 (持碁) and Void (無勝負) end a game too.
+  if(result && /^(B|W)\+(R|\d+(?:\.\d+)?)$|^(0|Void)$/.test(result))
     state={...state,status:"finished",result};
   return {snapshot:state,metadata,variationsIgnored:hasVariations(parseTree(text)),steps:seen};
 }
