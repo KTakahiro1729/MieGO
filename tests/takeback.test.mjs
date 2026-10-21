@@ -51,6 +51,14 @@ test("taking back a move played after resumed scoring returns a playable positio
   assert.equal(back.game.passes,0);
 });
 
+test("taking back the first move after 対局を再開 keeps the turn the resumer gave",()=>{
+  let g=play(play(play(newGame(),40),null),null); // White to move
+  g=play(resume(g,WHITE),at(4,0)); // Black moves first
+  const back=takeBack(g,{color:BLACK});
+  assert.equal(back.game.status,"playing");
+  assert.equal(back.game.next,BLACK);
+});
+
 test("friend takeback needs the other side's acceptance",()=>{
   let g=proposeEnd(opening(),BLACK);
   g=requestTakeback(g,WHITE);
