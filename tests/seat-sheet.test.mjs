@@ -5,7 +5,7 @@ import {readCom} from "../public/ai-characters.mjs";
 import {comNote,matchOf,sameSeats,seatsChanged,seatsOf,seatSummary} from "../public/seat-sheet.mjs";
 import {TEXT} from "../public/texts.mjs";
 
-const chick=readCom({character:"chick"}),raider=readCom({character:"raider"});
+const chick=readCom({character:"plain"},"beginner"),raider=readCom({character:"raider",strength:"easy"});
 
 test("the seats are what each mode already holds",()=>{
   assert.deepEqual(seatsOf({mode:"local"}),{black:null,white:null});
@@ -32,9 +32,10 @@ test("the summary says what changes, who moves at once, and that the record goes
     TEXT.seats.stays(TEXT.seats.modes.ai(TEXT.common.black))+TEXT.seats.record);
 });
 
-test("a COM's note is its strength and character, or カスタム's values",()=>{
-  assert.equal(comNote(raider),TEXT.ai.strengths.easy+"・"+TEXT.ai.characters.raider.note);
-  assert.match(comNote(readCom({character:"custom",strength:"normal",stance:100})),/ふつう/);
+test("a COM's note is its character's sentence, and 最強 says it drops the style",()=>{
+  assert.equal(comNote(raider),TEXT.ai.characters.raider.note);
+  assert.equal(comNote({...raider,strength:"strongest"}),TEXT.ai.characters.raider.note+TEXT.ai.strongestNoStyle);
+  assert.equal(comNote(readCom({character:"plain"},"strongest")),TEXT.ai.characters.plain.note);
 });
 
 test("観戦's speed counts as a change only while both seats are COMs",()=>{

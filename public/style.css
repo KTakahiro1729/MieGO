@@ -432,18 +432,15 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .seat-row{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:center;gap:var(--space-md);margin-top:var(--space-lg)}
 .seat-color{display:flex;align-items:center;gap:7px;font-weight:var(--weight-medium)}
 .seat-choices span{padding:11px 8px}
-.seat-com{margin-top:var(--space-md)}
+.seat-com{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-md) var(--space-lg);align-items:center;margin-top:var(--space-md)}
 .seat-com[hidden]{display:none}
-.seat-note,.seat-summary{margin:var(--space-sm) 0 0;font-size:var(--font-small);line-height:1.6;color:var(--muted)}
-/* What この打ち手で続ける does stays in sight above the buttons while カスタム's rows scroll, as 新規対戦's start row does. */
+.seat-note,.seat-summary{margin:0;font-size:var(--font-small);line-height:1.6;color:var(--muted)}
+.seat-note{grid-column:1/-1}
+/* What この打ち手で続ける does stays in sight above the buttons while the rows scroll, as 新規対戦's start row does. */
 .seat-panel .seat-actions{--pad:var(--sheet-pad-bottom,22px);position:sticky;bottom:calc(-1 * var(--pad));z-index:1;
   display:flex;flex-wrap:wrap;gap:var(--space-md);margin:var(--space-lg) 0 calc(-1 * var(--pad));padding:var(--space-lg) 0 var(--pad);background:var(--slate-23);box-shadow:0 -10px 12px -4px var(--slate-23)}
-.seat-actions>.seat-summary{flex-basis:100%;margin:0}
-/* カスタム's strength and style under its character, and 観戦's speed, in 新規対戦's COM card grid. The sheet is
-   never much wider than 390px, so カスタム's labels always go above their choices, as on a phone, and 勢力を作る fits. */
-.seat-custom,.seat-speed{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-md) var(--space-lg);align-items:center;margin-top:var(--space-md)}
-.seat-custom>.com-label,.seat-custom>.com-choices{grid-column:1/-1}
-.seat-custom[hidden],.seat-speed[hidden]{display:none}
+.seat-actions>.seat-summary{flex-basis:100%}
+/* 観戦's speed is 新規対戦's 時間 list, under the same small heading. */
 .seat-speed{margin-top:var(--space-lg)}
 /* A confirmation note under 今の対局を続ける takes the whole row under both buttons. */
 .new-game-actions>.armed-note{flex-basis:100%;order:1}
@@ -547,10 +544,13 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .com-choices span{padding:8px 0;font-size:var(--font-small);white-space:nowrap}
 /* One COM's カスタム rows sit under the character list, in the same grid without a card. */
 .com-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;margin-top:12px}
+/* One COM's strength sits above the character list. */
+.com-strength-rows{margin:0 0 12px}
 /* A watched COM's カスタム rows join its card's grid. */
 .com-custom{display:contents}
-/* On a phone, a card's label column leaves 勢力を作る too little room, so its rows put the label above. */
-@media(max-width:400px){.com-custom>.com-label,.com-custom>.com-choices{grid-column:1/-1}}
+/* A sheet is never much wider than 390px, so a label column leaves 勢力を作る too little room even on a
+   computer: every COM row, in 新規対戦 and この対局の打ち手 alike, puts its label above its choices. */
+.com-rows>.com-label,.com-rows>.com-choices,.com-custom>.com-label,.com-custom>.com-choices{grid-column:1/-1}
 /* Five strengths only fit a phone's width on a row of their own, under their label. */
 .com-strength{grid-column:1/-1}
 @media(max-width:700px){.header-actions{gap:6px}.new-game-button{padding:8px 12px}}

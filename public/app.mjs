@@ -282,8 +282,8 @@ let reconnecting = false;
 // A first visit starts against the COM; later visits restore the saved mode.
 let gameMode = room ? "online" : "ai";
 let humanColor = BLACK;
-// The COM opponent: a character, or カスタム with its own strength and style.
-let aiCom = readCom({character:DEFAULT_AI_CHARACTER});
+// The COM opponent: a strength, and a character or カスタム's own style.
+let aiCom = readCom({character:DEFAULT_AI_CHARACTER},DEFAULT_AI_STRENGTH);
 // The 新規対戦 sheet's COM for the next game; aiCom is the one playing now.
 let nextAiCom = aiCom;
 let takebackNotice = null;
@@ -2036,8 +2036,12 @@ function syncSetupTabValues() {
     // ここから打つ fixes 盤 and ルール to the record's, so those still show the value.
     const fixed=continueFrom && (key==="Board" || key==="Rules");
     if(key==="Time" && !tab.classList.contains("is-unused")){$("setupValueTime").textContent=timeTabValue();continue;}
-    $("setupValue"+key).textContent=key==="Strength" && editsWatchAi() && !tab.classList.contains("is-unused")?TEXT.newGame.watchStrengthValue:
-      !checked || tab.classList.contains("is-unused") && !fixed?"—":checked.nextElementSibling.textContent.trim();
+    if(key==="Strength" && !tab.classList.contains("is-unused")){
+      $("setupValueStrength").textContent=editsWatchAi()?TEXT.newGame.watchStrengthValue:
+        TEXT.newGame.comValue(TEXT.ai.strengths[nextAiCom.strength],characterLabel(nextAiCom.character));
+      continue;
+    }
+    $("setupValue"+key).textContent=!checked || tab.classList.contains("is-unused") && !fixed?"—":checked.nextElementSibling.textContent.trim();
   }
 }
 $("newGameSetup").addEventListener("change",syncSetupTabValues);
@@ -2824,7 +2828,7 @@ function syncStrengthUi() {
   const two=editsWatchAi(),off=newGameModeKind()!=="ai" || two;
   const input=document.querySelector('input[name="aiCharacter"][value="'+nextAiCom.character+'"]');
   if(input)input.checked=true;
-  $("aiCharacterChoices").disabled=$("aiCustom").disabled=off;
+  $("aiStrengthChoices").disabled=$("aiCharacterChoices").disabled=$("aiCustom").disabled=off;
   // One COM's line names its strength and the style it leans on, which カスタム's rows already show.
   $("aiStrengthNote").textContent=newGameModeKind()!=="ai" || two || nextAiCom.character===CUSTOM_CHARACTER?"":comSummary(nextAiCom);
   updatePersonaUi();

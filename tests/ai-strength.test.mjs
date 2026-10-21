@@ -84,8 +84,8 @@ test("a weakened level's style picks only among drawn moves close to the best of
     return pickWeakenedMove(candidates,-Infinity,{strength:"normal",state:newGame(),
       random:()=>draws.shift() ?? 0});
   };
-  assert.equal(pick(-2),40);
-  assert.notEqual(pick(-2-STYLE_SLACK),40);
+  assert.equal(pick(-STYLE_SLACK/2),40);
+  assert.notEqual(pick(-STYLE_SLACK-0.5),40);
 });
 
 test("最強 plays the network's top move whatever the personality, and passes only when allowed",()=>{
@@ -113,4 +113,11 @@ test("最強 plays 9路 with the 9x9 network and larger boards with the b18 netw
     assert.match(network.url,/^https:\/\/.+\.bin\.gz$/);
     assert.match(network.sha256,/^[0-9a-f]{64}$/);
   }
+});
+
+test("kyuBoost draws as many moves as a level that many kyu stronger",()=>{
+  const candidates=Array.from({length:60},(_,i)=>({position:i,raw:-i/10,score:-i/10}));
+  const picks=options=>Array.from({length:40},(_,i)=>pickWeakenedMove(candidates,-Infinity,{state:newGame(),random:seeded(i),...options}));
+  assert.deepEqual(picks({strength:"easy",kyuBoost:8}),picks({strength:"normal"}));
+  assert.notDeepEqual(picks({strength:"easy"}),picks({strength:"normal"}));
 });

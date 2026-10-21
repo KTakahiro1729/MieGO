@@ -7,7 +7,7 @@ import {samplePolicyCandidate} from "../public/ai-policy-sampling.mjs";
 
 test("existing AI personality export remains the exact feature function",()=>{
   assert.equal(legacyFeatures,personalityFeatures);
-  assert.deepEqual(personalityFeatures(newGame(),at(4,4),null),{invasion:0,reinforcement:0,attack:0,height:1,tenuki:0});
+  assert.deepEqual(personalityFeatures(newGame(),at(4,4),null),{apart:1,attack:0,height:1,invasion:0,reinforcement:0,tenuki:0});
 });
 
 test("policy sampler keeps candidate ordering and deterministic random boundaries",()=>{

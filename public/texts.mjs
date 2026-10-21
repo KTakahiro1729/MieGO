@@ -329,14 +329,12 @@ export const TEXT = {
     },
     // A character's note fits one line at 360px; the help says more.
     characters: {
-      chick: { name: "ひよこ", note: "囲碁をはじめたばかり。よく見落とします。" },
+      plain: { name: "素直", note: "好みを持たず、まっすぐに打ちます。" },
       steady: { name: "石橋", note: "守りを固めて手堅く打ちます。無理な戦いはしません。" },
       raider: { name: "荒らし屋", note: "相手の地に飛び込み、低く打って地を稼ぎます。" },
-      brawler: { name: "喧嘩屋", note: "相手の手のすぐ近くで受けて立ち、攻めにきます。" },
-      wide: { name: "大場好き", note: "相手の手に付き合わず、広い場所へ向かいます。" },
-      serious: { name: "本気", note: "好みを持たず、手加減なしで打ちます。" },
-      master: { name: "名人", note: "強いCOM（約100MB）で全力で打ちます。" },
-      custom: { name: "カスタム", note: "強さと打ち方を自分で選びます。" },
+      brawler: { name: "喧嘩屋", note: "相手の石のすぐ近くで受けて立ち、攻めにきます。" },
+      wide: { name: "大場好き", note: "相手の石から離れて、広い場所へ向かいます。" },
+      custom: { name: "カスタム", note: "打ち方を自分で選びます。" },
     },
     stanceStops: { low: "守る", mid: "ふつう", high: "攻め込む" },
     stanceNotes: {
@@ -353,9 +351,9 @@ export const TEXT = {
     tenukiStops: { low: "応じる", mid: "ふつう", high: "手を抜く" },
     resignStops: { low: "最後まで", mid: "大差で提案", high: "早めに提案" },
     tenukiNotes: {
-      low: "相手が打った手の近くで応じます。",
-      mid: "応じるか離れるかを特に好みません。",
-      high: "相手の手に付き合わず、離れた場所へ打ちます。",
+      low: "序盤から相手の石のすぐ近くに打ちます。",
+      mid: "相手の石に近づくか離れるかを特に好みません。",
+      high: "序盤は相手の石から離れた場所へ打ちます。",
     },
     unavailable: "ページを開き直してください。COMを読み込めず、対局できません。「1台で打つ」と「対友人」はCOMなしで遊べます。",
     unavailableContinue: "ページを開き直してください。COMを読み込めず、対局を続けられません。「1台で打つ」と「対友人」はCOMなしで遊べます。",
@@ -370,6 +368,8 @@ export const TEXT = {
     // The COM's strength and the axes it leans on, e.g. 強さ「やさしい」・戦い方「攻め込む」・序盤「地を取る」.
     comSummary: (strength, leans) => ["強さ「" + strength + "」",
       ...leans.map(([name, value]) => name + "「" + value + "」")].join("・"),
+    // After the summary of a 最強 COM whose character leans on a style.
+    strongestNoStyle: "（最強は打ち方の好みを使いません）",
     playingWith: (character, summary) => "「" + character + "」と対局中（" + summary + "）",
     playingGomoku: "五目並べのCOMは、並びの長さを数える簡単な読みで打ちます（強さの設定は使いません）。",
     ready: "COMの準備ができました。対局を始められます。",
@@ -911,6 +911,7 @@ export const TEXT = {
     person: "人",
     com: "COM",
     character: color => color + "のCOMのキャラ",
+    strength: color => color + "のCOMの強さ",
     keep: "今のまま続ける",
     apply: "この打ち手で続ける",
     unchanged: "打ち手は今のままです。",
@@ -954,6 +955,8 @@ export const TEXT = {
     rulesOptions: "ルールの追加設定",
     // Under the COMのキャラ tab while watching: each COM has its own character.
     watchStrengthValue: "COMごと",
+    // Under the COMのキャラ tab for one COM: its strength and character, e.g. やさしい・石橋.
+    comValue: (strength, character) => strength + "・" + character,
     setupTabs: "対局の設定",
     // Beside each choice under the 盤, ルール and 自分の石 tabs; two lines at most at 320px.
     boardNotes: {
@@ -1052,7 +1055,7 @@ export const TEXT = {
     ai: {
       summary: "対COM",
       items: [
-        "<strong>キャラの違い</strong>：キャラは強さと打ち方の好みの組み合わせです。好みの違いが出るのは手の2〜3割ほどで、強さは段級位とは対応していません。",
+        "<strong>キャラの違い</strong>：キャラは打ち方の好みで、強さとは別に選びます。同じ強さなら、どのキャラ同士でもおおむね互角になるよう、COM同士の対局で調整しています。好みで手が変わるのは1〜2割ほどで、序盤は2〜4割ほどです。強さは段級位とは対応しておらず、最強は好みを使いません。",
       ],
     },
     online: {

@@ -57,9 +57,9 @@ export function seatSummary(before, after, next, speed="normal", newSpeed=speed)
   return (from===to ? TEXT.seats.stays(to) : TEXT.seats.becomes(from, to)) + faster + moves + TEXT.seats.record;
 }
 
-/** A COM's strength and its one-sentence character; カスタム names its values instead. */
-export const comNote = com => com.character===CUSTOM_CHARACTER ? comSummary(com) :
-  TEXT.ai.strengths[com.strength] + "・" + characterNote(com.character);
+/** A character's one sentence, under the strength row that already names the strength; 最強 says it drops the style. */
+export const comNote = com => characterNote(com.character) +
+  (comSummary(com).endsWith(TEXT.ai.strongestNoStyle) ? TEXT.ai.strongestNoStyle : "");
 
 /**
  * The sheet's controls. The app opens and closes the panel; this keeps the
@@ -82,13 +82,13 @@ export function createSeatSheet({$, onApply, onKeep}) {
       $(name+"Com").hidden=!com;
       if(!com)continue;
       $(name+"Character").value=com.character;
-      // カスタム shows its strength and style as rows to change, in place of the note.
+      // As in 新規対戦's COM card: the strength row, the character, and カスタム's style rows in place of the note.
       const custom=com.character===CUSTOM_CHARACTER;
       $(name+"Note").hidden=custom;
       $(name+"Note").textContent=custom ? "" : comNote(com);
       $(name+"Custom").hidden=!custom;
-      if(custom)for(const [field, value] of customFields(name, com))
-        for(const input of document.querySelectorAll('input[name="'+field+'"]'))input.checked=input.value===String(value);
+      for(const [field, axis] of comFields(name))
+        for(const input of document.querySelectorAll('input[name="'+field+'"]'))input.checked=input.value===String(com[axis]);
     }
     $("seatSpeedRow").hidden=!watched(draft);
     for(const input of document.querySelectorAll('input[name="seatSpeed"]'))input.checked=input.value===draftSpeed;
@@ -96,9 +96,9 @@ export function createSeatSheet({$, onApply, onKeep}) {
       TEXT.seats.comUnavailable : seatSummary(current, draft, next, speed, draftSpeed);
     $("seatApply").disabled=!seatsChanged(current, draft, speed, draftSpeed);
   }
-  // Each カスタム row's radio name and the COM's value it shows.
-  const customFields = (name, com) => [[name+"CustomStrength", com.strength],
-    ...COM_AXES.map(axis=>[name+axis[0].toUpperCase()+axis.slice(1), com[axis]])];
+  // Each row's radio name and the COM's value it shows: the strength, then カスタム's style.
+  const comFields = name => [[name+"Strength", "strength"],
+    ...COM_AXES.map(axis=>[name+axis[0].toUpperCase()+axis.slice(1), axis])];
   for(const side of Object.keys(SIDES)){
     const name="seat"+key(side);
     for(const input of document.querySelectorAll('input[name="'+name+'"]'))
@@ -107,14 +107,14 @@ export function createSeatSheet({$, onApply, onKeep}) {
         draft={...draft, [side]:e.target.value==="com" ? lastCom[side] : null};
         render();
       };
+    // The strength and the character are chosen apart; either keeps the other.
     const change=com=>{
       lastCom={...lastCom, [side]:com};
       draft={...draft, [side]:com};
       render();
     };
     $(name+"Character").onchange=e=>change(pickCharacter(draft[side], e.target.value));
-    for(const [field, axis] of [[name+"CustomStrength", "strength"],
-      ...COM_AXES.map(axis=>[name+axis[0].toUpperCase()+axis.slice(1), axis])])
+    for(const [field, axis] of comFields(name))
       for(const input of document.querySelectorAll('input[name="'+field+'"]'))
         input.onchange=e=>{if(e.target.checked)change(setComValue(draft[side], axis, e.target.value));};
   }
