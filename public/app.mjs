@@ -94,7 +94,7 @@ import { gomokuMove } from "./gomoku-ai.mjs";
 import { cleanName, createPlayerName } from "./player-name.mjs";
 import { playerSides, recordNames, stoneMark } from "./player-row.mjs";
 import { createSeatSheet, seatsOf } from "./seat-sheet.mjs";
-import { DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
+import { AI_STRENGTHS, DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
 import {
   CUSTOM_CHARACTER,
   DEFAULT_AI_CHARACTER,
@@ -282,8 +282,8 @@ let reconnecting = false;
 // A first visit starts against the COM; later visits restore the saved mode.
 let gameMode = room ? "online" : "ai";
 let humanColor = BLACK;
-// The COM opponent: a character, or カスタム with its own strength and style.
-let aiCom = readCom({character:DEFAULT_AI_CHARACTER});
+// The COM opponent: a strength, and a character or カスタム's own style.
+let aiCom = readCom({character:DEFAULT_AI_CHARACTER},DEFAULT_AI_STRENGTH);
 // The 新規対戦 sheet's COM for the next game; aiCom is the one playing now.
 let nextAiCom = aiCom;
 let takebackNotice = null;
@@ -612,14 +612,27 @@ const COM_FIELDS = {
   Height:"height",
   Resign:"resign",
   Stance:"stance",
-  Strength:"strength",
   Tenuki:"tenuki",
 };
+// Strength is a slider with a stop per level, weakest first.
+const STRENGTH_ORDER = Object.keys(AI_STRENGTHS);
+const strengthAt = value => STRENGTH_ORDER[Number(value)] ?? DEFAULT_AI_STRENGTH;
+// Step sliders name each stop under the bar and show the chosen stop's note below it.
+function syncStepSlider(id) {
+  const input=$(id),stops=[...$(id+"Row").querySelectorAll(".step-ticks span")];
+  const index=Math.round((Number(input.value)-Number(input.min))/Number(input.step));
+  stops.forEach((stop,i)=>stop.classList.toggle("is-current",i===index));
+  $(id+"Value").textContent=stops[index]?.textContent||"";
+  const note=$(id+"Row").querySelector(".step-note");
+  if(note)note.textContent=stops[index]?.dataset.note||"";
+}
 function checkComChoices(prefix, com) {
   for(const [field,key] of Object.entries(COM_FIELDS)){
     const input=document.querySelector('input[name="'+prefix+field+'"][value="'+com[key]+'"]');
     if(input)input.checked=true;
   }
+  $(prefix+"Strength").value=String(Math.max(0,STRENGTH_ORDER.indexOf(com.strength)));
+  syncStepSlider(prefix+"Strength");
 }
 function syncComCards() {
   for(const [slot,side] of Object.entries(COM_SLOTS)){
@@ -632,7 +645,7 @@ function syncComCards() {
 function syncWatchSliderRows() {
   const two=editsWatchAi();
   $("watchAiOptions").hidden=!two;
-  $("aiStrengthRow").hidden=two;
+  $("aiOneCom").hidden=two;
   // カスタム's own rows show only for the one COM it sets.
   $("aiCustom").hidden=two || nextAiCom.character!==CUSTOM_CHARACTER;
 }
@@ -2048,8 +2061,12 @@ function syncSetupTabValues() {
     const fixed=continueFrom && (key==="Board" || key==="Rules");
     if(key==="Time" && !tab.classList.contains("is-unused")){$("setupValueTime").textContent=timeTabValue();continue;}
     if(key==="Side" && handicapInUse()){$("setupValueSide").textContent=sideTabValue(checked);continue;}
-    $("setupValue"+key).textContent=key==="Strength" && editsWatchAi() && !tab.classList.contains("is-unused")?TEXT.newGame.watchStrengthValue:
-      !checked || tab.classList.contains("is-unused") && !fixed?"—":checked.nextElementSibling.textContent.trim();
+    if(key==="Strength" && !tab.classList.contains("is-unused")){
+      $("setupValueStrength").textContent=editsWatchAi()?TEXT.newGame.watchStrengthValue:
+        TEXT.newGame.comValue(TEXT.ai.strengths[nextAiCom.strength],characterLabel(nextAiCom.character));
+      continue;
+    }
+    $("setupValue"+key).textContent=!checked || tab.classList.contains("is-unused") && !fixed?"—":checked.nextElementSibling.textContent.trim();
   }
 }
 $("newGameSetup").addEventListener("change",syncSetupTabValues);
@@ -2838,6 +2855,10 @@ for(const [slot,side] of Object.entries(COM_SLOTS)){
       nextWatchAi={...nextWatchAi,[side]:setComValue(nextWatchAi[side],key,e.target.value)};
       comChanged();
     };
+  $("com"+slot+"Strength").oninput=e=>{
+    nextWatchAi={...nextWatchAi,[side]:setComValue(nextWatchAi[side],"strength",strengthAt(e.target.value))};
+    comChanged();
+  };
 }
 for(const input of document.querySelectorAll('input[name="aiCharacter"]')) {
   input.onchange=e=>{
@@ -2854,12 +2875,16 @@ for(const input of document.querySelectorAll('input[name="ai'+field+'"]')) {
     comChanged();
   };
 }
+$("aiStrength").oninput=e=>{
+  nextAiCom=setComValue(nextAiCom,"strength",strengthAt(e.target.value));
+  comChanged();
+};
 // The character list shows the one COM; two COMs are set in their cards.
 function syncStrengthUi() {
   const two=editsWatchAi(),off=newGameModeKind()!=="ai" || two;
   const input=document.querySelector('input[name="aiCharacter"][value="'+nextAiCom.character+'"]');
   if(input)input.checked=true;
-  $("aiCharacterChoices").disabled=$("aiCustom").disabled=off;
+  $("aiStrength").disabled=$("aiCharacterChoices").disabled=$("aiCustom").disabled=off;
   // One COM's line names its strength and the style it leans on, which カスタム's rows already show.
   $("aiStrengthNote").textContent=newGameModeKind()!=="ai" || two || nextAiCom.character===CUSTOM_CHARACTER?"":comSummary(nextAiCom);
   updatePersonaUi();

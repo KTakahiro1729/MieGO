@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { newGame, play, at, boardHash } from "../public/core.mjs";
-import { personalityFeatures, scorePolicyCandidates, STYLE_AXES } from "../public/ai-opponent.mjs";
+import { personalityFeatures, scorePolicyCandidates, STYLE_AXES, styleRoom } from "../public/ai-opponent.mjs";
 import {
   AI_CHARACTERS,
   CUSTOM_CHARACTER,
@@ -11,8 +11,11 @@ import {
   comFor,
   comSummary,
   normalizeCom,
+  pickCharacter,
+  readCom,
   setComValue,
 } from "../public/ai-characters.mjs";
+import { TEXT } from "../public/texts.mjs";
 import { AI_STRENGTHS } from "../public/ai-strength.mjs";
 
 const position=stones=>{
@@ -22,7 +25,8 @@ const position=stones=>{
   return s;
 };
 const scoreOf=(s,point,options)=>{
-  const policy=Array(81).fill(-50);policy[point]=0;
+  // A calm position: no move stands out, so a style pulls in full.
+  const policy=Array(81).fill(-1);policy[point]=0;
   return scorePolicyCandidates(s,policy,null,options).find(c=>c.position===point).score;
 };
 
@@ -47,7 +51,7 @@ test("攻守 trades attacking for reinforcing, and an old 補強度 reads as 守
   // Black 1,1 has two liberties left; 1,2 adds liberties.
   const s=position([[at(1,1),1],[at(0,1),-1],[at(1,0),-1],[at(2,1),-1]]);
   const owners=Array(81).fill(0);owners[at(1,2)]=.45;
-  const policy=Array(81).fill(-50);policy[at(1,2)]=0;
+  const policy=Array(81).fill(-1);policy[at(1,2)]=0;
   const score=options=>scorePolicyCandidates(s,policy,owners,options).find(c=>c.position===at(1,2)).score;
   assert.ok(score({stance:0})>score({})&&score({})>score({stance:100}));
   assert.equal(score({reinforcement:100}),score({stance:0}));
@@ -81,30 +85,75 @@ test("tenuki measures the distance from the opponent's last move",()=>{
   assert.ok(scoreOf(s,at(7,7),{tenuki:100})>scoreOf(s,at(3,2),{tenuki:100}));
 });
 
+test("a style pulls as hard on one axis as on two, and つよい reorders only moves close to the best",()=>{
+  const s=play(newGame(),at(2,2));
+  const policy=Array(81).fill(-1);policy[at(7,7)]=0;policy[at(3,2)]=-0.5;policy[at(6,6)]=-3.5;
+  const bonus=(options,point)=>{const c=scorePolicyCandidates(s,policy,null,options).find(c=>c.position===point);return c.score-c.raw;};
+  // 7,7 lies five lines from the last move, on the 2nd line: far (tenuki +1) and low (height -1).
+  assert.equal(bonus({tenuki:100,allMoves:true},at(7,7)),3);
+  assert.equal(bonus({tenuki:100,height:0,allMoves:true},at(7,7)),3);
+  // つよい: the same pull, but none for a move further than STYLE_SLACK below the best.
+  assert.equal(bonus({tenuki:0},at(3,2)),3);
+  assert.equal(bonus({tenuki:100},at(6,6)),0);
+});
+
+test("a style fades where one move stands out or the board has settled",()=>{
+  assert.equal(styleRoom(0.1),1);
+  assert.equal(styleRoom(0.9),0);
+  assert.equal(styleRoom(0.4),1);
+  assert.ok(Math.abs(styleRoom(0.6)-0.5)<1e-9);
+  assert.equal(styleRoom(0.1,"near"),0);
+  // One move far ahead of the rest: the style leaves the policy alone.
+  const s=play(newGame(),at(2,2));
+  const policy=Array(81).fill(-50);policy[at(7,7)]=0;
+  for(const c of scorePolicyCandidates(s,policy,null,{tenuki:100,allMoves:true}))assert.equal(c.score,c.raw);
+});
+
 test("neutral axes leave KataGo's policy untouched",()=>{
   const s=play(newGame(),at(2,2));
   const policy=Array.from({length:81},(_,p)=>-p/10);
   for(const c of scorePolicyCandidates(s,policy,null,{}))assert.ok(c.score===c.raw);
 });
 
-test("each character has a strength, a value on every axis and a one-line note",()=>{
+test("each character is a value on every axis and a one-line note, with no strength of its own",()=>{
   for(const [key,c] of Object.entries(AI_CHARACTERS)){
-    assert.ok(Object.hasOwn(AI_STRENGTHS,c.strength),key);
+    assert.equal(c.strength,undefined,key);
     for(const axis of STYLE_AXES)assert.ok([0,50,100].includes(c[axis]),key+" "+axis);
     assert.ok(characterLabel(key).length>0);
     assert.ok(characterNote(key).length<=26,key);
-    assert.equal(characterOf(comFor(key)),key);
+    for(const strength of Object.keys(AI_STRENGTHS)){
+      const com=comFor(key,{strength});
+      assert.equal(com.strength,strength);
+      assert.equal(characterOf(com),key);
+    }
   }
-  // Every strength is covered, and the paired characters share one.
-  const strengths=new Set(Object.values(AI_CHARACTERS).map(c=>c.strength));
-  assert.deepEqual([...strengths].sort(),Object.keys(AI_STRENGTHS).sort());
-  assert.equal(AI_CHARACTERS.raider.strength,AI_CHARACTERS.steady.strength);
-  assert.equal(AI_CHARACTERS.brawler.strength,AI_CHARACTERS.wide.strength);
+});
+
+test("a new strength keeps the character, and a saved ひよこ, 本気 or 名人 reads as 素直 at its strength",()=>{
+  const raider=pickCharacter(readCom({character:"plain"},"beginner"),"raider");
+  assert.equal(raider.strength,"beginner");
+  const stronger=setComValue(raider,"strength","normal");
+  assert.deepEqual(stronger,{...AI_CHARACTERS.raider,character:"raider",strength:"normal"});
+  // Saves from when each character came with its own strength.
+  const neutral={height:50,resign:0,stance:50,tenuki:50};
+  for(const [character,strength] of [["chick","beginner"],["serious","strong"],["master","strongest"]])
+    assert.deepEqual(readCom({character,strength,...neutral}),{character:"plain",strength,...neutral});
+  assert.deepEqual(readCom({character:"steady",strength:"easy",...neutral,stance:0}),
+    {character:"steady",strength:"easy",...neutral,stance:0});
+});
+
+test("最強 says it leaves the style aside, but keeps 終局の提案",()=>{
+  assert.doesNotMatch(comSummary(comFor("plain",{strength:"strongest"})),/好み/);
+  const wide=comSummary(comFor("wide",{strength:"strongest"}));
+  assert.ok(wide.endsWith(TEXT.ai.strongestNoStyle));
+  assert.doesNotMatch(wide,/序盤/);
+  assert.match(comSummary({strength:"strongest",resign:100,stance:100}),/終局の提案/);
+  assert.match(comSummary(comFor("wide",{strength:"easy"})),/序盤「勢力を作る」/);
 });
 
 test("settings that match no character open as カスタム, with every axis snapped to a stop",()=>{
-  assert.equal(characterOf({strength:"strong",invasion:50,reinforcement:50}),"serious");
-  assert.equal(characterOf({strength:"easy",invasion:50,reinforcement:50}),CUSTOM_CHARACTER);
+  assert.equal(characterOf({strength:"strong",invasion:50,reinforcement:50}),"plain");
+  assert.equal(characterOf({strength:"easy",stance:100}),CUSTOM_CHARACTER);
   assert.equal(characterOf({strength:"easy",invasion:10,reinforcement:90}),"steady");
   assert.equal(characterOf({strength:"easy",invasion:90,height:20}),"raider");
   assert.deepEqual(normalizeCom({strength:"nope",invasion:70}),
@@ -122,9 +171,21 @@ test("終局の提案 starts at 最後まで for every character, and choosing i
   for(const c of Object.values(AI_CHARACTERS))assert.equal(c.resign,0);
   // Saves from before the setting play every game out.
   assert.equal(normalizeCom({strength:"easy"}).resign,0);
-  const com=setComValue({character:"chick",...AI_CHARACTERS.chick},"resign","50");
+  const com=setComValue({character:"plain",strength:"beginner",...AI_CHARACTERS.plain},"resign","50");
   assert.equal(com.character,CUSTOM_CHARACTER);
   assert.equal(com.resign,50);
   assert.match(comSummary(com),/終局の提案「大差で提案」/);
-  assert.doesNotMatch(comSummary(AI_CHARACTERS.chick),/終局の提案/);
+  assert.doesNotMatch(comSummary(comFor("plain",{strength:"beginner"})),/終局の提案/);
+});
+
+test("相手の手に leans toward or away from the nearest opponent stone in a quiet, open position",()=>{
+  const s=play(newGame(),at(2,2));
+  // Next to the opponent, two lines off, and three or more lines off.
+  assert.equal(personalityFeatures(s,at(3,2),null).apart,-1);
+  assert.equal(personalityFeatures(s,at(4,4),null).apart,0);
+  assert.equal(personalityFeatures(s,at(6,6),null).apart,1);
+  // Once the board fills up, distance stops counting.
+  let full=newGame();
+  for(let i=0;i<34;i++)full=play(full,i*2+(Math.floor(i*2/9)%2));
+  assert.equal(personalityFeatures(full,80,null).apart,0);
 });

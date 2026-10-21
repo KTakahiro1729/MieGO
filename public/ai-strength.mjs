@@ -20,8 +20,11 @@ export const AI_STRENGTHS = Object.freeze({
   strongest:{label:TEXT.ai.strengths.strongest,kyu:null}
 });
 export const DEFAULT_AI_STRENGTH = "beginner";
-// How far below the best drawn move (in policy logits) a weakened level may
-// go for a move its style prefers.
+// How far below the best move (in policy logits) a style may go for a move it
+// prefers: the best drawn move at a weakened level, the best legal move at
+// つよい. At 3 a styled COM won 42-53% against the neutral one at ふつう and
+// 0-8% at つよい; at 1 every character is within reach of even
+// (docs/AI_PERSONALITIES.md).
 export const STYLE_SLACK = 3;
 // Saved games from before strength levels existed used the full policy.
 export const normalizeStrength = (value, fallback="strong") =>
@@ -57,8 +60,10 @@ function softmax(values) {
  */
 export function pickWeakenedMove(candidates, passLogit, options={}) {
   if(!candidates.length)return null;
-  const kyu=AI_STRENGTHS[options.strength]?.kyu;
-  if(!Number.isFinite(kyu))throw new Error("Unknown weakened AI strength");
+  const level=AI_STRENGTHS[options.strength]?.kyu;
+  if(!Number.isFinite(level))throw new Error("Unknown weakened AI strength");
+  // A styled COM plays a few kyu stronger to make up for its taste (ai-opponent.mjs).
+  const kyu=level-(options.kyuBoost || 0);
   const random=options.random || Math.random;
   const hasPass=Number.isFinite(passLogit);
   const passOk=!!options.passAllowed && hasPass;

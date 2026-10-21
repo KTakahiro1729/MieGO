@@ -431,7 +431,9 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .seat-row{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:center;gap:8px;margin-top:14px}
 .seat-color{display:flex;align-items:center;gap:7px;font-weight:var(--weight-medium)}
 .seat-choices span{padding:11px 8px}
-.seat-com{margin:8px 0 0 56px}
+/* A COM seat's strength and character, side by side. */
+.seat-com{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 0 56px}
+.seat-com .seat-note{grid-column:1/-1}
 .seat-com[hidden]{display:none}
 .seat-note,.seat-summary{margin:6px 0 0;font-size:var(--font-small);line-height:1.6;color:var(--muted)}
 .seat-summary{margin-top:18px}
@@ -538,6 +540,9 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .com-choices span{padding:8px 0;font-size:var(--font-small);white-space:nowrap}
 /* One COM's カスタム rows sit under the character list, in the same grid without a card. */
 .com-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;margin-top:12px}
+/* One COM's strength sits above the character list. */
+.com-strength-slider{margin:0 0 12px}
+.com-card .step-slider{margin:0}
 /* A watched COM's カスタム rows join its card's grid. */
 .com-custom{display:contents}
 /* On a phone, a card's label column leaves 勢力を作る too little room, so its rows put the label above. */

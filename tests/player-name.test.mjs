@@ -23,9 +23,9 @@ test("the 設定 sheet has the 表示名 field, with あなた shown while it is
 });
 
 test("the turn row names the player by 表示名 and a friend by theirs, or あなた and 相手 without",()=>{
-  const ai=playerSides({mode:"ai",humanColor:WHITE,aiCom:readCom({character:"chick"}),myName:"たろう"});
+  const ai=playerSides({mode:"ai",humanColor:WHITE,aiCom:readCom({character:"plain"},"beginner"),myName:"たろう"});
   assert.equal(ai[WHITE].name,"たろう");
-  assert.equal(ai[BLACK].name,TEXT.ai.characters.chick.name);
+  assert.equal(ai[BLACK].name,TEXT.ai.characters.plain.name);
   const online=playerSides({mode:"online",onlineColor:BLACK,myName:"たろう",peerName:"はなこ"});
   assert.deepEqual([online[BLACK].name,online[WHITE].name],["たろう","はなこ"]);
   const unnamed=playerSides({mode:"online",onlineColor:BLACK});
@@ -38,8 +38,8 @@ test("the turn row names the player by 表示名 and a friend by theirs, or あ�
 test("a saved game keeps the names it was played under, never あなた or 相手",()=>{
   assert.deepEqual(recordNames({mode:"online",onlineColor:WHITE,myName:"たろう",peerName:"はなこ"}),{black:"はなこ",white:"たろう"});
   assert.deepEqual(recordNames({mode:"online",onlineColor:WHITE}),{black:null,white:null});
-  assert.deepEqual(recordNames({mode:"ai",humanColor:BLACK,aiCom:readCom({character:"master"})}),
-    {black:null,white:TEXT.ai.characters.master.name});
+  assert.deepEqual(recordNames({mode:"ai",humanColor:BLACK,aiCom:readCom({character:"plain",strength:"strongest"})}),
+    {black:null,white:TEXT.ai.characters.plain.name});
   assert.deepEqual(recordNames({mode:"local",myName:"たろう"}),{black:null,white:null});
   const {lib}=testLibrary();
   const first=lib.save({mode:"local",snapshot:newGame(),names:{black:"たろう",white:"はなこ"}});

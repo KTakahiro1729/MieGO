@@ -49,17 +49,23 @@ test("自分の石・COMのキャラ・盤・ルール・時間 are one row of t
   assert.doesNotMatch(html+app,/aiHints|policyHints|aiLevel/);
 });
 
-test("the COM is eight characters with notes, then カスタム's strength and four style rows",()=>{
+test("the COM is a strength, then six characters with notes, then カスタム's four style rows",()=>{
   const advanced=panel("Strength");
   // 観戦's two COM cards take the character list's place, so they come first.
   assert.ok(advanced.indexOf('id="watchAiOptions"')<advanced.indexOf('name="aiCharacter"'));
+  // The strength comes first and stays outside カスタム, since every character plays at any strength.
+  assert.ok(advanced.indexOf('id="aiStrength" type="range"')<advanced.indexOf('id="aiCharacterChoices"'));
+  assert.ok(!between(sheet,'id="aiCustom"','</fieldset>').includes('id="aiStrength"'));
   assert.ok(advanced.indexOf('id="aiCharacterChoices"')<advanced.indexOf('id="aiCustom"') && advanced.indexOf('id="aiCustom"')<advanced.indexOf('id="aiStrengthNote"'));
   // カスタム's rows follow the list directly, with no card around them.
   assert.match(advanced,/<fieldset id="aiCustom" class="ai-advanced com-rows" hidden>\s*<legend class="visually-hidden">/);
   assert.deepEqual([...sheet.matchAll(/name="aiCharacter" value="(\w+)"/g)].map(m=>m[1]),
-    ["chick","steady","raider","brawler","wide","serious","master","custom"]);
-  assert.equal((between(sheet,'id="aiCharacterChoices"','</fieldset>').match(/<small class="choice-note">/g)||[]).length,8);
-  assert.deepEqual([...sheet.matchAll(/name="aiStrength" value="(\w+)"/g)].map(m=>m[1]),["beginner","easy","normal","strong","strongest"]);
+    ["plain","steady","raider","brawler","wide","custom"]);
+  assert.equal((between(sheet,'id="aiCharacterChoices"','</fieldset>').match(/<small class="choice-note">/g)||[]).length,6);
+  // Strength is a slider of five stops, weakest first, each with its note.
+  assert.match(sheet,/<input id="aiStrength" type="range" min="0" max="4" step="1"/);
+  assert.deepEqual([...between(sheet,'id="aiStrengthRow"','</div>').matchAll(/<small>([^<]+)<\/small>/g)].map(m=>m[1]),
+    ["beginner","easy","normal","strong","strongest"].map(key=>TEXT.ai.strengths[key]));
   for(const name of ["aiStance","aiHeight","aiTenuki"])
     assert.deepEqual([...sheet.matchAll(new RegExp('name="'+name+'" value="(\\d+)"',"g"))].map(m=>m[1]),["0","50","100"]);
 });
@@ -67,7 +73,7 @@ test("the COM is eight characters with notes, then カスタム's strength and f
 test("the mode tabs, then the options, then one row of the way back and the start button",()=>{
   const row=between(sheet,'<div id="newGameActions" class="new-game-actions">','</aside>');
   for(const id of ["startLocal","startAi","copy"]) {
-    assert.ok(sheet.indexOf('id="aiStrengthRow"')<sheet.indexOf('id="'+id+'"'),id);
+    assert.ok(sheet.indexOf('id="aiOneCom"')<sheet.indexOf('id="'+id+'"'),id);
     // The way back is on the left, so the start button stays the rightmost.
     assert.ok(row.indexOf('id="returnToGame"')>=0 && row.indexOf('id="returnToGame"')<row.indexOf('id="'+id+'"'),id);
   }

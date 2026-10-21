@@ -5,7 +5,7 @@ import {readCom} from "../public/ai-characters.mjs";
 import {comNote,matchOf,sameSeats,seatsOf,seatSummary} from "../public/seat-sheet.mjs";
 import {TEXT} from "../public/texts.mjs";
 
-const chick=readCom({character:"chick"}),raider=readCom({character:"raider"});
+const chick=readCom({character:"plain"},"beginner"),raider=readCom({character:"raider",strength:"easy"});
 
 test("the seats are what each mode already holds",()=>{
   assert.deepEqual(seatsOf({mode:"local"}),{black:null,white:null});

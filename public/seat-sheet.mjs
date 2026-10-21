@@ -2,7 +2,7 @@
 // or a COM. 1台で打つ, 対COM and 観戦 are what the two seats add up to, so the
 // sheet changes the mode by changing a seat, and the game record carries on.
 import { BLACK, WHITE } from "./core.mjs";
-import { characterNote, COM_AXES, comSummary, CUSTOM_CHARACTER, pickCharacter } from "./ai-characters.mjs";
+import { characterNote, COM_AXES, comSummary, CUSTOM_CHARACTER, pickCharacter, setComValue } from "./ai-characters.mjs";
 import { TEXT } from "./texts.mjs";
 
 const SIDES = Object.freeze({black:BLACK, white:WHITE});
@@ -65,6 +65,7 @@ export function createSeatSheet({$, onApply, onKeep}) {
       }
       $(name+"Com").hidden=!com;
       if(!com)continue;
+      $(name+"Strength").value=com.strength;
       $(name+"Character").value=com.character;
       $(name+"Note").textContent=comNote(com);
     }
@@ -80,11 +81,14 @@ export function createSeatSheet({$, onApply, onKeep}) {
         draft={...draft, [side]:e.target.value==="com" ? lastCom[side] : null};
         render();
       };
-    $(name+"Character").onchange=e=>{
-      lastCom={...lastCom, [side]:pickCharacter(draft[side], e.target.value)};
-      draft={...draft, [side]:lastCom[side]};
+    // The strength and the character are chosen apart; either keeps the other.
+    const change=com=>{
+      lastCom={...lastCom, [side]:com};
+      draft={...draft, [side]:com};
       render();
     };
+    $(name+"Strength").onchange=e=>change(setComValue(draft[side], "strength", e.target.value));
+    $(name+"Character").onchange=e=>change(pickCharacter(draft[side], e.target.value));
   }
   $("seatApply").onclick=()=>{if(!sameSeats(current, draft))onApply(matchOf(draft));};
   $("seatKeep").onclick=onKeep;

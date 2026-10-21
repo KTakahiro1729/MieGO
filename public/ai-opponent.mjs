@@ -2,7 +2,7 @@
 import {isFree,isGomoku,isJapanese,play} from "./core.mjs";
 import {personalityFeatures,stanceOf,STYLE_AXES,styleSignal} from "./ai-personality.mjs";
 import {clamp,samplePolicyCandidate} from "./ai-policy-sampling.mjs";
-import {AI_STRENGTHS,pickWeakenedMove} from "./ai-strength.mjs";
+import {AI_STRENGTHS,pickWeakenedMove,STYLE_SLACK} from "./ai-strength.mjs";
 import {OWNERSHIP_BANDS} from "./territory-view.mjs";
 export {personalityFeatures,STYLE_AXES} from "./ai-personality.mjs";
 
@@ -20,6 +20,18 @@ export function legalAiMoves(state) {
   return moves;
 }
 
+// つよい samples at a low temperature (0.38), where a full ±3 decided most
+// moves and a styled COM almost never beat the neutral one.
+const STRONG_STYLE_SCALE = 1;
+// A style shows in full where KataGo sees several good moves, and fades out
+// where one move stands out (its policy share from CALM_LOW to CALM_HIGH) or
+// the board has settled: there a taste costs games and shows little.
+const CALM_LOW = 0.4, CALM_HIGH = 0.8;
+/** How far a style may pull at this move, 0..1. */
+export function styleRoom(topShare, endgameStage="playing") {
+  if(canConsiderAiPass(endgameStage))return 0;
+  return clamp((CALM_HIGH-topShare)/(CALM_HIGH-CALM_LOW),0,1);
+}
 export function scorePolicyCandidates(state, logits, ownership, options={}) {
   if(!logits || logits.length!==state.board.length)throw new Error("Invalid KataGo policy logits");
   const legal=legalAiMoves(state).filter(p=>Number.isFinite(logits[p]));
@@ -27,13 +39,21 @@ export function scorePolicyCandidates(state, logits, ownership, options={}) {
   const best=Math.max(...legal.map(p=>logits[p]));
   // Weakened levels sample from every legal move, so keep the long tail.
   const window=options.allMoves ? Infinity : 8;
-  // Each axis is 0..100 with 50 neutral and adds at most ±3 to a logit.
+  // Each axis is 0..100 with 50 neutral. A style adds at most ±3 to a logit
+  // however many axes it leans on, so a character with two leanings pulls no
+  // harder than one with one.
   const values={...options,stance:stanceOf(options)};
-  const weights=Object.fromEntries(STYLE_AXES.map(axis=>
-    [axis,(bounded(values[axis] ?? 50)-50)/50 * 3]));
+  const lean=STYLE_AXES.map(axis=>(bounded(values[axis] ?? 50)-50)/50);
+  const topShare=1/legal.reduce((sum,p)=>sum+Math.exp(logits[p]-best),0);
+  const scale=3/(lean.filter(Boolean).length || 1) * (options.allMoves ? 1 : STRONG_STYLE_SCALE) *
+    styleRoom(topShare,options.endgameStage) * (options.styleScale ?? 1);
+  const weights=Object.fromEntries(STYLE_AXES.map((axis,i)=>[axis,lean[i]*scale]));
   return legal.filter(p=>logits[p]>=best-window).map(position=>{
     const f=personalityFeatures(state,position,ownership);
-    const bonus=STYLE_AXES.reduce((sum,axis)=>sum+weights[axis]*styleSignal[axis](f),0);
+    // つよい samples every candidate, so a style only reorders those close to
+    // the best; weakened levels hold it to STYLE_SLACK among the drawn moves.
+    const near=options.allMoves || logits[position]>=best-STYLE_SLACK;
+    const bonus=near ? STYLE_AXES.reduce((sum,axis)=>sum+weights[axis]*styleSignal[axis](f),0) : 0;
     return {position,raw:logits[position],score:logits[position]+bonus,...f};
   });
 }
@@ -64,8 +84,21 @@ export function choosePolicyMove(state, logits, passLogit, options={}) {
   const position=pickPolicyMove(state,logits,passLogit,options);
   return answersPass(state,position,options.ownership,options.endgameStage) ? null : position;
 }
+// What a style costs is given back, so a character wins about as often as the
+// neutral COM at its strength (docs/AI_PERSONALITIES.md): a weakened level
+// draws as many moves as one STYLE_KYU_BOOST kyu stronger, and つよい samples
+// at STYLE_TEMPERATURE of its temperature, with its style's pull scaled alike
+// so the style weighs as much against the policy as before.
+const STYLE_KYU_BOOST = 1.5, STYLE_TEMPERATURE = 0.8;
+const hasStyle = options => {
+  const values={...options,stance:stanceOf(options)};
+  return STYLE_AXES.some(axis=>bounded(values[axis] ?? 50)!==50);
+};
 function pickPolicyMove(state, logits, passLogit, options) {
   const weakened=Number.isFinite(AI_STRENGTHS[options.strength]?.kyu);
+  if(hasStyle(options) && options.strength!=="strongest") options=weakened
+    ? {...options,kyuBoost:STYLE_KYU_BOOST}
+    : {...options,temperature:(Number(options.temperature) || 0.4)*STYLE_TEMPERATURE,styleScale:STYLE_TEMPERATURE};
   const candidates=scorePolicyCandidates(state,logits,options.ownership,
     {...options,allMoves:weakened});
   if(!candidates.length)return null;
