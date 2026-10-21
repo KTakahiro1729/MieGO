@@ -41,7 +41,7 @@ function renderResult(found) {
     box.append(side);
   }
   box.append(el("p", "style-code", found.type), el("h1", "style-name", type.name),
-    el("p", "style-catch", type.catch), el("p", "style-text", type.text));
+    el("p", "style-catch", type.catch), el("p", "style-text", found.games > 1 ? T.pooledText(type.text) : type.text));
   const bars = el("div", "style-bars");
   T.axes.forEach((axis, i) => bars.append(axisRow(axis, found.type[i], found.leans?.[i])));
   box.append(bars, el("p", "style-note", found.games > 1 ? T.pooled(found.games) : T.oneGame));

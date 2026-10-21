@@ -478,7 +478,7 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .history-import-label{display:block;width:100%;min-height:var(--control-h);padding:11px 14px;font-size:13px;text-align:center;cursor:pointer}
 .history-import-label:focus-within{outline:2px solid #eed183;outline-offset:2px}
 /* 棋風診断 over saved games: while picking, each row shows its sides as toggles instead of its star. */
-.history-style-button{margin-top:8px}
+.history-style-button,.share-style-more{margin-top:8px}
 .history-style-bar{margin-top:14px;padding:12px;border:1px solid #6d5d3d;border-radius:13px;background:#232a36}
 .history-style-bar .choice-note{margin:0}
 .history-style-result{margin:8px 0 10px;font-weight:700;color:#f8ddac}
@@ -965,4 +965,5 @@ body.style-page{overflow:auto}
 .style-type-code{font-family:Georgia,"Times New Roman",serif;font-weight:700;letter-spacing:.08em;color:var(--accent-text)}
 .style-type-name{font-size:14px}
 .style-cta{display:flex;align-items:center;justify-content:center;min-height:var(--action-h);margin-top:28px;border-radius:var(--radius);border:1px solid var(--accent-edge);background:var(--btn-bg);color:var(--accent-text);font-weight:700;text-decoration:none}
+.style-cta.secondary{min-height:var(--control-h);margin-top:10px;border-color:var(--btn-edge);color:var(--btn-text);font-weight:600}
 .share-style-note{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.6}

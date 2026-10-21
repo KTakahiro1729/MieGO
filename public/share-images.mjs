@@ -115,7 +115,8 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
   // tap, and a long game's animation takes a moment to encode.
   // Each player's type in the sheet, opening its /style page in a new tab.
   function renderPlayStyles(){
-    $("sharePlayStyles").hidden=!shownStyles.length;
+    // The way to several games stays even when this one has no type yet.
+    $("sharePlayStyleNone").hidden=!!shownStyles.length;
     $("sharePlayStyleList").replaceChildren(...shownStyles.map(style=>{
       const button=Object.assign(document.createElement("button"),{type:"button",className:"secondary full described"});
       const name=document.createElement("span"),note=document.createElement("small");

@@ -2522,6 +2522,12 @@ function resumeSelectedReview(){
 $("historyImportFile").onchange=e=>void importHistoryFile(e.target.files?.[0]);
 $("openHistory").onclick=openHistoryPanel;
 $("openShare").onclick=openSharePanel;
+// One game's 棋風診断 leads on to several games read together, in 履歴.
+function openHistoryStyle(){
+  openPanel("history");
+  historyStyle.start();
+}
+$("sharePlayStyleMore").onclick=openHistoryStyle;
 $("saveStatus").onclick=()=>{$("saveStatus").hidden=true;};
 $("seatNotice").onclick=()=>{$("seatNotice").hidden=true;};
 $("copySeatLink").onclick=()=>{
@@ -2816,6 +2822,11 @@ if(!room && params.has("sgf")){
   }catch(error){
     showNotice(TEXT.history.sharedLoadFailed);
   }
+}
+// The /style page links here to read several saved games together.
+if(!room && params.get("open")==="history-style"){
+  history.replaceState(null,"",location.pathname);
+  openHistoryStyle();
 }
 compactOwnership();
 show();requestAnalysis();

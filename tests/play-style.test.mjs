@@ -170,3 +170,18 @@ test("in 履歴, the person's own side in recent games is picked and can be chan
   assert.equal(dom.$("historyStyleBar").hidden,true);
   assert.equal(rows()[0].sides.length,0);
 });
+
+test("each way to 棋風診断 leads on to the others",async()=>{
+  const html=readFileSync(new URL("../public/index.html",import.meta.url),"utf8");
+  const app=readFileSync(new URL("../public/app.mjs",import.meta.url),"utf8");
+  const page=await renderStylePage();
+  // The share sheet keeps its 棋風診断 section, so 履歴's reading is reached even before a game has a type.
+  assert.match(html,/<section id="sharePlayStyles" class="settings-section">[\s\S]*?id="sharePlayStyleMore"/);
+  assert.match(app,/\$\("sharePlayStyleMore"\)\.onclick=openHistoryStyle;/);
+  // The /style page links back to 履歴's reading, which the app opens from the address.
+  assert.match(page,/href="\/\?open=history-style"/);
+  assert.match(app,/params\.get\("open"\)==="history-style"/);
+  // Read together, a type's text no longer speaks of one game.
+  for(const {text} of Object.values(TEXT.playStyle.types))
+    assert.doesNotMatch(TEXT.playStyle.pooledText(text),/この一局/);
+});

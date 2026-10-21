@@ -551,8 +551,9 @@ export const TEXT = {
     playCta: "MieGOで一局打つ",
     back: "MieGOに戻る",
     sideLabel: color => color === "B" ? "黒番" : "白番",
-    shareSheetNote: "打った人ごとの診断です。ページで説明と4つの軸を見られます。",
+    shareSheetNote: "打った人ごとの、この一局の診断です。ページで説明と4つの軸を見られます。履歴の対局をまとめて診断すると、結果が安定します。",
     openPage: "診断ページを開く",
+    shareNone: "この対局はまだ診断できません。囲碁で、打った人がそれぞれ10手以上打つと出ます。",
     // 履歴: several saved games read together.
     historyButton: "履歴からまとめて棋風診断",
     historyPick: "まとめる対局で、自分が打った石を選んでください。最近のCOMや友人との対局は選んであります。",
@@ -560,6 +561,8 @@ export const TEXT = {
     historyNone: "石を選ぶと、ここに診断が出ます。",
     historyResult: (type, name, games) => type + " " + name + "（" + games + "局のまとめ）",
     historyCancel: "やめる",
+    // Each type's text speaks of one game; read together, it speaks of the games picked.
+    pooledText: text => text.replace(/^この一局では、/, "選んだ対局では、"),
     pooled: games => "選んだ" + games + "局をまとめて測りました。局が多いほど結果は安定します。",
     axes: [
       { high: "A", low: "G", highName: "攻め", lowName: "守り",
@@ -972,6 +975,7 @@ export const TEXT = {
         "「SGFファイルを読み込む」でほかのアプリの棋譜も開けます。",
         "保存容量がいっぱいになると、古い棋譜から自動で削除されます。残したい棋譜は「履歴」の☆でお気に入りにしてください。お気に入りと、いま打っている対局・途中の1台／COMとの対局は削除されません。",
         "形勢の推定は、対局中の棋譜では全手、ほかの棋譜では最終局面だけを保存します。棋譜を再生すると、表示中の手に近い局面から順に裏で推定し直します。",
+        "「履歴からまとめて棋風診断」で、選んだ対局の自分の石からまとめて棋風を診断できます。1局ずつの診断は共有の画面に出ます。",
       ],
     },
     about: {
