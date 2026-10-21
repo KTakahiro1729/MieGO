@@ -17,6 +17,8 @@
   --font-caption:11px;--font-small:12px;--font-body:14px;--font-title:17px;--font-display:22px;
   /* Text fields only: below 16px, iOS Safari zooms the page when one is focused. */
   --font-input:16px;
+  /* Three weights: Japanese system fonts draw few steps between regular and bold. */
+  --weight-regular:400;--weight-medium:600;--weight-bold:700;
   /* Corners, smallest to largest. --radius and --radius-sm are the control and
      choice sizes (UX policy §3.2); sheets take --radius-sheet. */
   --radius-hair:2px;--radius-xs:4px;--radius-inner:6px;--radius-inset:8px;--radius-sm:10px;--radius:13px;
