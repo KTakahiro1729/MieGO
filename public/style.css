@@ -18,7 +18,7 @@
 html{min-height:100%;background:#0d1018}
 body{margin:0;min-height:100vh;min-height:100dvh;background:radial-gradient(ellipse at 50% -22%,#20263a 0%,#0d1018 65%)}
 button,input,select{font:inherit}
-button{min-height:var(--control-h);border-radius:var(--radius);border:1px solid var(--btn-edge);background:var(--btn-bg);color:var(--btn-text);padding:10px 16px;cursor:pointer;font-weight:600}
+button{min-height:var(--control-h);border-radius:var(--radius);border:1px solid var(--btn-edge);background:var(--btn-bg);color:var(--btn-text);padding:10px 16px;cursor:pointer;font-weight:600;touch-action:manipulation}
 button:disabled{opacity:.36;cursor:default}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #f2c875;outline-offset:2px}
 button:hover:not(:disabled){border-color:#748094}
@@ -360,6 +360,10 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .seat-actions{display:flex;gap:8px;margin-top:14px}
 /* A confirmation note under 今の対局を続ける takes the whole row under both buttons. */
 .new-game-actions>.armed-note{flex-basis:100%;order:1}
+/* When the COM failed to load, the note under the disabled start button names what still works;
+   it belongs to the 対COM and 観戦 start button only. */
+.new-game-actions>.start-note{flex-basis:100%;order:1;margin:0}
+#aiSetup[hidden]~.start-note{display:none}
 .setup-row{display:contents}
 .setup-row[hidden]{display:none}
 .setup-label{margin:0;font-size:13px;color:#d6dae3;white-space:nowrap}
@@ -576,7 +580,7 @@ body{overflow:hidden}
 .share-preview-status{display:grid;place-items:center;font-size:11px;color:#aeb3be}
 .share-panel .described{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left}
 .share-panel .described small{font-size:11px;font-weight:400;line-height:1.55;color:#aeb3be}
-#shareCopyFallback{margin-top:8px;width:100%;max-height:110px;min-height:50px;background:#17202e;border:1px solid #6b7588;color:#f4f4ee;padding:6px;border-radius:8px;font-size:12px}
+#shareCopyFallback{margin-top:8px;width:100%;max-height:110px;min-height:50px;background:#17202e;border:1px solid #6b7588;color:#f4f4ee;padding:6px;border-radius:8px;font-size:16px}
 
 
 /* While the solo scoring prompt is open, keep the move button's slot but not a second gold button. */
@@ -599,7 +603,7 @@ body{overflow:hidden}
 .endgame-bar.has-illegal .end-buttons{display:none}
 .illegal-prompt-fallback{position:fixed;z-index:12;left:12px;right:12px;bottom:calc(75px + env(safe-area-inset-bottom));max-width:540px;margin:auto;max-height:45dvh;overflow:auto;background:#252b37;border:1px solid #967d50;box-shadow:0 10px 40px #000b;border-radius:12px;padding:13px}
 .illegal-prompt-fallback label{display:block;font-size:12px;line-height:1.5;margin-bottom:8px}
-.illegal-prompt-fallback textarea{box-sizing:border-box;width:100%;min-height:135px;color:#eee5d4;background:#141924;border:1px solid #666a73;border-radius:8px;padding:10px;font-size:12px}
+.illegal-prompt-fallback textarea{box-sizing:border-box;width:100%;min-height:135px;color:#eee5d4;background:#141924;border:1px solid #666a73;border-radius:8px;padding:10px;font-size:16px}
 .illegal-prompt-fallback button{margin-top:8px;padding:8px 16px}
 
 /* Notices float under the header: the game panel is height-locked, so an
@@ -796,7 +800,7 @@ body{overflow:hidden}
 @media(max-width:700px){.help-panel .settings-head{top:-20px;margin-top:-20px;padding-top:14px}}
 .help-copy-status:empty{display:none}
 .help-copy-status{margin:10px 0 0}
-.help-copy-fallback{display:block;width:100%;margin:8px 0 12px;background:#141924;border:1px solid #666a73;border-radius:8px;color:#eee5d4;padding:10px;font-size:12px}
+.help-copy-fallback{display:block;width:100%;margin:8px 0 12px;background:#141924;border:1px solid #666a73;border-radius:8px;color:#eee5d4;padding:10px;font-size:16px}
 .help-popover{position:fixed;z-index:12;width:min(340px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;
   padding:6px 14px 4px;background:#202737;border:1px solid #556074;border-radius:var(--radius);box-shadow:0 14px 44px #000b}
 .help-popover-head{display:flex;align-items:center;justify-content:space-between;gap:8px}

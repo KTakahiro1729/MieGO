@@ -81,6 +81,7 @@ import {
   createSoundEffects,
   DOPA_VOICES,
   moveSound,
+  proposalArrived,
 } from "./sound.mjs";
 import {
   createDopaMode,
@@ -207,6 +208,8 @@ let ownerColor=null,onlineSession=null,guestInviteKey=null,issuedSide=null,onlin
 let seenPeerSignins=null;
 // The friend's 表示名, as their device last sent it; "" until it does.
 let peerName="";
+// The room whose friend this page has already rung in.
+let peerMetRoom=null;
 let p2pTransport;
 const myOnlineColor=()=>ownerColor===null?null:playerColor(p2pRole,ownerColor);
 const currentSideSelection=()=>document.querySelector('input[name="onlineSide"]:checked')?.value||"random";
@@ -1245,6 +1248,10 @@ function apply(action, remote=false, isAiMove=false) {
     // ドパガキモード's voices grow with the capture, and cheer only a win.
     if(cue)sound.play(cue,cheer??undefined);
     if(good)sound.play("good");
+    // A question for this player: the friend's もう一局, end or 待った, the COM's pass,
+    // or a watched COM同士 game reaching the count.
+    if(remote && proposalArrived(before,game) || isAiMove && endExpanded ||
+       isAiMove && isWatching() && before.status==="playing" && game.status==="scoring")sound.play("offer");
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
        (action.type==="rematch" && game.status==="playing") ||
@@ -1784,6 +1791,9 @@ p2pTransport=createP2PTransport({
   onSync:onPeerSync,
   onAction:action=>apply(action,true),
   onConnected:()=>{
+    // The friend who opened the invite arrives: once per room, before the first move.
+    if(p2pRole==="owner" && peerMetRoom!==room && game.moveNumber===0)sound.play("offer");
+    peerMetRoom=room;
     connected=true;reconnecting=false;$("netStatus").textContent=TEXT.online.connected;
     // A failed retry left 電波やWi-Fiを確認して…, which no longer applies once the peers meet again.
     if($("saveStatus").textContent===TEXT.online.retrying)$("saveStatus").hidden=true;
@@ -1900,6 +1910,7 @@ function syncStartButtons() {
   $("startAi").disabled=needsKatago && (!katagoReady || fallbackMode);
   $("startAi").textContent=needsKatago && fallbackMode?TEXT.ai.startUnavailable:
     needsKatago && !katagoReady?TEXT.ai.startLoading:startLabel();
+  $("startAiNote").hidden=!(needsKatago && fallbackMode);
   keepArmedLabel($("startAi"));
   $("startLocal").textContent=startLabel();
   keepArmedLabel($("startLocal"));

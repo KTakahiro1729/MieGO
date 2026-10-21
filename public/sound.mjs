@@ -27,6 +27,12 @@ export function moveSound(before, after, position) {
   return taken(after) > taken(before) ? "capture" : "move";
 }
 
+/** Whether `after` holds a もう一局, end or 待った proposal that `before` did not. */
+export function proposalArrived(before, after) {
+  return ["rematchRequest", "endProposal", "takebackRequest"]
+    .some(key => after?.[key] && after[key].from !== before?.[key]?.from);
+}
+
 /** The 秒読み beep for a clock reading: the last 10 seconds, higher in the last 5. */
 export function countdownSound(reading) {
   if (!reading || reading.out) return null;
@@ -69,6 +75,13 @@ function envelope(ctx, at, gain, length) {
   level.gain.exponentialRampToValueAtTime(.0001, at + length);
   return level;
 }
+// A struck bell: the note with its octave and twelfth, quieter and dying
+// sooner, so it rings softly and stays under 2.5kHz.
+function bell(ctx, out, at, { frequency, gain, length }) {
+  tone(ctx, out, at, { frequency, gain, length });
+  tone(ctx, out, at, { frequency: frequency * 2, gain: gain * .2, length: length * .5 });
+  tone(ctx, out, at, { frequency: frequency * 3, gain: gain * .06, length: length * .3 });
+}
 function tone(ctx, out, at, { frequency, gain, length }) {
   const oscillator = ctx.createOscillator();
   oscillator.type = "sine";
@@ -106,6 +119,13 @@ export const CALM_VOICES = {
     tone(ctx, out, at + .12, { frequency: 783.99, gain: .08, length: .7 });
   },
   move(ctx, out, at) { knock(ctx, out, at, { frequency: 900, gain: .09, length: .09 }); },
+  // The other side asks something (もう一局, the end, 待った, or the COM's
+  // pass) or a friend arrives: a doorbell's ピンポン, E5 down to C5, kept
+  // under the end's chord.
+  offer(ctx, out, at, { gain = .07 } = {}) {
+    bell(ctx, out, at, { frequency: 659.25, gain: gain, length: .5 });
+    bell(ctx, out, at + .18, { frequency: 523.25, gain: gain * .9, length: .8 });
+  },
 };
 
 // From this many stones taken (as the board's quake) a capture's ドーン echoes.
@@ -208,9 +228,10 @@ function firework(ctx, out, at, { gain }) {
  * with a longer ピューン into a ドーン, both bigger the more stones it took
  * (echoing from 4); a good move rises with a キュイーン; the viewer's win is a
  * firework, ヒュ～ドーン (three for 圧勝), while a loss or a draw ends as
- * calmly as usual; 秒読み beeps twice; a turning point of the replay lands
- * with a ドーン. It grows with what happened in that one move, never with a
- * streak, and the limiter keeps the bigger ones from peaking.
+ * calmly as usual; 秒読み beeps twice; a question rings a brighter ピンポン;
+ * a turning point of the replay lands with a ドーン. It grows with what
+ * happened in that one move, never with a streak, and the limiter keeps the
+ * bigger ones from peaking.
  */
 export const DOPA_VOICES = {
   capture(ctx, out, at, { count = 1 } = {}) {
@@ -260,6 +281,13 @@ export const DOPA_VOICES = {
     CALM_VOICES.move(ctx, out, at);
     pew(ctx, out, at, { from: 1600, to: 500, gain: .05, length: .1 });
     wave(ctx, out, at, { type: "sine", frequency: 160, to: 60, gain: .12, length: .16 });
+  },
+  offer(ctx, out, at) {
+    // The calm ピンポン with a hollow triangle on each note: brighter, but
+    // still a question, so it skips the limiter and stays under a win.
+    CALM_VOICES.offer(ctx, out, at, { gain: .11 });
+    wave(ctx, out, at, { type: "triangle", frequency: 659.25, gain: .06, length: .35 });
+    wave(ctx, out, at + .18, { type: "triangle", frequency: 523.25, gain: .055, length: .5 });
   },
 };
 
