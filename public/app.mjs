@@ -118,13 +118,8 @@ import { cleanWatchAi, GameLibrary } from "./game-library.mjs";
 import { replaySteps, forkReview, exportSGF } from "./sgf.mjs";
 import { createShareImages, downloadBlob } from "./share-images.mjs";
 import { OwnershipStore } from "./ownership-store.mjs";
-import { replayLine, prefetchOrder } from "./ownership-prefetch.mjs";
-import {
-  leadSeries,
-  scoreGraphSvg,
-  stepAt,
-  swingSteps,
-} from "./score-graph.mjs";
+import { replayLine } from "./ownership-prefetch.mjs";
+import { createReviewPrefetch, createScoreGraph } from "./review-estimates.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
@@ -162,7 +157,7 @@ function switchToFallback(reason) {
   console.warn("KataGo unavailable; switching to transparent approximation:", reason);
   worker.terminate();
   worker = new Worker("/analysis-worker.mjs", { type: "module" });
-  workerWaiting = null; prefetch = null;
+  workerWaiting = null; reviewPrefetch.stop();
   worker.onmessage = onWorkerMessage;
   worker.onerror = e => { $("analysisStatus").textContent = TEXT.analysis.unavailable; console.error(e); };
   // The turn row has room for the first words only; the notice gives the whole sentence.
@@ -177,10 +172,17 @@ worker.onerror = e => switchToFallback(e.message || "worker startup error");
 // The worker answers only its newest request, so one waiting id tells whether it is busy.
 let workerWaiting = null;
 // Background estimates of a replayed line (see planPrefetch).
-let prefetch = null;
+const reviewPrefetch = createReviewPrefetch({
+  post:message=>postToWorker(message),
+  nextId:()=>++seq,
+  canAsk:()=>workerWaiting===null && !aiThinking && katagoReady && !fallbackMode &&
+    (overlayOn() || scoreGraph.shown()),
+  recall:(gameId,board)=>ownershipStore.recall(gameId,board),
+  owner:()=>reviewOwner(),
+  onKept:(owner,board,values)=>{keepReviewOwnership(owner,board,values);scoreGraph.render();},
+});
 function postToWorker(message) {
-  // A newer request supersedes a background estimate, which is then asked again.
-  if (prefetch?.inflight) { prefetch.queue.unshift(prefetch.inflight.step); prefetch.inflight = null; }
+  reviewPrefetch.giveWay();
   workerWaiting = message.id;
   worker.postMessage(message);
 }
@@ -905,18 +907,12 @@ function handleAnalysis(event) {
   const result=event.data;
   const validFor=state=>!result.error && result.engine==="katago" && Array.isArray(result.ownership) &&
     result.ownership.length===state.board.length && result.ownership.every(Number.isFinite);
-  if(prefetch?.inflight && result.id===prefetch.inflight.id) {
-    const state=prefetch.states[prefetch.inflight.step];
-    prefetch.inflight=null;
-    if(validFor(state)){keepReviewOwnership(prefetch,state.board,result.ownership);renderScoreGraph();}
-    else prefetch=null; // A failing estimate is not retried in the background.
-    return;
-  }
+  if(reviewPrefetch.receive(result,validFor))return;
   if(boardReview && result.id!==undefined && result.id===boardReview.katagoId) {
     const state=boardReview.preview||boardReview.display;
     if(validFor(state)) {
       boardReview.ownership=result.ownership;
-      if(!boardReview.preview){keepReviewOwnership(reviewOwner(),state.board,result.ownership);renderScoreGraph();}
+      if(!boardReview.preview){keepReviewOwnership(reviewOwner(),state.board,result.ownership);scoreGraph.render();}
       draw();
     }
     return;
@@ -2139,7 +2135,7 @@ function renderBoardReview() {
   $("stepBack").disabled=step===0 || isPreview;
   $("stepForward").disabled=step>=count || isPreview;
   $("reviewStepRange").disabled=isPreview;
-  renderScoreGraph();
+  scoreGraph.render();
   // One way back: at the live game's latest move 続きを打つ already returns to it.
   $("reviewBack").hidden=isPreview || atLiveLatest();
   $("reviewPlayActions").hidden=!isPreview;
@@ -2188,69 +2184,22 @@ function keepReviewOwnership({gameId,finalHash},board,values) {
 // While a game is replayed, KataGo estimates its other positions in the
 // background, nearest to the one on screen first, whenever the worker is idle.
 function planPrefetch() {
-  if(!boardReview){prefetch=null;return;}
-  const line=activeReviewSnapshot(boardReview,game);
-  if(prefetch?.line!==line){
-    let states;
-    try{states=replayLine(line);}catch{prefetch=null;return;}
-    prefetch={line,states,queue:[],inflight:null,...reviewOwner()};
-  }
-  prefetch.queue=prefetchOrder(prefetch.states.length-1,boardReview.step)
-    .filter(step=>step!==prefetch.inflight?.step);
-  pumpPrefetch();
+  if(!boardReview){reviewPrefetch.stop();return;}
+  reviewPrefetch.plan(activeReviewSnapshot(boardReview,game),boardReview.step);
 }
 function pumpPrefetch() {
-  if(!boardReview){prefetch=null;return;}
-  if(!prefetch || prefetch.inflight || workerWaiting!==null || aiThinking ||
-     !katagoReady || fallbackMode || !(overlayOn() || scoreGraphShown()))return;
-  while(prefetch.queue.length){
-    const step=prefetch.queue.shift(),state=prefetch.states[step];
-    if(!state || ownershipStore.recall(prefetch.gameId,state.board))continue;
-    const id=++seq;
-    postToWorker({id,state,board:state.board});
-    prefetch.inflight={id,step};
-    return;
-  }
+  if(!boardReview){reviewPrefetch.stop();return;}
+  reviewPrefetch.pump();
 }
-// 形勢グラフ: Black's estimated lead at every step of the replayed line, drawn
-// where the step slider was. It fills in as KataGo estimates the positions.
-let scoreGraph=null;
-// No graph while stepping back through a game still being played: it would
-// tell the player who is ahead mid-game. A watched game has no player to tell.
-const scoreGraphShown = () => !!boardReview && !isGomoku(boardReview.display) && !isFree(boardReview.display) &&
-  !(boardReview.source==="live" && game.status!=="finished" && !isWatching());
-function renderScoreGraph() {
-  const box=$("reviewGraph"),shown=scoreGraphShown();
-  box.classList.toggle("no-graph",!shown);
-  if(!shown){$("reviewGraphPlot").innerHTML="";scoreGraph=null;return;}
-  const line=activeReviewSnapshot(boardReview,game);
-  if(scoreGraph?.line!==line){
-    let states=[];
-    try{states=replayLine(line);}catch{}
-    scoreGraph={line,states,marks:[]};
-  }
-  const {gameId}=reviewOwner();
-  // A line that ended early (a resignation) still spans every step.
-  const series=Array(line.moves.length+1).fill(null);
-  leadSeries(scoreGraph.states,state=>ownershipStore.recall(gameId,state.board))
-    .forEach((lead,step)=>{if(step<series.length)series[step]=lead;});
-  scoreGraph.marks=swingSteps(series,line.moves,{minSwing:Math.max(3,line.board.length/27)});
-  const width=Math.round(box.clientWidth),height=Math.round(box.clientHeight);
-  // Not laid out yet (the tools are still hidden): drawing at 1x1 would blow
-  // the marks up to the whole bar. The resize observer draws it once sized.
-  if(width<=0 || height<=0){$("reviewGraphPlot").innerHTML="";return;}
-  $("reviewGraphPlot").innerHTML=scoreGraphSvg(series,{width,height,step:boardReview.step,marks:scoreGraph.marks,stepLabel:TEXT.review.graphEnd});
-}
-// A tap near a marked turning point lands on it; otherwise on the nearest step.
-function pickGraphStep(event) {
-  if(!scoreGraphShown() || boardReview.preview)return;
-  const rect=$("reviewGraph").getBoundingClientRect();
-  const count=activeReviewSnapshot(boardReview,game).moves.length;
-  const x=event.clientX-rect.left;
-  const near=(scoreGraph?.marks||[]).find(step=>count && Math.abs(step/count*rect.width-x)<=10);
-  const step=near ?? stepAt(x,rect.width,count);
-  if(step!==boardReview.step)setBoardReviewStep(step);
-}
+const scoreGraph = createScoreGraph({
+  $,
+  getReview:()=>boardReview,
+  getGame:()=>game,
+  isWatching,
+  recall:(gameId,board)=>ownershipStore.recall(gameId,board),
+  gameId:()=>reviewOwner().gameId,
+  setStep:step=>setBoardReviewStep(step),
+});
 function requestReviewOwnership() {
   if(!boardReview)return;
   try{showReviewOwnership();}finally{planPrefetch();}
@@ -2492,14 +2441,14 @@ $("stepForward").onclick=()=>boardReview&&setBoardReviewStep(boardReview.step+1)
 $("reviewBack").onclick=leaveBoardReview;
 $("reviewStepRange").oninput=e=>setBoardReviewStep(Number(e.target.value));
 $("reviewGraph").addEventListener("pointerdown",e=>{
-  if(!scoreGraphShown())return;
+  if(!scoreGraph.shown())return;
   $("reviewGraph").setPointerCapture(e.pointerId);
-  pickGraphStep(e);
+  scoreGraph.pick(e);
 });
 $("reviewGraph").addEventListener("pointermove",e=>{
-  if($("reviewGraph").hasPointerCapture(e.pointerId))pickGraphStep(e);
+  if($("reviewGraph").hasPointerCapture(e.pointerId))scoreGraph.pick(e);
 });
-new ResizeObserver(()=>{if(boardReview)renderScoreGraph();}).observe($("reviewGraph"));
+new ResizeObserver(()=>{if(boardReview)scoreGraph.render();}).observe($("reviewGraph"));
 $("reviewConfirm").onclick=confirmReviewPreview;
 $("reviewCancel").onclick=discardReviewPreview;
 $("reviewVariation").onclick=selectVariationLine;

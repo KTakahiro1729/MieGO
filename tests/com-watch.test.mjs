@@ -1,3 +1,5 @@
+import { createScoreGraph } from "../public/review-estimates.mjs";
+import { newGame } from "../public/core.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {renderIndex} from "../scripts/build-html.mjs";
@@ -68,7 +70,11 @@ test("a COM's pass while watching says what happened, without asking the viewer 
 
 test("stepping back through a watched game pauses it and shows the score graph",()=>{
   assert.match(body("enterBoardReview"),/if\(source==="live" && isWatching\(\) && game\.status==="playing"\)\{\s*stopAiTurn\(\);watchPaused=true;/);
-  assert.match(app,/!\(boardReview\.source==="live" && game\.status!=="finished" && !isWatching\(\)\)/);
+  const graph=(status,watching)=>createScoreGraph({getReview:()=>({source:"live",display:newGame()}),
+    getGame:()=>({status}),isWatching:()=>watching}).shown();
+  assert.equal(graph("playing",true),true);
+  assert.equal(graph("playing",false),false);
+  assert.equal(graph("finished",false),true);
 });
 
 test("a watched game is saved and resumed as watched",()=>{
