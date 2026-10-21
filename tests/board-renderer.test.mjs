@@ -303,10 +303,7 @@ test("盤の線 standing still runs dashes through each group, narrowing toward 
     {requestFrame:f=>frames.push(f),stillMotion:()=>true});
   draw();
   const ends=calls.filter(c=>c.kind==="line").map(c=>c.args.join(","));
-  // The empty point above (4,4) is (250,200); its line stops .3 of a line short of it.
-  assert.ok(ends.includes(String([250,215])),"from the stone toward the empty point above");
-  assert.equal(ends.some(e=>{const [x,y]=e.split(",").map(Number);return Math.abs(x-250)<5&&y<215&&y>185;}),false,
-    "never on the point itself, so groups sharing it never meet there");
+  assert.ok(ends.includes(String([250,200])),"from the stone to the empty point above");
   assert.equal(ends.some(e=>{const [x,y]=e.split(",").map(Number);return Math.abs(x-250)<5&&y>250+22&&y<300-22;}),false,"nothing between black and white");
   assert.equal(calls.some(c=>c.kind==="arc"&&c.args[0]===250&&c.args[1]===200),false,"no dot while still");
   assert.equal(frames.length,0,"still where motion is reduced");
@@ -318,7 +315,7 @@ test("盤の線 set to 仮置き時 shows only while a stone is being placed",()
   let candidate=null;
   const {draw,calls}=recordingBoard(()=>({...baseView(game),candidate,linkStones:"candidate"}),
     {requestFrame:()=>{},stillMotion:()=>true});
-  const toAbove=()=>{calls.length=0;draw();return calls.some(c=>c.kind==="line"&&c.args.join(",")===String([250,215]));};
+  const toAbove=()=>{calls.length=0;draw();return calls.some(c=>c.kind==="line"&&c.args.join(",")===String([250,200]));};
   assert.equal(toAbove(),false,"nothing while no stone is placed");
   const board=game.board.slice();board[at(6,6)]=WHITE;
   candidate={board,moves:[{position:at(6,6)}]};
@@ -369,10 +366,9 @@ test("盤の線 draws one side's breath in at a time, at one speed, only to the 
   // point so it is never late, and into white, once black's is through.
   const corner=ms=>{time=BREATH_GATHER_MS+ms;return lines().filter(([x,y])=>x<=100&&y<=100);};
   const line=BREATH_LINE_MS;
-  // The liberty below (0,0) is (50,100); the line shows from .3 of a line short of it.
-  assert.equal(corner(line/2).some(([x])=>x===50),false,"slow at first, not yet out of the gap by the liberty");
-  const out=corner(line).filter(([x])=>x===50);
-  assert.ok(out.length && out.every(([,y])=>y>74&&y<85+1e-9),"out of the gap, never over it");
+  assert.ok(corner(1).some(([x,y])=>x===50&&y>99&&y<100),"at once from the liberty as the circles close");
+  assert.ok(corner(line/2).some(([x,y])=>x===50&&y>90&&y<99));
+  assert.equal(corner(line/2).some(([x,y])=>x===50&&y<=75),false,"slow at first");
   assert.ok(corner(line*2).some(([x,y])=>x===50&&y===50),"to the stone");
   assert.ok(corner(line*2).some(([x,y])=>x===75&&y===50),"between the stones");
   assert.equal(corner(breathTakes(2)-BREATH_GATHER_MS+1).length,0,"through");

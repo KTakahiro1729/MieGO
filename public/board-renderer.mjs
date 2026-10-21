@@ -304,9 +304,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
 
   // 盤の線: a line runs through each group, along the board's
   // lines from stone to stone and out toward every empty point next to it,
-  // narrowing toward it and stopping short of it, so a group shows what holds
-  // it together and the points it needs, and two groups that need the same
-  // point never look joined there. Standing still these lines are dashes.
+  // narrowing to a point on it, so a group shows what holds it
+  // together and the points it needs. Standing still these lines are dashes.
   // While playing there are no dashes: each breath starts as a circle closing
   // in on every liberty, and is drawn into the group as a stretch
   // of solid line. A group in atari gets its breath only as far as the edge
@@ -315,8 +314,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const palette=countingPalette(view.palette);
     const rgb={[BLACK]:paletteAt(1,palette).join(","),[WHITE]:paletteAt(-1,palette).join(",")};
     const tone={[BLACK]:`rgb(${rgb[BLACK]})`,[WHITE]:`rgb(${rgb[WHITE]})`};
-    // short: how far short of a liberty its line stops, in lines.
-    const width=Math.max(2,gap*.08), dash=gap*.09, edge=1-.44, flare=gap*.14, short=.3;
+    const width=Math.max(2,gap*.08), dash=gap*.09, edge=1-.44, flare=gap*.14;
     const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
     const dots=new Map(), seen=new Set(), groups=[];
     for(let i=0;i<board.length;i++){
@@ -376,10 +374,10 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         ctx.save();
         if(line.liberty){
           // Toward a liberty the line flares out of the stone's edge and
-          // narrows to its own width short of the liberty, where the circle
-          // that closes in there is as wide; over the stone it keeps its width.
+          // narrows to its own width on the liberty, as wide as the circle
+          // that closes in there; over the stone it keeps its width.
           const at=(u,side)=>[ax+(bx-ax)*u+(ay-by)/gap*side,ay+(by-ay)*u+(bx-ax)/gap*side];
-          const outline=[[short,width/2],[edge,flare/2],[edge,width/2],[1,width/2],[1,-width/2],[edge,-width/2],[edge,-flare/2],[short,-width/2]];
+          const outline=[[0,width/2],[edge,flare/2],[edge,width/2],[1,width/2],[1,-width/2],[edge,-width/2],[edge,-flare/2],[0,-width/2]];
           ctx.beginPath();
           outline.forEach(([u,side],k)=>ctx[k?"lineTo":"moveTo"](...at(u,side)));
           ctx.closePath();ctx.clip();
@@ -390,8 +388,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         // so they line up through the group.
         if(!moving){
           ctx.globalAlpha=.75;ctx.setLineDash([dash,dash]);ctx.lineDashOffset=0;
-          const stop=line.liberty?short:0;
-          ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(ax+(bx-ax)*stop,ay+(by-ay)*stop);ctx.stroke();
+          ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(ax,ay);ctx.stroke();
         }
         // A point u along the line is min(from+u, to+1-u) lines from air:
         // the breath comes in from a up to the middle, and from b past it.
@@ -399,7 +396,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         ctx.globalAlpha=1;ctx.setLineDash([]);ctx.lineCap="round";ctx.beginPath();
         const middle=Math.min(1,Math.max(0,(line.to+1-line.from)/2));
         const far=Math.min(ahead,reach);
-        along(Math.max(line.liberty?short:0,near-line.from),Math.min(middle,far-line.from));
+        along(Math.max(0,near-line.from),Math.min(middle,far-line.from));
         along(Math.max(middle,line.to+1-far),Math.min(1,line.to+1-near));
         ctx.stroke();
         ctx.restore();
