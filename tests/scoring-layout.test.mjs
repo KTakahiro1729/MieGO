@@ -53,7 +53,8 @@ function layout(page){
     const stack=["boardFrame","ownershipLegend","captureCounts","endgameBar","scoreBox","actionRow"]
       .map(id=>({id,...box(id)})).filter(part=>part.top!==undefined);
     return {height:innerHeight,width:innerWidth,scrolled:document.querySelector(".game-layout").scrollTop,
-      topbar:document.querySelector(".topbar").getBoundingClientRect().bottom,
+      // The header's own items: on a PC they sit beside the board, not above it.
+      header:[...document.querySelectorAll(".brand,.header-actions")].map(e=>e.getBoundingClientRect().toJSON()),
       board:box("boardFrame"),actions:box("actionRow"),stack,buttons,
       // Text cut off with an ellipsis, by its id or class.
       // The turn sentence is only read out while the row names both players.
@@ -69,7 +70,8 @@ function layout(page){
 function assertFits(view,phase,where){
   const at=`${where} ${phase}`;
   assert.equal(view.scrolled,0,`${at}: the game panel scrolled`);
-  assert.ok(view.board.top>=view.topbar-0.5,`${at}: the board is under the header`);
+  for(const item of view.header)assert.ok(item.bottom<=view.board.top+0.5 || item.right<=view.board.left+0.5 || item.left>=view.board.right-0.5,
+    `${at}: the header runs into the board`);
   assert.ok(view.actions.bottom<=view.height+0.5,`${at}: the action row runs off the screen`);
   // UX policy §1: the score box is not a card, so its frame never adds lines
   // next to the prisoner pills or the action row.

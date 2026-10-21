@@ -71,10 +71,17 @@ test("finished view exposes next match and history without hidden menus",()=>{
   assert.match(html,/id="newMatch"/);
   assert.match(html,/id="openHistory"/);
   // 新規対戦 opens the sheet; もう一局 plays the same game again, except with a friend.
-  assert.match(html,/<button id="newMatchSheet" class="secondary"[^>]*>新規対戦<\/button>\s*<button id="newMatch" class="primary"[^>]*>もう一局<\/button>/);
+  // They are one fused button, each half naming how it differs.
+  assert.match(html,/<div class="fused next-game">\s*<button id="newMatchSheet" class="secondary"[^>]*><span>新規対戦<\/span><small aria-hidden="true">別の設定で<\/small><\/button>\s*<button id="newMatch" class="primary"[^>]*><span>もう一局<\/span><small aria-hidden="true">同じ設定で<\/small><\/button>\s*<\/div>/);
   assert.match(app,/\$\("newMatchSheet"\)\.hidden=!isFinished/);
   assert.match(app,/\$\("newMatch"\)\.hidden=!isFinished \|\| !!room/);
   assert.match(app,/\$\("openHistory"\)\.hidden=!isFinished/);
+  // The header's share glyph closes the row and opens the share sheet for the game just played.
+  const glyph=html.match(/id="shareToggle"[^>]*>\s*(<svg[\s\S]*?<\/svg>)/)[1].replace(/width="23" height="23"/,'width="22" height="22"');
+  assert.match(html,/<button id="newMatch" class="primary"[^>]*>[\s\S]*?<\/button>\s*<\/div>\s*<!--[^>]*-->\s*<button id="openShare" class="secondary share-game" type="button" aria-label="この試合を共有する"[^>]*hidden>/);
+  assert.ok(html.includes('id="openShare" class="secondary share-game" type="button" aria-label="この試合を共有する" title="この試合を共有する" hidden>'+glyph+'</button>'));
+  assert.match(app,/\$\("openShare"\)\.hidden=!isFinished/);
+  assert.match(app,/\$\("openShare"\)\.onclick=openSharePanel/);
 });
 
 test("AI scoring uses human-only confirmation, and remote scoring retains two-player consent",()=>{

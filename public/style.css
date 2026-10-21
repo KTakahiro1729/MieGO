@@ -672,7 +672,13 @@ body{overflow:hidden}
 .illegal-prompt-action.is-copied .copied-icon{display:block}
 .action-row.finished-actions{justify-content:flex-end}
 .game-panel.is-finished .action-row .secondary{flex:1}
-.game-panel.is-finished .action-row #newMatch{flex:2}
+.game-panel.is-finished .action-row #openHistory{flex:0 0 auto;padding:9px 12px}
+.action-row .next-game{flex:1 1 0}
+.action-row .next-game>button{display:grid;place-content:center;gap:1px;padding:5px 6px;line-height:1.15}
+.action-row .next-game>#newMatch{flex:1.3 1 0}
+.action-row .next-game small{font-size:10px;font-weight:600;opacity:.75}
+.fused>.primary{background:linear-gradient(180deg,#f5d88f,#e4b85c)}
+.game-panel.is-finished .action-row .share-game{flex:0 0 48px;width:48px;min-width:48px;padding:0;display:grid;place-items:center}
 .inline-score-actions{display:flex;flex:1 1 auto;min-width:0;gap:8px;margin:0}
 .inline-score-actions>.fused{flex:1 1 auto}
 .action-row .inline-score-actions button{flex:1 1 auto;min-width:0;padding:9px 6px;font-size:12px}
@@ -847,6 +853,30 @@ body{overflow:hidden}
 .info-panel{box-sizing:border-box;height:114px}
 .action-row,.review-panel{box-sizing:border-box;
   height:calc(var(--action-h) + var(--action-pad-top) + max(6px,env(safe-area-inset-bottom)))}
+
+/* PC幅: the phone's column, only bigger. The header moves out of the column to
+   the side slots, so the board gains its height; the board, the rows under it
+   and its column share one width; and the sheets open in the right slot, beside
+   the board instead of over it. The header spans column and both slots, so its
+   buttons end where the sheets do. Narrower or squarer screens keep the
+   floating sheet, since their slots would leave the board smaller than now. */
+@media(min-width:1200px) and (min-aspect-ratio:3/2){
+  :root{
+    /* Under the board: legend, prisoner pills, info panel and action row with
+       their margins, then the column's padding. The rows keep fixed heights. */
+    --under-board:calc(6px + 32px + 6px + 23px + 114px + 4px + var(--action-h) + var(--action-pad-top) + 6px + 20px);
+    --col:min(calc(100dvh - var(--under-board)),calc(100vw - 724px),675px);
+    --side:min(422px,calc((100vw - var(--col))/2));
+    --side-gap:16px;
+  }
+  .app-shell{max-width:none;--topbar-height:0px}
+  .topbar{position:absolute;top:0;left:0;right:0;z-index:4;width:calc(var(--col) + 2*var(--side));margin:0 auto;padding:8px var(--side-gap);pointer-events:none}
+  .topbar>*{pointer-events:auto}
+  .game-layout{width:var(--col);max-width:none;padding:12px 0 8px}
+  .board-frame{max-height:var(--col)}
+  .settings-panel{top:68px;right:calc((100vw - var(--col))/2 - var(--side) + var(--side-gap));width:calc(var(--side) - 2*var(--side-gap));max-height:calc(100dvh - 68px - var(--side-gap))}
+  .mode-panel{height:min(calc(100dvh - 68px - var(--side-gap)),640px)}
+}
 
 /* Motion: only where it shows where something came from or went, or that a tap
    took. prefers-reduced-motion turns all of it off (the rule after the 700px block). */
