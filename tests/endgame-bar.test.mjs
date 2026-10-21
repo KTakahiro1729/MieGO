@@ -46,7 +46,7 @@ test("採点を始める waits for a computing move, except while watching",()=>
   assert.equal(bar({aiThinking:true,watching:true}).disabled.endPropose,false);
 });
 
-test("the solo prompt asks to score, names the COM only in COM games, and holds the board's buttons",()=>{
+test("the solo prompt asks to score, and against the COM the answer is the player's pass",()=>{
   const prompt=bar({endExpanded:true,advisor:{previous:{move:0},stage:"near"}});
   assert.equal(prompt.text.endStatus,TEXT.endgame.askLocal);
   assert.equal(prompt.text.endDetail,TEXT.endgame.detailLocalAi);
@@ -54,7 +54,13 @@ test("the solo prompt asks to score, names the COM only in COM games, and holds 
     TEXT.endgame.detailLocal);
   assert.deepEqual(prompt.classes.actionRow,{"end-prompt-open":true});
   assert.equal(prompt.classes.endgameBar["is-asking"],true);
-  assert.deepEqual([prompt.text.endProposeLabel,prompt.text.endAccept],[TEXT.endgame.startScoring,TEXT.endgame.goScoring]);
+  assert.deepEqual([prompt.text.endProposeLabel,prompt.text.endAccept],[TEXT.endgame.startScoring,TEXT.endgame.passToEnd]);
+  // On one board, while watching or without KataGo, the count is the viewer's own decision.
+  assert.equal(bar({endExpanded:true,gameMode:"local"}).text.endAccept,TEXT.endgame.goScoring);
+  const watched=bar({endExpanded:true,watching:true,advisor:{previous:{move:0},stage:"near"}});
+  assert.deepEqual([watched.text.endAccept,watched.text.endDetail],[TEXT.endgame.goScoring,TEXT.endgame.detailWatchScoring]);
+  assert.equal(bar({endExpanded:true,fallbackMode:true}).text.endAccept,TEXT.endgame.goScoring);
+  assert.equal(bar().text.endDetail,TEXT.endgame.detailAi);
   assert.equal(prompt.hidden.endPropose,true);
   assert.equal(prompt.hidden.endAccept,false);
 });
@@ -62,7 +68,8 @@ test("the solo prompt asks to score, names the COM only in COM games, and holds 
 test("starting scoring before the board has settled keeps the advice above the question",()=>{
   const prompt=bar({endExpanded:true});
   assert.equal(prompt.text.endStatus,TEXT.endgame.playing+"\n"+TEXT.endgame.askLocal);
-  assert.equal(prompt.text.endDetail,TEXT.endgame.detailUnsettled);
+  assert.equal(prompt.text.endDetail,TEXT.endgame.detailUnsettledAi);
+  assert.equal(bar({endExpanded:true,gameMode:"local"}).text.endDetail,TEXT.endgame.detailUnsettled);
 });
 
 test("only a solo accept is gold; a friend's offer gets two equal choices",()=>{
@@ -90,4 +97,27 @@ test("the help button explains the rules for 五目並べ and an illegal preview
   assert.equal(illegal.help,"illegal");
   assert.equal(illegal.text.endStatus,forbiddenLines("ko"));
   assert.equal(bar({game:newGame(true,{rules:"gomoku"})}).help,"rules");
+});
+
+// A record whose last stone brought back an earlier board, Black to move both times.
+const cycled=()=>({...newGame(),moves:[0,1,2,3].map((position,i)=>({color:i%2?WHITE:BLACK,position})),
+  moveNumber:4,next:BLACK,history:["h0","h1","h2","h3","h2"]});
+
+test("a repeated position offers 無勝負 in place of the count, and a friend's offer says so",()=>{
+  const ai=bar({game:cycled()});
+  assert.equal(ai.text.endStatus,TEXT.endgame.repeated);
+  assert.equal(ai.text.endProposeLabel,TEXT.endgame.void);
+  assert.equal(ai.classes.endgameBar["is-calling"],true);
+  const asked=bar({game:cycled(),endExpanded:true});
+  assert.equal(asked.text.endStatus,TEXT.endgame.askVoid);
+  assert.equal(asked.text.endAccept,TEXT.endgame.void);
+  assert.equal(asked.text.endDetail,TEXT.endgame.detailVoidAi);
+  assert.equal(bar({game:cycled(),endExpanded:true,gameMode:"local"}).text.endDetail,TEXT.endgame.detailVoidLocal);
+  assert.equal(bar({game:cycled(),room:true}).text.endProposeLabel,TEXT.endgame.proposeVoid);
+  const offered={...cycled(),endProposal:{from:WHITE,atMove:4,kind:"void"}};
+  const incoming=bar({game:offered,room:true});
+  assert.equal(incoming.text.endStatus,TEXT.endgame.voidProposed);
+  assert.equal(incoming.text.endDetail,TEXT.endgame.detailVoidIncoming);
+  // A watched COM同士 game is not asked: it ends by itself.
+  assert.notEqual(bar({game:cycled(),watching:true}).text.endStatus,TEXT.endgame.repeated);
 });

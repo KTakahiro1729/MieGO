@@ -1,7 +1,7 @@
 // The endgame bar under the board: the advice, a pass just played, an end
 // offer or a friend's 待った request, with the buttons that answer them.
 // endgameBarView() only works out what the bar says; app.mjs puts it on the page.
-import { BLACK, boardHash, isFree, isGomoku } from "./core.mjs";
+import { BLACK, boardHash, isFree, isGomoku, repeatedPosition } from "./core.mjs";
 import { endgameHint } from "./endgame.mjs";
 import { forbiddenLines } from "./illegal-moves.mjs";
 import { TEXT } from "./texts.mjs";
@@ -55,6 +55,10 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
     return view;
   }
   const incoming=!!(offer && room && color!==null && offer.from!==color);
+  // 同一局面反復 (a triple ko and the like): the bar offers 無勝負 instead of the count.
+  // A watched COM同士 game ends by itself (app.mjs), so it is not asked.
+  const repeated=playing && !watching && !isGomoku(game) && repeatedPosition(game)>0;
+  const voidOffer=offer?.kind==="void";
   const localPrompt=playing && !room && endExpanded && !offer;
   const waiting=!!(offer && !incoming);
   const offline=!!room && (!connected || color===null);
@@ -66,23 +70,31 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
   // Scoring an unsettled board counts its open areas for nobody (the playout only fills
   // dame): the same question then keeps the advice above it.
   const unsettled=localPrompt && hint===TEXT.endgame.playing;
-  const aiPassed=localPrompt && aiPassAsks;
+  const aiPassed=localPrompt && aiPassAsks && !repeated;
+  const voidPrompt=localPrompt && repeated;
   let status=!playing?"":offline?TEXT.endgame.offline:
-    incoming?TEXT.endgame.proposed:
+    incoming?(voidOffer?TEXT.endgame.voidProposed:TEXT.endgame.proposed):
     waiting?TEXT.endgame.waiting:
+    voidPrompt?TEXT.endgame.askVoid:
     aiPassed?TEXT.endgame.askAiPassed:
     localPrompt?(unsettled?hint+"\n"+TEXT.endgame.askLocal:TEXT.endgame.askLocal):
-    passed?passed.text:"";
+    passed?passed.text:repeated?TEXT.endgame.repeated:"";
   // How near the end is reads on 採点を始める's three-step meter, not as a sentence.
   const stage=[TEXT.endgame.playing,TEXT.endgame.near,TEXT.endgame.ready].indexOf(hint)+1;
   view.hidden.endStage=!stage;
   view.attributes.endStage={"data-stage":String(stage)};
-  view.attributes.endPropose={"aria-label":(!room?TEXT.endgame.startScoring:TEXT.endgame.propose)+(hint?"（"+hint+"）":"")};
+  // A repeated position offers 無勝負 in place of the count.
+  const proposeLabel=repeated?(room?TEXT.endgame.proposeVoid:TEXT.endgame.void):
+    !room?TEXT.endgame.startScoring:TEXT.endgame.propose;
+  view.attributes.endPropose={"aria-label":proposeLabel+(hint?"（"+hint+"）":"")};
   view.hidden.endPropose=!playing||!!offer||localPrompt||isGomoku(game);
   view.hidden.endAccept=!playing||!(incoming||localPrompt);
   view.hidden.endDecline=!playing||!(incoming||localPrompt||waiting);
-  view.text.endProposeLabel=!room?TEXT.endgame.startScoring:TEXT.endgame.propose;
-  view.text.endAccept=!room?TEXT.endgame.goScoring:TEXT.common.accept;
+  view.text.endProposeLabel=proposeLabel;
+  // 対COM, 採点を始める is the player's pass: the COM's pass starts the count.
+  const asksCom=localPrompt && gameMode==="ai" && !watching && !fallbackMode && !aiPassed && !voidPrompt;
+  view.text.endAccept=voidPrompt?TEXT.endgame.void:asksCom?TEXT.endgame.passToEnd:
+    !room?TEXT.endgame.goScoring:TEXT.common.accept;
   view.text.endDecline=waiting?TEXT.common.withdraw:TEXT.common.keepPlaying;
   for(const id of BUTTONS)view.disabled[id]=offline;
   // A move being computed is about to arrive; scoring waits for it instead of pausing the AI.
@@ -91,19 +103,24 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
   // Answering an opponent's offer is a negotiation: neither choice is emphasized.
   view.classes.endAccept={primary:!room};
   view.classes.actionRow={"end-prompt-open":localPrompt};
-  view.text.endDetail=incoming?TEXT.endgame.detailIncoming:
+  view.text.endDetail=incoming?(voidOffer?TEXT.endgame.detailVoidIncoming:TEXT.endgame.detailIncoming):
+    voidPrompt?(gameMode==="ai"?TEXT.endgame.detailVoidAi:TEXT.endgame.detailVoidLocal):
     aiPassed?TEXT.endgame.detailAiPassed:
-    localPrompt?(unsettled?TEXT.endgame.detailUnsettled:gameMode==="ai"?TEXT.endgame.detailLocalAi:
+    asksCom?(unsettled?TEXT.endgame.detailUnsettledAi:TEXT.endgame.detailLocalAi):
+    localPrompt?(unsettled?TEXT.endgame.detailUnsettled:gameMode==="ai"?TEXT.endgame.detailWatchScoring:
       TEXT.endgame.detailLocal):
     waiting?TEXT.endgame.detailWaiting:
+    repeated?TEXT.endgame.detailRepeated:
     room?TEXT.endgame.detailOnline:
+    gameMode==="ai" && !watching && !fallbackMode?TEXT.endgame.detailAi:
     TEXT.endgame.detailOffline;
   view.text.endNote=playing && isGomoku(game) && !offline && !offer && !localPrompt?TEXT.endgame.gomoku:"";
   const notice=notices.find(n=>n?.number===game.moveNumber && n.hash===boardHash(game.board));
   if(playing && !offer && !localPrompt && !passed && notice)status=notice.text;
   // A decision is asked of this player: an offer, the other side's pass, or the advice to end.
   view.classes.endgameBar={"is-asking":localPrompt,"is-calling":playing && !offline &&
-    (incoming || (!!passed?.second && !keptPlaying) || !status && hint===TEXT.endgame.ready)};
+    (incoming || (!!passed?.second && !keptPlaying) || !status && hint===TEXT.endgame.ready ||
+      status===TEXT.endgame.repeated)};
   // The stable left-hand status slot doubles as a rule explanation for illegal previews.
   // 五目並べ's forbidden moves are explained with its rules, not with ko and suicide.
   view.help=isGomoku(game)?"rules":playing && illegalCandidate?"illegal":"endgame";
