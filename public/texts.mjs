@@ -47,6 +47,7 @@ export const TEXT = {
 
   page: {
     description: "ブラウザで遊べる無料の囲碁アプリ。9路・13路・19路盤で、AI（KataGo）や友達と対局できます。どちらの地になりそうかを色で表示し、棋譜はURLや画像で共有できます。五目並べも遊べます。",
+    forAi: "AI向けの説明：",
     imageAlt: "MieGOの碁盤。地になりそうな所が色で表示されています。",
     title: "MieGO — 地合いを感じながら囲碁",
   },
