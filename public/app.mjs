@@ -322,6 +322,7 @@ const settleControl = createSettleControl({
   show,
   draw,
   jobCurrent:id=>deadEvaluation?.id===id && scoringJobCurrent(deadEvaluation),
+  knownOwnership:board=>ownershipStore.recall(currentGameId,board),
   onUnavailable() {
     deadEvaluation=null;reviewUnavailable();
   },

@@ -20,15 +20,21 @@ const reducedMotion=()=>globalThis.matchMedia?.("(prefers-reduced-motion: reduce
  * dead-stone job: `jobCurrent(id)` tells whether a playout still belongs to it,
  * `onUnavailable()` hears that KataGo could not settle the board, and
  * `onSettled(run)` receives a finished playout ({dead, positions, taps, ...}).
+ * `knownOwnership(board)` is an estimate already kept for the board, shown
+ * until KataGo's first answer so the territory colours do not drop out.
  */
-export function createSettleControl({getGame, isReviewing, post, show, draw, jobCurrent, onUnavailable, onSettled}) {
+export function createSettleControl({getGame, isReviewing, post, show, draw, jobCurrent, onUnavailable, onSettled,
+  knownOwnership=()=>null}) {
   // The playout KataGo is playing (settle), the kept one (settlePlayout) and its 再生 (settleShow).
   let settle=null, settlePlayout=null, settleShow=null;
   const stepMs=()=>settleStepMs(sizeOf(getGame().board));
   function start(id) {
     const game=getGame();
     stopReplay();
-    settle={id,state:settleStart(game),positions:[],ownership:null,initialOwnership:null,shownAt:0,timer:null,
+    const known=knownOwnership(game.board);
+    // Only shown: the dead stones come from KataGo's own answers.
+    const ownership=known?.length===game.board.length && known.every(Number.isFinite) ? known : null;
+    settle={id,state:settleStart(game),positions:[],ownership,initialOwnership:null,shownAt:0,timer:null,
       limit:settleMax(sizeOf(game.board))};
     post({id,kind:"settle",state:settle.state});
   }
