@@ -136,12 +136,13 @@ export function loseOnTime(state, color) {
   if (state.status !== "playing") return state;
   return { ...state, status: "finished", endProposal: null, result: color === BLACK ? "W+T" : "B+T" };
 }
-export function play(state, position) {
+/** `replace` is for a free board only: a stone there turns into the other colour. */
+export function play(state, position, replace = false) {
   if (state.status !== "playing") throw new Error("Not playing");
   // A real move answers any pending 待った request by moving on.
   if (state.takebackRequest) { const { takebackRequest, ...rest } = state; state = rest; }
   const color = state.next;
-  if (isFree(state)) return playFree(state, position, color);
+  if (isFree(state)) return playFree(state, position, color, replace);
   if (position === "resign") return {
     ...state, status: "finished", endProposal: null, result: color === BLACK ? "W+R" : "B+R",
     moves: [...state.moves, { color, position: "resign" }]
@@ -203,22 +204,26 @@ function playGomoku(state, position, color) {
   };
 }
 /** 自由に置く: an empty point takes a stone of colour state.next, a stone is
- * taken off. Nothing is captured. The colour to place is chosen by each player
- * outside the game (playFreeStone), so next only follows the latest edit. */
-function playFree(state, position, color) {
+ * taken off, or with `replace` turned into that colour. Nothing is captured.
+ * The colour is chosen at each tap (playFreeStone), so next only follows the
+ * latest edit. */
+function playFree(state, position, color, replace) {
   if (!Number.isInteger(position) || position < 0 || position >= state.board.length ||
       ![BLACK, WHITE].includes(color)) throw new Error("Only stones on points on a free board");
-  const board = [...state.board]; board[position] = board[position] ? 0 : color;
+  const swap = replace === true && state.board[position] === -color;
+  const board = [...state.board]; board[position] = board[position] && !swap ? 0 : color;
   return {
     ...state, board, passes: 0, moveNumber: state.moveNumber + 1,
-    history: [...state.history, boardHash(board)], moves: [...state.moves, { color, position }]
+    history: [...state.history, boardHash(board)],
+    moves: [...state.moves, swap ? { color, position, replace: true } : { color, position }]
   };
 }
-/** Places or takes off a stone on a free board in the colour the player chose. */
-export const playFreeStone = (state, position, color) => play({ ...state, next: color }, position);
+/** Places, takes off or (with `replace`) turns over a stone on a free board. */
+export const playFreeStone = (state, position, color, replace = false) =>
+  play({ ...state, next: color }, position, replace);
 /** Replays one recorded move. On a free board the move's colour is chosen, not alternated. */
-export const replayMove = (state, { color, position }) =>
-  play(isFree(state) ? { ...state, next: color } : state, position);
+export const replayMove = (state, { color, position, replace }) =>
+  isFree(state) ? playFreeStone(state, position, color, replace) : play(state, position);
 /** A proposed conclusion is not a Go move, a pass, or a scoring verdict.
  * Either color may offer, even when it is not their turn. The other side
  * must explicitly accept before entering dead-stone adjudication.
@@ -280,11 +285,17 @@ export function setDeadCandidates(state, positions) {
   return {...state,dead:[...marked].sort((a,b)=>a-b),scoringStep:"dead",
     agreed:{black:false,white:false}};
 }
-export function resume(state) {
+/**
+ * 対局を再開. When the player who asks is known (`by`), the opponent moves
+ * first: 日本囲碁規約 第九条 gives the side asked to resume the right to play
+ * first. Without `by` (one board for two players, a replay) the turn stays.
+ */
+export function resume(state, by = null) {
   if (state.status !== "scoring") throw new Error("Not scoring");
   // The playout's fill stones belong to this count only.
   const { fill, ...rest } = state;
-  return { ...rest, status: "playing", scoringStep: "dead", passes: 0, endProposal: null, dead: [],
+  const next = by === BLACK || by === WHITE ? -by : state.next;
+  return { ...rest, next, status: "playing", scoringStep: "dead", passes: 0, endProposal: null, dead: [],
     agreed: { black: false, white: false } };
 }
 /**
@@ -330,10 +341,21 @@ export function countingBoard(state) {
 export function areaScore(state) {
   return isJapanese(state) ? territoryScore(state) : chineseAreaScore(state);
 }
+/**
+ * Area scoring. The playout's fill stones close the borders but count for
+ * nobody: they fill the dame after the players stopped, and those points are
+ * shared (中国围棋竞赛规则 2002年版 第九条: 双方活棋之间的空点各得一半), which
+ * is the same difference as no one's. Dame filled as moves during the match
+ * are real stones and still count for the side that played them. Counting
+ * them would give the side that fills first, the one that passed first, the
+ * odd point.
+ */
 function chineseAreaScore(state) {
   const board = countingBoard(state), owned = Array(board.length).fill(0);
+  const fill = new Set(fillStones(state).map(s => s.position));
   let black = 0, white = whiteCompensation(state);
   for (let i = 0; i < board.length; i++) {
+    if (fill.has(i)) continue;
     if (board[i] === BLACK) { black++; owned[i] = BLACK; }
     if (board[i] === WHITE) { white++; owned[i] = WHITE; }
   }

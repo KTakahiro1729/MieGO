@@ -65,7 +65,6 @@ test("a game with a capture, scoring and stepping back runs without a script err
     await page.waitForFunction(text=>document.getElementById("moveLabel").textContent!==text,move);
   }
   await page.locator("#gamePanel.is-scoring").waitFor();
-  if(await page.locator("#settleSkip").isVisible())await page.locator("#settleSkip").click();
   await page.waitForFunction(()=>!document.getElementById("agree").disabled,null,{timeout:60000});
   await page.locator("#agree").click();
   await page.locator("#gamePanel.is-finished").waitFor();

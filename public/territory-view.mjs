@@ -1,3 +1,5 @@
+import { groups, neighbors, sizeOf } from "./core.mjs";
+
 // Values are ownership tendencies (-1 white, +1 black), not win probabilities.
 // A neutral ownership value (0) is fully transparent: the board is visible.
 //
@@ -134,6 +136,50 @@ export const NEUTRAL_MARK = "rgba(96,92,84,.85)";
 export function prisonerOutline(palette = DEFAULT_PALETTE) {
   const {white,black} = coloursFor(countingPalette(palette));
   return {white:hex(black.rgb),black:hex(white.rgb)};
+}
+// The estimate as the board shows it. MieGO's estimate is one pass of a small
+// network, which stays unsure of plainly closed territory (on a won 19x19
+// board, often when the winner is to move). So an area the estimate already
+// gives to one side, and that is closed off by that side's living stones
+// alone, is shown as settled. Groups the estimate gives, on average, to the
+// other side count as dead stones inside the area; walls it is unsure of
+// (seki) close nothing. 日本式 counts territory, not stones: living stones are left clear,
+// while a dead stone's point, territory once it is lifted, keeps its colour.
+const SETTLED_WALL = .5;
+export function shownOwnership(board, values, {japanese=false}={}) {
+  if(!Array.isArray(board) || !Array.isArray(values) || values.length!==board.length)return values;
+  const size=sizeOf(board), side=values.map(v=>Number.isFinite(v)?v:0);
+  // Each stone's group's mean ownership, signed for its own colour.
+  const control=Array(board.length).fill(0);
+  for(const g of groups(board)){
+    const mean=[...g.stones].reduce((sum,p)=>sum+g.color*side[p],0)/g.stones.size;
+    for(const p of g.stones)control[p]=mean;
+  }
+  const living=p=>board[p] && control[p]>0;
+  const shown=[...side], seen=new Set();
+  for(let start=0;start<board.length;start++){
+    if(living(start) || seen.has(start))continue;
+    const area=[start], walls=new Set(); seen.add(start);
+    let firm=true;
+    for(let head=0;head<area.length;head++){
+      for(const n of neighbors(area[head],size)){
+        if(living(n)){walls.add(board[n]);if(control[n]<SETTLED_WALL)firm=false;}
+        else if(!seen.has(n)){seen.add(n);area.push(n);}
+      }
+    }
+    // An area reaching all four edges is the open board, not a closed area.
+    const edges=new Set();
+    for(const p of area){
+      const x=p%size,y=Math.floor(p/size);
+      if(x===0)edges.add("left");if(x===size-1)edges.add("right");
+      if(y===0)edges.add("top");if(y===size-1)edges.add("bottom");
+    }
+    if(!firm || walls.size!==1 || edges.size===4)continue;
+    const owner=[...walls][0];
+    if(area.every(p=>board[p] || owner*side[p]>0))for(const p of area)shown[p]=owner;
+  }
+  if(japanese)for(let p=0;p<board.length;p++)if(living(p))shown[p]=0;
+  return shown;
 }
 export function interpolateOwnership(from,to,progress) {
   const t=clamp(progress,0,1);
