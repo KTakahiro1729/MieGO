@@ -74,7 +74,7 @@ export const TEXT = {
     labelOnline: "待った：相手が確認したら、自分の直前の手まで戻す",
     labelAi: "待った：自分の直前の手まで戻す",
     labelLocal: "待った：直前の1手を戻す",
-    done: move => "待った：" + move + "手目に戻しました",
+    done: move => "待った：" + (move === 0 ? "対局開始" : move + "手目") + "に戻しました",
     doneAi: "待ったをしました。",
   },
 
@@ -507,8 +507,9 @@ export const TEXT = {
     checkingVariation: "試し打ちを確認中",
     checkingShared: "リンクの棋譜を確認中",
     // A pass or a resignation leaves the board as it was, so the turn row names it.
-    showing: (step, position) => step === 0 ? "対局開始を表示中" :
-      step + "手目" + (position === null ? "のパス" : position === "resign" ? "の投了" : "") + "を表示中",
+    // A resignation is not a move: the game's count, as in 履歴, stops before it.
+    showing: (step, position) => step === 0 ? "対局開始を表示中" : position === "resign" ? "投了を表示中" :
+      step + "手目" + (position === null ? "のパス" : "") + "を表示中",
     trying: step => "試し打ち " + step + "手目",
     tryHere: "試しに打つ",
     step: (step, count) => step + " / " + count + "手",

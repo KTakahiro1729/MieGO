@@ -2196,7 +2196,9 @@ function renderBoardReview() {
   const isPreview=!!boardReview.preview;
   $("ownershipLegend").classList.toggle("no-territory",isGomoku(line));
   $("reviewTitle").textContent=variationActive?TEXT.review.checkingVariation:source==="url"?TEXT.review.checkingShared:TEXT.review.checking;
-  $("moveLabel").textContent=TEXT.review.step(step,count);
+  // A resignation takes a step on the slider but is not counted as a move.
+  const played=line.moves.filter(move=>move.position!=="resign").length;
+  $("moveLabel").textContent=TEXT.review.step(Math.min(step,played),played);
   $("reviewStepRange").max=String(count);
   $("reviewStepRange").value=String(step);
   $("stepBack").disabled=step===0 || isPreview;

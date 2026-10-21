@@ -137,7 +137,11 @@ test("◁ steps back one move at once; the replay row holds the way back",()=>{
 test("the replay's turn row names the shown move, and its stone is that move's colour",()=>{
   assert.equal(TEXT.review.showing(0),"対局開始を表示中");
   assert.equal(TEXT.review.showing(5,null),"5手目のパスを表示中");
-  assert.equal(TEXT.review.showing(6,"resign"),"6手目の投了を表示中");
+  assert.equal(TEXT.review.showing(6,"resign"),"投了を表示中");
+  assert.equal(TEXT.takeback.done(0),"待った：対局開始に戻しました");
+  assert.equal(TEXT.takeback.done(3),"待った：3手目に戻しました");
+  // A resignation is a step on the slider but not a move, as in 履歴.
+  assert.match(app,/TEXT\.review\.step\(Math\.min\(step,played\),played\)/);
   assert.match(app,/const shown=isPreview\?boardReview\.preview\.moves\.at\(-1\):line\.moves\[step-1\];/);
   assert.match(app,/\$\("turn"\)\.classList\.toggle\("white-to-play",shown\?\.color===WHITE\);/);
   assert.match(app,/\$\("turn"\)\.classList\.toggle\("no-stone",!shown\);/);
