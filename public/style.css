@@ -166,7 +166,7 @@ button.players:disabled{opacity:1;cursor:default}
 .rule-label{font-size:var(--font-caption);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .rule-line .help-button{width:18px;height:18px;flex:none}
 .rule-line .help-button::after{inset:-13px}
-.rule-line .help-button svg{width:16px;height:16px}
+.rule-line .help-button svg{width:18px;height:18px}
 .board-frame{width:min(100%,675px);min-width:0;align-self:center;aspect-ratio:1;padding:5px;background:linear-gradient(135deg,var(--gold-65),var(--gold-84) 35%,var(--gold-57) 100%);border:1px solid var(--gold-78);border-radius:var(--radius);box-shadow:0 2px 1px var(--white-a7) inset,0 15px 40px var(--black-a53),0 0 0 1px var(--gold-88-a13);position:relative;isolation:isolate;transition:box-shadow .3s,border-color .3s}
 /* Board looks (board-theme.mjs): the frame matches the canvas. */
 .board-frame[data-board-theme="custom"]{background:linear-gradient(135deg,var(--white-a15),var(--black-a0) 35%,var(--black-a25)),var(--board-colour);border-color:var(--white-a19)}
@@ -233,7 +233,7 @@ body.board-zoomed .board-bleed{opacity:1}
 /* A list choice keeps the native picker but draws the app's own chevron, the one ◁ ▷ use. */
 select{appearance:none;-webkit-appearance:none;padding-right:34px!important;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9ced8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")!important;
-  background-repeat:no-repeat!important;background-position:right 10px center!important;background-size:16px!important}
+  background-repeat:no-repeat!important;background-position:right 9px center!important;background-size:18px!important}
 select:disabled{opacity:.45}
 .settings-section input[type="range"]{width:100%;height:44px;accent-color:var(--gold-83);margin:0}
 .settings-section .mode{display:flex;align-items:center;justify-content:space-between;gap:15px;margin:18px 0}
@@ -368,6 +368,12 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .range-labels{display:flex;justify-content:space-between;color:var(--slate-77);font-size:var(--font-caption)}
 .info-disclosure{margin-top:12px;border-top:1px solid var(--slate-37);padding-top:13px}
 .info-disclosure summary{cursor:pointer;min-height:44px;padding:11px 0;box-sizing:border-box;font-size:var(--font-body);color:var(--slate-89)}
+/* The open/close mark is an SVG chevron like every other icon, not the browser's ▶. */
+.info-disclosure summary{display:flex;align-items:center;gap:6px;list-style:none}
+.info-disclosure summary::-webkit-details-marker{display:none}
+.info-disclosure summary::before{content:"";flex:none;width:18px;height:18px;margin-left:-6px;background:currentColor;transition:transform .15s;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/svg%3E") center/contain no-repeat}
+.info-disclosure[open]>summary::before{transform:rotate(90deg)}
 .info-disclosure .explanation{margin:6px 0 12px}
 
 /* One height for every mode, so switching modes never moves the sheet; longer content scrolls inside. */
@@ -399,7 +405,7 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .sheet-head-tab{position:relative;margin:0;cursor:pointer}
 .sheet-head-tab input{position:absolute;opacity:0}
 .sheet-head-tab>span{display:flex;align-items:center;gap:4px;height:var(--control-h);padding:0 12px 0 10px;border:1px solid transparent;border-radius:var(--radius);color:var(--slate-83)}
-.sheet-head-tab .mode-icon{width:20px;height:20px;color:inherit}
+.sheet-head-tab .mode-icon{width:22px;height:22px;color:inherit}
 .sheet-head-tab strong{font-size:var(--font-body);font-weight:var(--weight-medium);white-space:nowrap}
 .mode-icon{flex:none;color:var(--slate-86)}
 .handicap-select{width:100%;min-height:var(--control-h);background:var(--slate-29);border:1px solid var(--slate-43);border-radius:var(--radius-sm);color:var(--gray-96);padding:10px 12px}
@@ -481,7 +487,7 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .ai-advanced:disabled .fused input:disabled+span{color:inherit}
 .ai-advanced{min-width:0;margin:0;padding:0;border:0}
 /* Board size reads at a glance: denser grid lines for larger boards. */
-.size-icon{flex:none;width:20px;height:20px;color:var(--slate-71)}
+.size-icon{flex:none;width:22px;height:22px;color:var(--slate-71)}
 /* Under a tab's choices, the settings that only that tab's choice uses (置き石, …), after a line and a small heading. */
 .setup-more{margin-top:14px;padding-top:12px;border-top:1px solid var(--slate-35)}
 /* A tab whose panel is only such sections (時間) starts with the first one, without its line. */
@@ -853,7 +859,7 @@ body{overflow:hidden}
 .sheet-head-actions{display:flex;align-items:center;gap:6px}
 .sheet-head-actions .help-button{width:44px;height:44px;margin:0}
 .sheet-head-actions .help-button::after{display:none}
-.sheet-head-actions .help-button svg{width:21px;height:21px}
+.sheet-head-actions .help-button svg{width:22px;height:22px}
 .help-panel{z-index:11}
 .help-topics{padding-top:0;border-top:0}
 .help-intro{margin:0 0 10px}
