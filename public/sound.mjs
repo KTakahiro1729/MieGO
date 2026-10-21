@@ -112,12 +112,13 @@ export const CALM_VOICES = {
 const ECHO_FROM = 4;
 // Most stones a capture's sound grows for: past this it is as big as it gets.
 const GROW_MOST = 10;
-// When the crackle after a firework's ドーン pops, in seconds after it.
-const CRACKLE = [.08, .13, .17, .24, .29, .36, .41, .5, .57, .66];
+// When the crackle after a firework's ドーン pops, in seconds after it: a few,
+// spread out, as fast pops of bright noise are the kind of sound people hate.
+const CRACKLE = [.08, .17, .29, .41, .57];
 
-// ドパガキモード is louder and layered, so it runs through a compressor
-// that holds its peaks down: a big capture or a win sounds bigger, not
-// harsher, and the stone after it is as loud as the one before.
+// ドパガキモード is louder and layered, so its bigger sounds run through a
+// compressor that holds their peaks down: a big capture or a win sounds
+// bigger, not harsher.
 const limiters = new WeakMap();
 function limited(ctx, out) {
   if (!limiters.has(ctx)) {
@@ -152,7 +153,7 @@ function wave(ctx, out, at, { type, frequency, to = frequency, gain, length, att
 function pew(ctx, out, at, { from, to, gain, length }) {
   const filter = ctx.createBiquadFilter();
   filter.type = "lowpass";
-  filter.frequency.value = 3500;
+  filter.frequency.value = 2500;
   filter.connect(out);
   wave(ctx, filter, at, { type: "square", frequency: from, to, gain: gain * .5, length });
   wave(ctx, out, at, { type: "sine", frequency: from, to, gain, length });
@@ -170,10 +171,13 @@ function rumble(ctx, out, at, { from, to, gain, length }) {
   source.start(at);
   source.stop(at + length + .01);
 }
-// ドーン: a drum falling fast from 140Hz to 35Hz under the rumble of a blast.
+// ドーン: a drum falling fast from 140Hz to 45Hz under the rumble of a blast.
+// A phone's speaker plays little below 400Hz, so its 2nd and 3rd harmonics
+// carry the weight there; nothing goes lower than can be heard.
 function boom(ctx, out, at, { gain, length }) {
-  wave(ctx, out, at, { type: "sine", frequency: 140, to: 35, gain, length });
-  wave(ctx, out, at, { type: "triangle", frequency: 70, to: 30, gain: gain * .4, length: length * .6 });
+  wave(ctx, out, at, { type: "sine", frequency: 140, to: 45, gain, length });
+  wave(ctx, out, at, { type: "sine", frequency: 280, to: 90, gain: gain * .35, length: length * .6 });
+  wave(ctx, out, at, { type: "sine", frequency: 420, to: 135, gain: gain * .2, length: length * .4 });
   rumble(ctx, out, at, { from: 2500, to: 120, gain: gain * .45, length: length * 1.2 });
 }
 // Pops of bright noise after a firework bursts.
@@ -182,10 +186,10 @@ function crackle(ctx, out, at, gain) {
     const source = ctx.createBufferSource();
     source.buffer = noise(ctx);
     const filter = ctx.createBiquadFilter();
-    filter.type = "highpass";
-    filter.frequency.value = 3000 + i % 3 * 1500;
+    filter.type = "bandpass";
+    filter.frequency.value = 1800 + i % 3 * 500;
     const pop = at + later;
-    source.connect(filter).connect(envelope(ctx, pop, gain * (1 - i * .07), .03)).connect(out);
+    source.connect(filter).connect(envelope(ctx, pop, gain * (1 - i * .12), .03)).connect(out);
     source.start(pop);
     source.stop(pop + .04);
   }
@@ -195,7 +199,7 @@ function firework(ctx, out, at, { gain }) {
   wave(ctx, out, at, { type: "sine", frequency: 500, to: 2200, gain: gain * .35, length: .45 });
   const burst = at + .45;
   boom(ctx, out, burst, { gain, length: .9 });
-  crackle(ctx, out, burst, gain * .5);
+  crackle(ctx, out, burst, gain * .3);
 }
 
 /**
@@ -206,7 +210,7 @@ function firework(ctx, out, at, { gain }) {
  * firework, ヒュ～ドーン (three for 圧勝), while a loss or a draw ends as
  * calmly as usual; 秒読み beeps twice; a turning point of the replay lands
  * with a ドーン. It grows with what happened in that one move, never with a
- * streak, and the limiter keeps its peaks down.
+ * streak, and the limiter keeps the bigger ones from peaking.
  */
 export const DOPA_VOICES = {
   capture(ctx, out, at, { count = 1 } = {}) {
@@ -214,7 +218,7 @@ export const DOPA_VOICES = {
     const stones = Math.max(1, Math.min(GROW_MOST, count));
     CALM_VOICES.move(ctx, bus, at);
     const flight = .22 + stones * .03;
-    pew(ctx, bus, at, { from: 2600, to: 180, gain: .16, length: flight });
+    pew(ctx, bus, at, { from: 1800, to: 180, gain: .16, length: flight });
     boom(ctx, bus, at + flight * .6, { gain: .3 + stones * .03, length: .45 + stones * .06 });
     if (stones >= ECHO_FROM) boom(ctx, bus, at + flight * .6 + .28, { gain: .25, length: .5 });
   },
@@ -251,10 +255,11 @@ export const DOPA_VOICES = {
     wave(ctx, bus, at + .05, { type: "sine", frequency: 450, to: 3600, gain: .04, length: .35 });
   },
   move(ctx, out, at) {
-    const bus = limited(ctx, out);
-    CALM_VOICES.move(ctx, bus, at);
-    pew(ctx, bus, at, { from: 1600, to: 500, gain: .06, length: .1 });
-    wave(ctx, bus, at, { type: "sine", frequency: 160, to: 50, gain: .2, length: .16 });
+    // Heard every move, so it stays well under a capture or a win: it skips
+    // the limiter, whose make-up gain would lift it as high as they are.
+    CALM_VOICES.move(ctx, out, at);
+    pew(ctx, out, at, { from: 1600, to: 500, gain: .05, length: .1 });
+    wave(ctx, out, at, { type: "sine", frequency: 160, to: 60, gain: .12, length: .16 });
   },
 };
 
