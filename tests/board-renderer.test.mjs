@@ -11,6 +11,7 @@ import {
   BURST_MS,
   CAPTURE_FADE_MS,
   CAPTURE_STEP_MS,
+  PREVIEW_CAPTURED_ALPHA,
 } from "../public/board-renderer.mjs";
 import {recordingBoard,baseView} from "./helpers/board-canvas.mjs";
 import {ownershipPixel,countingOpacity} from "../public/territory-view.mjs";
@@ -436,4 +437,33 @@ test("with 盤の線 on, a captured group is cut from its last liberty out, each
     assert.equal(ghost(100),undefined);
     assert.equal(cutLine()?.length??0,0,"and the line is gone");
   }
+});
+
+test("with 盤の線 on, the cut runs while the taking move is only placed, and playing it fades the faint stones out",()=>{
+  const game=newGame();
+  for(const p of [at(1,0),at(2,0),at(0,1),at(1,2),at(2,2)])game.board[p]=BLACK;
+  game.board[at(1,1)]=WHITE;game.board[at(2,1)]=WHITE;
+  game.history=[boardHash(game.board)];
+  const played=play(game,at(3,1));
+  let time=0,shown=game,candidate=null;
+  const {draw,calls}=recordingBoard(()=>({...baseView(shown),candidate,linkStones:"candidate"}),
+    {requestFrame:()=>{},now:()=>time,stillMotion:()=>false});
+  const ghost=x=>calls.find(c=>c.kind==="arc"&&c.args[2]===22&&c.args[0]===x&&c.args[1]===100);
+  const at_=ms=>{time=ms;calls.length=0;draw();};
+  draw();
+  candidate={board:played.board,moves:played.moves};
+  at_(0);
+  assert.equal(ghost(150)?.alpha,1,"full until the cut reaches it");
+  at_(CAPTURE_STEP_MS+CAPTURE_FADE_MS/2);
+  assert.ok(Math.abs(ghost(150).alpha-(1+PREVIEW_CAPTURED_ALPHA)/2)<1e-9,"fading toward faint");
+  assert.equal(ghost(100)?.alpha,1,"not reached yet");
+  at_(CAPTURE_STEP_MS*2+CAPTURE_FADE_MS);
+  for(const x of [100,150])assert.equal(ghost(x)?.alpha,PREVIEW_CAPTURED_ALPHA,"and stays faint while placed");
+  // Played: no second cut, the faint stones fade out together.
+  candidate=null;shown=played;
+  at_(2000);
+  at_(2000+CAPTURE_FADE_MS/2);
+  for(const x of [100,150])assert.ok(Math.abs(ghost(x)?.alpha-PREVIEW_CAPTURED_ALPHA/2)<1e-9);
+  at_(2000+CAPTURE_FADE_MS);
+  assert.equal(ghost(100),undefined);
 });

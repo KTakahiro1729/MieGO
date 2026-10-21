@@ -43,11 +43,14 @@ export const BREATH_MS=4000, BREATH_GATHER_MS=900, BREATH_DRAW_MS=900, BREATH_TR
 // ratio keep neighbouring groups well apart, and a group keeps its delay
 // until a stone before its first joins it.
 export const breathDelay=first=>(first*.6180339887%1)*BREATH_STAGGER_MS;
-// 盤の線 on, a captured group dies from its last liberty out: the line
-// through it is cut at the stone that filled that liberty and the cut runs
+// 盤の線 on, a group a move takes dies from its last liberty out: the line
+// through it is cut at the stone that fills that liberty and the cut runs
 // one stone further each CAPTURE_STEP_MS (quicker in a long group, so it
 // takes at most CAPTURE_SPREAD_MS), each stone fading as the cut reaches it.
-export const CAPTURE_STEP_MS=160, CAPTURE_SPREAD_MS=560;
+// It runs while the move is only placed, the stones fading to
+// PREVIEW_CAPTURED_ALPHA; once played they fade out from there as any
+// capture does. A move played without being placed first is cut as it is played.
+export const CAPTURE_STEP_MS=160, CAPTURE_SPREAD_MS=560, PREVIEW_CAPTURED_ALPHA=.4;
 const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 // ドパガキモード: sparks fly from each taken stone, and a "+N" rises over them, for this long.
 export const BURST_MS=900;
@@ -72,7 +75,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   // The side length of the position being drawn; set at the start of each draw.
   let SIZE = DEFAULT_SIZE;
   // The live position last drawn and each stone's alpha in it, to find what a move captured.
-  let lastLive=null, shownAlpha=[], fading=[], cuts=[], sparks=[], pops=[], waves=[], frame=null;
+  let lastLive=null, shownAlpha=[], fading=[], cuts=[], previewCut=null, sparks=[], pops=[], waves=[], frame=null;
 
   function paintGrid(theme, d, gap, pad) {
     ctx.clearRect(0,0,d,d);
@@ -233,7 +236,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       ctx.fillText(label,x,y+1);ctx.restore();
     }
   }
-  function paintStones(theme, view, display, gap, pad) {
+  function paintStones(theme, view, display, gap, pad, cut) {
     const {game,boardReview,candidate,illegalCandidate} = view;
     // "Stones hidden" leaves only the ownership colours (and the move being
     // placed) while playing or replaying; counting shows every stone again.
@@ -241,6 +244,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const proposedBoard = boardReview?.preview?.board || (boardReview ? null : candidate?.board);
     const preview = boardReview ? boardReview.previewPosition :
       (candidate?.moves.at(-1)?.position ?? illegalCandidate?.position);
+    const capturedAlpha=previewCapture(display,boardReview?null:candidate,cut);
     // 盤の線 reads the stones as shown, the one being placed included.
     const around=Array(display.board.length).fill(0);
     for(let i=0;i<display.board.length;i++) {
@@ -255,7 +259,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       const x=pad+(i%SIZE)*gap;
       const y=pad+Math.floor(i/SIZE)*gap;
       const r=gap*.44;
-      const alpha=captured ? 0.4 : i===preview ? 0.68 : 1;
+      const alpha=captured ? capturedAlpha(i) : i===preview ? 0.68 : 1;
       shownAlpha[i]=alpha;
       paintStone(theme,color,x,y,r,alpha);
       if(!captured)around[i]=color;
@@ -473,8 +477,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       if(before.board[i] && !game.board[i] && before.alpha[i])taken.push(i);
       if(burst==="on" && !before.board[i] && game.board[i])waves.push({x:i%SIZE,y:Math.floor(i/SIZE),start});
     }
-    const placed=game.moves.at(-1)?.position;
-    const cutting=cut && taken.length && Number.isInteger(placed);
+    // Stones already cut while the move was placed only fade from there.
+    const placed=game.moves.at(-1)?.position, whole=taken.filter(i=>before.alpha[i]===1);
+    const cutting=cut && whole.length===taken.length && taken.length && Number.isInteger(placed);
     const cutAt=cutting?cutFrom(before.board,placed,taken,start):null;
     for(const i of taken)
       fading.push({position:i,color:before.board[i],from:before.alpha[i],start,delay:cutAt?cutAt(i):0});
@@ -499,10 +504,33 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     if(fading.length && frame===null)frame=requestFrame(()=>{frame=null;draw();});
   }
 
+  // How faint each stone the placed move would take is shown: with the cut
+  // running, full until the cut reaches it and then fading to
+  // PREVIEW_CAPTURED_ALPHA; otherwise that at once. A new placement starts
+  // its own cut and drops the last one's.
+  function previewCapture(display,candidate,cut) {
+    const placed=candidate?.moves.at(-1)?.position;
+    if(previewCut?.board!==candidate?.board){
+      cuts=cuts.filter(c=>!c.preview);
+      const taken=candidate && cut && requestFrame && !stillMotion() && Number.isInteger(placed) ?
+        display.board.flatMap((v,i)=>v && !candidate.board[i]?[i]:[]) : [];
+      const start=now();
+      previewCut=taken.length?{board:candidate.board,start,delay:cutFrom(display.board,placed,taken,start,true)}:
+        candidate?{board:candidate.board}:null;
+    }
+    if(!previewCut?.delay)return ()=>PREVIEW_CAPTURED_ALPHA;
+    const time=now()-previewCut.start;
+    return i=>{
+      const t=Math.min(1,Math.max(0,(time-previewCut.delay(i))/CAPTURE_FADE_MS));
+      if(t<1 && frame===null)frame=requestFrame(()=>{frame=null;draw();});
+      return 1-(1-PREVIEW_CAPTURED_ALPHA)*t;
+    };
+  }
+
   // The line through the groups a move took, in lines from the stone that
   // filled their last liberty: from there it is cut one stone at a time, and
   // each stone starts fading when the cut reaches its middle.
-  function cutFrom(board,placed,taken,start) {
+  function cutFrom(board,placed,taken,start,preview=false) {
     const dead=new Set(taken), depth=new Map([[placed,0]]);
     let front=[placed];
     while(front.length){
@@ -518,7 +546,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         const [a,b]=depth.get(n)<=depth.get(s)?[n,s]:[s,n];
         lines.push({a,b,from:depth.get(a),to:depth.get(b),color:board[s],liberty:n===placed});
       }
-    cuts.push({lines,start,step,end:Math.max(...depth.values())+1});
+    cuts.push({lines,start,step,end:Math.max(...depth.values())+1,preview});
     return i=>depth.get(i)*step;
   }
   // A captured group's line stays solid where the cut has not reached, the
@@ -620,11 +648,12 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     paintStarPoints(theme,gap,pad);
     if(scoring)paintNeutralPoints(game,scoring,kept,gap,pad);
     const live=!boardReview && game.status==="playing";
-    if(!live){fading=[];cuts=[];sparks=[];pops=[];waves=[];}
+    if(!live){fading=[];cuts=[];previewCut=null;sparks=[];pops=[];waves=[];}
     shownAlpha=[];
-    paintStones(theme,view,display,gap,pad);
-    // The cut shows with 盤の線 on, whether always or 仮置き時 (the stone placed is no longer being placed).
-    noteCaptures(game,live,view.burst,!!view.linkStones && view.linkStones!=="off" && !view.hideStones);
+    // The cut shows with 盤の線 on, whether always or 仮置き時.
+    const cut=live && !!view.linkStones && view.linkStones!=="off" && !view.hideStones;
+    paintStones(theme,view,display,gap,pad,cut);
+    noteCaptures(game,live,view.burst,cut);
     if(fading.length)paintFading(theme,gap,pad);
     if(cuts.length)paintCuts(view,gap,pad);
     for(const {position,color} of kept)
