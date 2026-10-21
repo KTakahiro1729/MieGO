@@ -9,6 +9,10 @@ import { clockSeconds } from "./game-clock.mjs";
 // (ドパガキモード) passes a getter that picks its own voices for the same names.
 // The browser keeps audio blocked until the page is tapped, so the context is
 // made, or resumed, inside the first tap or key press after the switch is on.
+// A finger's pointerdown does not count as a tap (the HTML standard lets
+// pointerup and touchend do that for touch), so those wake it too: otherwise,
+// on a phone, a context suspended by a reload or by leaving the app resumed
+// only inside the move itself, often too late for its sound.
 const SOUND_KEY = "miego-sound";
 const stored = key => { try { return localStorage.getItem(key); } catch { return null; } };
 const store = (key, value) => { try { localStorage.setItem(key, value); } catch {} };
@@ -270,7 +274,7 @@ export function createSoundEffects({ $, voices = CALM_VOICES, AudioContextClass 
     return ctx;
   }
   const primer = () => { wake(); };
-  for (const type of ["pointerdown", "keydown"]) target.addEventListener?.(type, primer, { capture: true });
+  for (const type of ["keydown", "pointerdown", "pointerup", "touchend"]) target.addEventListener?.(type, primer, { capture: true });
   function setEnabled(on) {
     enabled = !!on;
     toggle.checked = enabled;

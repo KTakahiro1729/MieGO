@@ -10,8 +10,9 @@ function fakePage() {
     return elements.get(id);
   };
   const handlers = [];
-  const target = { addEventListener: (type, listener) => handlers.push(listener) };
-  return { $, target, tap: () => handlers.forEach(handler => handler()) };
+  const target = { addEventListener: (type, listener) => handlers.push({ type, listener }) };
+  const fire = type => handlers.filter(handler => handler.type === type).forEach(handler => handler.listener());
+  return { $, target, fire, tap: () => fire("pointerdown") };
 }
 class FakeContext {
   static made = 0;
@@ -60,6 +61,15 @@ test("a saved switch waits for the first tap before playing", () => {
   page.tap();
   sound.play("move");
   assert.deepEqual(heard, ["move"]);
+});
+
+test("a finger's tap wakes the sound when it is lifted, as a phone counts it", () => {
+  for (const type of ["pointerup", "touchend"]) {
+    const { page, sound, heard } = setup(new Map([["miego-sound", "on"]]));
+    page.fire(type);
+    sound.play("move");
+    assert.deepEqual(heard, ["move"], type);
+  }
 });
 
 test("blocked storage starts off and still switches", () => {
