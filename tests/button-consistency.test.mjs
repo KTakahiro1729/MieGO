@@ -22,11 +22,11 @@ test("the action, scoring and replay rows share one height token",()=>{
     assert.match(css,/\.action-row button\{white-space:nowrap;min-height:var\(--action-h\)\}/);
   assert.match(css,/\.review-navigation>button\{height:var\(--action-h\)/);
   assert.match(css,/\.review-play-actions button\{[^}]*height:var\(--action-h\)/);
-  assert.match(css,/@media\(max-width:700px\)\{:root\{--action-h:54px;--action-pad-top:3px\}\}/);
+  assert.match(css,/@media\(max-width:700px\)\{:root\{--action-h:54px\}\}/);
   // Same outer height and gap above, so the board keeps its size when replay starts.
   assert.match(css,/\.action-row \.fused>button,\.action-row \.fused>label>span\{min-height:calc\(var\(--action-h\) - 2px\)\}/);
-  assert.match(css,/\.action-row\{[^}]*margin:4px -2px 0/);
-  assert.match(css,/\.review-panel\{[^}]*margin:4px -2px 0/);
+  assert.match(css,/\.action-row\{[^}]*margin:0 calc\(-1 \* var\(--space-hair\)\)/);
+  assert.match(css,/\.review-panel\{[^}]*margin:0 calc\(-1 \* var\(--space-hair\)\)/);
   assert.doesNotMatch(css,/min-height:(3\d|4[0-3])px/);
 });
 
@@ -67,7 +67,27 @@ test("related buttons fuse into one group; the primary stays apart (UX policy §
 test("every row under the board has a fixed height, so the board never changes size",()=>{
   // The board takes the height these rows leave; content must not change them.
   assert.match(css,/\.ownership-legend\{box-sizing:border-box;height:32px\}/);
-  assert.match(css,/\.info-panel\{box-sizing:border-box;height:114px\}/);
-  assert.match(css,/\.action-row,\.review-panel\{box-sizing:border-box;\s*height:calc\(var\(--action-h\) \+ var\(--action-pad-top\) \+ max\(6px,env\(safe-area-inset-bottom\)\)\)\}/);
+  assert.match(css,/\.info-panel\{box-sizing:border-box;height:calc\(var\(--space-lg\) \+ 48px \+ var\(--space-sm\) \+ 44px \+ var\(--space-sm\)\)\}/);
+  assert.match(css,/\.action-row,\.review-panel\{box-sizing:border-box;\s*height:calc\(var\(--action-h\) \+ var\(--action-pad-top\) \+ max\(var\(--space-sm\),env\(safe-area-inset-bottom\)\)\)\}/);
   assert.match(css,/\.endgame-bar\{height:48px/);
+});
+
+test("a fused group's end members round their own corners, counting only visible members",()=>{
+  // Safari may drop the group's clip while a member's pressed filter changes.
+  assert.match(css,/\.fused>:nth-child\(1 of :not\(\[hidden\]\)\),\.fused>label:nth-child\(1 of :not\(\[hidden\]\)\)>span\{border-top-left-radius/);
+  assert.match(css,/\.fused>:nth-last-child\(1 of :not\(\[hidden\]\)\),\.fused>label:nth-last-child\(1 of :not\(\[hidden\]\)\)>span\{border-top-right-radius/);
+  assert.doesNotMatch(css,/\.fused>label:(first|last|only)-child/);
+});
+
+test("a disabled gold member of a fused group rests as an empty slot, not a greyed gold tile",()=>{
+  // Comes after .fused>.primary's gold fill so it wins, and drops .primary:disabled's own dashed edge.
+  const at=css.indexOf(".fused>.primary:disabled{background:var(--slate-17);border:0}");
+  assert.ok(at>css.indexOf(".fused>.primary{background:"));
+});
+
+test("a fused group does not clip its members, so its corners keep the edge's width",()=>{
+  // A clip over the members' own rounded corners antialiases them twice.
+  assert.doesNotMatch(css.match(/\.fused\{display:flex;[^}]*\}/)[0],/overflow/);
+  // Unclipped, a gold member's glow would spread over its neighbours.
+  assert.match(css,/\.fused>\.primary\{[^}]*box-shadow:none/);
 });

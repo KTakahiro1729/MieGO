@@ -6,6 +6,7 @@ import {
   styleLink,
   styleTally
 } from "./play-style.mjs";
+import { stoneMark } from "./player-row.mjs";
 import { TEXT } from "./texts.mjs";
 
 // 棋風診断 over saved games: in the 履歴 list the player picks a side in each
@@ -21,7 +22,7 @@ const FIRST_PICKS = 10;
  * onChange() redraws the list.
  */
 export function createHistoryStyle({$,gameLibrary,ownSide=()=>null,recall=()=>()=>null,onChange=()=>{},
-                                    open=url=>window.open(url,"_blank","noopener")}) {
+                                    partner=()=>null,open=url=>window.open(url,"_blank","noopener")}) {
   let picks=null;
   // Reading a game replays it, so each side of each saved revision is read once.
   const tallies=new Map();
@@ -52,7 +53,8 @@ export function createHistoryStyle({$,gameLibrary,ownSide=()=>null,recall=()=>()
     $("historyStyleResult").textContent=style ?
       T.historyResult(style.type,T.types[style.type].name,style.games) : readable ? T.historyNone : T.historyEmpty;
     $("historyStyleOpen").disabled=!style;
-    $("historyStyleOpen").onclick=()=>{if(style)open(styleLink(style));};
+    // Opened from a friend's /style page, the result is read together with theirs.
+    $("historyStyleOpen").onclick=()=>{if(style)open(styleLink(style,partner()));};
   }
   function start() {
     picks=new Map();
@@ -91,7 +93,7 @@ export function createHistoryStyle({$,gameLibrary,ownSide=()=>null,recall=()=>()
       const chip=document.createElement("button");
       chip.type="button";chip.className="history-style-side";
       const key=color===BLACK ? "B" : "W";
-      chip.textContent=(key==="B" ? "● " : "○ ")+T.sideLabel(key);
+      chip.append(stoneMark(color),T.sideLabel(key));
       const on=picks.get(record.id)===color;
       chip.setAttribute("aria-pressed",String(on));
       chip.disabled=!on && !picks.has(record.id) && picks.size>=MAX_POOLED;

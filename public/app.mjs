@@ -92,7 +92,7 @@ import {
 import { choosePolicyMove, createResignWatch } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
 import { cleanName, createPlayerName } from "./player-name.mjs";
-import { playerSides, recordNames } from "./player-row.mjs";
+import { playerSides, recordNames, stoneMark } from "./player-row.mjs";
 import { createSeatSheet, seatsOf } from "./seat-sheet.mjs";
 import { DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
 import {
@@ -134,7 +134,7 @@ import { createReviewPrefetch, createScoreGraph } from "./review-estimates.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { createHistoryStyle } from "./history-style.mjs";
-import { canReadStyle } from "./play-style.mjs";
+import { canReadStyle, readStyleLink } from "./play-style.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { createHelpSheet } from "./help-sheet.mjs";
@@ -289,11 +289,6 @@ let nextAiCom = aiCom;
 let takebackNotice = null;
 // What a friend's answer did to an end offer, shown once in the bar like takebackNotice.
 let endNotice = null;
-// 打ち続ける over the COM's pass: the position where the player said so.
-let keptPlayingAt = null;
-// The move number of the player's pass that asked the COM to end (採点を始める).
-let askedComToEnd = null;
-const keptPlaying = () => keptPlayingAt?.number===game.moveNumber && keptPlayingAt.hash===boardHash(game.board);
 let aiSideChoice = "black";
 // Set while 「ここから打つ」 shows the 新規対戦 sheet: the replayed line and its step.
 let continueFrom = null;
@@ -335,14 +330,17 @@ let boardSize = 9;
 const shownSize = () => sizeOf((boardReview?.display||game).board);
 let katagoReady = false, aiThinking = false, aiJob = null;
 const endgameAdvisor = new EndgameAdvisor();
-// A COM set to 投了 resigns once its game has looked lost for a few turns.
+// A COM set to 終局の提案 offers to end once its game has looked lost for a few turns.
 const resignWatch = createResignWatch();
-// While watching, a COM that would resign keeps playing and the bar says so;
+// While watching, a COM that would offer keeps playing and the bar says so;
 // the colour that wants to, or null.
 let resignWish = null;
+// The player said 対局を続ける to the COM's offer: it plays the game out.
+let comOfferDeclined = false;
 function resetResignWatch() {
   resignWatch.reset();
   resignWish = null;
+  comOfferDeclined = false;
 }
 let endExpanded = false, analysisContext = null;
 let deadEvaluation=null, deadReview="idle", deadReviewTouched=false;
@@ -407,6 +405,7 @@ function showEvictionNotice(){
   evictedGames=0;
 }
 let currentGameId=null,currentRevision=null;
+let stylePartner=null;
 const historyStyle=createHistoryStyle({$,gameLibrary,
   ownSide:record=>{
     if(record.mode==="ai")return record.humanColor;
@@ -414,6 +413,7 @@ const historyStyle=createHistoryStyle({$,gameLibrary,
     return [BLACK,WHITE].includes(saved?.ownerColor) ? playerColor(saved.role,saved.ownerColor) : null;
   },
   recall:record=>state=>ownershipStore.recall(record.id,state.board),
+  partner:()=>stylePartner,
   onChange:()=>renderHistoryList()});
 const historyPanel=createHistoryPanel({$,gameLibrary,storageError,onSelect:openSavedBoard,getBoardTheme:appearance.boardTheme,
   decorateRow:historyStyle.decorateRow,
@@ -456,8 +456,8 @@ function myColorForEnd() {
 }
 function updateEndUi() {
   const view=endgameBarView({game,color:myColorForEnd(),room:!!room,connected,gameMode,watching:isWatching(),
-    endExpanded,aiPassAsks:aiPassAsks(),katagoReady,fallbackMode,advisor:endgameAdvisor,aiThinking,
-    notices:[takebackNotice,endNotice],keptPlaying:keptPlaying(),illegalCandidate,resignWish});
+    endExpanded,katagoReady,fallbackMode,advisor:endgameAdvisor,aiThinking,
+    notices:[takebackNotice,endNotice],illegalCandidate,resignWish});
   for(const [id,text] of Object.entries(view.text))$(id).textContent=text;
   for(const [id,hidden] of Object.entries(view.hidden))$(id).hidden=hidden;
   for(const [id,disabled] of Object.entries(view.disabled))$(id).disabled=disabled;
@@ -474,13 +474,12 @@ function peerAgreed() {
   const [mine,theirs]=myOnlineColor()===WHITE?["white","black"]:["black","white"];
   return game.agreed[theirs] && !game.agreed[mine];
 }
-/** After one pass: who passed, and whether this player's pass would start scoring. */
-/** Against a COM, its pass is its way of suggesting the end: the player is asked
- * 採点を始めますか？ at once, and 採点へ進む is the player's own pass. */
-const aiPassAsks = () => !room && gameMode === "ai" && !watching && game.status === "playing" &&
-  !game.endProposal && game.passes === 1 && game.moves.at(-1)?.position === null &&
-  game.moves.at(-1).color === -humanColor;
-const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" &&
+// A pass is a move, against a COM too; ending the game is an offer, which the
+// COM makes or answers when the board has settled or when it sees the game lost.
+const comEnds = color => endgameAdvisor.stage==="ready" && !endgameAdvisor.held || resignWatch.lost(color);
+const comAcceptsEnd = color => endgameAdvisor.stage==="near" || comEnds(color);
+// The COM moves only once an offer on the board is answered.
+const isAiTurn = () => !room && gameMode === "ai" && game.status === "playing" && !game.endProposal &&
   (watching ? !intervening : game.next === -humanColor);
 const isHumanTurn = () => room
   ? (connected && (myOnlineColor()!==null && (isFree(game) || game.next===myOnlineColor())))
@@ -854,9 +853,13 @@ function finishAiMove(result) {
     if(valid)rememberOwnership(game.board,result.ownership);
     // Two COMs each play with their own settings.
     const com=comToMove();
-    const resigns=resignWatch.observe(game,com.resign,result);
-    if(resigns && !watching){submitMove("resign",true);return;}
-    if(resigns)resignWish=game.next;else if(resignWish===game.next)resignWish=null;
+    const lost=resignWatch.observe(game,com.resign,result);
+    if(watching){if(lost)resignWish=game.next;else if(resignWish===game.next)resignWish=null;}
+    // Instead of a stone, the COM offers to end: an offer, not a pass, so a 対局を続ける costs nobody a move.
+    else if(!comOfferDeclined && game.passes===0 && comEnds(game.next)){
+      apply({type:"end_offer",color:game.next,number:game.moveNumber,before:boardHash(game.board)},false,true);
+      return;
+    }
     const next=choosePolicyMove(game,result.policy,result.passLogit,{
       ...com,ownership:result.ownership,endgameStage:passStage,
       readMove:result.readMove,temperature:0.38
@@ -1016,7 +1019,8 @@ function show() {
   $("copyIllegalPrompt").classList.toggle("is-copied",illegalPromptCopied);
   // 自由に置く: ここに打つ splits into what can go on the chosen point.
   const choices=freeChoices();
-  $("freeFirst").textContent=choices[0].label;$("freeSecond").textContent=choices[1].label;
+  ["freeFirst","freeSecond"].forEach((id,i)=>
+    $(id).replaceChildren(...(choices[i].remove?[]:[stoneMark(choices[i].color)]),choices[i].label));
   $("freeFirst").disabled=$("freeSecond").disabled=!freePick || !myTurn;
   // With a provisional stone the button discards it; otherwise it is 待った.
   const provisional=!!candidate || blocked || !!freePick;
@@ -1184,14 +1188,6 @@ function apply(action, remote=false, isAiMove=false) {
       if(action.after!==boardHash(game.board)) throw new Error("Board mismatch after the move");
       lastPosition=Number.isInteger(action.position)?action.position:null;
       if(!remote && !isAiMove)personMovedAt=performance.now();
-      // The COM answered 採点を始める with a stone: the game goes on, and the bar says why.
-      if(isAiMove && askedComToEnd===before.moveNumber && action.position!==null)
-        endNotice={number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.comKeptPlaying};
-      if(isAiMove)askedComToEnd=null;
-      if(isAiMove && aiPassAsks()){
-        candidate=null;illegalCandidate=null;illegalPromptCopied=false;
-        $("illegalPromptFallbackPanel").hidden=true;
-      }
       // A watched COM同士 game that comes back to the same position a third time
       // ends as 無勝負: both COMs keep choosing the cycle (日本囲碁規約 第十二条).
       if(isAiMove && watching && repeatedPosition(game)>=2){stopAiTurn();game=voidGame(game);}
@@ -1255,7 +1251,12 @@ function apply(action, remote=false, isAiMove=false) {
     // "mode" (the removed per-game overlay switch) from older peers is ignored below.
     else if(action.type==="end_offer") {
       game=proposeEnd(game,action.color,action.kind==="void"?"void":"score");
-      if(remote)endExpanded=false;
+      if(remote || isAiMove)endExpanded=false;
+      // The COM's offer is answered before anything else is played.
+      if(isAiMove){
+        candidate=null;illegalCandidate=null;illegalPromptCopied=false;
+        $("illegalPromptFallbackPanel").hidden=true;
+      }
     } else if(action.type==="end_answer") {
       const offerFrom=game.endProposal?.from;
       game=answerEndProposal(game,action.color,Boolean(action.accept));
@@ -1272,8 +1273,7 @@ function apply(action, remote=false, isAiMove=false) {
       if(rewound)afterTakeback();
     }
     else return;
-    // The COM's pass asks at once; any other move closes the question.
-    if(action.type==="move")endExpanded=isAiMove && aiPassAsks();
+    if(action.type==="move")endExpanded=false;
     if(!wasScoring && game.status==="scoring") {
       deadReview="idle";deadReviewTouched=false;deadEvaluation=null;
     }
@@ -1297,9 +1297,9 @@ function apply(action, remote=false, isAiMove=false) {
     // ドパガキモード's voices grow with the capture, and cheer only a win.
     if(cue)sound.play(cue,cheer??undefined);
     if(good)sound.play("good");
-    // A question for this player: the friend's もう一局, end or 待った, the COM's pass,
+    // A question for this player: the friend's もう一局, end or 待った, the COM's offer,
     // or a watched COM同士 game reaching the count.
-    if(remote && proposalArrived(before,game) || isAiMove && endExpanded ||
+    if((remote || isAiMove) && proposalArrived(before,game) ||
        isAiMove && isWatching() && before.status==="playing" && game.status==="scoring")sound.play("offer");
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
@@ -1383,7 +1383,7 @@ $("confirm").onclick=()=>{
 /** What the two buttons put on the chosen point of a free board. */
 function freeChoices() {
   const stone=freePick?.stone;
-  return stone?[{label:TEXT.game.freeRemove,color:stone},
+  return stone?[{label:TEXT.game.freeRemove,color:stone,remove:true},
       {label:stone===BLACK?TEXT.game.freeToWhite:TEXT.game.freeToBlack,color:-stone,replace:true}]:
     [{label:TEXT.common.sideBlack,color:BLACK},{label:TEXT.common.sideWhite,color:WHITE}];
 }
@@ -1466,7 +1466,7 @@ function resetPositionState() {
   if(transitionFrame!==null)cancelAnimationFrame(transitionFrame);
   transitionFrame=null;displayedOwnership=null;
   clearProvisional();
-  restoreEndgameAdvice();endExpanded=!!game.endProposal || aiPassAsks();
+  restoreEndgameAdvice();endExpanded=!!game.endProposal;
   endNotice=null;takebackNotice=null;
   deadReview=game.status==="scoring" &&
     (game.dead.length || game.agreed.black || game.agreed.white)?"modified":"idle";
@@ -1548,7 +1548,7 @@ $("endPropose").onclick=()=>{
   if(game.status!=="playing" || game.endProposal || game.takebackRequest)return;
   const color=myColorForEnd();
   if(!color || (room&&!connected))return;
-  // While watching, the COM's move waits for the answer; 打ち続ける asks for it again.
+  // While watching, the COM's move waits for the answer; 対局を続ける asks for it again.
   if(isWatching()){stopAiTurn();intervening=false;watchReturning=false;}
   if(!room){
     if(aiThinking)return;
@@ -1572,22 +1572,27 @@ $("endAccept").onclick=()=>{
   if(!room && endExpanded && !game.endProposal && repeatedPosition(game)>0){
     apply({type:"void",number:game.moveNumber,before:boardHash(game.board)});return;
   }
-  if(!room && endExpanded && aiPassAsks()){
-    endExpanded=false;submitMove(null);return;
-  }
   if(!room && endExpanded && !game.endProposal){
-    // 対COM: stopping takes both sides' passes (日本囲碁規約 第九条), so the
-    // player's pass asks the COM, and its own pass starts the count. Without
-    // KataGo the COM cannot answer, so the player decides alone.
+    // 対COM, the player's offer is an offer, as with a friend, not a pass: the COM
+    // answers it at once, and a 対局を続ける leaves the board and the turn as they were.
+    // Without KataGo the COM cannot answer, so the player decides alone.
     if(gameMode==="ai" && !watching && !fallbackMode){
-      if(!isHumanTurn())return;
-      endExpanded=false;askedComToEnd=game.moveNumber+1;submitMove(null);return;
+      if(aiThinking)return;
+      const accept=comAcceptsEnd(-humanColor);
+      apply({type:"end_offer",color,number:game.moveNumber,before:boardHash(game.board)});
+      apply({type:"end_answer",color:-humanColor,accept,proposalFrom:color,
+        number:game.moveNumber,before:boardHash(game.board)},false,true);
+      if(!accept){
+        endNotice={number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.comDeclined};
+        updateEndUi();requestAnalysis();
+      }
+      return;
     }
     // One human decision, not a fabricated AI response.
     apply({type:"solo_scoring",number:game.moveNumber,before:boardHash(game.board)});
     return;
   }
-  if(!game.endProposal || !room || !connected || game.endProposal.from===color)return;
+  if(!game.endProposal || (room&&!connected) || game.endProposal.from===color)return;
   apply({type:"end_answer",color,accept:true,proposalFrom:game.endProposal.from,
     number:game.moveNumber,before:boardHash(game.board)});
 };
@@ -1596,7 +1601,6 @@ $("endDecline").onclick=()=>{
   if(game.takebackRequest){answerTakebackRequest(false);return;}
   if(!room && endExpanded && !game.endProposal){
     // As with a friend's answer, the strongest advice waits for the board to settle again.
-    if(aiPassAsks())keptPlayingAt={number:game.moveNumber,hash:boardHash(game.board)};
     endgameAdvisor.hold();
     endExpanded=false;updateEndUi();
     if(isAiTurn())requestAnalysis();
@@ -1605,8 +1609,11 @@ $("endDecline").onclick=()=>{
   if(!game.endProposal)return;
   const color=myColorForEnd();
   if(!color || (room&&!connected))return;
+  const fromCom=!room && gameMode==="ai" && game.endProposal.from!==color;
   apply({type:"end_answer",color,accept:false,proposalFrom:game.endProposal.from,
     number:game.moveNumber,before:boardHash(game.board)});
+  // The COM plays the game out, and offers no more.
+  if(fromCom){comOfferDeclined=true;requestAnalysis();}
 };
 $("hideStones").onchange=e=>{hideStonesChoice=e.target.checked;rememberSettings();};
 $("mainTime").onchange=e=>{mainTimeChoice=toSeconds(e.target.value,MAIN_TIME_CHOICES);rememberSettings();};
@@ -2572,8 +2579,7 @@ function resumeSelectedReview(){
     syncSideUi();
     updatePersonaUi();
   }
-  // Who passed is known only once the resumed game's sides are back.
-  endExpanded=!!game.endProposal || aiPassAsks();
+  endExpanded=!!game.endProposal;
   try{gameLibrary.setActive(gameMode,currentGameId);}
   catch(error){storageError(error);return;}
   clearBoardReview();rememberSettings();
@@ -2897,7 +2903,7 @@ else try {
     watchAi=readWatchAi(settings.watchAi,aiCom);
     nextAiCom=aiCom;nextWatchAi=watchAi;
   }
-  game=savedGame(gameMode);restoreEndgameAdvice();endExpanded=!!game.endProposal || aiPassAsks();
+  game=savedGame(gameMode);restoreEndgameAdvice();endExpanded=!!game.endProposal;
 }catch{}
 syncSideUi();
 updatePersonaUi();syncStrengthUi();syncHandicapUi();
@@ -2916,8 +2922,10 @@ if(!room && params.has("sgf")){
     showNotice(TEXT.history.sharedLoadFailed);
   }
 }
-// The /style page links here to read several saved games together.
+// The /style page links here to read several saved games together, with a friend's type to match.
 if(!room && params.get("open")==="history-style"){
+  const [type,...leans]=(params.get("with") ?? "").split(",");
+  stylePartner=readStyleLink("?t="+type+"&s="+leans.join(","));
   history.replaceState(null,"",location.pathname);
   openHistoryStyle();
 }

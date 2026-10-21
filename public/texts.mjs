@@ -31,7 +31,7 @@ export const TEXT = {
     scoring: "採点中",
     accept: "受け入れる",
     withdraw: "取り下げる",
-    keepPlaying: "打ち続ける",
+    keepPlaying: "対局を続ける",
     playHere: "ここに打つ",
     takeback: "待った",
     resign: "投了",
@@ -41,8 +41,8 @@ export const TEXT = {
     blackArea: "黒の地",
     neutral: "中立",
     random: "ランダム",
-    sideBlack: "● 黒",
-    sideWhite: "○ 白",
+    sideBlack: "黒",
+    sideWhite: "白",
   },
 
   page: {
@@ -104,22 +104,24 @@ export const TEXT = {
     updating: "終局の目安を更新中",
     offline: "相手を待っています",
     proposed: "終局が提案されました",
+    comProposed: "COMが終局を提案しています",
     waiting: "相手の返答を待っています",
     askLocal: "採点を始めますか？",
+    askCom: "COMに終局を提案しますか？",
     propose: "終局を提案",
     startScoring: "採点を始める",
-    goScoring: "採点へ進む",
-    detailIncoming: "受け入れると採点に進みます。打ち続けることもできます。",
-    // 対COM: 採点を始める is the player's pass, and the COM's pass starts the count.
-    passToEnd: "パスする",
-    detailLocalAi: "あなたがパスし、COMもパスしたら採点に入ります。COMが打てば対局は続きます。",
-    detailUnsettledAi: "あなたがパスし、COMもパスしたら採点に入ります。まだ決まっていない所は、どちらの地にもなりません。",
-    detailAi: "採点を始めると、あなたがパスしてCOMの返事を待ちます。",
-    comKeptPlaying: "COMはまだ打つ所があると見て打ちました",
+    goScoring: "採点を始める",
+    detailIncoming: "受け入れると採点に進みます。対局を続けることもできます。",
+    // 対COM, ending is an offer the COM answers at once, not a pass.
+    offerCom: "提案する",
+    detailLocalAi: "COMが受ければ採点に入ります。断られても盤も手番もそのままです。",
+    detailUnsettledAi: "COMが受ければ採点に入ります。まだ決まっていない所は、どちらの地にもなりません。",
+    detailAi: "終局はいつでも提案できます。パスとは別の操作です。",
+    comDeclined: "COMが終局を見送りました",
     // While watching (or without KataGo), the count is the viewer's decision alone.
     detailWatchScoring: "あなたの判断で採点へ進みます。COMが終局を承認するわけではありません。",
     detailLocal: "採点に進み、死石を確認します。対局の再開もできます。",
-    detailUnsettled: "まだ決まっていない所は、どちらの地にもなりません。打ち続けることもできます。",
+    detailUnsettled: "まだ決まっていない所は、どちらの地にもなりません。対局を続けることもできます。",
     detailWaiting: "相手の返答待ちです。提案は取り下げられます。",
     detailOnline: "終局はいつでも提案できます。パスとは別の操作です。",
     detailOffline: "採点はいつでも始められます。パスとは別の操作です。",
@@ -131,20 +133,17 @@ export const TEXT = {
     passedLocal: c => "パスで採点へ。" + color(c) + "はパス済み",
     // While watching, nobody is asked to pass: the line only says what happened.
     passedWatch: c => color(c) + "がパス。次もパスなら採点へ",
-    wantsResign: c => color(c) + "が投了したがっています",
-    // The COM's pass opens the same question as 採点を始める; 採点へ進む is the player's pass.
-    askAiPassed: "COMがパスしました\n採点を始めますか？",
+    wantsEnd: c => color(c) + "が終局を提案したがっています",
     // 同一局面反復 (日本囲碁規約 第十二条): both sides may end the game as no result.
     repeated: "同じ局面がくり返されています",
     void: "無勝負にする",
     proposeVoid: "無勝負を提案",
     askVoid: "無勝負にしますか？",
     voidProposed: "無勝負が提案されました",
-    detailRepeated: "三劫などで同じ局面がくり返されたら、双方の同意で無勝負にできます。打ち続けることもできます。",
-    detailVoidIncoming: "受け入れると無勝負で終わります。打ち続けることもできます。",
+    detailRepeated: "三劫などで同じ局面がくり返されたら、双方の同意で無勝負にできます。対局を続けることもできます。",
+    detailVoidIncoming: "受け入れると無勝負で終わります。対局を続けることもできます。",
     detailVoidAi: "COMは無勝負に同意します。勝ち負けは付きません。",
     detailVoidLocal: "2人とも同意したら押してください。勝ち負けは付きません。",
-    detailAiPassed: "採点へ進むと、あなたもパスして死石の確認に入ります。打ち続けることもできます。",
     declinedByPeer: "相手が終局を見送りました",
     withdrawnByPeer: "相手が提案を取り下げました",
     cancelledByMove: "相手の着手で提案は消えました",
@@ -203,8 +202,8 @@ export const TEXT = {
     turnWhite: "白の番です",
     freeTurn: "自由に置く",
     freeRemove: "取り除く",
-    freeToBlack: "● 黒にする",
-    freeToWhite: "○ 白にする",
+    freeToBlack: "黒にする",
+    freeToWhite: "白にする",
     yourTurn: "あなたの番",
     opponentTurn: "相手の番",
     waitingOpponent: "対局相手を待っています",
@@ -350,7 +349,7 @@ export const TEXT = {
       high: "序盤に4線より内側の高い手で勢力を作ります。",
     },
     tenukiStops: { low: "応じる", mid: "ふつう", high: "手を抜く" },
-    resignStops: { low: "最後まで", mid: "大差で投了", high: "早めに投了" },
+    resignStops: { low: "最後まで", mid: "大差で提案", high: "早めに提案" },
     tenukiNotes: {
       low: "相手が打った手の近くで応じます。",
       mid: "応じるか離れるかを特に好みません。",
@@ -393,7 +392,7 @@ export const TEXT = {
     reinforcement: "補強度",
     stance: "戦い方",
     tenuki: "相手の手に",
-    resign: "投了",
+    resign: "終局の提案",
   },
 
   handicap: {
@@ -595,8 +594,13 @@ export const TEXT = {
       n => "相手を攻める手が" + n + "%",
       n => "序盤の2〜3線の手が" + n + "%",
       n => "相手の手から2路以内への応手が" + n + "%",
-      // Below 0: resigned; otherwise played on behind that often.
-      n => n < 0 ? "投了で対局を終えた" : "10目以上負けている局面の" + n + "%でも打ち続けた",
+      // A number: played on behind that often. {letGo}: how likely lost (%) the
+      // player's weak stones were when last reached for. Otherwise a resignation, with
+      // how far behind and how many own moves after falling far behind, where known.
+      n => typeof n === "number" ? "10目以上負けている局面の" + n + "%でも打ち続けた" :
+        n.letGo != null ? "弱くなった自分の石に、取られる見込み約" + n.letGo + "%まで手をかけた" :
+        n.deficit === null ? "投了で対局を終えた" :
+        "形勢 約" + n.deficit + "目差で投了" + (n.late === null ? "" : n.late === 0 ? "（大差がつく前）" : "（大差がついてから" + n.late + "手後）"),
     ],
     peopleSource: "％は、野狐囲碁の19路の対局（15級〜3段の7,401人分）と比べた値です。",
     privacy: "診断はこの端末の中で計算します。棋譜は送りません。数えるのは型と盤の大きさ、黒番か白番か、ルールだけです。",
@@ -613,7 +617,7 @@ export const TEXT = {
     // 履歴: several saved games read together.
     historyButton: "履歴からまとめて棋風診断",
     fromResult: "棋風診断 ›",
-    historyPick: "まとめたい対局の下にある「● 黒番」「○ 白番」から、自分が打った方を押してください。最近のCOMや友人との対局は選んであります。",
+    historyPick: "まとめたい対局の下にある「黒番」「白番」から、自分が打った方を押してください。最近のCOMや友人との対局は選んであります。",
     historyOpen: "診断を見る",
     historyNone: "石を選ぶと、ここに診断が出ます。",
     historyEmpty: "まとめられる対局が履歴にまだありません。囲碁で10手以上打つと、ここで選べるようになります。",
@@ -630,7 +634,7 @@ export const TEXT = {
       { high: "F", low: "R", highName: "自由", lowName: "律儀",
         about: "相手が打った手の近くに応じるか、離れた場所に打つか" },
       { high: "T", low: "Q", highName: "粘り強い", lowName: "潔い",
-        about: "負けていても打ち続けたか、投了や先のパスで区切りをつけたか" },
+        about: "負けていても打ち続けたか、投了や先のパスで区切りをつけたか。投了は、差が小さいうちに、大差がついたらすぐに投げるほど潔い。取られそうな石を早めに見切るのも潔い" },
     ],
     // Rows are motifs (動物 AH, 道具 AL, 建造物 GL, 植物 GH) and columns colours
     // (空青 FQ, 藤色 FT, 淡朱 RT, 若草 RQ); neighbours differ in one letter. /style lists them in this order.
@@ -721,6 +725,48 @@ export const TEXT = {
         catch: "どの色にも染まり、どの色にも染まらない",
         text: "この一局では、攻めと守り、模様と実利、自由と律儀のどれにも偏らず、盤面に合わせて打ち方を変えた。4つの軸すべてが真ん中に収まる人は少なく、相手に読ませない強さがある。ただ、自分らしい一手を探して迷うことも。",
       },
+    },
+    // 相性診断: two types side by side, read axis by axis.
+    compat: {
+      title: "相性診断",
+      percent: n => "相性 " + n + "%",
+      pairShare: n => "この組み合わせは全体の約" + n + "%",
+      partnerLabel: "相手の型",
+      partnerNone: "相手の型を選ぶ",
+      partnerPick: "相手の型を選ぶと、二人の相性を見られます。",
+      openFromShare: "二人の相性を見る",
+      copyLink: "相性を見てもらうリンクをコピー",
+      copied: "リンクをコピーしました。相手が開くと、自分の型を合わせて相性を見られます。",
+      matchMine: "履歴から自分の型を出して合わせる",
+      // The headline names the pair by how many letters they share, or by the one axis that differs.
+      headlines: {
+        mirror: "鏡写しの二人",
+        opposite: "正反対の名コンビ",
+        balance: "どんな相手とも噛み合う二人",
+        differ: ["矛と盾", "模様と実利の分業", "自由と律儀の掛け合い", "粘りと潔さの好対照"],
+        many: "似ているようで違う二人",
+      },
+      // One line per axis: when the two lean the same way, and when they lean apart.
+      same: [
+        "二人とも攻めが好き。ぶつかり合うと盤上が一気に熱くなる。",
+        "二人とも序盤の好みが同じ。同じ景色を見ながら打てる。",
+        "相手の手への応じ方が似ていて、呼吸が合う。",
+        "引き際の考え方が同じで、終わり方に納得しやすい。",
+      ],
+      differ: [
+        "攻める人と守る人。一方が仕掛け、もう一方が受け止める。",
+        "模様の人と実利の人。広さと確かさを取り合う碁になる。",
+        "自由な人と律儀な人。振り回し、振り回されるのが楽しい。",
+        "粘る人と潔い人。最後の一手まで駆け引きが続く。",
+      ],
+      // With the balanced type, one line per axis on how it meets the other's side; both balanced, one line.
+      balance: [
+        name => "「" + name + "」の相手に、攻めにも守りにも回れるバランス型が合わせる。",
+        name => "「" + name + "」の相手と、高くも低くも打てるバランス型が盤を分け合う。",
+        name => "「" + name + "」の相手に、離れても応じても打てるバランス型が間合いを合わせる。",
+        name => "「" + name + "」の相手の引き際を、バランス型が読み取って最後まで付き合う。",
+      ],
+      bothBalance: "二人とも4つの軸の真ん中。どんな局面でも読み合いになる。",
     },
   },
 
@@ -897,8 +943,8 @@ export const TEXT = {
       normal: "一手ごとに1秒ほど置きます。",
       fast: "間を置かずに次々と打ちます。",
     },
-    comBlack: "● 黒のCOM",
-    comWhite: "○ 白のCOM",
+    comBlack: "黒のCOM",
+    comWhite: "白のCOM",
     rules: "ルール",
     // Under the rule choices: what komi is, one line at 320px.
     komiNote: komi => "先手の黒が有利なので白にコミ" + komi + "目。",

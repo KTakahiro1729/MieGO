@@ -96,7 +96,7 @@ test("advice with no valid NN estimate is not reported as 'not near endgame'",()
   advisor.stage="ready";
   assert.equal(endgameHint(g,advisor),"終局してよさそうです");
   advisor.hold();
-  assert.equal(endgameHint(g,advisor),"そろそろ終局です","after 打ち続ける the milder step stands in");
+  assert.equal(endgameHint(g,advisor),"そろそろ終局です","after 対局を続ける the milder step stands in");
 });
 
 // Ownership maps that move a given number of points from one estimate to the next.
@@ -151,7 +151,7 @@ test("a short, decisive game is offered scoring without any move or stone count"
 });
 
 
-test("after 打ち続ける the strongest advice returns once the board settles again, not after a move count",()=>{
+test("after 対局を続ける the strongest advice returns once the board settles again, not after a move count",()=>{
   const advisor=new EndgameAdvisor(),own=Array(81).fill(.9);
   let g=newGame();
   const step=(ownership)=>{g={...g,moveNumber:g.moveNumber+1};advisor.observe(g,ownership);return endgameHint(g,advisor);};

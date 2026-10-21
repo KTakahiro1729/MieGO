@@ -33,3 +33,11 @@ export function recordNames({mode, watching=false, humanColor=BLACK, aiCom, watc
   else return {black:null,white:null};
   return color===BLACK?{black:mine,white:theirs}:{black:theirs,white:mine};
 }
+
+/** A drawn stone before a colour's name in a control: the text ● and ○ read backwards on the dark theme. */
+export function stoneMark(color) {
+  const mark=document.createElement("span");
+  mark.className=color===WHITE?"stone-mark white":"stone-mark";
+  mark.setAttribute("aria-hidden","true");
+  return mark;
+}

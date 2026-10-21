@@ -7,8 +7,8 @@ import {TEXT} from "./texts.mjs";
 // plays at any strength, and at one strength the characters are about evenly
 // matched against each other (docs/AI_PERSONALITIES.md). Picking one sets
 // every axis; カスタム keeps the player's own values. Axes a character leaves
-// out stay at 50. 投了 (resign) is not a style of play but when the COM gives
-// up; it starts at 0, playing every game out.
+// out stay at 50. 終局の提案 (kept as resign) is not a style of play but when
+// the COM offers to end a lost game; it starts at 0, playing every game out.
 export const COM_AXES = Object.freeze([...STYLE_AXES, "resign"]);
 const AXIS_DEFAULT = Object.freeze({resign:0});
 const axisDefault = axis => AXIS_DEFAULT[axis] ?? 50;
