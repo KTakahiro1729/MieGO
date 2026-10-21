@@ -21,7 +21,6 @@ test("a playout asks KataGo about the scoring position and shows it over the rea
   assert.deepEqual(posted.map(m => [m.id, m.kind]), [[1, "settle"]]);
   assert.equal(control.busy(), true);
   assert.equal(control.view().moves, 0);
-  assert.equal(control.current(), null);
 });
 
 test("an answer KataGo could not give leaves the dead stones to the player", () => {
@@ -60,16 +59,12 @@ test("with no estimate kept, KataGo's first answer is shown and later ones do no
   assert.equal(control.view().ownership, first);
 });
 
-test("the playout's moves stay off the board, which keeps the real stones", () => {
+test("the playout plays on at once, out of sight", () => {
   const {control, posted} = setup();
   control.start(1);
-  const policy = Array(81).fill(0);
-  control.receive({id:1, engine:"katago", ownership:Array(81).fill(0), policy});
-  const view = control.view();
-  assert.equal(view.live, true);
-  assert.deepEqual(view.board, view.base);
-  assert.equal(view.last, null);
+  control.receive({id:1, engine:"katago", ownership:Array(81).fill(0), policy:Array(81).fill(0)});
   assert.equal(posted.at(-1).state.passes, 1);
+  assert.deepEqual(Object.keys(control.view()).sort(), ["moves", "ownership"]);
 });
 
 test("an estimate for another board is not shown during the playout", () => {

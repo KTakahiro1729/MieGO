@@ -117,9 +117,6 @@ test("continue-style choices sit left of the advancing choice, in the bar and wh
   assert.ok(bar.indexOf('id="endDecline"')<bar.indexOf('id="endAccept"'));
   const scoring=html.slice(html.indexOf('id="scoringActions"'),html.indexOf('id="openHistory"'));
   assert.ok(scoring.indexOf('id="resume"')<scoring.indexOf('id="agree"'));
-  // The 決着手順 controls share the scoring row, left of the advancing choice.
-  for(const id of ["settleSkip","settleReplay"])assert.ok(scoring.indexOf(`id="${id}"`)>0 &&
-    scoring.indexOf(`id="${id}"`)<scoring.indexOf('id="agree"'));
 });
 test("only a solo accept is gold; an incoming online offer gets two equal choices",()=>{
   // Worked out by endgameBarView (tests/endgame-bar.test.mjs).
