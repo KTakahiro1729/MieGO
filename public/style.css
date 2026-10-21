@@ -685,6 +685,9 @@ body{overflow:hidden}
 .action-row .next-game{flex:1 1 0}
 .action-row .free-choices{flex:1 1 auto}
 .action-row .free-choices>button{padding:9px 4px;font-size:14px}
+/* Before a point is chosen, the pair rests like a disabled ここに打つ: no gold, a dim label. */
+.action-row .free-choices:has(>:disabled){--fused-edge:var(--accent-edge)}
+.action-row .free-choices>.primary:disabled{background:#0d1018;border:0}
 .action-row .next-game>button{display:grid;place-content:center;gap:1px;padding:5px 6px;line-height:1.15}
 .action-row .next-game>#newMatch{flex:1.3 1 0}
 .action-row .next-game small{font-size:10px;font-weight:600;opacity:.75}
