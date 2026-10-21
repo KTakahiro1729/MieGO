@@ -732,12 +732,6 @@ body{overflow:hidden}
 .action-row .undo-button{flex:0 0 48px;min-width:48px;width:48px;padding:0;display:grid;place-items:center}
 .action-row #pass{flex:0 0 60px;min-width:60px;width:60px;padding:9px 5px}
 .action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;font-size:var(--font-body);padding:6px 2px}
-/* The message and the buttons share one size: 14px, or 12px on the narrowest phones. */
-@media(max-width:360px){
-  .end-status,.endgame-bar .end-action,.endgame-bar .illegal-prompt-action,.action-row .inline-score-actions button{font-size:var(--font-small)}
-  /* Two answers share the slot beside its ?: 打ち続ける and 採点へ進む fit only with a narrower inside. */
-  .endgame-bar .end-action{padding-left:var(--space-sm);padding-right:var(--space-sm)}
-}
 /* While a forbidden point is chosen, the slot holds the AI question and the rules' ?. */
 .endgame-bar .illegal-prompt-action{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:1 1 auto;min-height:var(--control-h);height:var(--control-h);padding:0 12px;font-size:var(--font-body);font-weight:var(--weight-medium);white-space:nowrap;line-height:1}
 .illegal-prompt-action svg{display:block;flex:none}
@@ -819,8 +813,13 @@ body{overflow:hidden}
   .action-row .undo-button,.review-play-actions .review-cancel{flex-basis:44px;width:44px;min-width:44px}
   .action-row #pass{flex-basis:51px;width:51px;min-width:51px}
 }
+/* The narrowest phones: after the rules they narrow, or the wider ones win. */
 @media(max-width:360px){
   .review-navigation>.review-continue{padding:0 10px}
+  /* The message and the buttons share one size: 14px, or 12px here. */
+  .end-status,.endgame-bar .end-action,.endgame-bar .illegal-prompt-action,.action-row .inline-score-actions button{font-size:var(--font-small)}
+  /* Two answers share the slot beside its ?: 打ち続ける and 採点へ進む fit only with a narrower inside. */
+  .endgame-bar .end-action{padding-left:var(--space-sm);padding-right:var(--space-sm)}
 }
 @media(max-width:350px){
   .action-row .resign-control{flex-basis:44px;width:44px;min-width:44px}
