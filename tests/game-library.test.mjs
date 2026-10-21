@@ -138,3 +138,16 @@ test("a watched game keeps each colour's COM; others keep none",()=>{
  assert.equal(lib.save({mode:"ai",snapshot:newGame(),watchAi}).watchAi,null);
  assert.equal(lib.save({mode:"ai",snapshot:newGame(),watch:true,watchAi:{black:{}}}).watchAi,null);
 });
+test("a game whose seats change moves between 1台 and 対COM in the same record; a friend game does not",()=>{
+ const {lib}=setup();
+ const local=lib.save({mode:"local",snapshot:play(newGame(),40)});
+ lib.setActive("local",local.id);
+ const ai=lib.save({id:local.id,mode:"ai",snapshot:local.snapshot,watch:true},local.revision);
+ lib.setActive("ai",ai.id);
+ assert.equal(ai.id,local.id);
+ assert.equal(lib.active("ai").id,local.id);
+ // The 1台 slot no longer holds it, so 1台で打つ starts afresh.
+ assert.equal(lib.active("local"),null);
+ const online=lib.save({mode:"online",roomId:"b".repeat(32),snapshot:newGame()});
+ assert.throws(()=>lib.save({id:online.id,mode:"ai",snapshot:newGame()},online.revision));
+});

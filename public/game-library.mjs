@@ -7,6 +7,8 @@ const PREFIX="miego:game:v1:";
 const ACTIVE="miego:active:v1:";
 const MIGRATED="miego:library:migrated:v1";
 const MODES=new Set(["local","ai","online"]);
+// A game on this device changes between 1台 and 対COM when この対局の打ち手 changes a seat.
+const OFFLINE=new Set(["local","ai"]);
 const ROOM_RE=/^[a-f0-9]{32}$/;
 // No single MieGO value comes near this; a larger one is not worth emptying the library for.
 const MAX_EVICTING_VALUE=1_000_000;
@@ -108,7 +110,7 @@ export class GameLibrary {
     const previous=id===null?null:this.load(id);
     // Nothing that cannot be read back is written.
     if(!MODES.has(mode) || !parseGameSnapshot(JSON.stringify(snapshot)) ||
-       (mode==="online" && !ROOM_RE.test(roomId||"")) || (previous && previous.mode!==mode))
+       (mode==="online" && !ROOM_RE.test(roomId||"")) || (previous && previous.mode!==mode && !(OFFLINE.has(previous.mode) && OFFLINE.has(mode))))
       throw Error("Record would not read back");
     if(id!==null && !previous)throw new UserError(TEXT.history.recordMissing);
     if(previous && expectedRevision!==null && previous.revision!==expectedRevision)

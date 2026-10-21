@@ -205,6 +205,11 @@ export const evidence = score => (score.shares ?? [null,null,null,null]).map(v=>
 const TYPE_SHARES = Object.freeze({AHFQ:3.9,AHFT:6.4,AHRQ:4.4,AHRT:7.3,ALFQ:4.9,ALFT:8.3,ALRQ:4.3,ALRT:7.3,BLNC:5.3,
   GHFQ:3.6,GHFT:5.9,GHRQ:4.9,GHRT:8.1,GLFQ:4.6,GLFT:7.8,GLRQ:4.8,GLRT:8});
 export const typeShare = type => TYPE_SHARES[type] ?? null;
+/** How often two people of these types meet, in percent, to one decimal (at least 0.1). */
+export function pairShare(a, b) {
+  if(!(a in TYPE_SHARES) || !(b in TYPE_SHARES))return null;
+  return Math.max(0.1,Math.round(TYPE_SHARES[a]*TYPE_SHARES[b]*(a===b ? 1 : 2)/10)/10);
+}
 
 // How far each axis leans, -100 (the second letter) to 100 (the first), for
 // the /style page's bars. The first three rarely pass ±0.5, so they are doubled.
@@ -219,18 +224,22 @@ const ints = (values, ok) => {
 
 /**
  * The /style page for one player's style: its type, colour, leanings, where it
- * stands among people and the shares behind it.
+ * stands among people and the shares behind it; with `partner` (another
+ * style), the page reads the two together.
  */
-export function styleLink({type,color,score,games}) {
+export function styleLink({type,color,score,games}, partner=null) {
   // Every part is letters, digits, "-" or ",", so nothing needs escaping.
   return "/style?t="+type+(color==="B" || color==="W" ? "&c="+color : "")+
     (score ? "&s="+leanings(score).join(",")+"&p="+styleRanks(score).map(v=>v ?? "").join(",")+
-      "&e="+evidence(score).join(",") : "")+(games>1 ? "&n="+games : "");
+      "&e="+evidence(score).join(",") : "")+(games>1 ? "&n="+games : "")+
+    (partner ? "&u="+partner.type+(partner.score ? "&ul="+leanings(partner.score).join(",") :
+      partner.leans ? "&ul="+partner.leans.join(",") : "") : "");
 }
 
 /**
  * What a /style URL asks for: a known type, or null, with its colour,
- * leanings, ranks, reasons and games if valid.
+ * leanings, ranks, reasons and games if valid, and the partner's type and
+ * leanings when the link reads two players together.
  */
 export function readStyleLink(search) {
   const query=new URLSearchParams(search);
@@ -247,6 +256,30 @@ export function readStyleLink(search) {
   const ranks=ranked?.length===4 && ranked.some(v=>v!==null) ? ranked : null;
   const shown=ints(query.get("e"),v=>Math.abs(v)<=999);
   const games=Number(query.get("n"));
+  const partner=PLAY_STYLE_RE.test(query.get("u") ?? "") ? {type:query.get("u"),leans:four("ul",v=>Math.abs(v)<=100)} : null;
   return {type,color,leans,ranks,evidence:shown?.length===4 ? shown : null,
-    games:Number.isInteger(games) && games>1 && games<=MAX_POOLED ? games : 1};
+    games:Number.isInteger(games) && games>1 && games<=MAX_POOLED ? games : 1,partner};
+}
+
+const HIGHS = "AHFT";
+/**
+ * 相性診断 of two styles, each {type, leans?}: a percentage, a headline key and,
+ * per axis, whether the two lean the same way ("same"), apart ("differ"), or
+ * one is the balanced type ("balance"). Every pair is told what it shares or
+ * makes up for, so no pair comes out below 70%.
+ */
+export function compatibility(a, b) {
+  const lean = (style, i) => style.leans?.[i] ?? (style.type===BALANCE ? 0 : style.type[i]===HIGHS[i] ? 50 : -50);
+  const axes=[0,1,2,3].map(i=>{
+    if(a.type===BALANCE || b.type===BALANCE)return {relation:"balance",points:7};
+    const la=lean(a,i), lb=lean(b,i);
+    return a.type[i]===b.type[i] ? {relation:"same",points:6+3*Math.min(Math.abs(la),Math.abs(lb))/100} :
+      {relation:"differ",points:5+4*Math.abs(la-lb)/200};
+  });
+  const points=axes.reduce((total,axis)=>total+axis.points,0);
+  const percent=Math.max(70,Math.min(99,Math.round(70+(points-20)/16*29)));
+  const differ=axes.flatMap((axis,i)=>axis.relation==="differ" ? [i] : []);
+  const headline=axes[0].relation==="balance" ? "balance" : differ.length===0 ? "mirror" :
+    differ.length===4 ? "opposite" : differ.length===1 ? "differ"+differ[0] : "many";
+  return {percent,headline,relations:axes.map(axis=>axis.relation)};
 }

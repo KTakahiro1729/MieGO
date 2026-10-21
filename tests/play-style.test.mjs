@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import {newGame,play,BLACK,WHITE} from "../public/core.mjs";
 import {
   BALANCE,
+  compatibility,
   MAX_POOLED,
   MIN_MOVES,
+  pairShare,
   PLAY_STYLE_RE,
   playStyle,
   pooledPlayStyle,
@@ -91,7 +93,7 @@ test("a player's /style link carries the type, colour and how far each axis lean
   assert.ok(read.ranks.every(v=>v>=1 && v<=50),"where the player stands among people");
   assert.equal(read.evidence[3],-1,"resigned");
   assert.ok(read.leans.every(v=>Math.abs(v)<=100));
-  assert.deepEqual(readStyleLink("?t=AHFT"),{type:"AHFT",color:null,leans:null,ranks:null,evidence:null,games:1});
+  assert.deepEqual(readStyleLink("?t=AHFT"),{type:"AHFT",color:null,leans:null,ranks:null,evidence:null,games:1,partner:null});
   assert.equal(readStyleLink("?t=XXXX"),null);
   assert.equal(readStyleLink("?t=AHFT&s=1,2,3,999").leans,null,"out-of-range leanings are dropped");
 });
@@ -222,4 +224,28 @@ test("the balanced type and every type's share of people",()=>{
   const total=types.reduce((sum,type)=>sum+typeShare(type),0);
   assert.ok(Math.abs(total-100)<1,"the types' shares make up everyone");
   assert.deepEqual(readStyleLink("?t="+BALANCE+"&s=0,0,0,0").leans,[0,0,0,0]);
+});
+
+test("two styles read together: every pair has something, and the link carries the partner",()=>{
+  const types=Object.keys(TEXT.playStyle.types);
+  for(const a of types)for(const b of types){
+    const result=compatibility({type:a},{type:b});
+    assert.ok(result.percent>=70 && result.percent<=99,a+b);
+    assert.equal(result.relations.length,4);
+    const key=result.headline.startsWith("differ") ? null : result.headline;
+    assert.ok(key===null ? TEXT.playStyle.compat.headlines.differ[Number(result.headline.slice(6))] : TEXT.playStyle.compat.headlines[key],a+b);
+    assert.ok(pairShare(a,b)>0);
+  }
+  assert.equal(compatibility({type:"AHFT"},{type:"AHFT"}).headline,"mirror");
+  assert.equal(compatibility({type:"AHFT"},{type:"GLRQ"}).headline,"opposite");
+  assert.equal(compatibility({type:"AHFT"},{type:"GHFT"}).headline,"differ0");
+  assert.equal(compatibility({type:BALANCE},{type:"GHFT"}).headline,"balance");
+  // Leaning further the same way reads closer than a bare type.
+  assert.ok(compatibility({type:"AHFT",leans:[90,90,90,90]},{type:"AHFT",leans:[90,90,90,90]}).percent>
+    compatibility({type:"AHFT"},{type:"AHFT"}).percent);
+  const game=highAndLow(),black=playStyle(game,BLACK),white=playStyle(game,WHITE);
+  const read=readStyleLink(styleLink(black,white).split("?")[1]);
+  assert.equal(read.partner.type,white.type);
+  assert.equal(read.partner.leans.length,4);
+  assert.equal(readStyleLink("?t=AHFT&u=XXXX").partner,null,"an unknown partner is dropped");
 });
