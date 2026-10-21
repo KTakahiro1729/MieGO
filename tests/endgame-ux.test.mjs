@@ -14,7 +14,6 @@ test("a full-length playout is shown in about ten seconds on every board",()=>{
 test("after one pass the bar says who passed and that the next pass starts scoring",()=>{
   assert.equal(TEXT.endgame.passedLocal("W"),"パスで採点へ。白はパス済み");
   assert.match(TEXT.endgame.passedAi,/^パスで採点へ。/);
-  assert.match(app,/passed\?passed\.text:hint/);
 });
 test("a friend's answer to an end offer is shown to the one who offered",()=>{
   assert.match(app,/TEXT\.endgame\.withdrawnByPeer:TEXT\.endgame\.declinedByPeer/);
@@ -27,7 +26,7 @@ test("keeping on playing holds back the strongest advice in every mode",()=>{
   assert.doesNotMatch(app,/endHintSuppressedUntil/);
 });
 test("the bar draws attention when a decision is asked, and honours reduced motion",()=>{
-  assert.match(app,/classList\.toggle\("is-calling"/);
+  assert.match(app,/for\(const \[name,on\] of Object\.entries\(classes\)\)\$\(id\)\.classList\.toggle\(name,on\);/);
   assert.match(css,/\.endgame-bar\.is-calling\{[^}]*animation:end-call/);
   assert.match(css,/prefers-reduced-motion:reduce\)\{\*,\*::before,\*::after\{[^}]*animation:none!important/);
 });
@@ -47,10 +46,7 @@ test("a playout runs to two passes, with no stop to carry it on",()=>{
   assert.match(settle,/limit:settleMax\(sizeOf\(game\.board\)\)/);
 });
 test("starting scoring before the board has settled says open areas count for nobody",()=>{
-  assert.match(app,/const unsettled=localPrompt && hint===TEXT\.endgame\.playing;/);
-  // The same question as always, under the advice the bar already showed.
-  assert.match(app,/localPrompt\?\(unsettled\?hint\+"\\n"\+TEXT\.endgame\.askLocal:TEXT\.endgame\.askLocal\)/);
-  assert.match(app,/\$\("endgameBar"\)\.classList\.toggle\("is-asking",localPrompt\);/);
+  // Worked out by endgameBarView (tests/endgame-bar.test.mjs).
   assert.match(TEXT.endgame.detailUnsettled,/どちらの地にもなりません/);
 });
 test("the COM's pass opens the same question as 採点を始める, and 採点へ進む is the player's pass",()=>{

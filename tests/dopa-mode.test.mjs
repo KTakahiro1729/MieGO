@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { at, BLACK, newGame, play, WHITE } from "../public/core.mjs";
 import {
   bigWinPoints,
@@ -189,4 +190,11 @@ test("without its own check, it follows the page's prefers-reduced-motion", () =
     assert.equal(p.classes.has("dopa-shake"), !reduce);
   }
   delete globalThis.matchMedia;
+});
+
+test("the shout's outline sits under its fill so a kanji's overlapping strokes stay hidden", () => {
+  const css = readFileSync(new URL("../public/style.css", import.meta.url), "utf8");
+  const rule = css.match(/\.dopa-shout\{[^}]*\}/)?.[0] ?? "";
+  assert.match(rule, /-webkit-text-stroke:/);
+  assert.match(rule, /paint-order:stroke fill/);
 });

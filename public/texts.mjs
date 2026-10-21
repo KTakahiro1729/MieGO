@@ -420,6 +420,10 @@ export const TEXT = {
     mismatch: "ページを開き直してください。相手と盤面が食い違い、対局を止めています。",
     peerOutOfSync: "そのままお待ちください。相手の操作を反映できず、盤面を合わせ直しています。",
     connected: "相手とつながっています",
+    // もう一局 in a friend game starts once both players press it.
+    rematchOffered: "「もう一局」を押すと始まります。相手がもう一局を申し込みました。",
+    rematchWaiting: "相手を待っています",
+    rematchWaitingAria: "もう一局を申し込みました。相手を待っています",
     badInvite: "招待URLをもう一度送ってもらってください。このURLでは参加できません。",
     roomInfo: colorLabel => "あなたは" + colorLabel + "です。相手に招待URLを送ってください。",
     revokeFailed: "今の招待URLをそのまま使ってください。招待は作り直せませんでした。",
