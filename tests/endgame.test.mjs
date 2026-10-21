@@ -228,3 +228,17 @@ test("そろそろ also lights once most of the board reads settled, without tou
   advisor.reset();
   assert.equal(advisor.mostlySettled,false);
 });
+
+test("the opening is over once a fifth of the board reads settled, and stays over until the next game",()=>{
+  const g=newGame(),advisor=new EndgameAdvisor();
+  // 16 of 81 points settled (19.8%): still 序.
+  advisor.observe(g,Array.from({length:81},(_,i)=>i<16?1:0));
+  assert.equal(advisor.opened,false);
+  advisor.observe({...g,moveNumber:1},Array.from({length:81},(_,i)=>i<17?1:0));
+  assert.equal(advisor.opened,true);
+  // A fight that unsettles the board again does not bring 序 back.
+  advisor.observe({...g,moveNumber:2},Array(81).fill(0));
+  assert.equal(advisor.opened,true);
+  advisor.reset();
+  assert.equal(advisor.opened,false);
+});
