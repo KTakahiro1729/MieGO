@@ -1231,8 +1231,10 @@ function apply(action, remote=false, isAiMove=false) {
     // ドパガキモード's voices grow with the capture, and cheer only a win.
     if(cue)sound.play(cue,cheer??undefined);
     if(good)sound.play("good");
-    // A question for this player: the friend's もう一局, end or 待った, or the COM's pass.
-    if(remote && proposalArrived(before,game) || isAiMove && endExpanded)sound.play("offer");
+    // A question for this player: the friend's もう一局, end or 待った, the COM's pass,
+    // or a watched COM同士 game reaching the count.
+    if(remote && proposalArrived(before,game) || isAiMove && endExpanded ||
+       isAiMove && isWatching() && before.status==="playing" && game.status==="scoring")sound.play("offer");
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
        (action.type==="rematch" && game.status==="playing") ||
