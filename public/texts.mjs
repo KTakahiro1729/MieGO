@@ -596,10 +596,10 @@ export const TEXT = {
       n => "序盤の2〜3線の手が" + n + "%",
       n => "相手の手から2路以内への応手が" + n + "%",
       // A number: played on behind that often. {letGo}: how likely lost (%) the
-      // player's dying stones were when let go. Otherwise a resignation, with
+      // player's weak stones were when last reached for. Otherwise a resignation, with
       // how far behind and how many own moves after falling far behind, where known.
       n => typeof n === "number" ? "10目以上負けている局面の" + n + "%でも打ち続けた" :
-        n.letGo != null ? "取られそうな自分の石を、取られる見込み約" + n.letGo + "%で見切った" :
+        n.letGo != null ? "弱くなった自分の石に、取られる見込み約" + n.letGo + "%まで手をかけた" :
         n.deficit === null ? "投了で対局を終えた" :
         "形勢 約" + n.deficit + "目差で投了" + (n.late === null ? "" : n.late === 0 ? "（大差がつく前）" : "（大差がついてから" + n.late + "手後）"),
     ],

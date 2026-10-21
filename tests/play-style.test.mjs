@@ -209,24 +209,23 @@ test("each way to 棋風診断 leads on to the others",async()=>{
     assert.doesNotMatch(TEXT.playStyle.pooledText(text),/この一局/);
 });
 
-test("letting dying stones go early is 潔い, reaching for them till they are gone 粘り強い",()=>{
+test("letting weak stones go early is 潔い, reaching for them till they are gone 粘り強い",()=>{
   const at=(x,y)=>y*19+x;
   // White grows two lines on the top and bottom edges by turns, while Black plays in the middle.
   let game=newGame(true,{size:19});
   for(let i=0;i<12;i++){game=play(game,at(i,9)); game=play(game,at(i>>1,i%2 ? 18 : 0));}
-  const end=game.moves.length;
-  // Both lines are Black's at the end: dead. On the way they look `before` far gone.
-  const recallFor=before=>state=>state.board.map(v=>v===WHITE ? (state.moves.length===end ? 0.8 : before) : 0);
-  const clinging=playStyle(game,WHITE,{recall:recallFor(0.8)}),letting=playStyle(game,WHITE,{recall:recallFor(0.2)});
+  // Both lines look this far gone (Black's ownership) whenever White reaches for them.
+  const recallFor=gone=>state=>state.board.map(v=>v===WHITE ? gone : 0);
+  const clinging=playStyle(game,WHITE,{recall:recallFor(0.8)}),letting=playStyle(game,WHITE,{recall:recallFor(0.1)});
   assert.equal(clinging.type[3],"T","still reaching for them when 90% lost");
-  assert.equal(letting.type[3],"Q","let go when 60% lost, sooner than most");
+  assert.equal(letting.type[3],"Q","let go when 55% lost, sooner than most");
   assert.ok(clinging.score.grit>0.25 && letting.score.grit<-0.25);
   assert.equal(clinging.score.shares[3],LET_GO_REASON+90);
-  assert.equal(letting.score.shares[3],LET_GO_REASON+60);
+  assert.equal(letting.score.shares[3],LET_GO_REASON+55);
   assert.ok(styleRanks(clinging.score)[3]<=50 && styleRanks(letting.score)[3]<=50);
   const read=readStyleLink(styleLink(clinging).split("?")[1]);
   assert.equal(read.evidence[3],LET_GO_REASON+90);
-  assert.equal(TEXT.playStyle.evidence[3]({letGo:90}),"取られそうな自分の石を、取られる見込み約90%で見切った");
+  assert.equal(TEXT.playStyle.evidence[3]({letGo:90}),"弱くなった自分の石に、取られる見込み約90%まで手をかけた");
   // Without ownership there is nothing to read, and 引き際 stays where the rest left it.
   assert.equal(playStyle(game,WHITE).score.grit,0);
 });
@@ -266,8 +265,8 @@ test("a resignation's timing is scaled to 19路 by board area",()=>{
   let state=newGame(true,{size:9});
   for(let i=0;i<12;i++){state=play(state,at(i%9,Math.floor(i/9)*4)); state=play(state,at(i%9,Math.floor(i/9)*4+2));}
   const game=play(play(state,at(8,8)),"resign");
-  const black=Array(81).fill(0.5);
-  const style=playStyle(game,WHITE,{recall:()=>black});
+  // Black owns all but White's stones, which are not weak, so only the timing tells.
+  const style=playStyle(game,WHITE,{recall:state=>state.board.map(v=>v===WHITE ? 0 : 1)});
   // 12 own moves on 9路 count as 12*361/81, past LATE_MOVES; the deficit past DEFICIT_LATE as well.
   assert.equal(style.score.grit,-0.5);
   assert.equal(readResignReason(style.score.shares[3]).late,12);

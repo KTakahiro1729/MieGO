@@ -89,15 +89,14 @@ function resignTiming(states, moves, color, recall) {
   return {deficit,late:unknown ? null : late};
 }
 
-// A group ends dead when its stones average this or less of the owner's ownership.
-const DEAD = -0.6;
 const groupOwnership = (stones, ownership, color) =>
   stones.reduce((total,stone)=>total+Number(ownership[stone])*color,0)/stones.length;
 
 /**
- * Where `color` let its own weak groups go: for each group that died (lost a
- * stone later, or ended DEAD), its stones' mean ownership, -1 to 0, at the
- * last own move next to it. A group is weak while that mean is below 0.
+ * Where `color` let its own weak groups go: for each, its stones' mean
+ * ownership, -1 to 0, at the last own move next to it. A group is weak while
+ * that mean is below 0. Groups that lived count as well as those that died,
+ * which keeps the reading nearly apart from strength (see LET_GO).
  */
 function letGoPoints(states, moves, color, recall) {
   const size=Math.round(Math.sqrt(states[0].board.length));
@@ -123,10 +122,7 @@ function letGoPoints(states, moves, color, recall) {
     for(const [stone,o] of owner)if(joined.has(o))owner.set(stone,k);
     lastOf.set(k,touch);
   });
-  const end=states.at(-1), endOwnership=recall(end) ?? null;
-  const died=touch=>states.slice(touch.i+1).some(state=>touch.stones.some(stone=>state.board[stone]!==color)) ||
-    endOwnership?.length===end.board.length && groupOwnership(touch.stones,endOwnership,color)<=DEAD;
-  return [...lastOf.values()].filter(died).map(touch=>touch.mean);
+  return [...lastOf.values()].map(touch=>touch.mean);
 }
 
 /** One side's tallies over one game, or null for too few moves. */
@@ -184,7 +180,7 @@ function scoreTallies(tallies) {
       .map(v=>v===null ? null : Math.round(v*100)).concat(tallies.length===1 ? tallies[0].reason ?? letGoReason(tallies[0].letGo) : null)};
 }
 
-// Letting dying stones go early is 潔い, reaching for them till they are gone
+// Letting weak stones go early is 潔い, reaching for them till they are gone
 // 粘り強い: with MIN_LET_GO groups or more, where the median of letGoPoints
 // stands among people (LET_GO) moves 引き際 by up to half, as far as
 // resigning, playing on or passing first left it open.
@@ -274,7 +270,7 @@ export function reportPlayStyles(key, snapshot, styles, send=globalThis.navigato
 // 引き際 put together from the resignations, playing on and LET_GO below.
 const PEOPLE = Object.freeze({
   attack:[-0.224,-0.153,-0.127,-0.112,-0.098,-0.088,-0.078,-0.071,-0.064,-0.057,-0.052,-0.045,-0.04,-0.035,-0.03,-0.024,-0.02,-0.015,-0.01,-0.005,-0.001,0.004,0.009,0.014,0.019,0.024,0.028,0.034,0.04,0.045,0.05,0.057,0.063,0.07,0.077,0.085,0.096,0.109,0.126,0.155,0.519],
-  grit:[-1,-1,-0.983,-0.95,-0.898,-0.859,-0.803,-0.74,-0.697,-0.641,-0.586,-0.53,-0.5,-0.442,-0.37,-0.285,-0.142,0,0,0,0,0,0,0,0,0,0,0,0,0,0.125,0.28,0.413,1,1,1,1,1,1,1,1],
+  grit:[-1,-1,-0.983,-0.942,-0.896,-0.85,-0.793,-0.739,-0.683,-0.631,-0.569,-0.506,-0.483,-0.448,-0.4,-0.35,-0.318,-0.275,-0.2,-0.133,-0.05,0,0,0,0,0,0,0,0.083,0.175,0.261,0.343,0.45,1,1,1,1,1,1,1,1],
   height:[-0.434,-0.309,-0.309,-0.309,-0.309,-0.184,-0.184,-0.184,-0.184,-0.184,-0.184,-0.184,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.059,-0.005,0.066,0.066,0.066,0.066,0.066,0.066,0.066,0.066,0.191,0.191,0.191,0.191,0.191,0.191,0.316,0.316,0.316,0.441,0.566],
   tenuki:[-0.346,-0.137,-0.114,-0.101,-0.091,-0.082,-0.073,-0.066,-0.06,-0.054,-0.048,-0.043,-0.038,-0.034,-0.03,-0.025,-0.02,-0.016,-0.013,-0.008,-0.004,0.001,0.005,0.01,0.015,0.019,0.025,0.029,0.034,0.039,0.045,0.051,0.058,0.065,0.072,0.08,0.091,0.104,0.124,0.154,0.654],
 });
@@ -291,12 +287,14 @@ function shareBelow(points, value) {
 }
 
 // 引き際 among people, from KataGo's small network on Fox 19路 games (15級 to
-// 1段). LET_GO every 5%: the median of letGoPoints over the 260 of 574 sides
-// with two or more groups that died; stronger players let go sooner (15級
-// -0.77, 1段 -0.54). Resignations: 661 of 931 games, 52 points behind and 18
+// 1段). LET_GO every 5%: the median of letGoPoints over the 429 of 574 sides
+// with two or more weak groups. Its correlation with the Fox rank is 0.14;
+// over groups that died alone it was 0.28 (15級 -0.77, 1段 -0.54), and the
+// game's own loss per move, standing for strength, took little of it away
+// (0.25). Resignations: 661 of 931 games, 52 points behind and 18
 // own moves since falling 20 behind at the median. 17.9% of sides played on
 // behind like 粘り強い's first rule.
-const LET_GO = [-1,-0.96,-0.92,-0.87,-0.81,-0.76,-0.73,-0.7,-0.68,-0.65,-0.62,-0.56,-0.52,-0.46,-0.42,-0.36,-0.26,-0.17,-0.11,-0.05,-0.01];
+const LET_GO = [-1,-0.87,-0.74,-0.67,-0.6,-0.51,-0.46,-0.42,-0.36,-0.33,-0.3,-0.26,-0.24,-0.21,-0.17,-0.13,-0.11,-0.07,-0.05,-0.03,0];
 
 /**
  * Where the player stands among people on each axis, towards their own letter:
@@ -318,9 +316,9 @@ export function styleRanks(score) {
 export const evidence = score => (score.shares ?? [null,null,null,null]).map(v=>v ?? "");
 
 // Each type's share of people, in percent: Fox 19路, the first three axes as
-// PEOPLE and 引き際 as PEOPLE.grit (41.7% Q), read as independent.
-const TYPE_SHARES = Object.freeze({AHFQ:4.3,AHFT:6.1,AHRQ:4.9,AHRT:6.9,ALFQ:5.6,ALFT:7.8,ALRQ:4.9,ALRT:6.8,BLNC:4.2,
-  GHFQ:4,GHFT:5.6,GHRQ:5.5,GHRT:7.7,GLFQ:5.2,GLFT:7.3,GLRQ:5.4,GLRT:7.5});
+// PEOPLE and 引き際 as PEOPLE.grit (52% Q), read as independent.
+const TYPE_SHARES = Object.freeze({AHFQ:5.5,AHFT:5,AHRQ:6.2,AHRT:5.7,ALFQ:7,ALFT:6.5,ALRQ:6.2,ALRT:5.7,BLNC:3.4,
+  GHFQ:5,GHFT:4.7,GHRQ:6.9,GHRT:6.4,GLFQ:6.6,GLFT:6.1,GLRQ:6.8,GLRT:6.3});
 export const typeShare = type => TYPE_SHARES[type] ?? null;
 /** How often two people of these types meet, in percent, to one decimal (at least 0.1). */
 export function pairShare(a, b) {
