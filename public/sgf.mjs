@@ -176,10 +176,10 @@ export function replaySteps(game,through=game.moves.length){
     throw broken();
   let state=initialGame(game);
   for(let i=0;i<through;i++){
-    const {color,position}=game.moves[i];
-    if(color!==state.next && !isFree(state))throw broken();
+    const move=game.moves[i];
+    if(move.color!==state.next && !isFree(state))throw broken();
     if(state.status==="scoring")state=resume(state);
-    try { state=replayMove(state,{color,position}); }
+    try { state=replayMove(state,move); }
     catch {throw broken();}
   }
   return state;

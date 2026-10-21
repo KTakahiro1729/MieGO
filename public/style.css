@@ -649,8 +649,6 @@ body{overflow:hidden}
 .action-row .undo-button{flex:0 0 48px;min-width:48px;width:48px;padding:0;display:grid;place-items:center}
 .action-row #pass{flex:0 0 60px;min-width:60px;width:60px;padding:9px 5px}
 .action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;font-size:12px;padding:6px 2px}
-.action-row .free-colors{flex:1 1 auto}
-.action-row .free-colors span{display:grid;place-items:center;min-height:var(--action-h);padding:0 6px;font-size:14px;box-sizing:border-box}
 /* The AI question follows the reason text directly. It is drawn about one
    line tall to sit with the 14px text; ::after keeps a 44px tap target. */
 /* The reason wraps onto a second line inside the bar's fixed height (UX policy §3.5). */
@@ -785,6 +783,13 @@ body{overflow:hidden}
 .help-popover-head .icon-button{margin-right:-10px}
 .help-popover-body .help-list{margin-top:0}
 .help-popover-body .explanation{margin:0 0 12px}
+/* 自由に置く: the menu at a tapped point, with a pointer to it. */
+.free-stone-menu{position:fixed;z-index:12;overflow:visible;border-radius:var(--radius-sm);--fused-edge:#556074;box-shadow:0 10px 32px #000b}
+.free-stone-menu>button{flex:0 0 auto;min-width:88px;min-height:var(--control-h);padding:8px 14px;font-size:15px;border-radius:0}
+.free-stone-menu>button:first-child{border-radius:calc(var(--radius-sm) - 1px) 0 0 calc(var(--radius-sm) - 1px)}
+.free-stone-menu>button:last-child{border-radius:0 calc(var(--radius-sm) - 1px) calc(var(--radius-sm) - 1px) 0}
+.free-stone-menu::after{content:"";position:absolute;left:calc(var(--pointer-x,50%) - 6px);top:100%;border:6px solid transparent;border-top-color:#556074}
+.free-stone-menu.is-below::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:#556074}
 
 /* Scoreboard: totals right-aligned in one column; the leader is bright. */
 .score-head .score-stone{display:none}

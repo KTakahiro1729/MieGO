@@ -117,7 +117,6 @@
           <button id="resign" class="secondary resign-control" type="button">{{common.resign}}</button>
           <button id="pass" class="secondary" type="button">{{common.pass}}</button>
           </div>
-          <div id="freeColors" class="fused ai-color-choices free-colors" role="radiogroup" aria-label="{{game.freeColorLabel}}" hidden><label><input type="radio" name="freeColor" value="black" checked><span>{{common.sideBlack}}</span></label><label><input type="radio" name="freeColor" value="white"><span>{{common.sideWhite}}</span></label></div>
           <div id="scoringActions" class="inline-score-actions" hidden>
             <div class="fused">
               <button id="resume" class="secondary" type="button">{{scoring.resume}}</button>
@@ -482,6 +481,7 @@
         </details>
       </section>
     </aside>
+    <div id="freeStoneMenu" class="fused free-stone-menu" role="group" aria-label="{{game.freeMenuLabel}}" hidden><button id="freeStoneFirst" class="secondary" type="button"></button><button id="freeStoneSecond" class="secondary" type="button"></button></div>
     <div id="helpPopover" class="help-popover" role="dialog" aria-labelledby="helpPopoverTitle" hidden>
       <div class="help-popover-head"><strong id="helpPopoverTitle"></strong><button id="closeHelpPopover" class="icon-button" type="button" aria-label="{{help.close}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <div id="helpPopoverBody" class="help-popover-body"></div>

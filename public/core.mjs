@@ -136,12 +136,13 @@ export function loseOnTime(state, color) {
   if (state.status !== "playing") return state;
   return { ...state, status: "finished", endProposal: null, result: color === BLACK ? "W+T" : "B+T" };
 }
-export function play(state, position) {
+/** `replace` is for a free board only: a stone there turns into the other colour. */
+export function play(state, position, replace = false) {
   if (state.status !== "playing") throw new Error("Not playing");
   // A real move answers any pending 待った request by moving on.
   if (state.takebackRequest) { const { takebackRequest, ...rest } = state; state = rest; }
   const color = state.next;
-  if (isFree(state)) return playFree(state, position, color);
+  if (isFree(state)) return playFree(state, position, color, replace);
   if (position === "resign") return {
     ...state, status: "finished", endProposal: null, result: color === BLACK ? "W+R" : "B+R",
     moves: [...state.moves, { color, position: "resign" }]
@@ -203,22 +204,26 @@ function playGomoku(state, position, color) {
   };
 }
 /** 自由に置く: an empty point takes a stone of colour state.next, a stone is
- * taken off. Nothing is captured. The colour to place is chosen by each player
- * outside the game (playFreeStone), so next only follows the latest edit. */
-function playFree(state, position, color) {
+ * taken off, or with `replace` turned into that colour. Nothing is captured.
+ * The colour is chosen at each tap (playFreeStone), so next only follows the
+ * latest edit. */
+function playFree(state, position, color, replace) {
   if (!Number.isInteger(position) || position < 0 || position >= state.board.length ||
       ![BLACK, WHITE].includes(color)) throw new Error("Only stones on points on a free board");
-  const board = [...state.board]; board[position] = board[position] ? 0 : color;
+  const swap = replace === true && state.board[position] === -color;
+  const board = [...state.board]; board[position] = board[position] && !swap ? 0 : color;
   return {
     ...state, board, passes: 0, moveNumber: state.moveNumber + 1,
-    history: [...state.history, boardHash(board)], moves: [...state.moves, { color, position }]
+    history: [...state.history, boardHash(board)],
+    moves: [...state.moves, swap ? { color, position, replace: true } : { color, position }]
   };
 }
-/** Places or takes off a stone on a free board in the colour the player chose. */
-export const playFreeStone = (state, position, color) => play({ ...state, next: color }, position);
+/** Places, takes off or (with `replace`) turns over a stone on a free board. */
+export const playFreeStone = (state, position, color, replace = false) =>
+  play({ ...state, next: color }, position, replace);
 /** Replays one recorded move. On a free board the move's colour is chosen, not alternated. */
-export const replayMove = (state, { color, position }) =>
-  play(isFree(state) ? { ...state, next: color } : state, position);
+export const replayMove = (state, { color, position, replace }) =>
+  isFree(state) ? playFreeStone(state, position, color, replace) : play(state, position);
 /** A proposed conclusion is not a Go move, a pass, or a scoring verdict.
  * Either color may offer, even when it is not their turn. The other side
  * must explicitly accept before entering dead-stone adjudication.

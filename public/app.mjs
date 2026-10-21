@@ -7,7 +7,6 @@ import {
   beginSoloScoring,
   BLACK,
   boardHash,
-  colorOf,
   confirmDeadSolo,
   fillStones,
   finalizeSoloScore,
@@ -131,6 +130,7 @@ import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
+import { createFreeStoneMenu } from "./free-stone-menu.mjs";
 import { createHelpSheet } from "./help-sheet.mjs";
 import {
   activeReviewSnapshot,
@@ -242,7 +242,6 @@ function clearProvisional() {
 // A replayed board follows its game; a shared SGF shows its stones.
 let hideStonesChoice = false;
 // The colour a tap places on a free board (自由に置く), remembered for this player.
-let freeColor = BLACK;
 // 五目並べ's 禁じ手 (renju's forbidden moves for Black), for the next game.
 let gomokuForbiddenChoice = false;
 // The next game's 持ち時間 and 秒読み in seconds (0: none); both 0 plays without a clock.
@@ -534,7 +533,6 @@ function rememberSettings() {
     aiSide:aiSideChoice,
     boardSize,
     byoyomi:byoyomiChoice,
-    freeColor:sideKey(freeColor),
     gameRules,
     gomokuForbidden:gomokuForbiddenChoice,
     hideStones:hideStonesChoice,
@@ -630,6 +628,8 @@ const boardRenderer = createBoardRenderer({
   })
 });
 function draw(){boardRenderer.draw();boardZoom.paintBleed();}
+const freeStoneMenu=createFreeStoneMenu({$,getGame:()=>game,
+  onChoose:({position,...choice})=>submitMove(position,false,choice)});
 /** While KataGo settles the dead stones, the board counts with the ones an estimate already gives. */
 function shownGame() {
   const playout=settleControl.view();
@@ -893,6 +893,7 @@ worker.onmessage=onWorkerMessage;
 function show() {
   // A replay leaves the game's clock running.
   syncClock();
+  if(boardReview)freeStoneMenu.close();else freeStoneMenu.sync();
   if(boardReview){renderBoardReview();return;}
   // The forbidden stone is a provisional UI selection, never part of game state.
   if(illegalCandidate && (illegalCandidate.source!==game || game.status!=="playing")) {
@@ -909,8 +910,8 @@ function show() {
   renderInviteButton();
   const spectating=isWatching();
   $("turn").classList.toggle("white-to-play",game.next===WHITE);
-  // Nobody is to move while scoring or after the game, so no turn stone.
-  $("turn").classList.toggle("no-stone",game.status!=="playing" ||
+  // Nobody is to move while scoring, after the game or on a free board, so no turn stone.
+  $("turn").classList.toggle("no-stone",game.status!=="playing" || isFree(game) ||
     isWatching() && watchReturning && !watchPaused && !intervening);
   // 最強 can take a while: the turn says it is thinking, its stone pulses, and
   // the line under it says what it is doing and how far along.
@@ -920,7 +921,7 @@ function show() {
     // The scoring step names itself here, so the score box keeps its one line for the instruction.
     game.status==="scoring"?(scoringStepOf(game)==="count"?TEXT.scoring.countTitle:TEXT.scoring.title):
     room && !connected?(reconnecting?TEXT.game.reconnecting:TEXT.game.waitingOpponent):
-    isFree(game)?(freeColor===BLACK?TEXT.game.freeBlack:TEXT.game.freeWhite):
+    isFree(game)?TEXT.game.freeTurn:
     room?(myTurn?TEXT.game.yourTurn:TEXT.game.opponentTurn):
     // COM同士 shows whose move it is; 「COM同士」 under it says who plays.
     gameMode==="ai"?(spectating?(watchReturning && !watchPaused && !intervening?TEXT.game.watchReturning:
@@ -1027,14 +1028,8 @@ function show() {
   if(gomoku)$("pass").disabled=true;
   $("confirm").hidden=isScoring || isFinished;
   $("copyIllegalPrompt").hidden=isScoring || isFinished || !blocked;
-  // 自由に置く: the colour to place takes the place of 投了, パス and ここに打つ.
-  const free=isFree(game);
-  $("freeColors").hidden=!free;
-  if(free){
-    for(const id of ["resign","pass","confirm"])$(id).hidden=true;
-    for(const input of document.querySelectorAll('input[name="freeColor"]'))
-      input.checked=input.value===sideKey(freeColor);
-  }
+  // 自由に置く: the colour is chosen at the tapped point, so 待った stands alone.
+  if(isFree(game))for(const id of ["resign","pass","confirm"])$(id).hidden=true;
   $("actionRow").classList.toggle("finished-actions",isFinished);
   // COM同士: 介入する and 一時停止 (再開); stepping in shows × and ここに打つ instead.
   const watchingPlay=spectating && game.status==="playing";
@@ -1120,7 +1115,7 @@ function apply(action, remote=false, isAiMove=false) {
       const clock=remote?peerClock(action.clock):chargeClock();
       if(clock===false){timeOut(game.next);return;}
       if(clock && room && !remote)action={...action,clock};
-      game=isFree(game)?playFreeStone(game,action.position,action.color):play(game,action.position);
+      game=isFree(game)?playFreeStone(game,action.position,action.color,action.replace===true):play(game,action.position);
       if(clock)game={...game,clock};
       if(remote && offerBefore?.from===myOnlineColor())
         endNotice={number:game.moveNumber,hash:boardHash(game.board),text:TEXT.endgame.cancelledByMove};
@@ -1245,17 +1240,18 @@ function apply(action, remote=false, isAiMove=false) {
     if(remote){showNotice(TEXT.online.peerOutOfSync);$("netStatus").textContent=TEXT.online.syncing;p2pTransport.refresh();}
   }
 }
-function submitMove(position,fromAi=false){
+/** `free` is a free board's choice at the point: {color} or {color,replace}. */
+function submitMove(position,fromAi=false,free=null){
   if(boardReview && !fromAi)return;
   if(!fromAi && !isHumanTurn())return;
   if(fromAi && !isAiTurn())return;
+  if(isFree(game)!==!!free)return;
   const before=boardHash(game.board);
-  // A free board's move carries the colour this player chose.
-  const free=isFree(game)?{color:freeColor}:{};
   let next;
-  try{next=free.color?playFreeStone(game,position,free.color):play(game,position);}
+  try{next=free?playFreeStone(game,position,free.color,free.replace):play(game,position);}
   catch(error){showNotice(messageFor(error,TEXT.common.retry));return;}
-  apply({type:"move",position,...free,number:game.moveNumber+1,before,after:boardHash(next.board)},false,fromAi);
+  const choice=free?{color:free.color,...(free.replace?{replace:true}:{})}:{};
+  apply({type:"move",position,...choice,number:game.moveNumber+1,before,after:boardHash(next.board)},false,fromAi);
 }
 canvas.addEventListener("click",e=>{
   const SIZE=shownSize();
@@ -1286,8 +1282,13 @@ canvas.addEventListener("click",e=>{
   }
   // While watching, the board takes stones only after 介入する.
   if(game.status!=="playing" || !isHumanTurn())return;
-  // A free board places or takes off a stone at once; 待った undoes it.
-  if(isFree(game)){submitMove(position);return;}
+  // A free board asks at the point what to do there; 待った undoes it.
+  if(isFree(game)){
+    const pitch=rect.width/(SIZE+1);
+    freeStoneMenu.openAt(position,{x:rect.left+(x+1)*pitch,y:rect.top+(y+1)*rect.height/(SIZE+1)},pitch,
+      $("boardFrame").getBoundingClientRect().top);
+    return;
+  }
   if(!room && endExpanded)endExpanded=false;
   // Occupied intersections cannot hold a provisional stone.
   if(game.board[position]!==0)return;
@@ -1356,13 +1357,6 @@ $("closeIllegalPromptFallback").onclick=()=>{
   $("illegalPromptFallbackPanel").hidden=true;
   $("copyIllegalPrompt").focus();
 };
-// Each player picks the colour to place on a free board; it is remembered, not shared.
-for(const input of document.querySelectorAll('input[name="freeColor"]'))
-  input.onchange=e=>{
-    if(!e.target.checked)return;
-    freeColor=colorOf(e.target.value);
-    rememberSettings();show();
-  };
 // A mistaken pass is undone with 待った, so every mode passes on one tap.
 $("pass").onclick=()=>submitMove(null);
 // The armed label names the action ("投了？"): a bare "確定" reads like the
@@ -2713,7 +2707,6 @@ else try {
     gomokuForbiddenChoice=settings.gomokuForbidden===true;
     mainTimeChoice=toSeconds(settings.mainTime,MAIN_TIME_CHOICES);
     byoyomiChoice=toSeconds(settings.byoyomi,BYOYOMI_CHOICES);
-    freeColor=colorOf(settings.freeColor);
     ({aiHandicap,localHandicap,onlineHandicap}=capHandicaps({aiHandicap,localHandicap,onlineHandicap},boardSize));
     // Settings from before characters kept strength, 侵入度 and 補強度 on their own.
     aiCom=newCom(settings.aiCom ?? {strength:settings.aiStrength,invasion:settings.invasion,
