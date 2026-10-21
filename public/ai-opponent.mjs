@@ -1,8 +1,9 @@
 
-import {play} from "./core.mjs";
+import {isFree,isGomoku,isJapanese,play} from "./core.mjs";
 import {personalityFeatures,stanceOf,STYLE_AXES,styleSignal} from "./ai-personality.mjs";
 import {clamp,samplePolicyCandidate} from "./ai-policy-sampling.mjs";
 import {AI_STRENGTHS,pickWeakenedMove} from "./ai-strength.mjs";
+import {OWNERSHIP_BANDS} from "./territory-view.mjs";
 export {personalityFeatures,STYLE_AXES} from "./ai-personality.mjs";
 
 const bounded = v => clamp(Number(v) || 0, 0, 100);
@@ -46,7 +47,24 @@ export function scorePolicyCandidates(state, logits, ownership, options={}) {
 export function canConsiderAiPass(stage="playing") {
   return stage==="near" || stage==="ready";
 }
+/** After the other side passed on a settled board, a move on a point KataGo
+ * already gives to one side (inside either area, or taking stones it calls
+ * dead) cannot change the result: the count settles those stones the same
+ * way (area scoring). Like a person, the AI passes back instead of playing them out; a
+ * point still open (a dame, an unclosed border) is still played.
+ */
+export function answersPass(state, position, ownership, stage) {
+  // Under Japanese rules the AI already passes back: each move there costs a point.
+  if(position===null || isJapanese(state) || !canConsiderAiPass(stage) ||
+    state.moves.at(-1)?.position!==null)return false;
+  if(!Array.isArray(ownership) || !Number.isFinite(ownership[position]))return false;
+  return Math.abs(ownership[position])>=OWNERSHIP_BANDS.SETTLED;
+}
 export function choosePolicyMove(state, logits, passLogit, options={}) {
+  const position=pickPolicyMove(state,logits,passLogit,options);
+  return answersPass(state,position,options.ownership,options.endgameStage) ? null : position;
+}
+function pickPolicyMove(state, logits, passLogit, options) {
   const weakened=Number.isFinite(AI_STRENGTHS[options.strength]?.kyu);
   const candidates=scorePolicyCandidates(state,logits,options.ownership,
     {...options,allMoves:weakened});
@@ -64,4 +82,33 @@ export function choosePolicyMove(state, logits, passLogit, options={}) {
     candidates.push({position:null,score:passLogit-0.3});
   }
   return samplePolicyCandidate(candidates,options);
+}
+
+/** 投了: how far behind a COM must be, by its 投了 setting (0 never resigns).
+ * Both the win rate and the score lead must agree, since the small network's
+ * win rate alone is far from calibrated on 9x9. Like KataGo's own default
+ * (resignConsecTurns 3), the COM resigns only after three of its turns in a row
+ * look hopeless, and not in the opening, where estimates swing most. */
+export const RESIGN_LEVELS = Object.freeze({
+  50: Object.freeze({winRate:.03, boardShare:1/4}),
+  100: Object.freeze({winRate:.1, boardShare:1/8}),
+});
+export const RESIGN_TURNS = 3;
+export function createResignWatch() {
+  let streak = {};
+  return {
+    reset() { streak = {}; },
+    /** True when the COM to move should resign now. winRate and lead are Black's. */
+    observe(state, resign, {winRate, lead}) {
+      const level = RESIGN_LEVELS[resign], color = state.next;
+      if (!level || !Number.isFinite(winRate) || !Number.isFinite(lead) || isGomoku(state) || isFree(state)) {
+        streak[color] = 0; return false;
+      }
+      const mine = color > 0 ? winRate : 1 - winRate, behind = -color * lead;
+      const area = state.board.length;
+      const hopeless = state.moveNumber >= area / 4 && mine <= level.winRate && behind >= area * level.boardShare;
+      streak[color] = hopeless ? (streak[color] || 0) + 1 : 0;
+      return streak[color] >= RESIGN_TURNS;
+    },
+  };
 }
