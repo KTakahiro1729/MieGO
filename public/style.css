@@ -138,7 +138,7 @@ svg.size-icon{stroke-width:var(--stroke-grid)}
 .player.white .player-detail{flex-direction:row-reverse}
 .player-detail-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .player-stone{flex:none;width:14px;height:14px;box-sizing:border-box;border-radius:var(--radius-round);background:radial-gradient(circle at 32% 28%,var(--slate-46),var(--slate-17) 72%);border:1px solid var(--gray-54)}
-.player.white .player-stone{background:radial-gradient(circle at 32% 27%,var(--white),var(--gray-90) 72%);border-color:var(--gray-78)}
+.player.white .player-stone,.seat-row.white .player-stone{background:radial-gradient(circle at 32% 27%,var(--white),var(--gray-90) 72%);border-color:var(--gray-78)}
 /* The side to move: its name in gold and bold, the other side's dimmed. */
 .player.is-turn .player-name{color:var(--gold);font-weight:var(--weight-bold)}
 .player.is-turn .player-detail{color:var(--slate-89)}
@@ -150,6 +150,13 @@ svg.size-icon{stroke-width:var(--stroke-grid)}
 .player .clock-time[hidden]{display:none}
 .player .clock-time.is-low{color:var(--ember-60)}
 .players-move{color:var(--muted);font-size:var(--font-small);font-variant-numeric:tabular-nums;white-space:nowrap}
+/* The names open この対局の打ち手; a mark under the move count says so, and goes with the button. */
+button.players{min-height:44px;margin:0;padding:0;border:0;border-radius:0;background:none;color:inherit;font:inherit;text-align:inherit;cursor:pointer}
+button.players:hover:not(:disabled){border-color:transparent}
+button.players:disabled{opacity:1;cursor:default}
+.players-middle{display:flex;flex-direction:column;align-items:center}
+.seat-mark{color:var(--gold)}
+.players:disabled .seat-mark{display:none}
 .connection-status{font-size:var(--font-caption);color:var(--slate-77);white-space:nowrap;display:flex;align-items:center;gap:7px}
 .connection-status::before{content:"";width:8px;height:8px;border-radius:var(--radius-round);background:var(--slate-60);flex:none}
 .connection-status.online::before{background:var(--green-75);box-shadow:0 0 8px var(--green-75-a40)}
@@ -407,6 +414,15 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .new-game-actions>button,.new-game-actions>.settings-section{flex:1 1 0;min-width:0}
 /* At 320px both names fit on one line only one size down. */
 @media (max-width:340px){.new-game-actions>button,.new-game-actions .primary.full{font-size:var(--font-small)}}
+/* この対局の打ち手: a row per colour, no cards or rules between them; only the controls have edges. */
+.seat-row{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:center;gap:8px;margin-top:14px}
+.seat-color{display:flex;align-items:center;gap:7px;font-weight:var(--weight-medium)}
+.seat-choices span{padding:11px 8px}
+.seat-com{margin:8px 0 0 56px}
+.seat-com[hidden]{display:none}
+.seat-note,.seat-summary{margin:6px 0 0;font-size:var(--font-small);line-height:1.6;color:var(--muted)}
+.seat-summary{margin-top:18px}
+.seat-actions{display:flex;gap:8px;margin-top:14px}
 /* A confirmation note under 今の対局を続ける takes the whole row under both buttons. */
 .new-game-actions>.armed-note{flex-basis:100%;order:1}
 /* When the COM failed to load, the note under the disabled start button names what still works;
