@@ -29,10 +29,27 @@ test("the real board alone leaves an early end almost all neutral", () => {
 test("the playout's stones close the open borders, so the count decides the territory", () => {
   const game = withPlayoutFill(earlyEnd(), settled(earlyEnd()));
   const score = areaScore(game);
-  // Columns 0-3 are Black's, 5-8 White's; only the dame column 4 is neutral.
-  assert.deepEqual([score.black, score.white], [36, 36 + 7.5]);
-  assert.equal(score.owned.filter(o => o === 0).length, 9);
-  assert.equal(scoringRegions(game).regions.find(r => r.color === BLACK).count, 36);
+  // Columns 0-3 are Black's, 5-8 White's; the dame column 4 is neutral, and so
+  // are the fill stones, played after the players stopped.
+  assert.deepEqual([score.black, score.white], [32, 32 + 7.5]);
+  assert.equal(score.owned.filter(o => o === 0).length, 9 + 8);
+  assert.equal(scoringRegions(game).regions.find(r => r.color === BLACK).count, 32);
+});
+
+test("under area scoring an odd number of filled dame gives nobody the odd point", () => {
+  // Full walls on columns 3 and 5 leave the 9 dame of column 4.
+  const board = Array(81).fill(0);
+  for (let y = 0; y < 9; y++) { board[at(3, y)] = BLACK; board[at(5, y)] = WHITE; }
+  const game = beginSoloScoring({ ...newGame(true), board });
+  const filled = first => {
+    const settled = [...board];
+    for (let y = 0; y < 9; y++) settled[at(4, y)] = y % 2 ? -first : first;
+    return areaScore(withPlayoutFill(game, settled)).difference;
+  };
+  // Whoever fills first (the side that passed first), the result is the unfilled one.
+  assert.equal(filled(BLACK), areaScore(game).difference);
+  assert.equal(filled(WHITE), areaScore(game).difference);
+  assert.equal(areaScore(game).difference, 36 - 36 - 7.5);
 });
 
 test("a fill stone inside its own territory counts as that territory, not as a border", () => {

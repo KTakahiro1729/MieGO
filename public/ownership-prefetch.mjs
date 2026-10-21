@@ -8,7 +8,7 @@ export function replayLine(snapshot) {
   let state=initialGame(snapshot);
   const states=[state];
   for(const move of snapshot.moves){
-    if(state.status==="scoring")state=resume(state);
+    if(state.status==="scoring")state=resume(state,-move.color);
     if(state.status!=="playing")break;
     state=replayMove(state,move);
     states.push(state);
