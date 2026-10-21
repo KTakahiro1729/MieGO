@@ -94,7 +94,7 @@ export const TEXT = {
     ready: "終局してよさそうです",
     unavailable: "終局は自分で判断してください。目安を出せません",
     gomoku: "縦・横・斜めに5つ並べたら勝ち",
-    free: "交点をタップして置く・取り除く",
+    free: "交点をタップして置く・取り除く・色を替える",
     checking: "終局の目安を確認中",
     updating: "終局の目安を更新中",
     offline: "相手を待っています",
@@ -178,9 +178,10 @@ export const TEXT = {
   game: {
     turnBlack: "黒の番です",
     turnWhite: "白の番です",
-    freeBlack: "黒を置きます",
-    freeWhite: "白を置きます",
-    freeColorLabel: "置く石の色",
+    freeTurn: "自由に置く",
+    freeRemove: "取り除く",
+    freeToBlack: "● 黒にする",
+    freeToWhite: "○ 白にする",
     yourTurn: "あなたの番",
     opponentTurn: "相手の番",
     waitingOpponent: "対局相手を待っています",
@@ -219,7 +220,7 @@ export const TEXT = {
     localPractice: "1台で打つ",
     boardLabel: size => size + "路盤。交点を選ぶと石を仮置きできます。2本の指で広げると拡大できます。",
     ruleSummary: (size, komi, handicap, japanese = false, forbidden = false) => japanese === "free" ?
-      size + "路盤 · 自由に置く（ルールなし：空いた交点に置き、石をタップすると取り除く）" : japanese === "gomoku" ?
+      size + "路盤 · 自由に置く（ルールなし：空いた交点に黒か白を置き、石は取り除くか色を替える）" : japanese === "gomoku" ?
       size + "路盤 · 五目並べ" + (forbidden ? "（禁じ手あり：黒は三三・四四・長連を打てず、ちょうど5つで勝ち。白は5つ以上で勝ち）" :
         "（禁じ手なし：5つ以上並べたら勝ち）") : size + "路盤 · " +
       (japanese ? "日本式ルール · " : "中国式ルール · ") + (handicap ?
@@ -328,13 +329,16 @@ export const TEXT = {
       high: "序盤に4線より内側の高い手で勢力を作ります。",
     },
     tenukiStops: { low: "応じる", mid: "ふつう", high: "手を抜く" },
+    resignStops: { low: "最後まで", mid: "大差で投了", high: "早めに投了" },
     tenukiNotes: {
       low: "相手が打った手の近くで応じます。",
       mid: "応じるか離れるかを特に好みません。",
       high: "相手の手に付き合わず、離れた場所へ打ちます。",
     },
-    unavailable: "ページを開き直してください。COMを読み込めず、対局できません。",
-    unavailableContinue: "ページを開き直してください。COMを読み込めず、対局を続けられません。",
+    unavailable: "ページを開き直してください。COMを読み込めず、対局できません。「1台で打つ」と「対友人」はCOMなしで遊べます。",
+    unavailableContinue: "ページを開き直してください。COMを読み込めず、対局を続けられません。「1台で打つ」と「対友人」はCOMなしで遊べます。",
+    // Under the disabled start button of the 対COM tab, when KataGo failed to load.
+    startUnavailableNote: "ページを開き直すと直ることがあります。「1台で打つ」と「対友人」はCOMなしで遊べます。",
     waitingLoad: "COMの準備が終わるまでお待ちください。",
     thinking: "COMが次の手を考え中…",
     strongestLoading: percent => "最強のCOMを読み込み中… " + percent + "%",
@@ -366,6 +370,7 @@ export const TEXT = {
     reinforcement: "補強度",
     stance: "戦い方",
     tenuki: "相手の手に",
+    resign: "投了",
   },
 
   handicap: {
@@ -444,6 +449,8 @@ export const TEXT = {
     statusFinished: "終局済み",
     unknownDate: "日時不明",
     summary: (status, moves, date) => status + " · " + moves + "手 · " + date,
+    // A played game's title names its players: 対友人 · 黒 たろう・白 はなこ.
+    players: (mode, black, white) => mode + " · " + [black && "黒 " + black, white && "白 " + white].filter(Boolean).join("・"),
     komi: komi => " · コミ " + komi,
     noteVariation: "元の棋譜とは別に保存した試し打ちです。",
     favoriteOn: "お気に入りにする",
@@ -469,7 +476,7 @@ export const TEXT = {
     sharedLoadFailed: "共有した人にURLをもう一度送ってもらってください。このURLは開けません。",
     intro: "棋譜を選ぶと大きな碁盤に表示します。",
     importSgf: "SGFファイルを読み込む",
-    empty: "保存された棋譜はまだありません。",
+    empty: "打ち始めると、棋譜がここに残ります。",
   },
 
   review: {
@@ -543,6 +550,130 @@ export const TEXT = {
     cardLegend: "地合いの推定",
     cardPlay: "自分でプレイする",
     cardContribute: "開発に参加する",
+    cardPlayStyle: (type, name) => type + " " + name,
+  },
+
+  // 棋風診断 (play-style.mjs, the share sheet and /style). Each type is four
+  // letters, one per axis in this order: A/G, H/L, F/R, T/Q.
+  playStyle: {
+    title: "棋風診断",
+    pageTitle: type => type ? type + "の棋風｜MieGO 棋風診断" : "MieGO 棋風診断",
+    pageDescription: "MieGOで打った一局の棋譜から、攻め・序盤・相手の手への応じ方・引き際の4つで打ち方を16タイプに分けるお遊びの診断です。",
+    intro: "一局の棋譜から、あなたの打った手だけを見て、打ち方を4つの軸で16タイプに分けます。AIの性格と同じものさしで測る、お遊びの診断です。",
+    oneGame: "1局から測るので、打つたびに変わることがあります。",
+    axesTitle: "4つの軸",
+    allTitle: "16のタイプ",
+    playCta: "MieGOで一局打つ",
+    back: "MieGOに戻る",
+    sideLabel: color => color === "B" ? "黒番" : "白番",
+    sidePrompt: "自分の石",
+    shareSheetNote: "打った人ごとの、この一局の診断です。ページで説明と4つの軸を見られます。履歴の対局をまとめて診断すると、結果が安定します。",
+    openPage: "診断ページを開く",
+    shareNone: "この対局はまだ診断できません。囲碁で、打った人がそれぞれ10手以上打つと出ます。",
+    // 履歴: several saved games read together.
+    historyButton: "履歴からまとめて棋風診断",
+    fromResult: "棋風診断 ›",
+    historyPick: "まとめたい対局の下にある「● 黒番」「○ 白番」から、自分が打った方を押してください。最近のCOMや友人との対局は選んであります。",
+    historyOpen: "診断を見る",
+    historyNone: "石を選ぶと、ここに診断が出ます。",
+    historyEmpty: "まとめられる対局が履歴にまだありません。囲碁で10手以上打つと、ここで選べるようになります。",
+    historyResult: (type, name, games) => type + " " + name + "（" + games + "局のまとめ）",
+    historyCancel: "やめる",
+    // Each type's text speaks of one game; read together, it speaks of the games picked.
+    pooledText: text => text.replace(/^この一局では、/, "選んだ対局では、"),
+    pooled: games => "選んだ" + games + "局をまとめて測りました。局が多いほど結果は安定します。",
+    axes: [
+      { high: "A", low: "G", highName: "攻め", lowName: "守り",
+        about: "相手の石を攻める・相手の勢力圏に入る手と、自分の弱い石を補う手のどちらが多いか" },
+      { high: "H", low: "L", highName: "模様", lowName: "実利",
+        about: "序盤に4線より上の高い場所と、2〜3線の低い場所のどちらに打つか" },
+      { high: "F", low: "R", highName: "自由", lowName: "律儀",
+        about: "相手が打った手の近くに応じるか、離れた場所に打つか" },
+      { high: "T", low: "Q", highName: "粘り強い", lowName: "潔い",
+        about: "負けていても打ち続けたか、投了や先のパスで区切りをつけたか" },
+    ],
+    types: {
+      AHFQ: {
+        name: "大胆な旅人",
+        catch: "攻める場所も、去る時も自由",
+        text: "この一局では、高い場所から可能性を広げ、相手の手に付き合わず攻める打ち方。意外な方向から動けるのが持ち味。ただし、景色を楽しみすぎて足元がお留守になることも。",
+      },
+      AHFT: {
+        name: "不屈の風来坊",
+        catch: "広げて攻めて、まだ帰らない",
+        text: "この一局では、高い場所から大きく構え、相手の近くに縛られず攻め続ける打ち方。流れを自分で作れるのが魅力だが、夢中になると帰り道まで忘れがち。",
+      },
+      AHRQ: {
+        name: "礼儀派の猛者",
+        catch: "受けて立つ、去り際も鮮やか",
+        text: "この一局では、高い場所に構え、相手の手にきっちり応じながら攻める打ち方。やり取りの中で主導権を握れる反面、律儀に付き合いすぎて予定が埋まりがち。引き際はすっきり。",
+      },
+      AHRT: {
+        name: "熱血の番人",
+        catch: "応えて攻めて、最後まで",
+        text: "この一局では、高い場所に構えつつ、相手の動きに応じて攻めを重ねる打ち方。正面から押し返す力が魅力だが、目の前のやり取りに熱中して遠くの好機を見逃しがち。",
+      },
+      ALFQ: {
+        name: "軽快な勝負師",
+        catch: "取るもの取って、さっと去る",
+        text: "この一局では、低い場所で実利を確保し、相手に付き合わず攻める打ち方。狙いを切り替える速さが持ち味だが、切り替えが早すぎて育ちかけのチャンスを置いていくことも。",
+      },
+      ALFT: {
+        name: "路地裏の冒険家",
+        catch: "小さく稼いで、大きく仕掛ける",
+        text: "この一局では、低い場所で実利を集めながら、相手の手から離れて攻める打ち方。確かな収穫と奇襲を両立できるのが魅力。ただし、欲張るとあちこちに忘れ物が増えがち。",
+      },
+      ALRQ: {
+        name: "きっぱり職人",
+        catch: "攻めは丁寧、区切りは明快",
+        text: "この一局では、低い場所で実利を集め、相手の手に応じつつ攻める打ち方。目の前の成果を確かめながら進めるのが強み。ただし、細部にこだわって大きな機会を見送ることも。",
+      },
+      ALRT: {
+        name: "執念の商人",
+        catch: "一歩も譲らず、実利を積む",
+        text: "この一局では、低い場所で実利を取り、相手の手にも応じながら攻め続ける打ち方。小さな得を積み重ねるのが魅力だが、一つの取引に熱中して閉店時間を忘れがち。",
+      },
+      GHFQ: {
+        name: "余白の旅支度",
+        catch: "広く守って、軽やかに去る",
+        text: "この一局では、高い場所に構え、守るところは守りつつ相手の手から離れる打ち方。無理せず広がりを作れるのが魅力だが、遠くを見すぎて目の前の小さな得を忘れることも。",
+      },
+      GHFT: {
+        name: "悠然たる開拓者",
+        catch: "守りを固めて、遠くへ伸びる",
+        text: "この一局では、高い場所に広がりを求め、弱いところを補いながら自由に打つ形。自分のペースで可能性を育てられる反面、広げた先の手入れが増えて休日がなくなりがち。",
+      },
+      GHRQ: {
+        name: "品格ある城主",
+        catch: "広く構え、静かに幕を引く",
+        text: "この一局では、高い場所に模様を描き、相手の動きに丁寧に応じて守る打ち方。落ち着いた形を保てるのが魅力だが、用心深くなりすぎると攻め時まで見送ることも。",
+      },
+      GHRT: {
+        name: "不屈の城守り",
+        catch: "大きく構えて、粘り抜く",
+        text: "この一局では、高い場所で模様を育て、相手の手に応じながら弱いところを補う打ち方。崩れにくさが持ち味だが、守る場所が増えるとあちこち巡回する忙しい一日になりがち。",
+      },
+      GLFQ: {
+        name: "身軽な貯金家",
+        catch: "確保したら、次の場所へ",
+        text: "この一局では、低い場所で実利を確保し、必要な守りを済ませて自由に動く打ち方。無駄な争いを避けられるのが魅力だが、安全確認に時間をかけて好機が通り過ぎることも。",
+      },
+      GLFT: {
+        name: "しぶとい自由人",
+        catch: "守る、稼ぐ、でも縛られない",
+        text: "この一局では、低い場所で実利を取り、弱いところを補いながら相手の手から離れる打ち方。自分の得を守れるのが魅力だが、慎重な寄り道が増えて目的地を見失うことも。",
+      },
+      GLRQ: {
+        name: "端正な管理人",
+        catch: "守るべきものを守り、締める",
+        text: "この一局では、低い場所で実利を取り、相手の手に丁寧に応じて弱いところを守る打ち方。着実に形を整えられる反面、点検に夢中で思い切った一手を後回しにしがち。引き際は明快。",
+      },
+      GLRT: {
+        name: "粘りの石橋",
+        catch: "一つずつ守り、最後まで",
+        text: "この一局では、低い場所で実利を積み、相手の手にも応じて守り抜く打ち方。小さな安心を重ねられるのが魅力だが、確認を重ねすぎて橋を渡る前に日が暮れることも。",
+      },
+    },
   },
 
   sgf: {
@@ -641,11 +772,16 @@ export const TEXT = {
     title: "設定",
     close: "設定を閉じる",
     reset: "初期状態に戻す",
+    name: "表示名",
+    nameNote: "対局の名前の欄、対友人の相手の画面、履歴と棋譜（SGF）に出ます。空欄なら「あなた」です。",
     sound: "効果音",
     soundNote: "石を打つ・取る、秒読み、終局で鳴らします",
     dopa: "ドパガキモード",
     dopaNote: "打つ・取る・勝つ、良い手、振り返りの勝負どころ、秒読みを派手にします",
     board: "碁盤",
+    linkStones: "呼吸点とつながった石",
+    linkStonesNote: "縦横に隣り合う同じ色の石は、取られるときも一緒です",
+    linkModes: { off: "なし", candidate: "仮置き時", always: "常に" },
     themes: { wood: "木目", light: "ライト", dark: "ダーク", custom: "カスタム" },
     boardColours: { board: "盤", line: "線", black: "黒石", white: "白石" },
     customBoardColours: "盤の色（カスタム）",
@@ -815,6 +951,7 @@ export const TEXT = {
       items: [
         "<strong>ほかの端末で見られない</strong>：保存先はこの端末のブラウザなので、ほかの端末やブラウザには出ません。",
         "<strong>棋譜が消えた</strong>：容量がいっぱいになると、古い棋譜から自動で消えます。残したい棋譜には☆を付けてください。",
+        "<strong>棋風をまとめて診断したい</strong>：履歴の「履歴からまとめて棋風診断」で、対局ごとに自分の石を選びます。1局ずつの診断は共有の画面に出ます。",
       ],
     },
     about: {

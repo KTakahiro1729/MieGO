@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { newGame, play, agreeScore, answerEndProposal, loseOnTime, proposeEnd, BLACK, WHITE } from "../public/core.mjs";
+import { newGame, play, agreeScore, answerEndProposal, loseOnTime, proposeEnd, resume, BLACK, WHITE } from "../public/core.mjs";
 import { selectColor, playerColor, readCheckpoint, saveCheckpoint, reconcileGame, guestUrl, ownUrl, isPeerAction, isConsistentSnapshot, roomUrl, newPeerSignins } from "../public/p2p-session.mjs";
 
 test("creator's choice fixes color and guest receives opposite color",()=>{
@@ -65,7 +65,7 @@ test("a friend's client may act only for the friend's color", () => {
   assert.equal(isPeerAction({ type: "move", position: 0 }, game, peer), false);
   assert.equal(isPeerAction({ type: "move", position: "resign" }, game, peer), false);
   assert.equal(isPeerAction({ type: "move", position: 0 }, game, { peerColor: BLACK }), true);
-  for (const type of ["agree", "end_offer", "end_answer", "takeback_request", "takeback_answer"]) {
+  for (const type of ["agree", "end_offer", "end_answer", "resume", "takeback_request", "takeback_answer"]) {
     assert.equal(isPeerAction({ type, color: BLACK }, game, peer), false, type);
     assert.equal(isPeerAction({ type, color: WHITE }, game, peer), true, type);
   }
@@ -184,4 +184,11 @@ test("もう一局 waits for the other player, then starts the same settings as 
   assert.equal(reconcileGame(next,5,crossed,5).kind,"equal");
   assert.equal(isPeerAction({type:"rematch",color:WHITE},asked,{peerColor:WHITE}),true);
   assert.equal(isPeerAction({type:"rematch",color:BLACK},asked,{peerColor:WHITE}),false);
+});
+
+test("a count just resumed by one friend is consistent with the other friend's turn", () => {
+  const scoring = play(play(play(newGame(), 40), null), null); // White to move
+  assert.equal(isConsistentSnapshot(resume(scoring, WHITE)), true);
+  assert.equal(resume(scoring, WHITE).next, BLACK);
+  assert.equal(isConsistentSnapshot({ ...play(newGame(), 40), next: BLACK }), false);
 });

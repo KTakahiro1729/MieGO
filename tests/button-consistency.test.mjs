@@ -56,7 +56,9 @@ test("related buttons fuse into one group; the primary stays apart (UX policy §
   for(const id of ["cancel","resign","pass"])assert.match(moves,new RegExp('id="'+id+'"'));
   assert.doesNotMatch(moves,/id="confirm"|class="primary/);
   assert.equal((html.slice(html.indexOf('class="new-game-modes"'),html.indexOf('id="newGameSetup"')).match(/class="fused"/g)||[]).length,2);
-  assert.doesNotMatch(html,/class="fused[^"]*"[^>]*>\s*<button[^>]*class="[^"]*primary/);
+  // The one exception: 自由に置く splits ここに打つ itself into ● 黒┃○ 白.
+  assert.doesNotMatch(html.replace(/<div id="freeChoices"[^]*?<\/div>/,""),/class="fused[^"]*"[^>]*>\s*<button[^>]*class="[^"]*primary/);
+  assert.match(group("free-choices"),/id="freeFirst" class="primary"[^]*id="freeSecond" class="primary"/);
   // Hidden members leave no stray divider; an all-hidden group disappears.
   assert.match(css,/\.fused\{display:flex;gap:1px;/);
   assert.match(css,/\.fused:not\(:has\(>:not\(\[hidden\]\)\)\)\{display:none\}/);
