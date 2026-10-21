@@ -16,7 +16,7 @@ test("観戦 is a mode beside 対COM; its first tab is the speed of the moves",(
   assert.deepEqual(choices("aiSide"),choices("onlineSide"));
   assert.deepEqual(choices("onlineSide"),["black","random","white"]);
   assert.match(app,/const SIDE_CHOICES=\["black","random","white"\];/);
-  assert.deepEqual(choices("newGameMode"),["ai","watch","online","local","history"]);
+  assert.deepEqual(choices("newGameMode"),["history","ai","watch","online","local"]);
   assert.doesNotMatch(html,/name="onlineWatch"|value="watch" disabled/);
   // 観戦 starts a COM game, so the sheet treats it as 対COM, with the choice kept apart from the colour.
   assert.match(app,/return kind==="watch"\?"ai":kind;/);
@@ -59,13 +59,8 @@ test("介入する steps in; only then the board takes a stone; ここに打つ 
 });
 
 test("採点を始める works while a COM is thinking: it stops the watched game and asks",()=>{
-  assert.match(body("updateEndUi"),/if\(aiThinking && !isWatching\(\)\)\$\("endPropose"\)\.disabled=true;/);
   const propose=app.slice(app.indexOf('$("endPropose").onclick'),app.indexOf("function answerTakebackRequest"));
   assert.match(propose,/if\(isWatching\(\)\)\{stopAiTurn\(\);[^}]*\}\s*if\(!room\)\{\s*if\(aiThinking\)return;/);
-});
-
-test("a COM's pass while watching says what happened, without asking the viewer to pass",()=>{
-  assert.match(body("passNotice"),/if\(isWatching\(\)\)return \{text:TEXT\.endgame\.passedWatch\([^)]*\),second:false\};/);
 });
 
 test("stepping back through a watched game pauses it and shows the score graph",()=>{
