@@ -329,21 +329,21 @@
         <div class="setup-panels">
           <div id="setupPanelSide" class="setup-panel" role="tabpanel" aria-labelledby="setupTabSide">
             <div id="aiSideRow"><fieldset id="aiSideChoices" class="choice-list side-list">
-              <label class="choice-row"><input type="radio" name="aiSide" value="black" checked><span class="choice">{{common.sideBlack}}</span><small class="choice-note">{{newGame.sideNotes.black}}</small></label>
+              <label class="choice-row"><input type="radio" name="aiSide" value="black" checked><span class="choice"><span class="stone-mark" aria-hidden="true"></span>{{common.sideBlack}}</span><small class="choice-note">{{newGame.sideNotes.black}}</small></label>
               <label class="choice-row"><input type="radio" name="aiSide" value="random"><span class="choice">{{common.random}}</span><small class="choice-note">{{newGame.sideNotes.random}}</small></label>
-              <label class="choice-row"><input type="radio" name="aiSide" value="white"><span class="choice">{{common.sideWhite}}</span><small class="choice-note">{{newGame.sideNotes.white}}</small></label>
+              <label class="choice-row"><input type="radio" name="aiSide" value="white"><span class="choice"><span class="stone-mark white" aria-hidden="true"></span>{{common.sideWhite}}</span><small class="choice-note">{{newGame.sideNotes.white}}</small></label>
             </fieldset></div>
             <div id="onlineSideRow" hidden><fieldset class="choice-list side-list">
-              <label class="choice-row"><input type="radio" name="onlineSide" value="black"><span class="choice">{{common.sideBlack}}</span><small class="choice-note">{{newGame.sideNotes.black}}</small></label>
+              <label class="choice-row"><input type="radio" name="onlineSide" value="black"><span class="choice"><span class="stone-mark" aria-hidden="true"></span>{{common.sideBlack}}</span><small class="choice-note">{{newGame.sideNotes.black}}</small></label>
               <label class="choice-row"><input type="radio" name="onlineSide" value="random" checked><span class="choice">{{common.random}}</span><small class="choice-note">{{newGame.sideNotes.random}}</small></label>
-              <label class="choice-row"><input type="radio" name="onlineSide" value="white"><span class="choice">{{common.sideWhite}}</span><small class="choice-note">{{newGame.sideNotes.white}}</small></label>
+              <label class="choice-row"><input type="radio" name="onlineSide" value="white"><span class="choice"><span class="stone-mark white" aria-hidden="true"></span>{{common.sideWhite}}</span><small class="choice-note">{{newGame.sideNotes.white}}</small></label>
             </fieldset></div>
             <p id="sideNote" class="explanation setup-note"></p>
           </div>
           <div id="setupPanelStrength" class="setup-panel" role="tabpanel" aria-labelledby="setupTabStrength" hidden>
             <div id="watchAiOptions" class="watch-ai" hidden>
               <fieldset class="com-card">
-                <legend>{{newGame.comBlack}}</legend>
+                <legend><span class="stone-mark" aria-hidden="true"></span>{{newGame.comBlack}}</legend>
                 <span class="com-label">{{ai.characterShort}}</span><select id="comBlackCharacter" class="handicap-select" aria-label="{{ai.characterShort}}"><option value="chick">{{ai.characters.chick.name}}</option><option value="steady">{{ai.characters.steady.name}}</option><option value="raider">{{ai.characters.raider.name}}</option><option value="brawler">{{ai.characters.brawler.name}}</option><option value="wide">{{ai.characters.wide.name}}</option><option value="serious">{{ai.characters.serious.name}}</option><option value="master">{{ai.characters.master.name}}</option><option value="custom">{{ai.characters.custom.name}}</option></select>
                 <div id="comBlackCustom" class="com-custom" hidden>
                 <span class="com-label com-strength">{{ai.strengthShort}}</span><div class="fused ai-color-choices com-choices com-strength"><label><input type="radio" name="comBlackStrength" value="beginner"><span>{{ai.strengths.beginner}}</span></label><label><input type="radio" name="comBlackStrength" value="easy"><span>{{ai.strengths.easy}}</span></label><label><input type="radio" name="comBlackStrength" value="normal"><span>{{ai.strengths.normal}}</span></label><label><input type="radio" name="comBlackStrength" value="strong"><span>{{ai.strengths.strong}}</span></label><label><input type="radio" name="comBlackStrength" value="strongest"><span>{{ai.strengths.strongest}}</span></label></div>
@@ -354,7 +354,7 @@
                 </div>
               </fieldset>
               <fieldset class="com-card">
-                <legend>{{newGame.comWhite}}</legend>
+                <legend><span class="stone-mark white" aria-hidden="true"></span>{{newGame.comWhite}}</legend>
                 <span class="com-label">{{ai.characterShort}}</span><select id="comWhiteCharacter" class="handicap-select" aria-label="{{ai.characterShort}}"><option value="chick">{{ai.characters.chick.name}}</option><option value="steady">{{ai.characters.steady.name}}</option><option value="raider">{{ai.characters.raider.name}}</option><option value="brawler">{{ai.characters.brawler.name}}</option><option value="wide">{{ai.characters.wide.name}}</option><option value="serious">{{ai.characters.serious.name}}</option><option value="master">{{ai.characters.master.name}}</option><option value="custom">{{ai.characters.custom.name}}</option></select>
                 <div id="comWhiteCustom" class="com-custom" hidden>
                 <span class="com-label com-strength">{{ai.strengthShort}}</span><div class="fused ai-color-choices com-choices com-strength"><label><input type="radio" name="comWhiteStrength" value="beginner"><span>{{ai.strengths.beginner}}</span></label><label><input type="radio" name="comWhiteStrength" value="easy"><span>{{ai.strengths.easy}}</span></label><label><input type="radio" name="comWhiteStrength" value="normal"><span>{{ai.strengths.normal}}</span></label><label><input type="radio" name="comWhiteStrength" value="strong"><span>{{ai.strengths.strong}}</span></label><label><input type="radio" name="comWhiteStrength" value="strongest"><span>{{ai.strengths.strongest}}</span></label></div>

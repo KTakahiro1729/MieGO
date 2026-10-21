@@ -92,7 +92,7 @@ import {
 import { choosePolicyMove, createResignWatch } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku.mjs";
 import { cleanName, createPlayerName } from "./player-name.mjs";
-import { playerSides, recordNames } from "./player-row.mjs";
+import { playerSides, recordNames, stoneMark } from "./player-row.mjs";
 import { createSeatSheet, seatsOf } from "./seat-sheet.mjs";
 import { DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
 import {
@@ -1018,7 +1018,8 @@ function show() {
   $("copyIllegalPrompt").classList.toggle("is-copied",illegalPromptCopied);
   // 自由に置く: ここに打つ splits into what can go on the chosen point.
   const choices=freeChoices();
-  $("freeFirst").textContent=choices[0].label;$("freeSecond").textContent=choices[1].label;
+  ["freeFirst","freeSecond"].forEach((id,i)=>
+    $(id).replaceChildren(...(choices[i].remove?[]:[stoneMark(choices[i].color)]),choices[i].label));
   $("freeFirst").disabled=$("freeSecond").disabled=!freePick || !myTurn;
   // With a provisional stone the button discards it; otherwise it is 待った.
   const provisional=!!candidate || blocked || !!freePick;
@@ -1385,7 +1386,7 @@ $("confirm").onclick=()=>{
 /** What the two buttons put on the chosen point of a free board. */
 function freeChoices() {
   const stone=freePick?.stone;
-  return stone?[{label:TEXT.game.freeRemove,color:stone},
+  return stone?[{label:TEXT.game.freeRemove,color:stone,remove:true},
       {label:stone===BLACK?TEXT.game.freeToWhite:TEXT.game.freeToBlack,color:-stone,replace:true}]:
     [{label:TEXT.common.sideBlack,color:BLACK},{label:TEXT.common.sideWhite,color:WHITE}];
 }

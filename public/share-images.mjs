@@ -1,8 +1,15 @@
-import { sizeOf, komiOf, handicapOf } from "./core.mjs";
+import {
+  BLACK,
+  WHITE,
+  handicapOf,
+  komiOf,
+  sizeOf
+} from "./core.mjs";
 import { shareLabels, shareFrameSize, paintShareFrame, buildGameAnimation, loadShareFonts } from "./share-image.mjs";
 import { createBoardRenderer } from "./board-renderer.mjs";
 import { influence } from "./influence.mjs";
 import { playStyle, reportPlayStyles, styleLink } from "./play-style.mjs";
+import { stoneMark } from "./player-row.mjs";
 import { TEXT } from "./texts.mjs";
 
 export function downloadBlob(blob,name){
@@ -123,7 +130,7 @@ export function createShareImages({$,canvas,draw,sharedPosition,stillColoured,ow
     $("sharePlayStyleList").replaceChildren(...shownStyles.map(style=>{
       const button=Object.assign(document.createElement("button"),{type:"button",className:"secondary full described"});
       const name=document.createElement("span"),note=document.createElement("small");
-      name.textContent=(style.color==="B" ? "● " : "○ ")+TEXT.share.cardPlayStyle(style.type,TEXT.playStyle.types[style.type].name);
+      name.append(stoneMark(style.color==="B" ? BLACK : WHITE),TEXT.share.cardPlayStyle(style.type,TEXT.playStyle.types[style.type].name));
       note.textContent=style.com ? TEXT.playStyle.openPageCom : TEXT.playStyle.openPage;
       button.append(name,note);
       button.onclick=()=>window.open(styleLink(style),"_blank","noopener");

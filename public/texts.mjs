@@ -41,8 +41,8 @@ export const TEXT = {
     blackArea: "黒の地",
     neutral: "中立",
     random: "ランダム",
-    sideBlack: "● 黒",
-    sideWhite: "○ 白",
+    sideBlack: "黒",
+    sideWhite: "白",
   },
 
   page: {
@@ -203,8 +203,8 @@ export const TEXT = {
     turnWhite: "白の番です",
     freeTurn: "自由に置く",
     freeRemove: "取り除く",
-    freeToBlack: "● 黒にする",
-    freeToWhite: "○ 白にする",
+    freeToBlack: "黒にする",
+    freeToWhite: "白にする",
     yourTurn: "あなたの番",
     opponentTurn: "相手の番",
     waitingOpponent: "対局相手を待っています",
@@ -613,7 +613,7 @@ export const TEXT = {
     // 履歴: several saved games read together.
     historyButton: "履歴からまとめて棋風診断",
     fromResult: "棋風診断 ›",
-    historyPick: "まとめたい対局の下にある「● 黒番」「○ 白番」から、自分が打った方を押してください。最近のCOMや友人との対局は選んであります。",
+    historyPick: "まとめたい対局の下にある「黒番」「白番」から、自分が打った方を押してください。最近のCOMや友人との対局は選んであります。",
     historyOpen: "診断を見る",
     historyNone: "石を選ぶと、ここに診断が出ます。",
     historyEmpty: "まとめられる対局が履歴にまだありません。囲碁で10手以上打つと、ここで選べるようになります。",
@@ -938,8 +938,8 @@ export const TEXT = {
       normal: "一手ごとに1秒ほど置きます。",
       fast: "間を置かずに次々と打ちます。",
     },
-    comBlack: "● 黒のCOM",
-    comWhite: "○ 白のCOM",
+    comBlack: "黒のCOM",
+    comWhite: "白のCOM",
     rules: "ルール",
     // Under the rule choices: what komi is, one line at 320px.
     komiNote: komi => "先手の黒が有利なので白にコミ" + komi + "目。",

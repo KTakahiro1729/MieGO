@@ -44,8 +44,9 @@ export class FakeElement {
   getAttribute(name){return this.attributes.has(name)?this.attributes.get(name):null;}
   hasAttribute(name){return this.attributes.has(name);}
   removeAttribute(name){this.attributes.delete(name);if(name.startsWith("data-"))delete this.dataset[name.slice(5)];}
-  append(...nodes){for(const node of nodes){node.remove();node.parent=this;this.children.push(node);}}
-  replaceChildren(...nodes){for(const child of this.children)child.parent=null;this.children=[];this.append(...nodes);}
+  // A string stands for a text node: only its text is kept.
+  append(...nodes){for(const node of nodes){if(typeof node==="string"){this.textContent+=node;continue;}node.remove();node.parent=this;this.children.push(node);}}
+  replaceChildren(...nodes){for(const child of this.children)child.parent=null;this.children=[];this.textContent="";this.append(...nodes);}
   after(node){
     node.remove();
     const siblings=this.parent.children;
