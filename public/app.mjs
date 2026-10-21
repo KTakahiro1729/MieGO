@@ -50,23 +50,29 @@ import {
   readClock,
   spendTime,
 } from "./game-clock.mjs";
-import { copyInviteText } from "./invite.mjs";
+import {
+  copyInviteText,
+  inviteButtonView,
+  seatLink,
+} from "./invite.mjs";
 import {
   colorLabel,
   guestUrl,
   isPeerAction,
   newPeerSignins,
-  ownUrl,
   playerColor,
   readCheckpoint,
   reconcileGame,
+  requestRematch,
   ROOM_PATTERN,
+  roundOf,
   roomUrl,
   saveCheckpoint,
   selectColor,
   storageKey,
 } from "./p2p-session.mjs";
 import { createP2PTransport } from "./p2p-transport.mjs";
+import { verifyP2P } from "./p2p-verify.mjs";
 import { interpolateOwnership, prisonerOutline } from "./territory-view.mjs";
 import { createAppearanceSettings } from "./appearance-settings.mjs";
 import {
@@ -205,23 +211,17 @@ const inviteMatchesChoice=()=>issuedSide===currentSideSelection() &&
   (connected || game.moveNumber>0 || (sizeOf(game.board)===boardSize && handicapOf(game)===onlineHandicap &&
     rulesOf(game)===gameRules && hasGomokuForbidden(game)===(gameRules==="gomoku" && gomokuForbiddenChoice)));
 // The player's own seat link moves the game to another device; it never sits in the address bar.
-function ownSeatLink() {
-  try{return room && inviteKey ? (p2pRole==="owner"?ownUrl:guestUrl)(location.origin,room,inviteKey) : null;}
-  catch{return null;}
-}
+const ownSeatLink=()=>seatLink({origin:location.origin,room,role:p2pRole,inviteKey});
 function renderInviteButton() {
   $("seatLinkBox").hidden=!ownSeatLink();
-  // Only the owner's device that created the room holds the guest's key, and
-  // the side cannot change once the game has started.
-  $("copy").disabled=!!room && (p2pRole!=="owner" || !guestInviteKey);
-  const locked=!!room && (connected || game.moveNumber>0);
+  const view=inviteButtonView({room,role:p2pRole,guestInviteKey,connected,moveNumber:game.moveNumber,issuedSide,
+    matches:inviteMatchesChoice()});
+  $("copy").disabled=view.copyDisabled;
   for(const input of document.querySelectorAll('input[name="onlineSide"]')) {
-    input.disabled=locked;
-    if(locked && issuedSide!==null)input.checked=input.value===issuedSide;
+    input.disabled=view.sideLocked;
+    if(view.sideLocked && issuedSide!==null)input.checked=input.value===issuedSide;
   }
-  $("copy").textContent=!room?TEXT.newGame.start:
-    issuedSide!==null && !inviteMatchesChoice()?
-      TEXT.online.renewInvite:TEXT.online.copyInvite;
+  $("copy").textContent=view.label;
   keepArmedLabel($("copy"));
 }
 function persistOnline(){
@@ -1009,9 +1009,13 @@ function show() {
   $("endgameBar").hidden=isScoring || isFinished;
   $("resign").hidden=isScoring || isFinished;
   $("newMatchSheet").hidden=!isFinished;
-  // A friend's game is played again from a new invitation, so it only offers 新規対戦.
-  $("newMatch").hidden=!isFinished || !!room;
-  $("newMatch").disabled=gameMode==="ai" && !canRematchAi();
+  $("newMatch").hidden=!isFinished;
+  // A friend's もう一局 waits for the other player to press it too.
+  const rematchAsked=!!room && game.rematchRequest?.from===myOnlineColor();
+  $("newMatch").querySelector("small").textContent=rematchAsked?TEXT.online.rematchWaiting:TEXT.game.rematchNote;
+  for(const name of ["aria-label","title"])
+    $("newMatch").setAttribute(name,rematchAsked?TEXT.online.rematchWaitingAria:TEXT.game.rematchAria);
+  $("newMatch").disabled=gameMode==="ai" && !room && !canRematchAi() || !!room && (!connected || rematchAsked);
   $("openHistory").hidden=!isFinished;
   $("openShare").hidden=!isFinished;
   if(isScoring)$("analysisStatus").textContent=TEXT.scoring.title;
@@ -1095,12 +1099,12 @@ function apply(action, remote=false, isAiMove=false) {
   // without tearing down the live Go DataChannel. Local actions are built from
   // the current position, so only a peer's can be stale.
   if(remote && ["end_offer","end_answer","takeback_request","takeback_answer",
-                 "dead_auto","dead_unavailable","time_out"].includes(action?.type)) {
+                 "dead_auto","dead_unavailable","rematch","time_out"].includes(action?.type)) {
     if(action.number!==game.moveNumber || action.before!==boardHash(game.board))return;
     if(action.type==="end_answer" && action.proposalFrom!==game.endProposal?.from)return;
     if(action.type==="takeback_answer" && action.proposalFrom!==game.takebackRequest?.from)return;
   }
-  let rewound=false;
+  let rewound=false,rematchOffered=false;
   try{
     // The friend's client acts only for the friend's color.
     if(remote && !isPeerAction(action,game,{peerColor:myOnlineColor()===null?null:-myOnlineColor(),
@@ -1173,6 +1177,12 @@ function apply(action, remote=false, isAiMove=false) {
       game=loseOnTime(game,action.color);
     }
     else if(action.type==="resume") game=resume(game);
+    else if(action.type==="rematch") {
+      const round=roundOf(game);
+      game=requestRematch(game,action.color);
+      if(roundOf(game)!==round)startNextRound();
+      else rematchOffered=remote;
+    }
     // "mode" (the removed per-game overlay switch) from older peers is ignored below.
     else if(action.type==="end_offer") {
       game=proposeEnd(game,action.color);
@@ -1207,6 +1217,8 @@ function apply(action, remote=false, isAiMove=false) {
     // A watched COM同士 game keeps the zoom the viewer chose.
     if(action.type==="move" && (remote || isAiMove && !watching))boardZoom.reset();
     candidate=null;save();show();
+    // After save(), which clears the notice line.
+    if(rematchOffered)showNotice(TEXT.online.rematchOffered);
     const cue=moveSound(before,game,action.type==="move"?action.position:null);
     const cheer=dopaEvent(before,game,dopaViewer());
     // Only this device's own move, judged from the position it was played in.
@@ -1217,6 +1229,7 @@ function apply(action, remote=false, isAiMove=false) {
     if(good)sound.play("good");
     // Evaluate once, when a play/pass or accepted offer enters scoring.
     if(["move","resume","mode","solo_scoring"].includes(action.type) || rewound ||
+       (action.type==="rematch" && game.status==="playing") ||
        (action.type==="end_answer" && game.status==="scoring") ||
        (hadCandidate && game.status==="playing"))
       requestAnalysis();
@@ -1412,7 +1425,11 @@ $("startLocal").onclick=()=>continueFrom?forkBoardReview("local"):startLocalGame
 // with the finished game's board, rules and options (and, against the COM, the same COM and side).
 $("newMatchSheet").onclick=()=>openPanel(room?"online":gameMode);
 $("newMatch").onclick=()=>{
-  if(room || game.status!=="finished")return;
+  if(game.status!=="finished")return;
+  if(room){
+    if(connected)apply({type:"rematch",color:myOnlineColor(),number:game.moveNumber,before:boardHash(game.board)});
+    return;
+  }
   if(gameMode==="ai"){
     if(!canRematchAi())return;
     startAiGame(initialGame(game),watching,aiSideChoice==="random"?"random":sideKey(humanColor));
@@ -1421,6 +1438,11 @@ $("newMatch").onclick=()=>{
   if(!save())return;
   clearBoardReview();freshLocalBoard(initialGame(game));
 };
+/** A friend's もう一局 was agreed: the finished game stays in the library, and the next one is a new record. */
+function startNextRound(){
+  currentGameId=null;currentRevision=null;lastPosition=null;candidate=null;
+  resetArmedButtons();resetPositionState();
+}
 // The KataGo opponent must be ready; 五目並べ's needs none.
 function canRematchAi(){return isGomoku(game) || katagoReady && !fallbackMode;}
 $("agree").onclick=()=>{
@@ -1672,29 +1694,6 @@ $("returnToGame").onclick=()=>{
   if(boardReview){clearBoardReview();show();requestAnalysis();}
   closePanels();$("newGameButton").focus();
 };
-async function verifyP2P(){
-  $("p2pVerify").hidden=false;
-  // A guest's sheet opens only for the check, so it closes once the check passes.
-  const opened=$("onlineSetup").hidden;
-  if(opened)openPanel("online");
-  const config=await fetch("/api/p2p/config").then(r=>r.json());
-  if(config.rooms===false)throw new UserError(TEXT.online.roomsUnavailable);
-  if(!config.siteKey)throw new UserError(TEXT.online.turnstileMissing);
-  if(!window.turnstile){
-    await new Promise((resolve,reject)=>{
-      const script=document.createElement("script");
-      script.src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      script.onload=resolve;script.onerror=()=>reject(new UserError(TEXT.online.verifyLoadFailed));
-      document.head.append(script);
-    });
-  }
-  return new Promise((resolve,reject)=>{
-    $("p2pTurnstile").replaceChildren();
-    window.turnstile.render($("p2pTurnstile"),{sitekey:config.siteKey,action:"miego_p2p",
-      callback:token=>{if(opened)closePanels();resolve(token);},"error-callback":()=>reject(new UserError(TEXT.online.verifyFailed)),
-      "expired-callback":()=>reject(new UserError(TEXT.online.verifyExpired))});
-  });
-}
 function onPeerSync(message){
   const result=reconcileGame(game,onlineRevision,message.game,message.revision,
     {localIsOwner:p2pRole==="owner",localColor:myOnlineColor()});
@@ -1704,6 +1703,8 @@ function onPeerSync(message){
     show();return false;
   }
   if(result.kind==="adopt"){
+    // A もう一局 agreed while this device was away starts a new record, too.
+    if(roundOf(result.game)!==roundOf(game)){currentGameId=null;currentRevision=null;}
     game=result.game;onlineRevision=result.revision;lastPosition=message.lastPosition??null;
     candidate=null;endgameAdvisor.reset();
     endExpanded=!!game.endProposal && game.endProposal.from!==myColorForEnd();
@@ -1719,8 +1720,9 @@ function onPeerSync(message){
   if(result.kind==="send")p2pTransport.sendSync();
   connected=true;$("netStatus").textContent=TEXT.online.connected;show();return true;
 }
+const verifyHuman=()=>verifyP2P({$,openSheet:()=>openPanel("online"),closeSheet:closePanels});
 p2pTransport=createP2PTransport({
-  verify:verifyP2P,
+  verify:verifyHuman,
   onSession:({session,ownerColor:chosen,role})=>{
     onlineSession=session;p2pRole=role;ownerColor=chosen==="black"?BLACK:WHITE;linkKey=null;
     seat=role==="owner"?"host":"guest";persistOnline();show();
@@ -1794,7 +1796,7 @@ async function beginOnlineRoom(){
   if(room&&!confirmByRetap($("copy"),TEXT.confirm.renewInvite))return null;
   if(!room && game.moveNumber>0 &&
      !confirmByRetap($("copy"),TEXT.confirm.leaveForOnline))return null;
-  const color=selectColor(choice),token=await verifyP2P();
+  const color=selectColor(choice),token=await verifyHuman();
   const created=await p2pTransport.post("/api/rooms",
     {color:sideKey(color),turnstileToken:token});
   if(room){
