@@ -404,6 +404,8 @@ export const TEXT = {
   handicap: {
     label: "置き石",
     even: "なし（互先）",
+    // Under the 自分の石 tab when no side is picked (対局者が2人, 観戦).
+    evenShort: "互先",
     stones: n => n + "子",
     noteAi: "あなたが黒、COMが白です。置き石が先手の代わりなので、白が先に打ちます。",
     noteOnline: "黒を持つ側が置き石を受けます。置き石が先手の代わりなので、白が先に打ちます。",
