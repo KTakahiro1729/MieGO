@@ -732,6 +732,8 @@ body{overflow:hidden}
 .action-row .undo-button{flex:0 0 48px;min-width:48px;width:48px;padding:0;display:grid;place-items:center}
 .action-row #pass{flex:0 0 60px;min-width:60px;width:60px;padding:9px 5px}
 .action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;font-size:var(--font-body);padding:6px 2px}
+/* 投了？ is a character wider than 投了: the armed button takes its label's width, not a cramped 44px. */
+.action-row .resign-control.danger-armed{flex:0 0 auto;width:auto;padding:6px var(--space-md)}
 /* While a forbidden point is chosen, the slot holds the AI question and the rules' ?. */
 .endgame-bar .illegal-prompt-action{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:1 1 auto;min-height:var(--control-h);height:var(--control-h);padding:0 12px;font-size:var(--font-body);font-weight:var(--weight-medium);white-space:nowrap;line-height:1}
 .illegal-prompt-action svg{display:block;flex:none}
