@@ -84,3 +84,14 @@ test("the /style page is rendered from its template and texts.mjs",async()=>{
   assert.match(html,/src="\/play-style-page\.mjs"/);
   assert.ok(!/\{\{/.test(html));
 });
+
+test("whoever passes first lets go first (潔い); the other kept going (粘り強い)",()=>{
+  let game=highAndLow();
+  // The same moves without the resignation, ended by White passing first.
+  game={...game,moves:game.moves.slice(0,-1)};
+  let state=newGame(true,{size:19});
+  for(const m of game.moves)state=play(state,m.position);
+  state=play(state,null);
+  assert.equal(playStyle(state,WHITE).type[3],"Q");
+  assert.equal(playStyle(state,BLACK).type[3],"T");
+});

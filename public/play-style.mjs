@@ -12,12 +12,15 @@ import {leadFromOwnership} from "./score-graph.mjs";
 //   F 自由 / R 律儀   playing away from the opponent's last move or next to it
 //   T 粘り強い / Q 潔い  playing on 10 points behind, or resigning and passing first
 
-// What a neutral COM plays, counted as measure.mjs counts it
-// (docs/AI_PERSONALITIES.md): 42% of its moves attack (attack ≥ 0.6), 11%
-// invade (invasion ≥ 0.5) and 27% reinforce (reinforcement ≥ 0.3); 60% of
-// the game's opening moves are on the 2nd or 3rd line, 4th and above the rest;
-// 44% of its replies are within two lines of the opponent's last move.
-const NEUTRAL = Object.freeze({attack:0.42, invasion:0.11, reinforcement:0.27, low:0.6, near:0.44});
+// The middle of each axis: the mean of a neutral COM (normal strength, all
+// axes ふつう) over 48 sides of 9路 self-play, measured with the readings below.
+// Centring on it splits a neutral player about evenly between the two letters;
+// the mean, not the median, so a share of a few opening moves never lands on it.
+//   attack: share of moves with attack >= 0.6, used where no ownership was kept
+//   stance: (attack >= 0.6 + invasion >= 0.5)/2 - reinforcement >= 0.3, per move
+//   low: share of the opening moves (2nd line and up) on the 2nd or 3rd line
+//   near: share of replies within two lines of the opponent's last move
+const NEUTRAL = Object.freeze({attack:0.341, stance:-0.078, low:0.713, near:0.44});
 const OPENING = 16;
 // Fewer own moves than this reads nothing.
 export const MIN_MOVES = 10;
@@ -40,8 +43,8 @@ function scoreMoves(states, moves, color, recall) {
     count++;
     // As the COM's 戦い方: attacking and invading half each, against reinforcing.
     // Where no ownership was kept, attacking alone tells.
-    stance+=((f.attack>=0.6)-NEUTRAL.attack)/2;
-    if(ownership)stance+=((f.invasion>=0.5)-NEUTRAL.invasion)/2-((f.reinforcement>=0.3)-NEUTRAL.reinforcement);
+    stance+=ownership ? ((f.attack>=0.6)+(f.invasion>=0.5))/2-(f.reinforcement>=0.3)-NEUTRAL.stance :
+      ((f.attack>=0.6)-NEUTRAL.attack)/2;
     const line=lineOf(move.position,Math.round(Math.sqrt(state.board.length)));
     if(i<OPENING && line>1){opening++; low+=line<=3;}
     if(Number.isInteger(state.moves.at(-1)?.position)){replies++; near+=f.tenuki<0;}
@@ -50,7 +53,7 @@ function scoreMoves(states, moves, color, recall) {
   });
   if(count<MIN_MOVES)return null;
   // Resigning is 潔い; playing on behind is 粘り強い; otherwise whoever passed first let go first.
-  const firstPass=moves.find(m=>m.position==="pass")?.color;
+  const firstPass=moves.find(m=>m.position===null)?.color;
   const grit=moves.some(m=>m.color===color && m.position==="resign") ? -1 :
     behind/count>=0.2 ? 1 : firstPass===color ? -0.5 : firstPass===-color ? 0.5 : 0;
   return {stance:stance/count,height:opening ? NEUTRAL.low-low/opening : 0,
