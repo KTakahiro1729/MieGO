@@ -62,7 +62,7 @@ test("the position question never carries a private room URL",()=>{
 
 test("the help sheet opens with the beginner questions and falls back to manual copy",()=>{
   const sheet=html.slice(html.indexOf('<aside id="helpPanel"'));
-  assert.ok(sheet.indexOf('id="help-beginner"')<sheet.indexOf('id="help-basics"'));
+  assert.ok(sheet.indexOf('id="help-beginner"')<sheet.indexOf('id="help-endgame"'));
   assert.match(sheet,/id="copyRulesPrompt"[^>]*>ルールの質問をコピー<\/button>/);
   assert.match(sheet,/id="copyPositionPrompt"[^>]*>今の局面の質問をコピー<\/button>/);
 });

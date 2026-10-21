@@ -105,7 +105,7 @@ test("sharing lives in one header sheet, not in the replay tools",()=>{
  // Only the AI copy needs words: what to do with the copied text.
  // Explanations live inside their buttons; the sheet has no loose notes.
  assert.doesNotMatch(sheet,/class="explanation"/);
- assert.match(sheet,/id="shareAiLink"[^>]*><span>チャットAI向けにコピー<\/span><small>この盤面をチャットAIに相談したい時に使ってください。今の盤面とMieGOの使い方を説明した文章をクリップボードにコピーします<\/small><\/button>/);
+ assert.match(sheet,/id="shareAiLink"[^>]*><span>チャットAI向けにコピー<\/span><small>今の盤面と棋譜URLの読み方をコピーします。好きなチャットAIに貼り付けると、この局面を相談できます<\/small><\/button>/);
  assert.match(sheet,/id="shareSgf"[^>]*><span>SGFを保存<\/span><small>[^<]+<\/small><\/button>/);
  // Still image or game animation side by side, then one share-or-save button.
  // Each choice shows the image it would share.
