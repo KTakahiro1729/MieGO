@@ -588,6 +588,10 @@ body{overflow:hidden}
 .save-status{position:fixed;z-index:8;top:calc(var(--topbar-height) + 4px);left:12px;right:12px;
   max-width:540px;margin:0 auto;padding:9px 12px;border-radius:10px;background:#2e2930;
   border:1px solid #8a5f4a;box-shadow:0 8px 24px #0009;cursor:pointer}
+.friend-resume{cursor:default;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.friend-resume p{flex:1 1 12em;margin:0}
+.friend-resume-actions{display:flex;gap:8px;margin-left:auto}
+.friend-resume button{padding:8px 14px}
 .turn.no-stone::before{display:none}
 
 /* Status and controls sit together within thumb reach; spare height goes under the board. */

@@ -350,43 +350,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     if((sparks.length || pops.length || waves.length) && frame===null)frame=requestFrame(()=>{frame=null;draw();});
   }
 
-  /**
-   * 決着手順: KataGo's playout over the real position. Stones it adds are
-   * provisional, drawn as small translucent fill stones; real stones it captured
-   * stay as faint ghosts with a red cross, the way they will be marked dead.
-   */
-  function paintSettle(theme,view,gap,pad) {
-    const {board,base,last,ownership}=view.settle;
-    if(ownership && ownership.length===board.length && showsOwnership(view.palette))
-      paintOverlay(ownership,view.palette,view.opacity,gap,pad,true);
-    paintStarPoints(theme,gap,pad);
-    const r=gap*.44;
-    for(let i=0;i<board.length;i++){
-      const x=pad+(i%SIZE)*gap,y=pad+Math.floor(i/SIZE)*gap;
-      if(board[i]){
-        if(board[i]===base[i])paintStone(theme,board[i],x,y,r,1);
-        else paintFillStone(theme,board[i],x,y,gap);
-      }else if(base[i]){
-        paintStone(theme,base[i],x,y,r,.28);
-        ctx.save();ctx.strokeStyle="#d95a4e";ctx.lineWidth=3;ctx.beginPath();
-        ctx.moveTo(x-r*.4,y-r*.4);ctx.lineTo(x+r*.4,y+r*.4);
-        ctx.moveTo(x+r*.4,y-r*.4);ctx.lineTo(x-r*.4,y+r*.4);ctx.stroke();ctx.restore();
-      }
-    }
-    if(Number.isInteger(last) && board[last])
-      paintMoveMark(theme,board[last],true,pad+(last%SIZE)*gap,pad+Math.floor(last/SIZE)*gap,gap);
-  }
-
   function draw() {
     const view=getView();
     const {game,boardReview}=view;
-    if(view.settle && !boardReview){
-      SIZE=sizeOf(view.settle.board);
-      const theme=boardTheme(view.boardTheme), d=canvas.width, gap=d/(SIZE+1);
-      paintGrid(theme,d,gap,gap);
-      paintSettle(theme,view,gap,gap);
-      return;
-    }
     const display=boardReview?.display||game;
     SIZE=sizeOf(display.board);
     const theme=boardTheme(view.boardTheme);

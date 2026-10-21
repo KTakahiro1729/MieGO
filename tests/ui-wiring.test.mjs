@@ -47,3 +47,8 @@ test("a friend game offers もう一局, which waits until the other player pres
   assert.match(app,/if\(room\)\{\n    if\(connected\)apply\(\{type:"rematch",color:myOnlineColor\(\)/);
   assert.match(app,/rematchAsked\?TEXT\.online\.rematchWaiting:TEXT\.game\.rematchNote/);
 });
+test("opening the page again offers an unfinished friend game whose seat this browser holds",()=>{
+  assert.match(app,/const stored=readCheckpoint\(localStorage,record\.roomId\);\n  return stored\?\.session && stored\.game\.status!=="finished"\?record\.roomId:null;/);
+  assert.match(app,/const resumeRoom=room\?null:resumableRoom\(\);\n\$\("friendResume"\)\.hidden=!resumeRoom;/);
+  assert.match(app,/location\.assign\(roomUrl\(location\.origin,target\)\)/);
+});
