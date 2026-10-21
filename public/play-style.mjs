@@ -488,7 +488,10 @@ export function styleLink({type,color,score,games}, partner=null) {
   return "/style?t="+type+(color==="B" || color==="W" ? "&c="+color : "")+
     (score ? "&s="+leanings(score).join(",")+"&p="+styleRanks(score).map(v=>v ?? "").join(",")+
       "&e="+evidence(score).join(",") : "")+(games>1 ? "&n="+games : "")+
-    (partner ? "&u="+partner.type+(partner.score ? "&ul="+leanings(partner.score).join(",") :
+    // The partner from the same game is carried whole, so the page shows both players.
+    (partner ? "&u="+partner.type+(partner.color==="B" || partner.color==="W" ? "&uc="+partner.color : "")+
+      (partner.score ? "&ul="+leanings(partner.score).join(",")+"&up="+styleRanks(partner.score).map(v=>v ?? "").join(",")+
+        "&ue="+evidence(partner.score).join(",") :
       partner.leans ? "&ul="+partner.leans.join(",") : "") : "");
 }
 
@@ -499,22 +502,25 @@ export function styleLink({type,color,score,games}, partner=null) {
  */
 export function readStyleLink(search) {
   const query=new URLSearchParams(search);
-  const type=query.get("t");
-  if(!PLAY_STYLE_RE.test(type ?? ""))return null;
-  const color=["B","W"].includes(query.get("c")) ? query.get("c") : null;
   const four = (key, ok) => {
     const values=ints(query.get(key),ok);
     return values?.length===4 && values.every(v=>v!==null) ? values : null;
   };
-  const leans=four("s",v=>Math.abs(v)<=100);
-  // A rank may be missing (null) where people were not measured, but not all of them.
-  const ranked=ints(query.get("p"),v=>v>=1 && v<=50);
-  const ranks=ranked?.length===4 && ranked.some(v=>v!==null) ? ranked : null;
-  const shown=ints(query.get("e"),v=>v>=-999999 && v<=FAR_REASON+10*APART.far);
+  // One player's part of the link, under its own keys.
+  const side = (t, c, s, p, e) => {
+    const type=query.get(t);
+    if(!PLAY_STYLE_RE.test(type ?? ""))return null;
+    // A rank may be missing (null) where people were not measured, but not all of them.
+    const ranked=ints(query.get(p),v=>v>=1 && v<=50);
+    const shown=ints(query.get(e),v=>v>=-999999 && v<=FAR_REASON+10*APART.far);
+    return {type,color:["B","W"].includes(query.get(c)) ? query.get(c) : null,leans:four(s,v=>Math.abs(v)<=100),
+      ranks:ranked?.length===4 && ranked.some(v=>v!==null) ? ranked : null,evidence:shown?.length===4 ? shown : null};
+  };
+  const found=side("t","c","s","p","e");
+  if(!found)return null;
   const games=Number(query.get("n"));
-  const partner=PLAY_STYLE_RE.test(query.get("u") ?? "") ? {type:query.get("u"),leans:four("ul",v=>Math.abs(v)<=100)} : null;
-  return {type,color,leans,ranks,evidence:shown?.length===4 ? shown : null,
-    games:Number.isInteger(games) && games>1 && games<=MAX_POOLED ? games : 1,partner};
+  return {...found,games:Number.isInteger(games) && games>1 && games<=MAX_POOLED ? games : 1,
+    partner:side("u","uc","ul","up","ue")};
 }
 
 const HIGHS = "AHFT";

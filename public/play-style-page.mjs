@@ -121,8 +121,8 @@ function movesSection(found, moves) {
   return box;
 }
 
-function renderResult(found) {
-  const box = $("styleResult");
+// One player's 棋風診断 into box; the partner's card leaves the moves, title and intro to the first.
+function renderResult(found, box = $("styleResult"), first = true) {
   const type = found && T.types[found.type];
   if (!type) return;
   box.replaceChildren();
@@ -145,12 +145,13 @@ function renderResult(found) {
   T.axes.forEach((axis, i) => bars.append(axisRow(axis, found.type === BALANCE ? null : found.type[i], found.leans?.[i])));
   box.append(bars);
   if (found.ranks || found.evidence) box.append(evidenceList(found));
-  const moves = readStyleMovesHash(location.hash);
+  const moves = first && readStyleMovesHash(location.hash);
   const shown = moves && movesSection(found, moves);
   if (shown) box.append(shown);
   box.append(el("p", "style-note", found.games > 1 ? T.pooled(found.games) : T.oneGame));
   if (found.ranks || typeShare(found.type) != null) box.append(el("p", "style-note", T.peopleSource));
   box.hidden = false;
+  if (!first) return;
   $("styleIntro").hidden = true;
   document.title = T.pageTitle(found.type);
 }
@@ -230,6 +231,8 @@ function renderTypes(current) {
 
 const found = readStyleLink(location.search);
 renderResult(found);
+// A link for two players shows the partner's 棋風診断 under the first one's.
+if (found?.partner) renderResult(found.partner, $("stylePartnerResult"), false);
 renderCompat(found);
 renderAxes();
 renderTypes(found?.type);
