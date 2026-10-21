@@ -47,6 +47,7 @@ export const TEXT = {
 
   page: {
     description: "ブラウザで遊べる無料の囲碁アプリ。9路・13路・19路盤で、AI（KataGo）や友達と対局できます。どちらの地になりそうかを色で表示し、棋譜はURLや画像で共有できます。五目並べも遊べます。",
+    forAi: "AI向けの説明：",
     imageAlt: "MieGOの碁盤。地になりそうな所が色で表示されています。",
     title: "MieGO — 地合いを感じながら囲碁",
   },
@@ -97,6 +98,10 @@ export const TEXT = {
     playing: "終局はまだまだです",
     near: "そろそろ終局です",
     ready: "終局してよさそうです",
+    // The steps of the meter under 終局を提案; the current one lights.
+    stageEnd: "終",
+    stageMiddle: "中",
+    stageOpening: "序",
     unavailable: "終局は自分で判断してください。目安を出せません",
     gomoku: "縦・横・斜めに5つ並べたら勝ち",
     free: "交点をタップして置く・取り除く・色を替える",
@@ -104,7 +109,6 @@ export const TEXT = {
     updating: "終局の目安を更新中",
     offline: "相手を待っています",
     proposed: "終局が提案されました",
-    comProposed: "COMが終局を提案しています",
     waiting: "相手の返答を待っています",
     askLocal: "採点を始めますか？",
     askCom: "COMに終局を提案しますか？",
@@ -113,7 +117,7 @@ export const TEXT = {
     goScoring: "採点を始める",
     detailIncoming: "受け入れると採点に進みます。対局を続けることもできます。",
     // 対COM, ending is an offer the COM answers at once, not a pass.
-    offerCom: "提案する",
+    offerCom: "終局を提案",
     detailLocalAi: "COMが受ければ採点に入ります。断られても盤も手番もそのままです。",
     detailUnsettledAi: "COMが受ければ採点に入ります。まだ決まっていない所は、どちらの地にもなりません。",
     detailAi: "終局はいつでも提案できます。パスとは別の操作です。",
@@ -133,7 +137,6 @@ export const TEXT = {
     passedLocal: c => "パスで採点へ。" + color(c) + "はパス済み",
     // While watching, nobody is asked to pass: the line only says what happened.
     passedWatch: c => color(c) + "がパス。次もパスなら採点へ",
-    wantsEnd: c => color(c) + "が終局を提案したがっています",
     // 同一局面反復 (日本囲碁規約 第十二条): both sides may end the game as no result.
     repeated: "同じ局面がくり返されています",
     void: "無勝負にする",
@@ -226,6 +229,8 @@ export const TEXT = {
     playersLabel: "対局者",
     toMove: "打つ番です",
     comThinking: "考え中",
+    comOffering: "終局を提案中",
+    comWantsEnd: "終局を提案したい",
     // 最強's side of the turn row has about 80px on a 320px phone; the full line is read out.
     sideDownloading: percent => "読込中 " + percent + "%",
     sidePreparing: "準備中",
@@ -594,7 +599,10 @@ export const TEXT = {
     evidence: [
       n => "相手を攻める手が" + n + "%",
       n => "序盤の2〜3線の手が" + n + "%",
-      n => "相手の手から2路以内への応手が" + n + "%",
+      // {apart}: the mean lines from the opponent's stones, to one decimal. A number:
+      // a link made before, with the share of replies near the opponent's last move.
+      n => typeof n === "number" ? "相手の手から2路以内への応手が" + n + "%" :
+        "序盤〜中盤の手が、相手の石から平均" + n.apart.toFixed(1) + "路",
       // A number: played on behind that often. {letGo}: how likely lost (%) the
       // player's weak stones were when last reached for. Otherwise a resignation, with
       // how far behind and how many own moves after falling far behind, where known.
@@ -603,7 +611,7 @@ export const TEXT = {
         n.deficit === null ? "投了で対局を終えた" :
         "形勢 約" + n.deficit + "目差で投了" + (n.late === null ? "" : n.late === 0 ? "（大差がつく前）" : "（大差がついてから" + n.late + "手後）"),
     ],
-    peopleSource: "％は、野狐囲碁の19路の対局（15級〜3段の7,401人分）と比べた値です。",
+    peopleSource: "％は、野狐囲碁の19路の対局（15級〜3段の7,401人分。自由・律儀は32,854人分）と比べた値です。",
     privacy: "診断はこの端末の中で計算します。棋譜は送りません。数えるのは型と盤の大きさ、黒番か白番か、ルールだけです。",
     axesTitle: "4つの軸",
     allTitle: "17のタイプ",
@@ -617,13 +625,36 @@ export const TEXT = {
     shareNone: "この対局はまだ診断できません。囲碁で、打った人がそれぞれ10手以上打つと出ます。",
     // 履歴: several saved games read together.
     historyButton: "履歴からまとめて棋風診断",
-    fromResult: "棋風診断 ›",
+    fromResult: "棋風",
+    fromResultNote: "診断",
+    fromResultAria: "この一局の棋風診断を見る",
     historyPick: "まとめたい対局の下にある「黒番」「白番」から、自分が打った方を押してください。最近のCOMや友人との対局は選んであります。",
     historyOpen: "診断を見る",
     historyNone: "石を選ぶと、ここに診断が出ます。",
     historyEmpty: "まとめられる対局が履歴にまだありません。囲碁で10手以上打つと、ここで選べるようになります。",
     historyResult: (type, name, games) => type + " " + name + "（" + games + "局のまとめ）",
     historyCancel: "やめる",
+    // あなたらしかった手 (styleMoves) on the /style page, from its link's fragment:
+    // a board for each, opening the replay at it, and a question for an AI chat.
+    // Reasons are per axis, by which way the move leaned.
+    moves: {
+      title: com => com ? "この打ち手らしかった手" : "あなたらしかった手",
+      ranks: ["1番らしい手", "2番目"],
+      move: step => step + "手目",
+      view: step => step + "手目を棋譜で見る",
+      reasons: [
+        r => r.high ? (r.attack && r.invasion ? "相手の勢力圏に入って攻める手" : r.attack ? "相手の石を攻める手" : "相手の勢力圏に入る手") :
+          "自分の弱い石を補う手",
+        r => "序盤の" + r.line + "線の" + (r.high ? "高い手" : "低い手"),
+        r => r.high ? "相手の石から" + r.far + "路" + (r.far >= 4 ? "以上" : "") + "離れた手" :
+          r.far <= 1 ? "相手の石に接する手" : "相手の石から" + r.far + "路の近い手",
+      ],
+      join: "・",
+      ask: "理由を聞く",
+      askAria: step => step + "手目がなぜらしいか、チャットAIへの質問をコピー",
+      copied: "質問をコピーしました。チャットAIに貼り付けてください。",
+      criterion: "型の向きにいちばん寄った手を、目立つ軸ほど重く数えて選びました。アタリを逃げる・取り返すだけの手は除き、2手は離れた場面から選びます。盤を押すと棋譜が開きます。",
+    },
     // Each type's text speaks of one game; read together, it speaks of the games picked.
     pooledText: text => text.replace(/^この一局では、/, "選んだ対局では、"),
     pooled: games => "選んだ" + games + "局をまとめて測りました。局が多いほど結果は安定します。",
@@ -633,7 +664,7 @@ export const TEXT = {
       { high: "H", low: "L", highName: "模様", lowName: "実利",
         about: "序盤に4線より上の高い場所と、2〜3線の低い場所のどちらに打つか" },
       { high: "F", low: "R", highName: "自由", lowName: "律儀",
-        about: "相手が打った手の近くに応じるか、離れた場所に打つか" },
+        about: "序盤から中盤にかけて、相手の石から離れた場所に打つか、相手の石の近くに打つか（相手を攻める手は数えない）" },
       { high: "T", low: "Q", highName: "粘り強い", lowName: "潔い",
         about: "負けていても打ち続けたか、投了や先のパスで区切りをつけたか。投了は、差が小さいうちに、大差がついたらすぐに投げるほど潔い。取られそうな石を早めに見切るのも潔い" },
     ],
@@ -851,6 +882,18 @@ export const TEXT = {
       "URLを直接参照できなくても、sgfクエリをURLデコードして棋譜を解析できます。",
     ],
     handoffGuide: href => "詳細仕様: " + href,
+    // あなたらしかった手 (makeStyleMovesPrompt).
+    styleIntro: (side, type, name, com) => "囲碁アプリMieGOの棋風診断で、" + (com ? "COM" : "私") + (side ? "（" + side + "）" : "") +
+      "の打ち方は「" + type + " " + name + "」と出ました。",
+    styleTypeText: text => "タイプの説明：" + text,
+    styleAxesHeading: "診断の4つの軸（左が1文字目、右が2文字目）：",
+    styleAxis: axis => "・" + axis.high + " " + axis.highName + " / " + axis.low + " " + axis.lowName + "：" + axis.about,
+    styleMovesHeading: com => "診断が「" + (com ? "この打ち手らしかった手" : "あなたらしかった手") + "」として選んだ手です。",
+    styleMove: (rank, step, reasons) => rank + "：" + step + "手目（" + reasons + "）",
+    styleBoard: "打つ直前の盤面（◇=その手を打った場所。●=黒、○=白、・=空点。上の行から下の行へ）：",
+    styleAsk: (com, many) => (many ? "それぞれの手" : "この手") + "が、なぜこの棋風" + (com ? "らしい" : "の私らしい") +
+      "のかを、盤面と4つの軸に沿って説明してください。あわせて、同じ場面でほかに考えられた手を1つ挙げ、比べてください。",
+    styleUrlNote: "棋譜URLの sgf はURLエンコードされた標準SGF、move はその手を打った直後の手数です。URLを開けない場合は sgf をデコードして読んでください。",
     copiedForAi: "コピーしました。チャットAIに貼り付けてください。",
     failed: "もう一度お試しください。質問文を作れませんでした。",
   },

@@ -215,3 +215,30 @@ test("a dead group in atari inside a closed area does not hold back the advice",
   for(const moveNumber of [40,41,42])stage=advisor.observe({...newGame(),board,moveNumber},ownership);
   assert.equal(stage,"ready");
 });
+
+test("そろそろ also lights once most of the board reads settled, without touching the COM's stage",()=>{
+  const g=newGame(),advisor=new EndgameAdvisor();
+  // 56 of 81 points settled (69%): the swing has nothing to compare yet, so still まだまだ.
+  advisor.observe(g,Array.from({length:81},(_,i)=>i<56?1:0));
+  assert.equal(endgameHint(g,advisor),TEXT.endgame.playing);
+  // 57 of 81 (70%): そろそろ, while the stage the COM passes and offers by stays as it was.
+  advisor.observe({...g,moveNumber:1},Array.from({length:81},(_,i)=>i<57?1:0));
+  assert.equal(advisor.stage,"playing");
+  assert.equal(endgameHint({...g,moveNumber:1},advisor),TEXT.endgame.near);
+  advisor.reset();
+  assert.equal(advisor.mostlySettled,false);
+});
+
+test("the opening is over once a fifth of the board reads settled, and stays over until the next game",()=>{
+  const g=newGame(),advisor=new EndgameAdvisor();
+  // 16 of 81 points settled (19.8%): still 序.
+  advisor.observe(g,Array.from({length:81},(_,i)=>i<16?1:0));
+  assert.equal(advisor.opened,false);
+  advisor.observe({...g,moveNumber:1},Array.from({length:81},(_,i)=>i<17?1:0));
+  assert.equal(advisor.opened,true);
+  // A fight that unsettles the board again does not bring 序 back.
+  advisor.observe({...g,moveNumber:2},Array(81).fill(0));
+  assert.equal(advisor.opened,true);
+  advisor.reset();
+  assert.equal(advisor.opened,false);
+});
