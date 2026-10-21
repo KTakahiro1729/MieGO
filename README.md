@@ -6,7 +6,7 @@
 
 デプロイはGitHubとCloudflareのWeb画面だけでできます。手元でのターミナル操作や、Node.js・Git・Wranglerのインストールは要りません。GitHubのリポジトリとCloudflare Workers Buildsを連携して、Cloudflare側でビルドと配置を実施します。
 
-既に`main`とCloudflare Workers Buildsを連携済みの場合、初回作成を繰り返す必要はありません。
+既にCloudflare Workers Buildsを連携済みの場合、初回作成を繰り返す必要はありません。本番に出るのは`release`ブランチだけです（下の「開発用とリリース用のブランチ」）。
 
 ### 1. Cloudflareにログイン
 
@@ -27,7 +27,7 @@
 | Project / Worker name | `miego` |
 | Git provider | GitHub |
 | Repository | `KTakahiro1729/MieGO` |
-| Production branch | `main` |
+| Production branch | `release` |
 | Root directory | `/`（リポジトリ直下、既定のまま） |
 | Build command | `npm test` |
 | Deploy command | `npx wrangler deploy` |
@@ -71,7 +71,7 @@
 ### 5. すべてブラウザでできる更新・監視
 
 - **コードの更新**: GitHub上のファイルを開く → 編集（鉛筆アイコン） → Commit changes。手動`git push`は不要です。
-- **自動反映**: `main`へのコミットをCloudflare Workers Buildsが検知し、テスト → デプロイを実行します。
+- **自動反映**: `release`へのコミットをCloudflare Workers Buildsが検知し、テスト → 本番へデプロイします。`main`へのコミットは開発版のPreviewに出ます。
 - **ビルド履歴**: Cloudflare → Workers & Pages → `miego` → **Builds / Deployments**。
 - **設定・ログ**: 対象Worker → **Settings** / **Logs** などの画面で確認します（メニュー名はUIにより変わります）。
 - **初回に既存Workerを選ぶ場合**: Worker → **Settings → Builds → Connect** でGitHubを接続します。ただし、接続だけではデプロイが開始されない場合があり、その際はCloudflareの画面から手動ビルドを開始するか、GitHub Web画面で新規コミットを作成してください。
@@ -292,6 +292,24 @@ npm run dev
 - JavaScriptの各モジュールは `TEXT.*` を参照します。
 - `public/index.html` は `src/index.template.html` と `texts.mjs` から `scripts/build-html.mjs` が生成します（`npm test`・`npm run dev`・`npm run deploy` の前に自動生成）。`public/index.html` はGitで管理しません（`.gitignore` 対象）。マークアップは `src/index.template.html` を編集してください。GitHubのWeb画面で `texts.mjs` を編集した場合も、Cloudflareのビルドで再生成されます。
 - テスト `tests/texts.test.mjs` が、モジュールへの日本語リテラルの再混入と、生成した `index.html` がテンプレートと一致することを確かめます。
+
+### 開発用とリリース用のブランチ
+
+| ブランチ | 役割 | 出る先 |
+| --- | --- | --- |
+| `main` | 開発用。機能や修正のPRはすべてここへ出す | Preview（`main-miego.<subdomain>.workers.dev`、対友人の対局は不可） |
+| `release` | リリース用。`main` をマージしたときだけ進む | 本番（miego.fun） |
+| `feature/play-style` | 棋風診断の作業をためるブランチ。棋風診断のPRはここへ出し、出すと決めたら `main` へマージする | Preview（`feature-play-style-miego.<subdomain>.workers.dev`） |
+
+リリースの手順:
+
+1. GitHubで **base: `release` ← compare: `main`** のPRを作ります（タイトル例 `Release: 2026-10-21`）。PR checksが通ることを確認します。
+2. **Create a merge commit** でマージします（Squash・Rebaseは使いません。使うと `release` と `main` の履歴が分かれ、次のリリースでコンフリクトします）。
+3. Cloudflareの **Builds / Deployments** で `release` のビルドが成功し、miego.fun に出たことを確認します。
+
+棋風診断は、`release` から作る本番では出しません。Workers Buildsのビルドで `WORKERS_CI_BRANCH` が `release` のとき、`scripts/build-html.mjs` が `index.html` に `data-no-play-style` を付けて結果・共有・履歴の棋風診断の入口を隠し、`/style` のページを作りません（`/style` へのリンクはトップへ転送）。手元で本番と同じ表示を見るには `MIEGO_HIDE_PLAY_STYLE=1 npm run dev` を使います。出すと決めたら、この切り替えを外すPRを `main` に出してリリースします。
+
+本番だけの急ぎの修正は、`main` への修正PRをマージしてから上の手順でリリースします。`release` に直接コミットした場合は、すぐに `release` を `main` へマージして戻してください。
 
 ### Content-Security-Policy
 

@@ -134,7 +134,7 @@ import { createReviewPrefetch, createScoreGraph } from "./review-estimates.mjs";
 import { resultLabel, resultWinner } from "./result-label.mjs";
 import { createHistoryPanel } from "./history-panel.mjs";
 import { createHistoryStyle } from "./history-style.mjs";
-import { canReadStyle, readStyleLink } from "./play-style.mjs";
+import { canReadStyle, playStyleShown, readStyleLink } from "./play-style.mjs";
 import { navigationState } from "./history-navigation.mjs";
 import { makeReviewUrl, readReviewUrl, makeAiHandoff } from "./sgf-link.mjs";
 import { createHelpSheet } from "./help-sheet.mjs";
@@ -2029,7 +2029,8 @@ SETUP_TABS.forEach((key,index)=>{
 // A tab whose setting the chosen mode does not use is greyed out; its panel still opens.
 function syncSetupValues() {
   const kind=newGameModeKind(),watch=kind==="ai" && watchChoice;
-  $("setupTabSide").classList.toggle("is-unused",kind==="local" || watch);
+  // 自分の石 also holds the 置き石 choice, which every mode of 囲碁 uses.
+  $("setupTabSide").classList.toggle("is-unused",(kind==="local" || watch) && !handicapInUse());
   // While watching, the tab still holds each COM's card.
   $("setupTabStrength").classList.toggle("is-unused",kind!=="ai");
   // 時間 holds the clock and 観戦's speed; a free board uses neither.
@@ -2046,11 +2047,23 @@ function syncSetupTabValues() {
     // ここから打つ fixes 盤 and ルール to the record's, so those still show the value.
     const fixed=continueFrom && (key==="Board" || key==="Rules");
     if(key==="Time" && !tab.classList.contains("is-unused")){$("setupValueTime").textContent=timeTabValue();continue;}
+    if(key==="Side" && handicapInUse()){$("setupValueSide").textContent=sideTabValue(checked);continue;}
     $("setupValue"+key).textContent=key==="Strength" && editsWatchAi() && !tab.classList.contains("is-unused")?TEXT.newGame.watchStrengthValue:
       !checked || tab.classList.contains("is-unused") && !fixed?"—":checked.nextElementSibling.textContent.trim();
   }
 }
 $("newGameSetup").addEventListener("change",syncSetupTabValues);
+// 置き石 can be chosen unless the rules take none or ここから打つ keeps the record's stones.
+function handicapInUse() {
+  return gameRules!=="gomoku" && gameRules!=="free" && !continueFrom?.line;
+}
+// The side, when the mode picks one, then the 置き石 count; 互先 alone when no side is picked.
+function sideTabValue(checked) {
+  const kind=newGameModeKind(),picks=kind==="online" || kind==="ai" && !watchChoice;
+  const side=picks && checked?checked.nextElementSibling.textContent.trim():"";
+  const handicap=Number($("handicap").value);
+  return [side,handicap?TEXT.handicap.stones(handicap):side?"":TEXT.handicap.evenShort].filter(Boolean).join(" · ");
+}
 // 観戦 shows its speed; the other modes their clock.
 function timeTabValue() {
   if(newGameModeKind()==="ai" && watchChoice)return TEXT.newGame.watchSpeeds[watchSpeed];
@@ -2952,7 +2965,7 @@ if(!room && params.get("open")==="history-style"){
   const [type,...leans]=(params.get("with") ?? "").split(",");
   stylePartner=readStyleLink("?t="+type+"&s="+leans.join(","));
   history.replaceState(null,"",location.pathname);
-  openHistoryStyle();
+  if(playStyleShown())openHistoryStyle();
 }
 compactOwnership();
 // An unfinished friend game is offered when the page opens on something else.
