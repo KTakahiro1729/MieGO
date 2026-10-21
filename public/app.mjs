@@ -93,7 +93,7 @@ import { choosePolicyMove, createResignWatch } from "./ai-opponent.mjs";
 import { gomokuMove } from "./gomoku-ai.mjs";
 import { cleanName, createPlayerName } from "./player-name.mjs";
 import { playerSides, recordNames, stoneMark } from "./player-row.mjs";
-import { createSeatSheet, seatsOf } from "./seat-sheet.mjs";
+import { createSeatSheet, sameSeats, seatsOf } from "./seat-sheet.mjs";
 import { AI_STRENGTHS, DEFAULT_AI_STRENGTH } from "./ai-strength.mjs";
 import {
   CUSTOM_CHARACTER,
@@ -2094,6 +2094,7 @@ const untimedRules=kind=>gameRules==="free" || kind==="ai" && watchChoice;
 // The 新規対戦 sheet shows the same rows in every mode, so its height stays put;
 // a row the chosen mode does not use is greyed out.
 function showNewGameMode(kind) {
+  if(kind==="online" && !room && noNewFriendGames)kind="ai";
   // 観戦 is 対COM with two COMs: it opens as 観戦 while that is the sheet's choice.
   if(kind==="ai" && watchChoice)kind="watch";
   const watch=kind==="watch";
@@ -2123,6 +2124,13 @@ function showNewGameMode(kind) {
   syncHandicapUi();
   if(kind==="online" && room)showInviteLink();
   if(kind==="online")renderInviteButton();
+}
+// Production starts no new 対友人 games (scripts/build-html.mjs); invitations and
+// resuming still work, so a page opened in a room keeps the tab.
+const noNewFriendGames=document.documentElement.hasAttribute("data-no-p2p");
+if(noNewFriendGames && !room){
+  document.querySelector('input[name="newGameMode"][value="online"]').closest("label").hidden=true;
+  $("help-online").hidden=true;
 }
 // 観戦 starts a game against the COM, so the sheet treats it as 対COM.
 const newGameModeKind=()=>{
@@ -2746,13 +2754,13 @@ function takeOverWatchedGame(color) {
 // この対局の打ち手: the names under the board open it while a game is played on this
 // device. Changing a seat changes the mode (1台・対COM・観戦), and the record carries on.
 function canChangeSeats(){return !room && !boardReview && game.status==="playing" && !isFree(game);}
-const seatSheet=createSeatSheet({$,onApply:applySeats,onKeep:closeSeatPanel});
+const seatSheet=createSeatSheet({$,onApply:applySeats,onKeep:closeSeatPanel,syncSlider:syncStepSlider});
 function openSeatPanel() {
   if(!canChangeSeats())return;
   seatSheet.load(seatsOf({mode:gameMode,watching,humanColor,aiCom,watchAi}),{next:game.next,
     available:isGomoku(game) || katagoReady && !fallbackMode,
     // A person's seat switched to COM gets the COM playing now, or the next game's.
-    fallback:()=>gameMode==="ai" && !watching?aiCom:nextAiCom});
+    fallback:()=>gameMode==="ai" && !watching?aiCom:nextAiCom,watchSpeed});
   setBackgroundInert(true);
   $("settingsBackdrop").hidden=false;$("seatPanel").hidden=false;
   $("closeSeats").focus();
@@ -2760,18 +2768,23 @@ function openSeatPanel() {
 function closeSeatPanel(){closePanels();$("players").focus();}
 $("players").onclick=openSeatPanel;
 $("closeSeats").onclick=closeSeatPanel;
-function applySeats(match) {
+function applySeats(match, speed) {
   if(!canChangeSeats())return;
-  stopAiTurn(); // A move being computed for a seat that changed is dropped.
-  candidate=null;illegalCandidate=null;
-  // The COM that offered to end may be gone: the seats as they are now decide again.
-  if(game.endProposal && gameMode==="ai" && !watching && game.endProposal.from!==humanColor)
-    game={...game,endProposal:null};
-  endExpanded=false;resetResignWatch();
-  gameMode=match.mode;
-  setWatching(match.watching);
-  if(match.watching){watchAi=match.watchAi;lastWatchMoveAt=performance.now();}
-  else if(match.mode==="ai"){humanColor=match.humanColor;aiCom=match.aiCom;}
+  // 観戦's speed is also the next 観戦's, as under 新規対戦's 時間 tab.
+  watchSpeed=toWatchSpeed(speed);syncSideUi();
+  // A watched game whose only change is its speed keeps going, paused or not.
+  if(!sameSeats(seatsOf({mode:gameMode,watching,humanColor,aiCom,watchAi}),seatsOf(match))){
+    stopAiTurn(); // A move being computed for a seat that changed is dropped.
+    candidate=null;illegalCandidate=null;
+    // The COM that offered to end may be gone: the seats as they are now decide again.
+    if(game.endProposal && gameMode==="ai" && !watching && game.endProposal.from!==humanColor)
+      game={...game,endProposal:null};
+    endExpanded=false;resetResignWatch();
+    gameMode=match.mode;
+    setWatching(match.watching);
+    if(match.watching){watchAi=match.watchAi;lastWatchMoveAt=performance.now();}
+    else if(match.mode==="ai"){humanColor=match.humanColor;aiCom=match.aiCom;}
+  }
   save();closeSeatPanel();show();requestAnalysis();
 }
 $("watchIntervene").onclick=()=>{

@@ -446,7 +446,7 @@ export const TEXT = {
     seatLinkCopy: "自分用の再入室リンクをコピー",
     seatLinkField: "自分用の再入室リンク",
     seatLinkCopied: "コピーしました。相手には送らないでください。",
-    roomsUnavailable: "miego.fun でお試しください。この試作版のページでは、対友人の対局を作れません。",
+    roomsUnavailable: "開発版（main-miego.poet-takahiro1234.workers.dev）でお試しください。この試作版のページでは、対友人の対局を作れません。",
     turnstileMissing: "時間をおいてお試しください。サイトの設定に問題があり、対局を作れません。",
     verifyLoadFailed: "電波やWi-Fiを確認して、もう一度お試しください。確認画面を表示できません。",
     verifyFailed: "もう一度お試しください。ロボットでないことを確認できませんでした。",
@@ -958,7 +958,7 @@ export const TEXT = {
   seats: {
     title: "この対局の打ち手",
     open: "対局者（押すと打ち手を替えられます）",
-    person: "人",
+    person: "あなた",
     com: "COM",
     character: color => color + "のCOMのキャラ",
     strength: color => color + "のCOMの強さ",
@@ -973,8 +973,9 @@ export const TEXT = {
     becomes: (from, to) => from + "から" + to + "に替わります。",
     stays: mode => mode + "のまま、COMを替えます。",
     comMoves: color => "続けるとすぐ" + color + "のCOMが打ちます。",
+    speed: speed => "観戦の速さを「" + speed + "」にします。",
     record: "棋譜はこのまま続きます。",
-    comUnavailable: "COMを読み込めていないので、今は人どうしでだけ打てます。",
+    comUnavailable: "COMを読み込めていないので、今は黒も白もあなたが打つ「1台で打つ」だけです。",
   },
   newGame: {
     title: "新規対戦",
