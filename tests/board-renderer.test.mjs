@@ -241,7 +241,7 @@ test("盤の線 standing still runs dashes through each group, narrowing toward 
     {requestFrame:f=>frames.push(f),stillMotion:()=>true});
   draw();
   const ends=calls.filter(c=>c.kind==="line").map(c=>c.args.join(","));
-  assert.ok(ends.includes(String([250,200+10])),"from the stone to a point short of the empty point above");
+  assert.ok(ends.includes(String([250,200])),"from the stone to the empty point above");
   assert.equal(ends.some(e=>{const [x,y]=e.split(",").map(Number);return Math.abs(x-250)<5&&y>250+22&&y<300-22;}),false,"nothing between black and white");
   assert.equal(calls.some(c=>c.kind==="arc"&&c.args[0]===250&&c.args[1]===200),false,"no dot while still");
   assert.equal(frames.length,0,"still where motion is reduced");
@@ -253,7 +253,7 @@ test("盤の線 set to 仮置き時 shows only while a stone is being placed",()
   let candidate=null;
   const {draw,calls}=recordingBoard(()=>({...baseView(game),candidate,linkStones:"candidate"}),
     {requestFrame:()=>{},stillMotion:()=>true});
-  const toAbove=()=>{calls.length=0;draw();return calls.some(c=>c.kind==="line"&&c.args.join(",")===String([250,200+10]));};
+  const toAbove=()=>{calls.length=0;draw();return calls.some(c=>c.kind==="line"&&c.args.join(",")===String([250,200]));};
   assert.equal(toAbove(),false,"nothing while no stone is placed");
   const board=game.board.slice();board[at(6,6)]=WHITE;
   candidate={board,moves:[{position:at(6,6)}]};
@@ -301,8 +301,8 @@ test("盤の線 draws a breath in from the liberties, speeding up, only to the s
   const black=ms=>breath(BREATH_MS+BREATH_GATHER_MS,ms), white=ms=>breath(BREATH_MS*1.5+BREATH_GATHER_MS,ms);
   // It leaves the dot below (0,0) slowly: not halfway to the stone at first,
   // all the way there one BREATH_PULL_MS in.
-  assert.ok(black(1).some(([x,y])=>x===50&&y>89&&y<90),"at once from the tip as the circles close");
-  assert.ok(black(BREATH_PULL_MS/4).some(([x,y])=>x===50&&y>85&&y<90));
+  assert.ok(black(1).some(([x,y])=>x===50&&y>99&&y<100),"at once from the liberty as the circles close");
+  assert.ok(black(BREATH_PULL_MS/4).some(([x,y])=>x===50&&y>95&&y<99));
   assert.equal(black(BREATH_PULL_MS/2).some(([x,y])=>x===50&&y<=75),false,"slow at first");
   assert.ok(black(BREATH_PULL_MS).some(([x,y])=>x===50&&y===50),"to the stone");
   // Faster on, it is through to the line between the stones.

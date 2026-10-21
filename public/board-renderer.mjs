@@ -269,7 +269,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
 
   // 盤の線: a line runs through each group, along the board's
   // lines from stone to stone and out toward every empty point next to it,
-  // narrowing to a point short of it, so a group shows what holds it
+  // narrowing to a point on it, so a group shows what holds it
   // together and the points it needs. Standing still these lines are dashes.
   // While playing there are no dashes: each breath starts as a circle closing
   // in on every liberty, and is drawn into the group as a stretch
@@ -278,12 +278,12 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   function paintBoardLines(view,board,gap,pad,moving) {
     const palette=countingPalette(view.palette);
     const tone={[BLACK]:`rgb(${paletteAt(1,palette).join(",")})`,[WHITE]:`rgb(${paletteAt(-1,palette).join(",")})`};
-    const width=Math.max(2,gap*.08), dash=gap*.09, tip=.2, edge=1-.44, flare=gap*.14;
+    const width=Math.max(2,gap*.08), dash=gap*.09, tip=0, edge=1-.44, flare=gap*.14;
     // How far into its breath each side is: black and white take turns.
     const since={[BLACK]:now()%BREATH_MS,[WHITE]:(now()+BREATH_MS/2)%BREATH_MS};
     // How far each breath under way has run, and where its tail is, in lines
     // from the liberties; a deep group may hold more than one. It sets out
-    // from the tip the moment its circles have closed in.
+    // from the liberty the moment its circles have closed in on it.
     const reached=t=>t>0?tip+(t/BREATH_PULL_MS)**2:0;
     const fronts={[BLACK]:[],[WHITE]:[]};
     if(moving)for(const color of [BLACK,WHITE])for(let k=0;k<2;k++){
@@ -324,9 +324,10 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         ctx.save();
         if(line.start){
           // Toward a liberty the line flares out of the stone's edge and
-          // narrows to a point; over the stone it keeps its width.
+          // narrows to its own width on the liberty, as wide as the circle
+          // that closes in there; over the stone it keeps its width.
           const at=(u,side)=>[ax+(bx-ax)*u+(ay-by)/gap*side,ay+(by-ay)*u+(bx-ax)/gap*side];
-          const outline=[[tip,0],[edge,flare/2],[edge,width/2],[1,width/2],[1,-width/2],[edge,-width/2],[edge,-flare/2]];
+          const outline=[[tip,width/2],[edge,flare/2],[edge,width/2],[1,width/2],[1,-width/2],[edge,-width/2],[edge,-flare/2],[tip,-width/2]];
           ctx.beginPath();
           outline.forEach(([u,side],k)=>ctx[k?"lineTo":"moveTo"](...at(u,side)));
           ctx.closePath();ctx.clip();
@@ -341,7 +342,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         }
         // A point u along the line is min(from+u, to+1-u) lines from air:
         // the breath comes in from a up to the middle, and from b past it.
-        ctx.globalAlpha=1;ctx.setLineDash([]);ctx.beginPath();
+        // A round head shows the breath from its first moment.
+        ctx.globalAlpha=1;ctx.setLineDash([]);ctx.lineCap="round";ctx.beginPath();
         const middle=Math.min(1,Math.max(0,(line.to+1-line.from)/2));
         for(const [tail,ahead] of fronts[color]){
           const near=tail, far=Math.min(ahead,reach);
@@ -362,7 +364,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         if(gather>=1)continue;
         ctx.globalAlpha=.15+.7*gather;
         ctx.fillStyle=tone[color];ctx.beginPath();
-        ctx.arc(x,y,gap*(.08+.32*(1-gather**2)),0,Math.PI*2);ctx.fill();
+        ctx.arc(x,y,gap*(.04+.36*(1-gather**2)),0,Math.PI*2);ctx.fill();
       }
     }
     ctx.restore();
