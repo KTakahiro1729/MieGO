@@ -25,7 +25,7 @@ export function passNotice({game, room, gameMode, watching, color}) {
  * `notices` the one-off texts a 待った or an answered offer left for this position.
  */
 export function endgameBarView({game, color, room, connected, gameMode, watching, endExpanded, aiPassAsks,
-  katagoReady, fallbackMode, advisor, aiThinking, notices, keptPlaying, illegalCandidate}) {
+  katagoReady, fallbackMode, advisor, aiThinking, notices, keptPlaying, illegalCandidate, resignWish=null}) {
   const view={text:{},hidden:{},disabled:{},classes:{},help:null};
   const playing=game.status==="playing";
   const offer=playing?game.endProposal:null;
@@ -93,6 +93,9 @@ export function endgameBarView({game, color, room, connected, gameMode, watching
   if(playing && isGomoku(game) && !offline && !offer && !localPrompt)status=TEXT.endgame.gomoku;
   const notice=notices.find(n=>n?.number===game.moveNumber && n.hash===boardHash(game.board));
   if(playing && !offer && !localPrompt && !passed && notice)status=notice.text;
+  // While watching, a COM that would resign plays on, and the bar says it wants to.
+  if(playing && watching && resignWish && !offer && !localPrompt && !passed && !notice)
+    status=TEXT.endgame.wantsResign(resignWish===BLACK?"B":"W");
   // A decision is asked of this player: an offer, the other side's pass, or the advice to end.
   view.classes.endgameBar={"is-asking":localPrompt,"is-calling":playing && !offline &&
     (incoming || (!!passed?.second && !keptPlaying) || status===TEXT.endgame.ready)};

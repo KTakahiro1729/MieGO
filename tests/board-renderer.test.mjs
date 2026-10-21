@@ -232,3 +232,15 @@ test("an empty board shows sample stones only while its colours are edited",()=>
   drawPlayed();
   assert.equal(playedCalls.filter(c=>c.kind==="arc"&&c.args[2]===22).length,1,"a board with stones shows only its own");
 });
+
+test("a game that ended by 投了 keeps its territory estimate; any other finished game does not",()=>{
+  const game={...play(newGame(),"resign")};
+  const view={...baseView(game),displayedOwnership:Array(81).fill(1)};
+  let ended=true;
+  const {draw,calls}=recordingBoard(()=>({...view,endedTerritory:ended}));
+  draw();
+  assert.equal(calls.filter(c=>c.kind==="image").length,1);
+  ended=false;calls.length=0;
+  draw();
+  assert.equal(calls.filter(c=>c.kind==="image").length,0);
+});

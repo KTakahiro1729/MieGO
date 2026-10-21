@@ -119,6 +119,7 @@ export const TEXT = {
     passedLocal: c => "パスで採点へ。" + color(c) + "はパス済み",
     // While watching, nobody is asked to pass: the line only says what happened.
     passedWatch: c => color(c) + "がパス。次もパスなら採点へ",
+    wantsResign: c => color(c) + "が投了したがっています",
     // The COM's pass opens the same question as 採点を始める; 採点へ進む is the player's pass.
     askAiPassed: "COMがパスしました\n採点を始めますか？",
     detailAiPassed: "採点へ進むと、あなたもパスして死石の確認に入ります。打ち続けることもできます。",
