@@ -2,12 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {at,BLACK,boardHash,newGame,play,WHITE} from "../public/core.mjs";
 import {
-  BREATH_DRAW_MS,
   BREATH_GATHER_MS,
-  BREATH_MS,
+  BREATH_LINE_MS,
+  BREATH_REST_MS,
   BREATH_STAGGER_MS,
   BREATH_TRAIL_MS,
   breathDelay,
+  breathReached,
+  breathTakes,
   BURST_MS,
   CAPTURE_DIM_MS,
   CAPTURE_FADE_MS,
@@ -322,59 +324,68 @@ test("盤の線 set to 仮置き時 shows only while a stone is being placed",()
 
 test("盤の線 starts each breath with a circle closing in on the liberties",()=>{
   const game=newGame();
-  game.board[at(4,4)]=BLACK;game.board[at(4,5)]=WHITE;
+  // Black (4,4)-(5,4) and white (4,5) both need (5,5).
+  game.board[at(4,4)]=BLACK;game.board[at(5,4)]=BLACK;game.board[at(4,5)]=WHITE;
   const black=breathDelay(at(4,4)), white=breathDelay(at(4,5));
-  let time=black;
+  let time=0;
   const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"always"}),
     {requestFrame:()=>{},now:()=>time,stillMotion:()=>false});
   const dots=(x,y)=>{calls.length=0;draw();return calls.filter(c=>c.kind==="arc"&&c.args[0]===x&&c.args[1]===y);};
-  const [first]=dots(250,200);
+  // Black breathes first, from the first frame.
+  draw();
+  time=black;
+  const [first]=dots(250,200), [blackDot]=dots(300,300);
   time=black+BREATH_GATHER_MS/2;
   const [later]=dots(250,200);
   assert.ok(later.args[2]<first.args[2] && later.alpha>first.alpha,"closes in and darkens");
   assert.equal(first.alpha,0,"fading in from nothing");
-  // With black on (5,4), black and white both need (5,5): a whole dot from
-  // each side's own breath, half a breath apart.
-  game.board[at(5,4)]=BLACK;time=black;
-  const [blackDot]=dots(300,300);
-  time=BREATH_MS/2+white;
-  const [whiteDot]=dots(300,300);
-  for(const dot of [blackDot,whiteDot])assert.deepEqual(dot.args.slice(3),[0,Math.PI*2],"whole dots in turn");
   time=black+BREATH_GATHER_MS;
   assert.equal(dots(250,200).length,0,"gone until the next breath");
+  // (5,5) gets a whole dot from each side's own breath, white's once black's is through.
+  time=black+breathTakes(2)+BREATH_REST_MS+white+1;
+  const [whiteDot]=dots(300,300);
+  for(const dot of [blackDot,whiteDot])assert.deepEqual(dot.args.slice(3),[0,Math.PI*2],"whole dots in turn");
 });
 
-test("盤の線 draws one side's breath in at a time, speeding up, only to the stone's edge in atari",()=>{
+test("盤の線 draws one side's breath in at a time, at one speed, only to the stone's edge in atari",()=>{
   const game=newGame();
-  // Black (0,0)-(1,0) with three liberties; white (8,8) in atari, its one liberty (8,7).
+  // Black (0,0)-(1,0) with three liberties and (7,8) with two; white (8,8)
+  // in atari, its one liberty (8,7).
   game.board[at(0,0)]=BLACK;game.board[at(1,0)]=BLACK;
   game.board[at(8,8)]=WHITE;game.board[at(7,8)]=BLACK;
   const frames=[];
-  let time=BREATH_GATHER_MS+BREATH_DRAW_MS;
+  let time=0;
   const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"always"}),
     {requestFrame:f=>frames.push(f),now:()=>time,stillMotion:()=>false});
-  const lines=()=>{calls.length=0;draw();return calls.filter(c=>c.kind==="line").map(c=>c.args.join(","));};
-  // Black's breath is through and white's has not begun: the board alone,
-  // no dashes.
-  const board=lines();
+  const all=()=>{calls.length=0;draw();return calls.filter(c=>c.kind==="line").map(c=>c.args.join(","));};
+  // Before any breath is drawn in there are only the outlines each line is clipped to.
+  const outlines=all();
   assert.equal(frames.length,1,"keeps breathing");
-  assert.equal(board.some(e=>{const [x,y]=e.split(",").map(Number);return x===50&&y>50&&y<100;}),false,"no dashes while breathing");
-  const breath=(start,ms)=>{time=start+ms;return lines().filter(e=>!board.includes(e)).map(e=>e.split(",").map(Number));};
-  // Black's first stone is the board's first point, so it breathes on time; white is late by its own delay.
-  const black=ms=>breath(BREATH_MS+BREATH_GATHER_MS,ms), white=ms=>breath(BREATH_MS*1.5+BREATH_GATHER_MS+breathDelay(at(8,8)),ms);
-  const run=BREATH_DRAW_MS-BREATH_TRAIL_MS;
-  // It leaves the liberty below (0,0) the moment the circles close, slowly.
-  assert.ok(black(1).some(([x,y])=>x===50&&y>99&&y<100),"at once from the liberty as the circles close");
-  assert.ok(black(run/4).some(([x,y])=>x===50&&y>90&&y<99));
-  assert.equal(black(run/4).some(([x,y])=>x===50&&y<=75),false,"slow at first");
-  // Faster on, it is at the stone and through to the line between the stones.
-  assert.ok(black(run).some(([x,y])=>x===50&&y===50),"to the stone");
-  assert.ok(black(run).some(([x,y])=>x===75&&y===50),"between the stones");
-  assert.equal(black(BREATH_DRAW_MS).length,0,"over before white's breath");
+  const lines=()=>all().filter(e=>!outlines.includes(e)).map(e=>e.split(",").map(Number));
+  // The breath into (0,0)-(1,0), whose first stone is the board's first
+  // point so it is never late, and into white, once black's is through.
+  const corner=ms=>{time=BREATH_GATHER_MS+ms;return lines().filter(([x,y])=>x<=100&&y<=100);};
+  const line=BREATH_LINE_MS;
+  assert.ok(corner(1).some(([x,y])=>x===50&&y>99&&y<100),"at once from the liberty as the circles close");
+  assert.ok(corner(line/2).some(([x,y])=>x===50&&y>90&&y<99));
+  assert.equal(corner(line/2).some(([x,y])=>x===50&&y<=75),false,"slow at first");
+  assert.ok(corner(line*2).some(([x,y])=>x===50&&y===50),"to the stone");
+  assert.ok(corner(line*2).some(([x,y])=>x===75&&y===50),"between the stones");
+  assert.equal(corner(breathTakes(2)-BREATH_GATHER_MS).length,0,"through");
+  assert.equal(lines().some(([x,y])=>x===50&&y>50&&y<100),false,"no dashes while breathing");
+  // Past its first line it runs one line each BREATH_LINE_MS, so a deeper group takes longer.
+  assert.equal(breathReached(line*3)-breathReached(line*2),1);
+  assert.equal(breathReached(line*5)-breathReached(line*4),1);
+  assert.ok(breathTakes(4)>breathTakes(2));
+  // White starts only once black's last group, (7,8), is through.
+  const whiteStart=breathDelay(at(7,8))+breathTakes(2)+BREATH_REST_MS+breathDelay(at(8,8))+1;
+  const atari=ms=>{time=whiteStart+BREATH_GATHER_MS+ms;return lines().filter(([x,y])=>x===450&&y>400);};
+  time=whiteStart-breathDelay(at(8,8))-2;calls.length=0;draw();
+  assert.equal(calls.some(c=>c.kind==="arc"&&c.args[0]===450&&c.args[1]===400),false,"not while black breathes");
   // In atari it never gets past the white stone's edge, and is gone sooner.
-  const atari=white(run*.6).concat(white(run*.75)).filter(([x,y])=>x===450&&y>400);
-  assert.ok(atari.length && atari.every(([,y])=>y<=450-22+1e-9),"the white stone in atari only to its edge");
-  assert.equal(white(run).some(([x,y])=>x===450&&y>400),false);
+  const edge=atari(line).concat(atari(line*1.2));
+  assert.ok(edge.length && edge.every(([,y])=>y<=450-22+1e-9),"the white stone in atari only to its edge");
+  assert.equal(atari(line*2.2).length,0);
 });
 
 test("盤の線 breathes each group of a side a little apart, holding a shared liberty's dot for all of them",()=>{
@@ -383,11 +394,11 @@ test("盤の線 breathes each group of a side a little apart, holding a shared l
   game.board[at(2,4)]=BLACK;game.board[at(4,4)]=BLACK;
   const [left,right]=[breathDelay(at(2,4)),breathDelay(at(4,4))];
   assert.ok(left!==right && Math.max(left,right)<=BREATH_STAGGER_MS,"apart, but only a little");
-  assert.ok(BREATH_GATHER_MS+BREATH_DRAW_MS+BREATH_STAGGER_MS<=BREATH_MS/2,"done before white's breath");
   let time=0;
   const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"always"}),
     {requestFrame:()=>{},now:()=>time,stillMotion:()=>false});
   const dotAt=(x,y)=>{calls.length=0;draw();return calls.find(c=>c.kind==="arc"&&c.args[0]===x&&c.args[1]===y);};
+  draw();
   const [first,last]=[Math.min(left,right),Math.max(left,right)];
   // Each stone's own liberty above it closes in on its own delay.
   time=left+BREATH_GATHER_MS/2;
