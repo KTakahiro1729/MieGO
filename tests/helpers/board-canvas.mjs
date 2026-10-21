@@ -10,7 +10,7 @@ export function recordingBoard(getView,{width=500,...options}={}) {
     get globalAlpha(){return alpha;},
     set globalAlpha(value){alpha=value;},
     save(){stack.push(alpha);},restore(){alpha=stack.pop();},
-    clearRect(){},beginPath(){},closePath(){},moveTo(){},
+    clearRect(){},beginPath(){},closePath(){},clip(){},moveTo(){},
     lineTo(...args){calls.push({kind:"line",args,alpha});},stroke(){},setLineDash(){},fill(){},
     fillRect(...args){calls.push({kind:"rect",args,alpha});},
     arc(...args){calls.push({kind:"arc",args,alpha});},

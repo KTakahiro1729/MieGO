@@ -28,7 +28,9 @@ export const CAPTURE_FADE_MS=200;
 // 盤の線 breathes: every BREATH_MS a breath sets out from all the liberties at
 // once, about fifteen a minute as a person at rest, and runs one line further
 // into each group every BREATH_STEP_MS.
-export const BREATH_MS=4000, BREATH_STEP_MS=500;
+// Each breath starts as a dot on every liberty that spreads and fades over
+// BREATH_BLOOM_MS.
+export const BREATH_MS=4000, BREATH_STEP_MS=500, BREATH_BLOOM_MS=2000;
 const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 // ドパガキモード: sparks fly from each taken stone, and a "+N" rises over them, for this long.
 export const BURST_MS=900;
@@ -263,16 +265,17 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   // 盤の線: a still dashed line runs through each group, along the board's
-  // lines from stone to stone and out to a dot on every empty point next to
-  // it, so a group shows what holds it together and the points it needs.
-  // While playing, each breath is a stretch of solid line that runs over the
-  // dashes from the liberties into the group. A group in atari gets its
+  // lines from stone to stone and out toward every empty point next to it,
+  // narrowing to a point short of it, so a group shows what holds it
+  // together and the points it needs. While playing, each breath starts as
+  // a dot on every liberty that slowly spreads and fades, and runs over the
+  // dashes as a stretch of solid line into the group. A group in atari gets its
   // breath only as far as the edge of its stone, so the dashes behind it are
   // never renewed. Each side keeps its own colour on the colour map.
   function paintBoardLines(view,board,gap,pad,moving) {
     const palette=countingPalette(view.palette);
     const tone={[BLACK]:`rgb(${paletteAt(1,palette).join(",")})`,[WHITE]:`rgb(${paletteAt(-1,palette).join(",")})`};
-    const dot=gap*.13, width=Math.max(2,gap*.08), dash=gap*.09;
+    const width=Math.max(2,gap*.08), dash=gap*.09, tip=.2, edge=1-.44, flare=gap*.14;
     // How far each breath under way has run, in lines from the liberties;
     // a breath is one line long, and a deep group may hold more than one.
     const fronts=[];
@@ -299,7 +302,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       const lines=[];
       for(const s of g.stones)for(const n of neighbors(s,SIZE)){
         if(!board[n]){
-          lines.push({a:n,b:s,from:0,to:depth.get(s),start:dot/gap});
+          lines.push({a:n,b:s,from:0,to:depth.get(s),start:tip});
           if(!dots.has(n))dots.set(n,[]);
           dots.get(n).push({toward:s,color});
         }else if(g.stones.has(n) && n>s)lines.push({a:s,b:n,from:depth.get(s),to:depth.get(n),start:0});
@@ -308,6 +311,17 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       for(const line of lines){
         const [ax,ay]=xy(line.a),[bx,by]=xy(line.b);
         const along=(u,v)=>{if(v>u){ctx.moveTo(ax+(bx-ax)*u,ay+(by-ay)*u);ctx.lineTo(ax+(bx-ax)*v,ay+(by-ay)*v);}};
+        ctx.save();
+        if(line.start){
+          // Toward a liberty the line flares out of the stone's edge and
+          // narrows to a point; over the stone it keeps its width.
+          const at=(u,side)=>[ax+(bx-ax)*u+(ay-by)/gap*side,ay+(by-ay)*u+(bx-ax)/gap*side];
+          const outline=[[tip,0],[edge,flare/2],[edge,width/2],[1,width/2],[1,-width/2],[edge,-width/2],[edge,-flare/2]];
+          ctx.beginPath();
+          outline.forEach(([u,side],k)=>ctx[k?"lineTo":"moveTo"](...at(u,side)));
+          ctx.closePath();ctx.clip();
+          ctx.lineWidth=flare;
+        }
         ctx.strokeStyle=tone[color];
         // The dashes start at the stone so they line up through the group.
         ctx.globalAlpha=.75;ctx.setLineDash([dash,dash]);ctx.lineDashOffset=0;
@@ -323,19 +337,26 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
           along(Math.max(line.start,middle,line.to+1-far),Math.min(1,line.to+1-near));
         }
         ctx.stroke();
+        ctx.restore();
       }
     }
-    // A dot on each liberty, split between the sides where both need it.
-    for(const [point,needs] of dots){
-      const [x,y]=xy(point);
-      if(needs.every(need=>need.color===needs[0].color)){
-        ctx.fillStyle=tone[needs[0].color];ctx.beginPath();ctx.arc(x,y,dot,0,Math.PI*2);ctx.fill();
-        continue;
-      }
-      for(const need of needs){
-        const [sx,sy]=xy(need.toward), angle=Math.atan2(sy-y,sx-x);
-        ctx.fillStyle=tone[need.color];ctx.beginPath();ctx.moveTo(x,y);
-        ctx.arc(x,y,dot,angle-Math.PI/2,angle+Math.PI/2);ctx.closePath();ctx.fill();
+    // The breath's start: a dot on each liberty, split between the sides
+    // where both need it, that spreads and fades.
+    const bloom=moving?(now()%BREATH_MS)/BREATH_BLOOM_MS:1;
+    if(bloom<1){
+      const radius=gap*(.08+.3*bloom);
+      ctx.globalAlpha=.8*(1-bloom)**2;
+      for(const [point,needs] of dots){
+        const [x,y]=xy(point);
+        if(needs.every(need=>need.color===needs[0].color)){
+          ctx.fillStyle=tone[needs[0].color];ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
+          continue;
+        }
+        for(const need of needs){
+          const [sx,sy]=xy(need.toward), angle=Math.atan2(sy-y,sx-x);
+          ctx.fillStyle=tone[need.color];ctx.beginPath();ctx.moveTo(x,y);
+          ctx.arc(x,y,radius,angle-Math.PI/2,angle+Math.PI/2);ctx.closePath();ctx.fill();
+        }
       }
     }
     ctx.restore();
@@ -373,6 +394,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   function paintLiberties(theme,view,display,gap,pad) {
     const {game,boardReview,candidate}=view;
     if(!view.liberties || view.liberties==="off" || isGomoku(game) || isFree(game))return;
+    // 盤の線 shows the liberties itself, in the side's own colour.
+    if(view.linkStones==="lines")return;
     if(!boardReview && game.status!=="playing" || view.hideStones)return;
     const board=boardReview?boardReview.preview?.board||display.board:candidate?.board||game.board;
     const placed=boardReview?boardReview.preview?.board && boardReview.previewPosition:

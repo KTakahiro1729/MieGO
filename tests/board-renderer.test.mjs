@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {at,BLACK,boardHash,newGame,play,WHITE} from "../public/core.mjs";
-import {BREATH_MS,BREATH_STEP_MS,BURST_MS,CAPTURE_FADE_MS} from "../public/board-renderer.mjs";
+import {BREATH_BLOOM_MS,BREATH_MS,BREATH_STEP_MS,BURST_MS,CAPTURE_FADE_MS} from "../public/board-renderer.mjs";
 import {recordingBoard,baseView} from "./helpers/board-canvas.mjs";
 import {ownershipPixel,countingOpacity} from "../public/territory-view.mjs";
 
@@ -233,19 +233,36 @@ test("an empty board shows sample stones only while its colours are edited",()=>
   assert.equal(playedCalls.filter(c=>c.kind==="arc"&&c.args[2]===22).length,1,"a board with stones shows only its own");
 });
 
-test("盤の線 runs still dashes through each group and out to a dot on each liberty",()=>{
+test("盤の線 runs still dashes through each group, narrowing toward each liberty",()=>{
   const game=newGame();
   game.board[at(4,4)]=BLACK;game.board[at(5,4)]=BLACK;game.board[at(4,5)]=WHITE;
   const frames=[];
-  const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"lines"}),{requestFrame:f=>frames.push(f),stillMotion:()=>true});
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"lines",liberties:"atari"}),
+    {requestFrame:f=>frames.push(f),stillMotion:()=>true});
   draw();
   const ends=calls.filter(c=>c.kind==="line").map(c=>c.args.join(","));
-  assert.ok(ends.includes(String([250,200+6.5])),"from the stone up to the dot on the empty point above");
-  assert.ok(calls.some(c=>c.kind==="arc"&&c.args[0]===250&&c.args[1]===200&&c.args[2]===6.5),"the dot");
-  // (5,5) is needed by a black stone and a white one: half a dot each.
-  assert.equal(calls.filter(c=>c.kind==="arc"&&c.args[0]===300&&c.args[1]===300&&c.args[2]===6.5).length,2);
-  assert.equal(ends.some(e=>{const [x,y]=e.split(",").map(Number);return x===250&&y>250&&y<300;}),false,"nothing between black and white");
+  assert.ok(ends.includes(String([250,200+10])),"from the stone to a point short of the empty point above");
+  assert.equal(ends.some(e=>{const [x,y]=e.split(",").map(Number);return Math.abs(x-250)<5&&y>250+22&&y<300-22;}),false,"nothing between black and white");
+  assert.equal(calls.some(c=>c.kind==="arc"&&c.args[0]===250&&c.args[1]===200),false,"no dot while still");
   assert.equal(frames.length,0,"still where motion is reduced");
+});
+
+test("盤の線 starts each breath with a dot on the liberties that spreads and fades",()=>{
+  const game=newGame();
+  game.board[at(4,4)]=BLACK;game.board[at(4,5)]=WHITE;
+  let time=0;
+  const {draw,calls}=recordingBoard(()=>({...baseView(game),linkStones:"lines"}),
+    {requestFrame:()=>{},now:()=>time,stillMotion:()=>false});
+  const dots=(x,y)=>{calls.length=0;draw();return calls.filter(c=>c.kind==="arc"&&c.args[0]===x&&c.args[1]===y);};
+  const [first]=dots(250,200);
+  time=BREATH_BLOOM_MS/2;
+  const [later]=dots(250,200);
+  assert.ok(later.args[2]>first.args[2] && later.alpha<first.alpha,"spreads and fades");
+  // With black on (5,4), black and white both need (5,5): half a dot each.
+  game.board[at(5,4)]=BLACK;time=0;
+  assert.equal(dots(300,300).length,2);
+  time=BREATH_BLOOM_MS;
+  assert.equal(dots(250,200).length,0,"gone until the next breath");
 });
 
 test("盤の線 sends a breath over the dashes from the liberties, only to the stone's edge in atari",()=>{
