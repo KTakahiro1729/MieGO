@@ -11,8 +11,11 @@ import {
   comFor,
   comSummary,
   normalizeCom,
+  pickCharacter,
+  readCom,
   setComValue,
 } from "../public/ai-characters.mjs";
+import { TEXT } from "../public/texts.mjs";
 import { AI_STRENGTHS } from "../public/ai-strength.mjs";
 
 const position=stones=>{
@@ -87,24 +90,45 @@ test("neutral axes leave KataGo's policy untouched",()=>{
   for(const c of scorePolicyCandidates(s,policy,null,{}))assert.ok(c.score===c.raw);
 });
 
-test("each character has a strength, a value on every axis and a one-line note",()=>{
+test("each character is a value on every axis and a one-line note, with no strength of its own",()=>{
   for(const [key,c] of Object.entries(AI_CHARACTERS)){
-    assert.ok(Object.hasOwn(AI_STRENGTHS,c.strength),key);
+    assert.equal(c.strength,undefined,key);
     for(const axis of STYLE_AXES)assert.ok([0,50,100].includes(c[axis]),key+" "+axis);
     assert.ok(characterLabel(key).length>0);
     assert.ok(characterNote(key).length<=26,key);
-    assert.equal(characterOf(comFor(key)),key);
+    for(const strength of Object.keys(AI_STRENGTHS)){
+      const com=comFor(key,{strength});
+      assert.equal(com.strength,strength);
+      assert.equal(characterOf(com),key);
+    }
   }
-  // Every strength is covered, and the paired characters share one.
-  const strengths=new Set(Object.values(AI_CHARACTERS).map(c=>c.strength));
-  assert.deepEqual([...strengths].sort(),Object.keys(AI_STRENGTHS).sort());
-  assert.equal(AI_CHARACTERS.raider.strength,AI_CHARACTERS.steady.strength);
-  assert.equal(AI_CHARACTERS.brawler.strength,AI_CHARACTERS.wide.strength);
+});
+
+test("a new strength keeps the character, and a saved ひよこ, 本気 or 名人 reads as 素直 at its strength",()=>{
+  const raider=pickCharacter(readCom({character:"plain"},"beginner"),"raider");
+  assert.equal(raider.strength,"beginner");
+  const stronger=setComValue(raider,"strength","normal");
+  assert.deepEqual(stronger,{...AI_CHARACTERS.raider,character:"raider",strength:"normal"});
+  // Saves from when each character came with its own strength.
+  const neutral={height:50,resign:0,stance:50,tenuki:50};
+  for(const [character,strength] of [["chick","beginner"],["serious","strong"],["master","strongest"]])
+    assert.deepEqual(readCom({character,strength,...neutral}),{character:"plain",strength,...neutral});
+  assert.deepEqual(readCom({character:"steady",strength:"easy",...neutral,stance:0}),
+    {character:"steady",strength:"easy",...neutral,stance:0});
+});
+
+test("最強 says it leaves the style aside, but keeps 投了",()=>{
+  assert.doesNotMatch(comSummary(comFor("plain",{strength:"strongest"})),/好み/);
+  const wide=comSummary(comFor("wide",{strength:"strongest"}));
+  assert.ok(wide.endsWith(TEXT.ai.strongestNoStyle));
+  assert.doesNotMatch(wide,/序盤/);
+  assert.match(comSummary({strength:"strongest",resign:100,stance:100}),/投了/);
+  assert.match(comSummary(comFor("wide",{strength:"easy"})),/序盤「勢力を作る」/);
 });
 
 test("settings that match no character open as カスタム, with every axis snapped to a stop",()=>{
-  assert.equal(characterOf({strength:"strong",invasion:50,reinforcement:50}),"serious");
-  assert.equal(characterOf({strength:"easy",invasion:50,reinforcement:50}),CUSTOM_CHARACTER);
+  assert.equal(characterOf({strength:"strong",invasion:50,reinforcement:50}),"plain");
+  assert.equal(characterOf({strength:"easy",stance:100}),CUSTOM_CHARACTER);
   assert.equal(characterOf({strength:"easy",invasion:10,reinforcement:90}),"steady");
   assert.equal(characterOf({strength:"easy",invasion:90,height:20}),"raider");
   assert.deepEqual(normalizeCom({strength:"nope",invasion:70}),
@@ -122,9 +146,9 @@ test("投了 starts at 最後まで for every character, and choosing it makes t
   for(const c of Object.values(AI_CHARACTERS))assert.equal(c.resign,0);
   // Saves from before 投了 play every game out.
   assert.equal(normalizeCom({strength:"easy"}).resign,0);
-  const com=setComValue({character:"chick",...AI_CHARACTERS.chick},"resign","50");
+  const com=setComValue({character:"plain",strength:"beginner",...AI_CHARACTERS.plain},"resign","50");
   assert.equal(com.character,CUSTOM_CHARACTER);
   assert.equal(com.resign,50);
   assert.match(comSummary(com),/大差で投了/);
-  assert.doesNotMatch(comSummary(AI_CHARACTERS.chick),/投了/);
+  assert.doesNotMatch(comSummary(comFor("plain",{strength:"beginner"})),/投了/);
 });
