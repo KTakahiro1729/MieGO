@@ -108,7 +108,7 @@
         </div>
         </div>
         <div id="actionRow" class="action-row">
-          <!-- The primary action is always the rightmost button. -->
+          <!-- The primary action is the rightmost button; after a game only the share glyph follows it. -->
           <div class="fused move-controls">
           <button id="cancel" class="secondary undo-button is-takeback" type="button" aria-label="{{common.takeback}}" title="{{common.takeback}}" disabled>
             <svg class="cancel-icon" aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
@@ -129,8 +129,13 @@
           </div>
           <button id="openHistory" class="secondary" type="button" hidden>{{help.history.summary}}</button>
           <button id="confirm" class="primary" type="button" disabled><span id="confirmStone" class="button-stone" aria-hidden="true"></span><span id="confirmLabel">{{game.confirmPick}}</span></button>
-          <button id="newMatchSheet" class="secondary" type="button" hidden>{{header.newGame}}</button>
-          <button id="newMatch" class="primary" type="button" aria-label="{{game.rematchAria}}" title="{{game.rematchAria}}" hidden>{{game.rematch}}</button>
+          <!-- One fused button, two ways to the next game: choose its settings, or keep this one's. -->
+          <div class="fused next-game">
+            <button id="newMatchSheet" class="secondary" type="button" aria-label="{{game.newGameAria}}" title="{{game.newGameAria}}" hidden><span>{{header.newGame}}</span><small aria-hidden="true">{{game.newGameNote}}</small></button>
+            <button id="newMatch" class="primary" type="button" aria-label="{{game.rematchAria}}" title="{{game.rematchAria}}" hidden><span>{{game.rematch}}</span><small aria-hidden="true">{{game.rematchNote}}</small></button>
+          </div>
+          <!-- After a game, the header's share glyph closes the row. -->
+          <button id="openShare" class="secondary share-game" type="button" aria-label="{{share.thisGame}}" title="{{share.thisGame}}" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7.5A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-2"/></svg></button>
           <button id="watchIntervene" class="secondary" type="button" hidden>{{game.watchIntervene}}</button>
           <button id="watchToggle" class="primary" type="button" aria-pressed="false" hidden>{{game.watchPause}}</button>
         </div>
