@@ -82,6 +82,6 @@ test("a fused group's end members round their own corners, counting only visible
 
 test("a disabled gold member of a fused group rests as an empty slot, not a greyed gold tile",()=>{
   // Comes after .fused>.primary's gold fill so it wins, and drops .primary:disabled's own dashed edge.
-  const at=css.indexOf(".fused>.primary:disabled{background:#0d1018;border:0}");
+  const at=css.indexOf(".fused>.primary:disabled{background:var(--slate-17);border:0}");
   assert.ok(at>css.indexOf(".fused>.primary{background:"));
 });
