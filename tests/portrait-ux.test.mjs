@@ -97,7 +97,7 @@ test("AI turn cannot dismiss a visible scoring decision and resumes after cancel
 });
 test("a gold button that cannot be pressed is an empty slot, and ここに打つ says why",()=>{
   assert.match(css,/button:disabled\{opacity:\.36;cursor:default\}/);
-  assert.match(css,/\.primary\{color:#17191e;background:linear-gradient\(180deg,#f5d88f,#e4b85c\)/);
+  assert.match(css,/\.primary\{color:var\(--slate-21\);background:linear-gradient\(180deg,var\(--gold-89\),var\(--gold-80\)\)/);
   // No dimmed gold: it read as loading.
   assert.match(css,/\.primary:disabled\{opacity:1;background:transparent;border:1px dashed var\(--accent-edge\)/);
   assert.doesNotMatch(css,/\.action-row #confirm:disabled/);
