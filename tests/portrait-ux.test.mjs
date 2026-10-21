@@ -109,7 +109,7 @@ test("a gold button that cannot be pressed is an empty slot, and ここに打つ
 });
 test("solo endgame prompt names the COM only in COM games",()=>{
   // Worked out by endgameBarView (tests/endgame-bar.test.mjs).
-  assert.match(TEXT.endgame.detailLocalAi,/COMもパスしたら採点に入ります/);
+  assert.match(TEXT.endgame.detailLocalAi,/COMが受ければ採点に入ります/);
   assert.match(TEXT.endgame.detailWatchScoring,/COMが終局を承認するわけではありません/);
   assert.doesNotMatch(TEXT.endgame.detailLocal,/COM/);
 });

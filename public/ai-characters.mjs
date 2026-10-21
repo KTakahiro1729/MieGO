@@ -6,8 +6,9 @@ import {TEXT} from "./texts.mjs";
 // 50 neutral). Picking one sets everything; カスタム keeps the player's own
 // values. The two pairs (raider/steady, brawler/wide) share a strength, so a
 // COM-vs-COM game between them is decided by style rather than strength.
-// Axes a character leaves out stay at 50. 投了 (resign) is not a style of
-// play but when the COM gives up; it starts at 0, playing every game out.
+// Axes a character leaves out stay at 50. 終局の提案 (kept as resign) is not a
+// style of play but when the COM offers to end a lost game; it starts at 0,
+// playing every game out.
 export const COM_AXES = Object.freeze([...STYLE_AXES, "resign"]);
 const AXIS_DEFAULT = Object.freeze({resign:0});
 const axisDefault = axis => AXIS_DEFAULT[axis] ?? 50;

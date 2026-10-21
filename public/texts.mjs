@@ -104,18 +104,20 @@ export const TEXT = {
     updating: "終局の目安を更新中",
     offline: "相手を待っています",
     proposed: "終局が提案されました",
+    comProposed: "COMが終局を提案しています",
     waiting: "相手の返答を待っています",
     askLocal: "採点を始めますか？",
+    askCom: "COMに終局を提案しますか？",
     propose: "終局を提案",
     startScoring: "採点を始める",
     goScoring: "採点を始める",
     detailIncoming: "受け入れると採点に進みます。対局を続けることもできます。",
-    // 対COM: 採点を始める is the player's pass, and the COM's pass starts the count.
-    passToEnd: "パスする",
-    detailLocalAi: "あなたがパスし、COMもパスしたら採点に入ります。COMが打てば対局は続きます。",
-    detailUnsettledAi: "あなたがパスし、COMもパスしたら採点に入ります。まだ決まっていない所は、どちらの地にもなりません。",
-    detailAi: "採点を始めると、あなたがパスしてCOMの返事を待ちます。",
-    comKeptPlaying: "COMはまだ打つ所があると見て打ちました",
+    // 対COM, ending is an offer the COM answers at once, not a pass.
+    offerCom: "提案する",
+    detailLocalAi: "COMが受ければ採点に入ります。断られても盤も手番もそのままです。",
+    detailUnsettledAi: "COMが受ければ採点に入ります。まだ決まっていない所は、どちらの地にもなりません。",
+    detailAi: "終局はいつでも提案できます。パスとは別の操作です。",
+    comDeclined: "COMが終局を見送りました",
     // While watching (or without KataGo), the count is the viewer's decision alone.
     detailWatchScoring: "あなたの判断で採点へ進みます。COMが終局を承認するわけではありません。",
     detailLocal: "採点に進み、死石を確認します。対局の再開もできます。",
@@ -131,9 +133,7 @@ export const TEXT = {
     passedLocal: c => "パスで採点へ。" + color(c) + "はパス済み",
     // While watching, nobody is asked to pass: the line only says what happened.
     passedWatch: c => color(c) + "がパス。次もパスなら採点へ",
-    wantsResign: c => color(c) + "が投了したがっています",
-    // The COM's pass opens the same question as the bar's 採点を始める; answering 採点を始める is the player's pass.
-    askAiPassed: "COMがパスしました\n採点を始めますか？",
+    wantsEnd: c => color(c) + "が終局を提案したがっています",
     // 同一局面反復 (日本囲碁規約 第十二条): both sides may end the game as no result.
     repeated: "同じ局面がくり返されています",
     void: "無勝負にする",
@@ -144,7 +144,6 @@ export const TEXT = {
     detailVoidIncoming: "受け入れると無勝負で終わります。対局を続けることもできます。",
     detailVoidAi: "COMは無勝負に同意します。勝ち負けは付きません。",
     detailVoidLocal: "2人とも同意したら押してください。勝ち負けは付きません。",
-    detailAiPassed: "採点を始めると、あなたもパスして死石の確認に入ります。対局を続けることもできます。",
     declinedByPeer: "相手が終局を見送りました",
     withdrawnByPeer: "相手が提案を取り下げました",
     cancelledByMove: "相手の着手で提案は消えました",
@@ -352,7 +351,7 @@ export const TEXT = {
       high: "序盤に4線より内側の高い手で勢力を作ります。",
     },
     tenukiStops: { low: "応じる", mid: "ふつう", high: "手を抜く" },
-    resignStops: { low: "最後まで", mid: "大差で投了", high: "早めに投了" },
+    resignStops: { low: "最後まで", mid: "大差で提案", high: "早めに提案" },
     tenukiNotes: {
       low: "相手が打った手の近くで応じます。",
       mid: "応じるか離れるかを特に好みません。",
@@ -393,7 +392,7 @@ export const TEXT = {
     reinforcement: "補強度",
     stance: "戦い方",
     tenuki: "相手の手に",
-    resign: "投了",
+    resign: "終局の提案",
   },
 
   handicap: {

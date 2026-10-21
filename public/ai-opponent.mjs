@@ -84,11 +84,13 @@ function pickPolicyMove(state, logits, passLogit, options) {
   return samplePolicyCandidate(candidates,options);
 }
 
-/** 投了: how far behind a COM must be, by its 投了 setting (0 never resigns).
- * Both the win rate and the score lead must agree, since the small network's
- * win rate alone is far from calibrated on 9x9. Like KataGo's own default
- * (resignConsecTurns 3), the COM resigns only after three of its turns in a row
- * look hopeless, and not in the opening, where estimates swing most. */
+/** 終局の提案: how far behind a COM must be to see its game lost and offer to
+ * end it, by its setting (0 plays every game out). The setting keeps its old
+ * key, resign: the COM once resigned here. Both the win rate and the score
+ * lead must agree, since the small network's win rate alone is far from
+ * calibrated on 9x9. Like KataGo's own resignation default (resignConsecTurns
+ * 3), it takes three of its turns in a row that look hopeless, and not in the
+ * opening, where estimates swing most. */
 export const RESIGN_LEVELS = Object.freeze({
   50: Object.freeze({winRate:.03, boardShare:1/4}),
   100: Object.freeze({winRate:.1, boardShare:1/8}),
@@ -98,7 +100,9 @@ export function createResignWatch() {
   let streak = {};
   return {
     reset() { streak = {}; },
-    /** True when the COM to move should resign now. winRate and lead are Black's. */
+    /** Whether `color`'s game has looked lost for long enough. */
+    lost(color) { return (streak[color] || 0) >= RESIGN_TURNS; },
+    /** True when the COM to move sees its game lost. winRate and lead are Black's. */
     observe(state, resign, {winRate, lead}) {
       const level = RESIGN_LEVELS[resign], color = state.next;
       if (!level || !Number.isFinite(winRate) || !Number.isFinite(lead) || isGomoku(state) || isFree(state)) {
