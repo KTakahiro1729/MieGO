@@ -8,10 +8,15 @@
   --btn-bg:var(--slate-23);--btn-edge:var(--slate-35);--btn-text:var(--gray-96);
   --accent-edge:var(--gold-56);--accent-text:var(--gold-91);
   --danger-bg:var(--ember-38);--danger-edge:var(--ember-64);--danger-text:var(--sand-93);
-  --control-h:44px;--action-h:55px;--action-pad-top:4px;
+  --control-h:44px;--action-h:55px;--action-pad-top:var(--space-sm);
   /* The page's side margin on a phone: the logo, the board, the text under it
      and the buttons all start this far from the edge. */
   --gutter:12px;
+  /* Space between things, smallest to largest. Under the board the rows of one
+     group (◁ ▷ and the turn) sit --space-sm apart, and the groups (board and
+     legend, those rows, the action row) --space-lg apart: blank space alone
+     groups them, so the two steps stay this far apart. */
+  --space-hair:2px;--space-xs:4px;--space-sm:6px;--space-md:8px;--space-lg:12px;
   /* Type: five sizes only. 11px is the smallest anything is drawn at (Apple's
      iOS minimum); body text and every action-row label is 14px. */
   --font-caption:11px;--font-small:12px;--font-body:14px;--font-title:17px;--font-display:22px;
@@ -90,12 +95,12 @@ svg.size-icon{stroke-width:var(--stroke-grid)}
 .topbar{--btn-edge:transparent}
 .game-panel{--btn-edge:var(--slate-50)}
 .game-panel .gradient{border-color:transparent}
-.info-panel{flex:none;margin-top:auto;display:flex;flex-direction:column;gap:6px;padding:10px 0 6px}
+.info-panel{flex:none;margin-top:auto;display:flex;flex-direction:column;gap:var(--space-sm);padding:var(--space-lg) 0 var(--space-sm)}
 .info-panel>.control-row{order:1}
 .info-panel>.status-row{order:2}
 /* ◁ slot ▷: the arrows never move. Between them sits whatever the moment needs:
    採点を始める (or an offer's answers) in a game, the replay's slider, the score. */
-.control-row{display:flex;align-items:center;gap:6px;height:48px;flex:none}
+.control-row{display:flex;align-items:center;gap:var(--space-sm);height:48px;flex:none}
 .control-row .step-button{flex:0 0 44px;width:44px;height:44px;min-height:44px;padding:0;display:grid;place-items:center}
 .control-row .step-button:disabled{opacity:.25}
 .control-slot{flex:1;min-width:0;height:48px;display:flex;align-items:center}
@@ -576,7 +581,7 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 /* Portrait-first single-screen game: no scrolling to reach scoring/result. */
 body{overflow:hidden}
 .app-shell{height:100dvh;min-height:0;overflow:hidden;--topbar-height:68px}
-.game-layout{height:calc(100dvh - var(--topbar-height));overflow:hidden;padding-bottom:8px}
+.game-layout{height:calc(100dvh - var(--topbar-height));overflow:hidden;padding-bottom:var(--space-sm)}
 .game-panel{height:100%;min-height:0}
 /* The board takes the height the controls under it leave, so a taller score
    box shrinks the board instead of sliding under the sticky action row.
@@ -588,7 +593,7 @@ body{overflow:hidden}
 .setup-more .time-control select{min-width:0;flex:1}
 /* 「30秒」 fits beside its arrow at 320px. */
 .setup-more .time-control select{padding-left:8px;padding-right:4px}
-.ownership-legend{margin-top:6px}
+.ownership-legend{margin-top:var(--space-sm)}
 .gradient{height:9px}
 .legend-labels{padding-top:3px;font-size:var(--font-caption)}
 
@@ -599,9 +604,8 @@ body{overflow:hidden}
 
 @media(max-width:700px){
   .app-shell{--topbar-height:62px}
-  .game-layout{padding:0 var(--gutter) 6px}
+  .game-layout{padding:0 var(--gutter) var(--space-sm)}
   .board-frame{max-height:min(675px,calc(100vw - 2 * var(--gutter)))}
-  .ownership-legend{margin-top:5px}
 }
 
 /* Two-person P2P invitation: compact color selector and conditional human check. */
@@ -712,11 +716,11 @@ body{overflow:hidden}
 /* Choices in the sheets keep their raised tile colours. */
 .ai-color-choices.fused,.new-game-modes .fused,.shape-choices .fused{--fused-bg:var(--slate-29);--fused-edge:var(--slate-46);gap:1px}
 .armed-note{margin:6px 0 0;color:var(--danger-text);font-size:var(--font-small);line-height:1.5}
-@media(max-width:700px){:root{--action-h:54px;--action-pad-top:3px}}
+@media(max-width:700px){:root{--action-h:54px}}
 
 /* Bottom action row: undo, confirm, pass, resign — or scoring, or the finished pair. */
-.action-row{display:flex;gap:8px;align-items:center;flex:none;margin:4px -2px 0;
-  padding:var(--action-pad-top) 2px max(6px,env(safe-area-inset-bottom));position:sticky;bottom:0;z-index:3;
+.action-row{display:flex;gap:var(--space-md);align-items:center;flex:none;margin:0 calc(-1 * var(--space-hair));
+  padding:var(--action-pad-top) var(--space-hair) max(var(--space-sm),env(safe-area-inset-bottom));position:sticky;bottom:0;z-index:3;
   background:linear-gradient(180deg,var(--slate-17-a0),var(--slate-17) 12%)}
 .action-row button{white-space:nowrap;min-height:var(--action-h)}
 /* A fused group's 1px edge sits outside its buttons, so they are 2px shorter:
@@ -729,7 +733,11 @@ body{overflow:hidden}
 .action-row #pass{flex:0 0 60px;min-width:60px;width:60px;padding:9px 5px}
 .action-row .resign-control{flex:0 0 48px;width:48px;min-width:48px;font-size:var(--font-body);padding:6px 2px}
 /* The message and the buttons share one size: 14px, or 12px on the narrowest phones. */
-@media(max-width:360px){.end-status,.endgame-bar .end-action,.endgame-bar .illegal-prompt-action{font-size:var(--font-small)}}
+@media(max-width:360px){
+  .end-status,.endgame-bar .end-action,.endgame-bar .illegal-prompt-action,.action-row .inline-score-actions button{font-size:var(--font-small)}
+  /* Two answers share the slot beside its ?: 打ち続ける and 採点へ進む fit only with a narrower inside. */
+  .endgame-bar .end-action{padding-left:var(--space-sm);padding-right:var(--space-sm)}
+}
 /* While a forbidden point is chosen, the slot holds the AI question and the rules' ?. */
 .endgame-bar .illegal-prompt-action{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:1 1 auto;min-height:var(--control-h);height:var(--control-h);padding:0 12px;font-size:var(--font-body);font-weight:var(--weight-medium);white-space:nowrap;line-height:1}
 .illegal-prompt-action svg{display:block;flex:none}
@@ -749,15 +757,15 @@ body{overflow:hidden}
 .action-row .next-game small{font-size:var(--font-caption);font-weight:var(--weight-medium);opacity:.75}
 .fused>.primary{background:linear-gradient(180deg,var(--gold-89),var(--gold-80))}
 .game-panel.is-finished .action-row .share-game{flex:0 0 48px;width:48px;min-width:48px;padding:0;display:grid;place-items:center}
-.inline-score-actions{display:flex;flex:1 1 auto;min-width:0;gap:8px;margin:0}
+.inline-score-actions{display:flex;flex:1 1 auto;min-width:0;gap:var(--space-md);margin:0}
 .inline-score-actions>.fused{flex:1 1 auto}
 .action-row .inline-score-actions button{flex:1 1 auto;min-width:0;padding:9px 6px;font-size:var(--font-body)}
 .inline-score-actions #agree{flex:1.6 1 auto}
 
 /* The slot's buttons: 採点を始める, or an offer's two answers side by side. */
 .endgame-bar{height:48px;min-height:48px;max-height:48px;display:flex;align-items:center;
-  gap:6px;justify-content:center;color:var(--slate-83)}
-.endgame-bar .end-buttons{display:flex;align-items:center;flex:1 1 auto;min-width:0;gap:5px}
+  gap:var(--space-sm);justify-content:center;color:var(--slate-83)}
+.endgame-bar .end-buttons{display:flex;align-items:center;flex:1 1 auto;min-width:0;gap:var(--space-sm)}
 .endgame-bar .end-buttons:not(:has(>:not([hidden]))){display:none}
 .endgame-bar .end-action{flex:1 1 0;min-width:0;min-height:var(--control-h);height:var(--control-h);font-size:var(--font-body);font-weight:var(--weight-medium);padding:5px 10px;white-space:nowrap}
 .end-note{flex:1 1 auto;min-width:0;text-align:center;color:var(--muted);font-size:var(--font-body)}
@@ -777,21 +785,21 @@ body{overflow:hidden}
 @keyframes end-call{0%{box-shadow:0 0 0 0 var(--gold-85-a33)}100%{box-shadow:0 0 0 6px var(--gold-85-a0)}}
 
 /* Replay row: replaces the action row at the same height. */
-.review-panel{display:block;flex:none;margin:4px -2px 0;padding:var(--action-pad-top) 2px max(6px,env(safe-area-inset-bottom));
+.review-panel{display:block;flex:none;margin:0 calc(-1 * var(--space-hair));padding:var(--action-pad-top) var(--space-hair) max(var(--space-sm),env(safe-area-inset-bottom));
   position:sticky;bottom:0;z-index:4;background:linear-gradient(180deg,var(--slate-17-a0),var(--slate-17) 12%)}
 .review-panel[hidden]{display:none}
-.review-navigation{display:flex;align-items:stretch;gap:7px;position:relative}
+.review-navigation{display:flex;align-items:stretch;gap:var(--space-md);position:relative}
 .review-navigation>button{height:var(--action-h);min-height:var(--action-h);
   display:flex;align-items:center;justify-content:center;padding:7px}
 .review-navigation>.review-back{flex:1 1 0;min-width:0;flex-direction:column;gap:1px;font-size:var(--font-body);white-space:nowrap}
 .review-navigation>.review-back[hidden]{display:none}
 .review-navigation>.review-continue{flex:1 1 0;min-width:0;padding:0 14px;font-size:var(--font-body);white-space:nowrap}
 /* さかのぼり中の道具: 手番の上の空きに置く。 */
-.review-tools{display:flex;flex-direction:column;gap:4px;position:relative}
+.review-tools{display:flex;flex-direction:column;gap:var(--space-xs);position:relative}
 .review-tools[hidden]{display:none}
 /* With no extra buttons it has no height, and must not add a gap that lowers ◁ ▷. */
-.info-panel>.review-tools:not(:has(button:not([hidden]))){margin-bottom:-6px}
-.review-extras{display:flex;justify-content:center;gap:6px}
+.info-panel>.review-tools:not(:has(button:not([hidden]))){margin-bottom:calc(-1 * var(--space-sm))}
+.review-extras{display:flex;justify-content:center;gap:var(--space-sm)}
 .review-extras>button{min-height:44px;min-width:0;padding:4px 12px;border-radius:var(--radius-pill);font-size:var(--font-small);white-space:nowrap}
 .review-extras>button[hidden]{display:none}
 /* Floats above the tools so a notice never pushes the board smaller. */
@@ -800,19 +808,18 @@ body{overflow:hidden}
 /* ◁▷ in the status row step one move; the slider is the only other way to move. */
 .review-scrubber{display:flex;align-items:center;height:44px;padding:0 8px}
 .review-new-moves{font-size:var(--font-caption);color:var(--gold-85)}
-.review-navigation .review-play-actions{display:flex;flex:1;gap:7px;min-width:0;align-items:stretch}
+.review-navigation .review-play-actions{display:flex;flex:1;gap:var(--space-md);min-width:0;align-items:stretch}
 .review-navigation .review-play-actions[hidden]{display:none}
 .review-play-actions button{min-width:0;height:var(--action-h);padding:7px 6px;white-space:nowrap;font-size:var(--font-body)}
 .review-play-actions .review-cancel{flex:0 0 48px;display:grid;place-items:center;padding:0}
 .review-play-actions .review-confirm{flex:1;font-size:var(--font-body)}
 
 @media(max-width:400px){
-  .action-row,.inline-score-actions{gap:6px}
+  .action-row,.inline-score-actions,.review-navigation,.review-navigation .review-play-actions{gap:var(--space-sm)}
   .action-row .undo-button,.review-play-actions .review-cancel{flex-basis:44px;width:44px;min-width:44px}
   .action-row #pass{flex-basis:51px;width:51px;min-width:51px}
 }
 @media(max-width:360px){
-  .review-navigation{gap:4px}
   .review-navigation>.review-continue{padding:0 10px}
 }
 @media(max-width:350px){
@@ -927,9 +934,12 @@ body{overflow:hidden}
    さかのぼり・採点・終局やルールの違いで盤の大きさが変わらない。段を足すときも
    ここに高さを書く。 */
 .ownership-legend{box-sizing:border-box;height:32px}
-.info-panel{box-sizing:border-box;height:114px}
+.info-panel{box-sizing:border-box;height:calc(var(--space-lg) + 48px + var(--space-sm) + 44px + var(--space-sm))}
+/* 試し打ち's buttons add a row above ◁ ▷. The board gives up only what the
+   space over the panel cannot: otherwise the turn row went under the replay row. */
+.info-panel:has(>.review-tools:not([hidden]) button:not([hidden])){height:calc(var(--space-lg) + 44px + var(--space-sm) + 48px + var(--space-sm) + 44px + var(--space-sm))}
 .action-row,.review-panel{box-sizing:border-box;
-  height:calc(var(--action-h) + var(--action-pad-top) + max(6px,env(safe-area-inset-bottom)))}
+  height:calc(var(--action-h) + var(--action-pad-top) + max(var(--space-sm),env(safe-area-inset-bottom)))}
 
 /* PC幅: the phone's column, only bigger. The header moves out of the column to
    the side slots, so the board gains its height; the board, the rows under it
@@ -939,9 +949,10 @@ body{overflow:hidden}
    floating sheet, since their slots would leave the board smaller than now. */
 @media(min-width:1200px) and (min-aspect-ratio:3/2){
   :root{
-    /* Under the board: legend, prisoner pills, info panel and action row with
-       their margins, then the column's padding. The rows keep fixed heights. */
-    --under-board:calc(6px + 32px + 6px + 23px + 114px + 4px + var(--action-h) + var(--action-pad-top) + 6px + 20px);
+    /* Under the board: legend, info panel and action row with their margins,
+       then the column's padding. The rows keep fixed heights. */
+    --under-board:calc(var(--space-sm) + 32px + var(--space-lg) + 48px + var(--space-sm) + 44px + var(--space-sm)
+      + var(--action-h) + var(--action-pad-top) + var(--space-sm) + var(--space-lg) + var(--space-sm));
     --col:min(calc(100dvh - var(--under-board)),calc(100vw - 724px),675px);
     --side:min(422px,calc((100vw - var(--col))/2));
     --side-gap:16px;
@@ -949,7 +960,7 @@ body{overflow:hidden}
   .app-shell{max-width:none;--topbar-height:0px}
   .topbar{position:absolute;top:0;left:0;right:0;z-index:4;width:calc(var(--col) + 2*var(--side));margin:0 auto;padding:8px var(--side-gap);pointer-events:none}
   .topbar>*{pointer-events:auto}
-  .game-layout{width:var(--col);max-width:none;padding:12px 0 8px}
+  .game-layout{width:var(--col);max-width:none;padding:var(--space-lg) 0 var(--space-sm)}
   .board-frame{max-height:var(--col)}
   .settings-panel{top:68px;right:calc((100vw - var(--col))/2 - var(--side) + var(--side-gap));width:calc(var(--side) - 2*var(--side-gap));max-height:calc(100dvh - 68px - var(--side-gap))}
   .mode-panel{height:min(calc(100dvh - 68px - var(--side-gap)),640px)}
