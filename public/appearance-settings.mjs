@@ -31,6 +31,23 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
   try{setCustomBoardColours(JSON.parse(stored("miego-board-colours")||"null"));}catch{}
   const storedBoardTheme = stored("miego-board");
   let boardTheme = isBoardTheme(storedBoardTheme) ? storedBoardTheme : DEFAULT_BOARD_THEME;
+  // 呼吸点とつながった石, drawn as 盤の線: never ("off"), only while a stone
+  // is being placed ("candidate"), or "always". Earlier choices of either of
+  // the two settings it replaces carry over.
+  const LINK_MODES=["off","candidate","always"];
+  const storedLink = stored("miego-link-stones"), storedLiberties = stored("miego-liberties");
+  let linkStones = LINK_MODES.includes(storedLink) ? storedLink :
+    ["on","bridge","lines"].includes(storedLink) ? "always" :
+    storedLiberties==="candidate" ? "candidate" :
+    ["atari","dots","count"].includes(storedLiberties) ? "always" : "off";
+  document.querySelectorAll('input[name="linkStones"]').forEach(input => {
+    input.onchange = e => {
+      if (!e.target.checked) return;
+      linkStones=LINK_MODES.includes(e.target.value)?e.target.value:"off";
+      store("miego-link-stones",linkStones);
+      draw();
+    };
+  });
   const storedOpacity = stored("miego-opacity")===null ? NaN : Number(stored("miego-opacity"));
   let opacity = storedOpacity>=0 && storedOpacity<=1 ? storedOpacity : DEFAULT_OPACITY;
   // With the stones hidden the colours are all there is, so "表示しない" falls
@@ -171,6 +188,8 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
   $("resetAppearance").onclick=()=>{
     const wasOn=overlayOn();
     palette=DEFAULT_PALETTE;opacity=DEFAULT_OPACITY;boardTheme=DEFAULT_BOARD_THEME;
+    linkStones="off";
+    store("miego-link-stones",linkStones);
     store("miego-palette",palette);
     store("miego-opacity",String(opacity));
     store("miego-board",boardTheme);
@@ -232,13 +251,14 @@ export function createAppearanceSettings({$,canvas,getGame,hidingStones,isCounti
   function syncControls(){
     check("palette",palette);
     check("boardTheme",boardTheme);
+    check("linkStones",linkStones);
     check("opacityShape",opacityShape());
     fillColourInputs();
     $("opacity").value=String(Math.round(opacity*100));
     $("opacityValue").textContent=Math.round(opacity*100)+"%";
     updateGradient();
   }
-  return {palette:()=>palette,opacity:()=>opacity,boardTheme:()=>boardTheme,
+  return {palette:()=>palette,opacity:()=>opacity,boardTheme:()=>boardTheme,linkStones:()=>linkStones,
     editingBoard:()=>editing==="board",
     shownPalette,overlayOn,updateGradient,syncControls};
 }
