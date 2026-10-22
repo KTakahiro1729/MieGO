@@ -137,9 +137,10 @@ test("a new strength keeps the character, and a saved ひよこ, 本気 or 名�
   // Saves from when each character came with its own strength.
   const neutral={height:50,resign:0,stance:50,tenuki:50};
   for(const [character,strength] of [["chick","beginner"],["serious","strong"],["master","strongest"]])
-    assert.deepEqual(readCom({character,strength,...neutral}),{character:"plain",strength,...neutral});
+    assert.deepEqual(readCom({character,strength,...neutral}),{...AI_CHARACTERS.plain,character:"plain",strength});
+  // 石橋 (守る alone) played much like 素直, so it left the list; its saves keep their values as カスタム.
   assert.deepEqual(readCom({character:"steady",strength:"easy",...neutral,stance:0}),
-    {character:"steady",strength:"easy",...neutral,stance:0});
+    {character:CUSTOM_CHARACTER,strength:"easy",...neutral,stance:0});
 });
 
 test("最強 says it leaves the style aside, but keeps 終局の提案",()=>{
@@ -154,7 +155,8 @@ test("最強 says it leaves the style aside, but keeps 終局の提案",()=>{
 test("settings that match no character open as カスタム, with every axis snapped to a stop",()=>{
   assert.equal(characterOf({strength:"strong",invasion:50,reinforcement:50}),"plain");
   assert.equal(characterOf({strength:"easy",stance:100}),CUSTOM_CHARACTER);
-  assert.equal(characterOf({strength:"easy",invasion:10,reinforcement:90}),"steady");
+  assert.equal(characterOf({strength:"easy",invasion:10,reinforcement:90}),CUSTOM_CHARACTER);
+  assert.equal(characterOf({strength:"easy",height:100,tenuki:0}),"thick");
   assert.equal(characterOf({strength:"easy",invasion:90,height:20}),"raider");
   assert.deepEqual(normalizeCom({strength:"nope",invasion:70}),
     {strength:"strong",height:50,resign:0,stance:50,tenuki:50});
@@ -167,15 +169,17 @@ test("settings that match no character open as カスタム, with every axis sna
   assert.equal(characterLabel(CUSTOM_CHARACTER),"カスタム");
 });
 
-test("終局の提案 starts at 最後まで for every character, and choosing it makes the COM カスタム",()=>{
-  for(const c of Object.values(AI_CHARACTERS))assert.equal(c.resign,0);
-  // Saves from before the setting play every game out.
+test("each character offers to end a lost game in its own way, and changing that makes the COM カスタム",()=>{
+  assert.deepEqual(Object.fromEntries(Object.entries(AI_CHARACTERS).map(([key,c])=>[key,c.resign])),
+    {plain:50,thick:0,raider:50,brawler:0,wide:100});
+  // Saves from before the setting play every game out, and their style alone names the character.
   assert.equal(normalizeCom({strength:"easy"}).resign,0);
-  const com=setComValue({character:"plain",strength:"beginner",...AI_CHARACTERS.plain},"resign","50");
+  assert.equal(readCom({strength:"easy",height:100,tenuki:100}).character,"wide");
+  const com=setComValue({character:"plain",strength:"beginner",...AI_CHARACTERS.plain},"resign","0");
   assert.equal(com.character,CUSTOM_CHARACTER);
-  assert.equal(com.resign,50);
-  assert.match(comSummary(com),/終局の提案「大差で提案」/);
-  assert.doesNotMatch(comSummary(comFor("plain",{strength:"beginner"})),/終局の提案/);
+  assert.equal(com.resign,0);
+  assert.match(comSummary(comFor("plain",{strength:"beginner"})),/終局の提案「大差で提案」/);
+  assert.doesNotMatch(comSummary(com),/終局の提案/);
 });
 
 test("相手の手に leans toward or away from the nearest opponent stone in a quiet, open position",()=>{
