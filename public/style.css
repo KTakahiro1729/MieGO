@@ -245,7 +245,7 @@ select{appearance:none;-webkit-appearance:none;padding-right:34px!important;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c9ced8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")!important;
   background-repeat:no-repeat!important;background-position:right 9px center!important;background-size:18px!important}
 select:disabled{opacity:.45}
-.settings-section input[type="range"]{width:100%;height:44px;accent-color:var(--gold-83);margin:0}
+.seat-com input[type="range"],.settings-section input[type="range"]{width:100%;height:44px;accent-color:var(--gold-83);margin:0}
 .settings-section .mode{display:flex;align-items:center;justify-content:space-between;gap:15px;margin:18px 0}
 .mode strong{font-size:var(--font-body)}
 .mode p{font-size:var(--font-caption);color:var(--muted);margin:5px 0 0}
@@ -271,9 +271,6 @@ select:disabled{opacity:.45}
 /* The shout's outline is painted under its fill: CJK fonts build a glyph from overlapping strokes, and an outline on top traces every one of them. */
 .dopa-shout{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);font-size:clamp(40px,16cqw,96px);font-weight:var(--weight-bold);color:var(--gold-85);-webkit-text-stroke:4px var(--gold-38);paint-order:stroke fill;text-shadow:0 4px 0 var(--gold-38),0 8px 24px var(--black-a67);animation:dopa-shout 2.4s ease-out forwards;white-space:nowrap}
 @keyframes dopa-shout{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}28%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
-.dopa-don{top:30%;animation-duration:.9s}
-#reviewGraph.dopa-bounce .score-graph-mark.is-current{transform-box:fill-box;transform-origin:center;animation:dopa-bounce .5s ease-out}
-@keyframes dopa-bounce{0%,100%{transform:scale(1)}35%{transform:scale(2.6)}65%{transform:scale(.8)}}
 .player .clock-time.dopa-hurry{display:inline-block;font-size:var(--font-display);font-weight:var(--weight-bold);line-height:1}
 .board-frame.dopa-pulse::after{content:"";position:absolute;inset:-3px;border-radius:inherit;pointer-events:none;z-index:4;box-shadow:0 0 0 3px var(--ember-67),0 0 26px var(--ember-67);opacity:0;animation:dopa-pulse 1s ease-in-out infinite}
 @keyframes dopa-pulse{50%{opacity:1}}
@@ -431,14 +428,19 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 /* At 320px both names fit on one line only one size down. */
 @media (max-width:340px){.new-game-actions>button,.new-game-actions .primary.full{font-size:var(--font-small)}}
 /* この対局の打ち手: a row per colour, no cards or rules between them; only the controls have edges. */
-.seat-row{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:center;gap:8px;margin-top:14px}
+.seat-row{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:center;gap:var(--space-md);margin-top:var(--space-lg)}
 .seat-color{display:flex;align-items:center;gap:7px;font-weight:var(--weight-medium)}
 .seat-choices span{padding:11px 8px}
-.seat-com{margin:8px 0 0 56px}
+.seat-com{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--space-md) var(--space-lg);align-items:center;margin-top:var(--space-md)}
 .seat-com[hidden]{display:none}
-.seat-note,.seat-summary{margin:6px 0 0;font-size:var(--font-small);line-height:1.6;color:var(--muted)}
-.seat-summary{margin-top:18px}
-.seat-actions{display:flex;gap:8px;margin-top:14px}
+.seat-note,.seat-summary{margin:0;font-size:var(--font-small);line-height:1.6;color:var(--muted)}
+.seat-note{grid-column:1/-1}
+/* What この打ち手で続ける does stays in sight above the buttons while the rows scroll, as 新規対戦's start row does. */
+.seat-panel .seat-actions{--pad:var(--sheet-pad-bottom,22px);position:sticky;bottom:calc(-1 * var(--pad));z-index:1;
+  display:flex;flex-wrap:wrap;gap:var(--space-md);margin:var(--space-lg) 0 calc(-1 * var(--pad));padding:var(--space-lg) 0 var(--pad);background:var(--slate-23);box-shadow:0 -10px 12px -4px var(--slate-23)}
+.seat-actions>.seat-summary{flex-basis:100%}
+/* 観戦's speed is 新規対戦's 時間 list, under the same small heading. */
+.seat-speed{margin-top:var(--space-lg)}
 /* A confirmation note under 今の対局を続ける takes the whole row under both buttons. */
 .new-game-actions>.armed-note{flex-basis:100%;order:1}
 /* When the COM failed to load, the note under the disabled start button names what still works;
@@ -541,10 +543,14 @@ body.colour-editing .settings-backdrop{background:transparent;backdrop-filter:no
 .com-choices span{padding:8px 0;font-size:var(--font-small);white-space:nowrap}
 /* One COM's カスタム rows sit under the character list, in the same grid without a card. */
 .com-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;margin-top:12px}
+/* One COM's strength sits above the character list. */
+.com-strength-slider{margin:0 0 12px}
+.com-card .step-slider,.seat-com .step-slider{margin:0}
 /* A watched COM's カスタム rows join its card's grid. */
 .com-custom{display:contents}
-/* On a phone, a card's label column leaves 勢力を作る too little room, so its rows put the label above. */
-@media(max-width:400px){.com-custom>.com-label,.com-custom>.com-choices{grid-column:1/-1}}
+/* A sheet is never much wider than 390px, so a label column leaves 勢力を作る too little room even on a
+   computer: every COM row, in 新規対戦 and この対局の打ち手 alike, puts its label above its choices. */
+.com-rows>.com-label,.com-rows>.com-choices,.com-custom>.com-label,.com-custom>.com-choices{grid-column:1/-1}
 /* Five strengths only fit a phone's width on a row of their own, under their label. */
 .com-strength{grid-column:1/-1}
 @media(max-width:700px){.header-actions{gap:6px}.new-game-button{padding:8px 12px}}
@@ -958,6 +964,9 @@ body{overflow:hidden}
 .score-table{grid-template-columns:1fr;row-gap:2px;width:100%;max-width:200px;margin:0 auto;padding-top:0;border-top:0}
 /* After a game whose style can be read, 棋風診断 sits after the result. */
 .game-panel.is-finished .action-row .score-style{flex:0 0 48px;width:48px;min-width:48px;padding:5px 0;display:grid;place-content:center;gap:1px;line-height:1.15}
+/* While watching, 速さ sits between 介入する and 一時停止, as wide as its longest pace (ゆっくり), so a tap never moves the row. */
+.action-row .watch-speed{flex:0 0 76px;width:76px;min-width:76px;padding:5px 8px;display:grid;place-content:center;gap:1px;line-height:1.15}
+.action-row .watch-speed small{font-size:var(--font-caption);font-weight:var(--weight-medium);opacity:.75}
 .action-row .score-style small{font-size:var(--font-caption);font-weight:var(--weight-medium);opacity:.75}
 /* With 棋風 in the row, a 320px screen tightens the row so 新規対戦 and もう一局 keep their room. */
 @media(max-width:359px){

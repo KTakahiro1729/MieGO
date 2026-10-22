@@ -81,7 +81,6 @@ export const TEXT = {
 
   dopa: {
     bigWin: "圧勝！",
-    don: "ドン！",
     win: "勝利！",
   },
 
@@ -241,6 +240,9 @@ export const TEXT = {
     // While watching: stepping in lets the viewer place the next stone; × goes back to watching.
     watchIntervene: "介入する",
     watchBack: "観戦に戻る",
+    // The button between them shows the pace and moves on to the next one: ゆっくり → ふつう → はやい → ゆっくり.
+    watchSpeedNote: "速さ",
+    watchSpeedAria: speed => "観戦の速さ：" + speed + "（押すと次の速さ）",
     moveLabel: move => move + "手目",
     // Each side's 持ち時間 beside the move count; 秒読み counts each move's seconds.
     clockLabel: "持ち時間",
@@ -335,14 +337,12 @@ export const TEXT = {
     },
     // A character's note fits one line at 360px; the help says more.
     characters: {
-      chick: { name: "ひよこ", note: "囲碁をはじめたばかり。よく見落とします。" },
-      steady: { name: "石橋", note: "守りを固めて手堅く打ちます。無理な戦いはしません。" },
-      raider: { name: "荒らし屋", note: "相手の地に飛び込み、低く打って地を稼ぎます。" },
-      brawler: { name: "喧嘩屋", note: "相手の手のすぐ近くで受けて立ち、攻めにきます。" },
-      wide: { name: "大場好き", note: "相手の手に付き合わず、広い場所へ向かいます。" },
-      serious: { name: "本気", note: "好みを持たず、手加減なしで打ちます。" },
-      master: { name: "名人", note: "強いCOM（約100MB）で全力で打ちます。" },
-      custom: { name: "カスタム", note: "強さと打ち方を自分で選びます。" },
+      plain: { name: "まっすぐ", note: "好みを持たず、素直に打ちます。" },
+      thick: { name: "どっしり", note: "高く構え、相手の石に寄って受けます。" },
+      raider: { name: "ちゃっかり", note: "低く打って、相手の地からも稼ぎます。" },
+      brawler: { name: "ぐいぐい", note: "相手の石のすぐ近くで、攻めにきます。" },
+      wide: { name: "のびのび", note: "相手の石から離れて、広い場所へ向かいます。" },
+      custom: { name: "カスタム", note: "打ち方を自分で選びます。" },
     },
     stanceStops: { low: "守る", mid: "ふつう", high: "攻め込む" },
     stanceNotes: {
@@ -359,9 +359,9 @@ export const TEXT = {
     tenukiStops: { low: "応じる", mid: "ふつう", high: "手を抜く" },
     resignStops: { low: "最後まで", mid: "大差で提案", high: "早めに提案" },
     tenukiNotes: {
-      low: "相手が打った手の近くで応じます。",
-      mid: "応じるか離れるかを特に好みません。",
-      high: "相手の手に付き合わず、離れた場所へ打ちます。",
+      low: "序盤から相手の石のすぐ近くに打ちます。",
+      mid: "相手の石に近づくか離れるかを特に好みません。",
+      high: "序盤は相手の石から離れた場所へ打ちます。",
     },
     unavailable: "ページを開き直してください。COMを読み込めず、対局できません。「1台で打つ」と「対友人」はCOMなしで遊べます。",
     unavailableContinue: "ページを開き直してください。COMを読み込めず、対局を続けられません。「1台で打つ」と「対友人」はCOMなしで遊べます。",
@@ -376,6 +376,8 @@ export const TEXT = {
     // The COM's strength and the axes it leans on, e.g. 強さ「やさしい」・戦い方「攻め込む」・序盤「地を取る」.
     comSummary: (strength, leans) => ["強さ「" + strength + "」",
       ...leans.map(([name, value]) => name + "「" + value + "」")].join("・"),
+    // After the summary of a 最強 COM whose character leans on a style.
+    strongestNoStyle: "（最強は打ち方の好みを使いません）",
     playingWith: (character, summary) => "「" + character + "」と対局中（" + summary + "）",
     // 五目並べ's COM reads lines itself (gomoku-ai.mjs) at the chosen strength.
     playingGomoku: strength => "五目並べのCOMが強さ「" + strength + "」で打っています。",
@@ -405,6 +407,8 @@ export const TEXT = {
   handicap: {
     label: "置き石",
     even: "なし（互先）",
+    // Under the 自分の石 tab when no side is picked (対局者が2人, 観戦).
+    evenShort: "互先",
     stones: n => n + "子",
     noteAi: "あなたが黒、COMが白です。置き石が先手の代わりなので、白が先に打ちます。",
     noteOnline: "黒を持つ側が置き石を受けます。置き石が先手の代わりなので、白が先に打ちます。",
@@ -442,7 +446,7 @@ export const TEXT = {
     seatLinkCopy: "自分用の再入室リンクをコピー",
     seatLinkField: "自分用の再入室リンク",
     seatLinkCopied: "コピーしました。相手には送らないでください。",
-    roomsUnavailable: "miego.fun でお試しください。この試作版のページでは、対友人の対局を作れません。",
+    roomsUnavailable: "開発版（main-miego.poet-takahiro1234.workers.dev）でお試しください。この試作版のページでは、対友人の対局を作れません。",
     turnstileMissing: "時間をおいてお試しください。サイトの設定に問題があり、対局を作れません。",
     verifyLoadFailed: "電波やWi-Fiを確認して、もう一度お試しください。確認画面を表示できません。",
     verifyFailed: "もう一度お試しください。ロボットでないことを確認できませんでした。",
@@ -917,7 +921,7 @@ export const TEXT = {
     sound: "効果音",
     soundNote: "石を打つ・取る、秒読み、終局で鳴らします",
     dopa: "ドパガキモード",
-    dopaNote: "打つ・取る・勝つ、良い手、振り返りの勝負どころ、秒読みを派手にします",
+    dopaNote: "打つ・取る・勝つ、良い手、秒読みを派手にします",
     board: "碁盤",
     linkStones: "呼吸点とつながった石",
     linkStonesNote: "縦横に隣り合う同じ色の石は、取られるときも一緒です",
@@ -954,9 +958,10 @@ export const TEXT = {
   seats: {
     title: "この対局の打ち手",
     open: "対局者（押すと打ち手を替えられます）",
-    person: "人",
+    person: "あなた",
     com: "COM",
     character: color => color + "のCOMのキャラ",
+    strength: color => color + "のCOMの強さ",
     keep: "今のまま続ける",
     apply: "この打ち手で続ける",
     unchanged: "打ち手は今のままです。",
@@ -968,8 +973,9 @@ export const TEXT = {
     becomes: (from, to) => from + "から" + to + "に替わります。",
     stays: mode => mode + "のまま、COMを替えます。",
     comMoves: color => "続けるとすぐ" + color + "のCOMが打ちます。",
+    speed: speed => "観戦の速さを「" + speed + "」にします。",
     record: "棋譜はこのまま続きます。",
-    comUnavailable: "COMを読み込めていないので、今は人どうしでだけ打てます。",
+    comUnavailable: "COMを読み込めていないので、今は黒も白もあなたが打つ「1台で打つ」だけです。",
   },
   newGame: {
     title: "新規対戦",
@@ -999,6 +1005,8 @@ export const TEXT = {
     rulesOptions: "ルールの追加設定",
     // Under the COMのキャラ tab while watching: each COM has its own character.
     watchStrengthValue: "COMごと",
+    // Under the COMのキャラ tab for one COM: its strength and character, e.g. やさしい・どっしり.
+    comValue: (strength, character) => strength + "・" + character,
     setupTabs: "対局の設定",
     // Beside each choice under the 盤, ルール and 自分の石 tabs; two lines at most at 320px.
     boardNotes: {
@@ -1097,7 +1105,7 @@ export const TEXT = {
     ai: {
       summary: "対COM",
       items: [
-        "<strong>キャラの違い</strong>：キャラは強さと打ち方の好みの組み合わせです。好みの違いが出るのは手の2〜3割ほどで、強さは段級位とは対応していません。",
+        "<strong>キャラの違い</strong>：キャラは打ち方の好みで、強さとは別に選びます。同じ強さなら、どのキャラ同士でもおおむね互角になるよう、COM同士の対局で調整しています。好みで手が変わるのは1〜2割ほどで、序盤は2〜4割ほどです。強さは段級位とは対応しておらず、最強は好みを使いません。",
       ],
     },
     online: {

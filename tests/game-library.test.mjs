@@ -17,13 +17,13 @@ test("each new game creates an independent record and latest first ordering",()=
 });
 test("an AI save keeps its COM, and reads one saved before characters",()=>{
  const {lib}=setup();
- const raider={character:"raider",strength:"easy",height:0,resign:0,stance:100,tenuki:50};
+ const raider={character:"raider",strength:"easy",height:0,resign:50,stance:100,tenuki:50};
  assert.deepEqual(lib.save({mode:"ai",snapshot:newGame(),aiCom:raider}).aiCom,raider);
  const old=lib.save({mode:"ai",snapshot:newGame(),aiStrength:"easy",invasion:0,reinforcement:100});
- assert.equal(old.aiCom.character,"steady");
+ assert.equal(old.aiCom.character,"custom");
  // Older copies of the app still read strength, 侵入度 and 補強度.
  assert.deepEqual([old.aiStrength,old.invasion,old.reinforcement],["easy",0,100]);
- assert.equal(lib.save({mode:"ai",snapshot:newGame()}).aiCom.character,"serious");
+ assert.equal(lib.save({mode:"ai",snapshot:newGame()}).aiCom.character,"plain");
 });
 test("AI saves retain own parameters separately from local",()=>{
  const {lib}=setup();
@@ -130,7 +130,7 @@ test("a watched COM同士 game is remembered as watched; other games never are",
 test("a watched game keeps each colour's COM; others keep none",()=>{
  const {lib}=setup();
  const watchAi={black:{character:"custom",strength:"beginner",height:50,resign:0,stance:100,tenuki:50},
-   white:{character:"serious",strength:"strong",height:50,resign:0,stance:50,tenuki:50}};
+   white:{character:"plain",strength:"strong",height:50,resign:50,stance:50,tenuki:50}};
  assert.deepEqual(lib.load(lib.save({mode:"ai",snapshot:newGame(),watch:true,watchAi}).id).watchAi,watchAi);
  // Games saved before characters kept strength, 侵入度 and 補強度 alone; 補強 控える reads as 攻める.
  const old={black:{strength:"beginner",invasion:100,reinforcement:0},white:{strength:"strong",invasion:50,reinforcement:50}};

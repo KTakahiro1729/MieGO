@@ -324,15 +324,19 @@ export function setDeadCandidates(state, positions) {
     agreed:{black:false,white:false}};
 }
 /**
- * 対局を再開. When the player who asks is known (`by`), the opponent moves
- * first: 日本囲碁規約 第九条 gives the side asked to resume the right to play
- * first. Without `by` (one board for two players, a replay) the turn stays.
+ * 対局を再開. After a stop by two passes, when the player who asks is known
+ * (`by`), the opponent moves first: 日本囲碁規約 第九条 gives the side asked to
+ * resume the right to play first. A count opened without passes (終局の提案,
+ * a COM's 終局) was no stop, so the side to move keeps the move, as after
+ * 対局を続ける; otherwise the resumer would lose a move as if they had passed.
+ * Without `by` (one board for two players, a replay) the turn stays.
  */
 export function resume(state, by = null) {
   if (state.status !== "scoring") throw new Error("Not scoring");
   // The playout's fill stones belong to this count only.
   const { fill, ...rest } = state;
-  const next = by === BLACK || by === WHITE ? -by : state.next;
+  const stopped = state.passes >= 2;
+  const next = stopped && (by === BLACK || by === WHITE) ? -by : state.next;
   return { ...rest, next, status: "playing", scoringStep: "dead", passes: 0, endProposal: null, dead: [],
     agreed: { black: false, white: false } };
 }

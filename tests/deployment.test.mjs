@@ -131,21 +131,30 @@ test("Workers Builds removes untracked public/ files a cached build added, and k
     rmSync(dir, { recursive: true, force: true });
   }
 });
-test("production, built from the release branch, leaves 棋風診断 out", async () => {
-  const { hidesPlayStyle, renderIndex } = await import("../scripts/build-html.mjs");
-  assert.equal(hidesPlayStyle({ WORKERS_CI_BRANCH: "release" }), true);
-  assert.equal(hidesPlayStyle({ WORKERS_CI_BRANCH: "main" }), false);
-  assert.equal(hidesPlayStyle({}), false);
+test("production, built from the release branch, leaves 棋風診断 and new 対友人 games out", async () => {
+  const { releaseBuild, renderIndex } = await import("../scripts/build-html.mjs");
+  assert.equal(releaseBuild({ WORKERS_CI_BRANCH: "release" }), true);
+  assert.equal(releaseBuild({ WORKERS_CI_BRANCH: "main" }), false);
+  assert.equal(releaseBuild({}), false);
   const cwd = process.cwd();
   process.chdir(root);
   try {
-    assert.match(await renderIndex(true), /<html lang="ja" data-no-play-style>/);
-    assert.doesNotMatch(await renderIndex(false), /data-no-play-style/);
+    assert.match(await renderIndex(true), /<html lang="ja" data-no-p2p data-no-play-style>/);
+    assert.doesNotMatch(await renderIndex(false), /data-no-(p2p|play-style)/);
   } finally { process.chdir(cwd); }
   const css = readFileSync(resolve(root, "public/style.css"), "utf8");
   for (const id of ["scoreStyle", "sharePlayStyles", "historyStyle", "historyStyleBar"])
     assert.match(css, new RegExp("\\[data-no-play-style\\] :is\\([^)]*#" + id + "\\b"));
+  const app = readFileSync(resolve(root, "public/app.mjs"), "utf8");
+  assert.match(app, /const noNewFriendGames=document\.documentElement\.hasAttribute\("data-no-p2p"\);/);
+  assert.match(app, /value="online"\]'\)\.closest\("label"\)\.hidden=true;\n  \$\("help-online"\)\.hidden=true;/);
   // Shared /style links open the app instead of a missing page.
   assert.match(readFileSync(resolve(root, "src/worker.mjs"), "utf8"),
     /path === "\/style" && asset\.status === 404\) return Response\.redirect\(new URL\("\/", url\.origin\), 302\)/);
+});
+test("only main's Preview has the 対友人 rooms", async () => {
+  const { previewConfig } = await import("../scripts/deploy-preview.mjs");
+  assert.equal(previewConfig({ WORKERS_CI_BRANCH: "main" }), "wrangler.jsonc");
+  for (const branch of ["feature/play-style", "claude/project-thread-g1zcr0", undefined])
+    assert.equal(previewConfig({ WORKERS_CI_BRANCH: branch }), "wrangler.preview.jsonc");
 });

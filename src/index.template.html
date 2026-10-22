@@ -144,6 +144,8 @@
           <button id="scoreStyle" class="secondary score-style" type="button" aria-label="{{playStyle.fromResultAria}}" title="{{playStyle.fromResultAria}}" hidden><span>{{playStyle.fromResult}}</span><small aria-hidden="true">{{playStyle.fromResultNote}}</small></button>
           <button id="openShare" class="secondary share-game" type="button" aria-label="{{share.thisGame}}" title="{{share.thisGame}}" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7.5A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-2"/></svg></button>
           <button id="watchIntervene" class="secondary" type="button" hidden>{{game.watchIntervene}}</button>
+          <!-- The watching pace, one tap to the next, without opening the new-game sheet. -->
+          <button id="watchSpeedStep" class="secondary watch-speed" type="button" hidden><span id="watchSpeedLabel">{{newGame.watchSpeeds.normal}}</span><small aria-hidden="true">{{game.watchSpeedNote}}</small></button>
           <button id="watchToggle" class="primary" type="button" aria-pressed="false" hidden>{{game.watchPause}}</button>
         </div>
         <div id="illegalPromptFallbackPanel" class="illegal-prompt-fallback" hidden>
@@ -291,19 +293,46 @@
         <div class="fused ai-color-choices seat-choices" role="radiogroup" aria-label="{{common.black}}"><label><input type="radio" name="seatBlack" value="person"><span>{{seats.person}}</span></label><label><input type="radio" name="seatBlack" value="com"><span>{{seats.com}}</span></label></div>
       </div>
       <div id="seatBlackCom" class="seat-com" hidden>
-        <select id="seatBlackCharacter" class="handicap-select" aria-label="{{seats.character(common.black)}}"><option value="chick">{{ai.characters.chick.name}}</option><option value="steady">{{ai.characters.steady.name}}</option><option value="raider">{{ai.characters.raider.name}}</option><option value="brawler">{{ai.characters.brawler.name}}</option><option value="wide">{{ai.characters.wide.name}}</option><option value="serious">{{ai.characters.serious.name}}</option><option value="master">{{ai.characters.master.name}}</option><option value="custom">{{ai.characters.custom.name}}</option></select>
+        <div id="seatBlackStrengthRow" class="step-slider com-strength">
+          <label for="seatBlackStrength">{{ai.strengthShort}} <span id="seatBlackStrengthValue" class="setting-value"></span></label>
+          <input id="seatBlackStrength" type="range" min="0" max="4" step="1" value="0" aria-label="{{seats.strength(common.black)}}">
+          <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.strengthNotes.beginner}}"><small>{{ai.strengths.beginner}}</small></span><span data-note="{{ai.strengthNotes.easy}}"><small>{{ai.strengths.easy}}</small></span><span data-note="{{ai.strengthNotes.normal}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.strengthNotes.strong}}"><small>{{ai.strengths.strong}}</small></span><span data-note="{{ai.strengthNotes.strongest}}"><small>{{ai.strengths.strongest}}</small></span></div>
+        </div>
+        <span class="com-label">{{ai.characterShort}}</span><select id="seatBlackCharacter" class="handicap-select" aria-label="{{seats.character(common.black)}}"><option value="plain">{{ai.characters.plain.name}}</option><option value="thick">{{ai.characters.thick.name}}</option><option value="raider">{{ai.characters.raider.name}}</option><option value="brawler">{{ai.characters.brawler.name}}</option><option value="wide">{{ai.characters.wide.name}}</option><option value="custom">{{ai.characters.custom.name}}</option></select>
         <p id="seatBlackNote" class="seat-note"></p>
+        <div id="seatBlackCustom" class="com-custom" hidden>
+          <span class="com-label">{{ai.stance}}</span><div class="fused ai-color-choices com-choices" role="radiogroup" aria-label="{{ai.stance}}"><label><input type="radio" name="seatBlackStance" value="0"><span>{{ai.stanceStops.low}}</span></label><label><input type="radio" name="seatBlackStance" value="50"><span>{{ai.stanceStops.mid}}</span></label><label><input type="radio" name="seatBlackStance" value="100"><span>{{ai.stanceStops.high}}</span></label></div>
+          <span class="com-label">{{ai.height}}</span><div class="fused ai-color-choices com-choices" role="radiogroup" aria-label="{{ai.height}}"><label><input type="radio" name="seatBlackHeight" value="0"><span>{{ai.heightStops.low}}</span></label><label><input type="radio" name="seatBlackHeight" value="50"><span>{{ai.heightStops.mid}}</span></label><label><input type="radio" name="seatBlackHeight" value="100"><span>{{ai.heightStops.high}}</span></label></div>
+          <span class="com-label">{{ai.tenuki}}</span><div class="fused ai-color-choices com-choices" role="radiogroup" aria-label="{{ai.tenuki}}"><label><input type="radio" name="seatBlackTenuki" value="0"><span>{{ai.tenukiStops.low}}</span></label><label><input type="radio" name="seatBlackTenuki" value="50"><span>{{ai.tenukiStops.mid}}</span></label><label><input type="radio" name="seatBlackTenuki" value="100"><span>{{ai.tenukiStops.high}}</span></label></div>
+          <span class="com-label">{{ai.resign}}</span><div class="fused ai-color-choices com-choices" role="radiogroup" aria-label="{{ai.resign}}"><label><input type="radio" name="seatBlackResign" value="0"><span>{{ai.resignStops.low}}</span></label><label><input type="radio" name="seatBlackResign" value="50"><span>{{ai.resignStops.mid}}</span></label><label><input type="radio" name="seatBlackResign" value="100"><span>{{ai.resignStops.high}}</span></label></div>
+        </div>
       </div>
       <div class="seat-row white">
         <span class="seat-color"><span class="player-stone" aria-hidden="true"></span>{{common.white}}</span>
         <div class="fused ai-color-choices seat-choices" role="radiogroup" aria-label="{{common.white}}"><label><input type="radio" name="seatWhite" value="person"><span>{{seats.person}}</span></label><label><input type="radio" name="seatWhite" value="com"><span>{{seats.com}}</span></label></div>
       </div>
       <div id="seatWhiteCom" class="seat-com" hidden>
-        <select id="seatWhiteCharacter" class="handicap-select" aria-label="{{seats.character(common.white)}}"><option value="chick">{{ai.characters.chick.name}}</option><option value="steady">{{ai.characters.steady.name}}</option><option value="raider">{{ai.characters.raider.name}}</option><option value="brawler">{{ai.characters.brawler.name}}</option><option value="wide">{{ai.characters.wide.name}}</option><option value="serious">{{ai.characters.serious.name}}</option><option value="master">{{ai.characters.master.name}}</option><option value="custom">{{ai.characters.custom.name}}</option></select>
+        <div id="seatWhiteStrengthRow" class="step-slider com-strength">
+          <label for="seatWhiteStrength">{{ai.strengthShort}} <span id="seatWhiteStrengthValue" class="setting-value"></span></label>
+          <input id="seatWhiteStrength" type="range" min="0" max="4" step="1" value="0" aria-label="{{seats.strength(common.white)}}">
+          <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.strengthNotes.beginner}}"><small>{{ai.strengths.beginner}}</small></span><span data-note="{{ai.strengthNotes.easy}}"><small>{{ai.strengths.easy}}</small></span><span data-note="{{ai.strengthNotes.normal}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.strengthNotes.strong}}"><small>{{ai.strengths.strong}}</small></span><span data-note="{{ai.strengthNotes.strongest}}"><small>{{ai.strengths.strongest}}</small></span></div>
+        </div>
+        <span class="com-label">{{ai.characterShort}}</span><select id="seatWhiteCharacter" class="handicap-select" aria-label="{{seats.character(common.white)}}"><option value="plain">{{ai.characters.plain.name}}</option><option value="thick">{{ai.characters.thick.name}}</option><option value="raider">{{ai.characters.raider.name}}</option><option value="brawler">{{ai.characters.brawler.name}}</option><option value="wide">{{ai.characters.wide.name}}</option><option value="custom">{{ai.characters.custom.name}}</option></select>
         <p id="seatWhiteNote" class="seat-note"></p>
+        <div id="seatWhiteCustom" class="com-custom" hidden>
+          <span class="com-label">{{ai.stance}}</span><div class="fused ai-color-choices com-choices" role="radiogroup" aria-label="{{ai.stance}}"><label><input type="radio" name="seatWhiteStance" value="0"><span>{{ai.stanceStops.low}}</span></label><label><input type="radio" name="seatWhiteStance" value="50"><span>{{ai.stanceStops.mid}}</span></label><label><input type="radio" name="seatWhiteStance" value="100"><span>{{ai.stanceStops.high}}</span></label></div>
+          <span class="com-label">{{ai.height}}</span><div class="fused ai-color-choices com-choices" role="radiogroup" aria-label="{{ai.height}}"><label><input type="radio" name="seatWhiteHeight" value="0"><span>{{ai.heightStops.low}}</span></label><label><input type="radio" name="seatWhiteHeight" value="50"><span>{{ai.heightStops.mid}}</span></label><label><input type="radio" name="seatWhiteHeight" value="100"><span>{{ai.heightStops.high}}</span></label></div>
+          <span class="com-label">{{ai.tenuki}}</span><div class="fused ai-color-choices com-choices" role="radiogroup" aria-label="{{ai.tenuki}}"><label><input type="radio" name="seatWhiteTenuki" value="0"><span>{{ai.tenukiStops.low}}</span></label><label><input type="radio" name="seatWhiteTenuki" value="50"><span>{{ai.tenukiStops.mid}}</span></label><label><input type="radio" name="seatWhiteTenuki" value="100"><span>{{ai.tenukiStops.high}}</span></label></div>
+          <span class="com-label">{{ai.resign}}</span><div class="fused ai-color-choices com-choices" role="radiogroup" aria-label="{{ai.resign}}"><label><input type="radio" name="seatWhiteResign" value="0"><span>{{ai.resignStops.low}}</span></label><label><input type="radio" name="seatWhiteResign" value="50"><span>{{ai.resignStops.mid}}</span></label><label><input type="radio" name="seatWhiteResign" value="100"><span>{{ai.resignStops.high}}</span></label></div>
+        </div>
       </div>
-      <p id="seatSummary" class="seat-summary" role="status" aria-live="polite"></p>
+      <div id="seatSpeedRow" class="seat-speed" hidden><p class="setup-more-head">{{newGame.watchSpeedHead}}</p><fieldset class="choice-list speed-list" aria-label="{{newGame.watchSpeedHead}}">
+        <label class="choice-row"><input type="radio" name="seatSpeed" value="slow"><span class="choice">{{newGame.watchSpeeds.slow}}</span><small class="choice-note">{{newGame.watchSpeedNotes.slow}}</small></label>
+        <label class="choice-row"><input type="radio" name="seatSpeed" value="normal"><span class="choice">{{newGame.watchSpeeds.normal}}</span><small class="choice-note">{{newGame.watchSpeedNotes.normal}}</small></label>
+        <label class="choice-row"><input type="radio" name="seatSpeed" value="fast"><span class="choice">{{newGame.watchSpeeds.fast}}</span><small class="choice-note">{{newGame.watchSpeedNotes.fast}}</small></label>
+      </fieldset></div>
       <div class="new-game-actions seat-actions">
+        <p id="seatSummary" class="seat-summary" role="status" aria-live="polite"></p>
         <button id="seatKeep" class="secondary" type="button">{{seats.keep}}</button>
         <button id="seatApply" class="primary" type="button">{{seats.apply}}</button>
       </div>
@@ -342,14 +371,28 @@
               <label class="choice-row"><input type="radio" name="onlineSide" value="white"><span class="choice"><span class="stone-mark white" aria-hidden="true"></span>{{common.sideWhite}}</span><small class="choice-note">{{newGame.sideNotes.white}}</small></label>
             </fieldset></div>
             <p id="sideNote" class="explanation setup-note"></p>
+            <div id="handicapOptions" class="setup-more">
+              <div id="handicapSetup" class="advanced-row"><span class="label-with-help"><label for="handicap">{{handicap.label}}</label><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span>
+                <select id="handicap" class="handicap-select">
+                  <option value="0">{{handicap.even}}</option>
+                  <option value="2">{{handicap.stones(2)}}</option><option value="3">{{handicap.stones(3)}}</option><option value="4">{{handicap.stones(4)}}</option><option value="5">{{handicap.stones(5)}}</option>
+                  <option value="6">{{handicap.stones(6)}}</option><option value="7">{{handicap.stones(7)}}</option><option value="8">{{handicap.stones(8)}}</option><option value="9">{{handicap.stones(9)}}</option>
+                </select>
+              </div>
+              <p id="handicapNote" class="explanation" hidden></p>
+            </div>
           </div>
           <div id="setupPanelStrength" class="setup-panel" role="tabpanel" aria-labelledby="setupTabStrength" hidden>
             <div id="watchAiOptions" class="watch-ai" hidden>
               <fieldset class="com-card">
                 <legend><span class="stone-mark" aria-hidden="true"></span>{{newGame.comBlack}}</legend>
-                <span class="com-label">{{ai.characterShort}}</span><select id="comBlackCharacter" class="handicap-select" aria-label="{{ai.characterShort}}"><option value="chick">{{ai.characters.chick.name}}</option><option value="steady">{{ai.characters.steady.name}}</option><option value="raider">{{ai.characters.raider.name}}</option><option value="brawler">{{ai.characters.brawler.name}}</option><option value="wide">{{ai.characters.wide.name}}</option><option value="serious">{{ai.characters.serious.name}}</option><option value="master">{{ai.characters.master.name}}</option><option value="custom">{{ai.characters.custom.name}}</option></select>
+                <div id="comBlackStrengthRow" class="step-slider com-strength">
+                <label for="comBlackStrength">{{ai.strengthShort}} <span id="comBlackStrengthValue" class="setting-value"></span></label>
+                <input id="comBlackStrength" type="range" min="0" max="4" step="1" value="0">
+                <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.strengthNotes.beginner}}"><small>{{ai.strengths.beginner}}</small></span><span data-note="{{ai.strengthNotes.easy}}"><small>{{ai.strengths.easy}}</small></span><span data-note="{{ai.strengthNotes.normal}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.strengthNotes.strong}}"><small>{{ai.strengths.strong}}</small></span><span data-note="{{ai.strengthNotes.strongest}}"><small>{{ai.strengths.strongest}}</small></span></div>
+              </div>
+                <span class="com-label">{{ai.characterShort}}</span><select id="comBlackCharacter" class="handicap-select" aria-label="{{ai.characterShort}}"><option value="plain">{{ai.characters.plain.name}}</option><option value="thick">{{ai.characters.thick.name}}</option><option value="raider">{{ai.characters.raider.name}}</option><option value="brawler">{{ai.characters.brawler.name}}</option><option value="wide">{{ai.characters.wide.name}}</option><option value="custom">{{ai.characters.custom.name}}</option></select>
                 <div id="comBlackCustom" class="com-custom" hidden>
-                <span class="com-label com-strength">{{ai.strengthShort}}</span><div class="fused ai-color-choices com-choices com-strength"><label><input type="radio" name="comBlackStrength" value="beginner"><span>{{ai.strengths.beginner}}</span></label><label><input type="radio" name="comBlackStrength" value="easy"><span>{{ai.strengths.easy}}</span></label><label><input type="radio" name="comBlackStrength" value="normal"><span>{{ai.strengths.normal}}</span></label><label><input type="radio" name="comBlackStrength" value="strong"><span>{{ai.strengths.strong}}</span></label><label><input type="radio" name="comBlackStrength" value="strongest"><span>{{ai.strengths.strongest}}</span></label></div>
                 <span class="com-label">{{ai.stance}}</span><div class="fused ai-color-choices com-choices"><label><input type="radio" name="comBlackStance" value="0"><span>{{ai.stanceStops.low}}</span></label><label><input type="radio" name="comBlackStance" value="50"><span>{{ai.stanceStops.mid}}</span></label><label><input type="radio" name="comBlackStance" value="100"><span>{{ai.stanceStops.high}}</span></label></div>
                 <span class="com-label">{{ai.height}}</span><div class="fused ai-color-choices com-choices"><label><input type="radio" name="comBlackHeight" value="0"><span>{{ai.heightStops.low}}</span></label><label><input type="radio" name="comBlackHeight" value="50"><span>{{ai.heightStops.mid}}</span></label><label><input type="radio" name="comBlackHeight" value="100"><span>{{ai.heightStops.high}}</span></label></div>
                 <span class="com-label">{{ai.tenuki}}</span><div class="fused ai-color-choices com-choices"><label><input type="radio" name="comBlackTenuki" value="0"><span>{{ai.tenukiStops.low}}</span></label><label><input type="radio" name="comBlackTenuki" value="50"><span>{{ai.tenukiStops.mid}}</span></label><label><input type="radio" name="comBlackTenuki" value="100"><span>{{ai.tenukiStops.high}}</span></label></div>
@@ -358,9 +401,13 @@
               </fieldset>
               <fieldset class="com-card">
                 <legend><span class="stone-mark white" aria-hidden="true"></span>{{newGame.comWhite}}</legend>
-                <span class="com-label">{{ai.characterShort}}</span><select id="comWhiteCharacter" class="handicap-select" aria-label="{{ai.characterShort}}"><option value="chick">{{ai.characters.chick.name}}</option><option value="steady">{{ai.characters.steady.name}}</option><option value="raider">{{ai.characters.raider.name}}</option><option value="brawler">{{ai.characters.brawler.name}}</option><option value="wide">{{ai.characters.wide.name}}</option><option value="serious">{{ai.characters.serious.name}}</option><option value="master">{{ai.characters.master.name}}</option><option value="custom">{{ai.characters.custom.name}}</option></select>
+                <div id="comWhiteStrengthRow" class="step-slider com-strength">
+                <label for="comWhiteStrength">{{ai.strengthShort}} <span id="comWhiteStrengthValue" class="setting-value"></span></label>
+                <input id="comWhiteStrength" type="range" min="0" max="4" step="1" value="0">
+                <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.strengthNotes.beginner}}"><small>{{ai.strengths.beginner}}</small></span><span data-note="{{ai.strengthNotes.easy}}"><small>{{ai.strengths.easy}}</small></span><span data-note="{{ai.strengthNotes.normal}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.strengthNotes.strong}}"><small>{{ai.strengths.strong}}</small></span><span data-note="{{ai.strengthNotes.strongest}}"><small>{{ai.strengths.strongest}}</small></span></div>
+              </div>
+                <span class="com-label">{{ai.characterShort}}</span><select id="comWhiteCharacter" class="handicap-select" aria-label="{{ai.characterShort}}"><option value="plain">{{ai.characters.plain.name}}</option><option value="thick">{{ai.characters.thick.name}}</option><option value="raider">{{ai.characters.raider.name}}</option><option value="brawler">{{ai.characters.brawler.name}}</option><option value="wide">{{ai.characters.wide.name}}</option><option value="custom">{{ai.characters.custom.name}}</option></select>
                 <div id="comWhiteCustom" class="com-custom" hidden>
-                <span class="com-label com-strength">{{ai.strengthShort}}</span><div class="fused ai-color-choices com-choices com-strength"><label><input type="radio" name="comWhiteStrength" value="beginner"><span>{{ai.strengths.beginner}}</span></label><label><input type="radio" name="comWhiteStrength" value="easy"><span>{{ai.strengths.easy}}</span></label><label><input type="radio" name="comWhiteStrength" value="normal"><span>{{ai.strengths.normal}}</span></label><label><input type="radio" name="comWhiteStrength" value="strong"><span>{{ai.strengths.strong}}</span></label><label><input type="radio" name="comWhiteStrength" value="strongest"><span>{{ai.strengths.strongest}}</span></label></div>
                 <span class="com-label">{{ai.stance}}</span><div class="fused ai-color-choices com-choices"><label><input type="radio" name="comWhiteStance" value="0"><span>{{ai.stanceStops.low}}</span></label><label><input type="radio" name="comWhiteStance" value="50"><span>{{ai.stanceStops.mid}}</span></label><label><input type="radio" name="comWhiteStance" value="100"><span>{{ai.stanceStops.high}}</span></label></div>
                 <span class="com-label">{{ai.height}}</span><div class="fused ai-color-choices com-choices"><label><input type="radio" name="comWhiteHeight" value="0"><span>{{ai.heightStops.low}}</span></label><label><input type="radio" name="comWhiteHeight" value="50"><span>{{ai.heightStops.mid}}</span></label><label><input type="radio" name="comWhiteHeight" value="100"><span>{{ai.heightStops.high}}</span></label></div>
                 <span class="com-label">{{ai.tenuki}}</span><div class="fused ai-color-choices com-choices"><label><input type="radio" name="comWhiteTenuki" value="0"><span>{{ai.tenukiStops.low}}</span></label><label><input type="radio" name="comWhiteTenuki" value="50"><span>{{ai.tenukiStops.mid}}</span></label><label><input type="radio" name="comWhiteTenuki" value="100"><span>{{ai.tenukiStops.high}}</span></label></div>
@@ -368,19 +415,23 @@
                 </div>
               </fieldset>
             </div>
-            <div id="aiStrengthRow"><fieldset id="aiCharacterChoices" class="choice-list character-list">
-              <label class="choice-row"><input type="radio" name="aiCharacter" value="chick"><span class="choice">{{ai.characters.chick.name}}</span><small class="choice-note">{{ai.strengths.beginner}} · {{ai.characters.chick.note}}</small></label>
-              <label class="choice-row"><input type="radio" name="aiCharacter" value="steady"><span class="choice">{{ai.characters.steady.name}}</span><small class="choice-note">{{ai.strengths.easy}} · {{ai.characters.steady.note}}</small></label>
-              <label class="choice-row"><input type="radio" name="aiCharacter" value="raider"><span class="choice">{{ai.characters.raider.name}}</span><small class="choice-note">{{ai.strengths.easy}} · {{ai.characters.raider.note}}</small></label>
-              <label class="choice-row"><input type="radio" name="aiCharacter" value="brawler"><span class="choice">{{ai.characters.brawler.name}}</span><small class="choice-note">{{ai.strengths.normal}} · {{ai.characters.brawler.note}}</small></label>
-              <label class="choice-row"><input type="radio" name="aiCharacter" value="wide"><span class="choice">{{ai.characters.wide.name}}</span><small class="choice-note">{{ai.strengths.normal}} · {{ai.characters.wide.note}}</small></label>
-              <label class="choice-row"><input type="radio" name="aiCharacter" value="serious"><span class="choice">{{ai.characters.serious.name}}</span><small class="choice-note">{{ai.strengths.strong}} · {{ai.characters.serious.note}}</small></label>
-              <label class="choice-row"><input type="radio" name="aiCharacter" value="master"><span class="choice">{{ai.characters.master.name}}</span><small class="choice-note">{{ai.strengths.strongest}} · {{ai.characters.master.note}}</small></label>
+            <div id="aiOneCom"><div id="aiStrengthRow" class="step-slider com-strength-slider">
+                <label for="aiStrength">{{ai.strengthShort}} <span id="aiStrengthValue" class="setting-value"></span></label>
+                <input id="aiStrength" type="range" min="0" max="4" step="1" value="0">
+                <div class="step-ticks" aria-hidden="true"><span data-note="{{ai.strengthNotes.beginner}}"><small>{{ai.strengths.beginner}}</small></span><span data-note="{{ai.strengthNotes.easy}}"><small>{{ai.strengths.easy}}</small></span><span data-note="{{ai.strengthNotes.normal}}"><small>{{ai.strengths.normal}}</small></span><span data-note="{{ai.strengthNotes.strong}}"><small>{{ai.strengths.strong}}</small></span><span data-note="{{ai.strengthNotes.strongest}}"><small>{{ai.strengths.strongest}}</small></span></div>
+                <p class="explanation step-note"></p>
+              </div>
+            <fieldset id="aiCharacterChoices" class="choice-list character-list">
+              <legend class="visually-hidden">{{ai.characterShort}}</legend>
+              <label class="choice-row"><input type="radio" name="aiCharacter" value="plain"><span class="choice">{{ai.characters.plain.name}}</span><small class="choice-note">{{ai.characters.plain.note}}</small></label>
+              <label class="choice-row"><input type="radio" name="aiCharacter" value="thick"><span class="choice">{{ai.characters.thick.name}}</span><small class="choice-note">{{ai.characters.thick.note}}</small></label>
+              <label class="choice-row"><input type="radio" name="aiCharacter" value="raider"><span class="choice">{{ai.characters.raider.name}}</span><small class="choice-note">{{ai.characters.raider.note}}</small></label>
+              <label class="choice-row"><input type="radio" name="aiCharacter" value="brawler"><span class="choice">{{ai.characters.brawler.name}}</span><small class="choice-note">{{ai.characters.brawler.note}}</small></label>
+              <label class="choice-row"><input type="radio" name="aiCharacter" value="wide"><span class="choice">{{ai.characters.wide.name}}</span><small class="choice-note">{{ai.characters.wide.note}}</small></label>
               <label class="choice-row"><input type="radio" name="aiCharacter" value="custom"><span class="choice">{{ai.characters.custom.name}}</span><small class="choice-note">{{ai.characters.custom.note}}</small></label>
             </fieldset>
             <fieldset id="aiCustom" class="ai-advanced com-rows" hidden>
               <legend class="visually-hidden">{{ai.characters.custom.name}}</legend>
-              <span class="com-label com-strength">{{ai.strengthShort}}</span><div class="fused ai-color-choices com-choices com-strength"><label><input type="radio" name="aiStrength" value="beginner"><span>{{ai.strengths.beginner}}</span></label><label><input type="radio" name="aiStrength" value="easy"><span>{{ai.strengths.easy}}</span></label><label><input type="radio" name="aiStrength" value="normal"><span>{{ai.strengths.normal}}</span></label><label><input type="radio" name="aiStrength" value="strong"><span>{{ai.strengths.strong}}</span></label><label><input type="radio" name="aiStrength" value="strongest"><span>{{ai.strengths.strongest}}</span></label></div>
               <span class="com-label">{{ai.stance}}</span><div class="fused ai-color-choices com-choices"><label><input type="radio" name="aiStance" value="0"><span>{{ai.stanceStops.low}}</span></label><label><input type="radio" name="aiStance" value="50"><span>{{ai.stanceStops.mid}}</span></label><label><input type="radio" name="aiStance" value="100"><span>{{ai.stanceStops.high}}</span></label></div>
               <span class="com-label">{{ai.height}}</span><div class="fused ai-color-choices com-choices"><label><input type="radio" name="aiHeight" value="0"><span>{{ai.heightStops.low}}</span></label><label><input type="radio" name="aiHeight" value="50"><span>{{ai.heightStops.mid}}</span></label><label><input type="radio" name="aiHeight" value="100"><span>{{ai.heightStops.high}}</span></label></div>
               <span class="com-label">{{ai.tenuki}}</span><div class="fused ai-color-choices com-choices"><label><input type="radio" name="aiTenuki" value="0"><span>{{ai.tenukiStops.low}}</span></label><label><input type="radio" name="aiTenuki" value="50"><span>{{ai.tenukiStops.mid}}</span></label><label><input type="radio" name="aiTenuki" value="100"><span>{{ai.tenukiStops.high}}</span></label></div>
@@ -404,14 +455,6 @@
             </div>
             <p id="komiNote" class="explanation setup-note" hidden></p>
             <div id="rulesOptions" class="setup-more"><p class="setup-more-head">{{newGame.rulesOptions}}</p>
-            <div id="handicapSetup" class="advanced-row"><span class="label-with-help"><label for="handicap">{{handicap.label}}</label><button class="help-button" type="button" data-help="rules" aria-label="{{common.helpFor(help.rulesHandicap)}}" title="{{common.helpFor(help.rulesHandicap)}}"><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.3a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><circle cx="12" cy="17.4" r=".7" fill="currentColor"/></svg></button></span>
-              <select id="handicap" class="handicap-select">
-                <option value="0">{{handicap.even}}</option>
-                <option value="2">{{handicap.stones(2)}}</option><option value="3">{{handicap.stones(3)}}</option><option value="4">{{handicap.stones(4)}}</option><option value="5">{{handicap.stones(5)}}</option>
-                <option value="6">{{handicap.stones(6)}}</option><option value="7">{{handicap.stones(7)}}</option><option value="8">{{handicap.stones(8)}}</option><option value="9">{{handicap.stones(9)}}</option>
-              </select>
-            </div>
-            <p id="handicapNote" class="explanation" hidden></p>
             <div id="gomokuForbiddenRow" class="mode hide-stones"><div><strong>{{newGame.gomokuForbidden}}</strong><p>{{newGame.gomokuForbiddenNote}}</p></div><input id="gomokuForbidden" type="checkbox" aria-label="{{newGame.gomokuForbidden}}"></div>
             <div id="hideStonesRow" class="mode hide-stones"><div><strong>{{newGame.hideStones}}</strong><p>{{newGame.hideStonesNote}}</p></div><input id="hideStones" type="checkbox" aria-label="{{newGame.hideStones}}"></div>
             </div>

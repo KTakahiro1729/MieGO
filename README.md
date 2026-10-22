@@ -273,7 +273,7 @@ SGF入力は**9路・13路・19路盤（`SZ`必須）・SGF FF[4]・交互着手
 
 ## 開発者向け
 
-Node.js 20以降が必要です。以下はCloudflare内で自動実行され、ユーザーがブラウザ以外の操作を行う必要はありません。
+Node.js 24以降が必要です。以下はCloudflare内で自動実行され、ユーザーがブラウザ以外の操作を行う必要はありません。
 
 ```bash
 npm ci
@@ -297,7 +297,7 @@ npm run dev
 
 | ブランチ | 役割 | 出る先 |
 | --- | --- | --- |
-| `main` | 開発用。機能や修正のPRはすべてここへ出す | Preview（`main-miego.<subdomain>.workers.dev`、対友人の対局は不可） |
+| `main` | 開発用。機能や修正のPRはすべてここへ出す | Preview（`main-miego.<subdomain>.workers.dev`。PreviewのなかでここだけGameRoomを持ち、対友人も試せる） |
 | `release` | リリース用。`main` をマージしたときだけ進む | 本番（miego.fun） |
 | `feature/play-style` | 棋風診断の作業をためるブランチ。棋風診断のPRはここへ出し、出すと決めたら `main` へマージする | Preview（`feature-play-style-miego.<subdomain>.workers.dev`） |
 
@@ -307,7 +307,7 @@ npm run dev
 2. **Create a merge commit** でマージします（Squash・Rebaseは使いません。使うと `release` と `main` の履歴が分かれ、次のリリースでコンフリクトします）。
 3. Cloudflareの **Builds / Deployments** で `release` のビルドが成功し、miego.fun に出たことを確認します。
 
-棋風診断は、`release` から作る本番では出しません。Workers Buildsのビルドで `WORKERS_CI_BRANCH` が `release` のとき、`scripts/build-html.mjs` が `index.html` に `data-no-play-style` を付けて結果・共有・履歴の棋風診断の入口を隠し、`/style` のページを作りません（`/style` へのリンクはトップへ転送）。手元で本番と同じ表示を見るには `MIEGO_HIDE_PLAY_STYLE=1 npm run dev` を使います。出すと決めたら、この切り替えを外すPRを `main` に出してリリースします。
+棋風診断と、新しい対友人の対局は、`release` から作る本番では出しません。Workers Buildsのビルドで `WORKERS_CI_BRANCH` が `release` のとき、`scripts/build-html.mjs` が `index.html` に `data-no-play-style` と `data-no-p2p` を付けます。前者は結果・共有・履歴の棋風診断の入口を隠し、`/style` のページを作りません（`/style` へのリンクはトップへ転送）。後者は新規対戦の「対友人」とヘルプの対友人の項を隠します。届いた招待URLと、終わっていない友人対局の再開は本番でも使えます（本番の`GameRoom`は残します）。手元で本番と同じ表示を見るには `MIEGO_RELEASE=1 npm run dev` を使います。出すと決めたら、その切り替えを外すPRを `main` に出してリリースします。
 
 本番だけの急ぎの修正は、`main` への修正PRをマージしてから上の手順でリリースします。`release` に直接コミットした場合は、すぐに `release` を `main` へマージして戻してください。
 
@@ -317,9 +317,9 @@ npm run dev
 
 ### CloudflareのPR Preview
 
-PRのPreviewは `wrangler.preview.jsonc` から作ります。Cloudflare Workers Buildsの設定は、Build commandを `npm test`、**Preview deploy commandを `npx wrangler preview -c wrangler.preview.jsonc`** にしてください。Productionへのデプロイは今までどおり `npx wrangler deploy`（`wrangler.jsonc`）です。
+PRのPreviewは `wrangler.preview.jsonc` から作ります。Cloudflare Workers Buildsの設定は、Build commandを `npm test`、**Preview deploy commandを `node scripts/deploy-preview.mjs`** にしてください。このスクリプトは `main` のときだけ `wrangler.jsonc`（GameRoomあり）で、それ以外は `npx wrangler preview -c wrangler.preview.jsonc` でPreviewを出します。Productionへのデプロイは今までどおり `npx wrangler deploy`（`wrangler.jsonc`）です。
 
-`wrangler.preview.jsonc` は `wrangler.jsonc` から対局ルーム（Durable Objectの`GameRoom`と移行設定）だけを除いた写しです（`tests/deployment.test.mjs` がずれを検出します）。CloudflareはDurable Objectを持つPreviewごとに専用の名前空間を作り、無料プランでは1アカウント100個までなので、ブランチごとにPreviewを作るとすぐ上限に達してビルドが失敗します。そのためPreviewでは対友人の対局は作れず、画面に「miego.fun でお試しください」と表示します。対友人の確認は本番で行います。
+`wrangler.preview.jsonc` は `wrangler.jsonc` から対局ルーム（Durable Objectの`GameRoom`と移行設定）だけを除いた写しです（`tests/deployment.test.mjs` がずれを検出します）。CloudflareはDurable Objectを持つPreviewごとに専用の名前空間を作り、無料プランでは1アカウント100個までなので、ブランチごとにPreviewを作るとすぐ上限に達してビルドが失敗します。そのためPreviewでは対友人の対局は作れず、画面に「開発版（main-miego.poet-takahiro1234.workers.dev）でお試しください」と表示します。例外は `main` のPreviewで、名前空間を1つだけ使って対友人を試せます（本番では新しい対友人を作れないため）。その確認には、Turnstileウィジェットの許可ホスト名に `main-miego.<subdomain>.workers.dev` を、Previews Baseの変数に `TURNSTILE_SECRET` を足してください。
 
 この設定にする前に作られたPreviewの名前空間は、そのPreviewを削除すると一緒に消えます。無料プランのPreviewは1 Workerあたり100個までで、超えると最後のデプロイが最も古いものから自動で削除されるため、放っておいても順に減ります。すぐ空けたいときは `npx wrangler preview delete --name <Preview名>`（またはダッシュボードのPreview画面）で古いPreviewを削除してください。本番（Production）のWorkerやその名前空間は削除しないでください。
 

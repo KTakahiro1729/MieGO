@@ -3,6 +3,7 @@ import { newGame } from "../public/core.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {renderIndex} from "../scripts/build-html.mjs";
+import {TEXT} from "../public/texts.mjs";
 import {source} from "./helpers/source.mjs";
 
 const app=source("app.mjs");
@@ -31,11 +32,11 @@ test("観戦 is a mode beside 対COM; its first tab is the speed of the moves",(
   assert.match(app,/watchChoice=settings\.watch===true \|\| settings\.aiSide==="watch";/);
 });
 
-test("while watching, the row holds 介入する and 一時停止; stepping in brings back × and ここに打つ",()=>{
+test("while watching, the row holds 介入する, 速さ and 一時停止; stepping in brings back × and ここに打つ",()=>{
   const row=between('id="actionRow"','id="illegalPromptFallbackPanel"');
-  assert.match(row,/id="watchIntervene" class="secondary" type="button" hidden>介入する<\/button>\s*<button id="watchToggle" class="primary" type="button"[^>]* hidden/);
+  assert.match(row,/id="watchIntervene" class="secondary" type="button" hidden>介入する<\/button>[\s\S]*<button id="watchSpeedStep"[^>]* hidden>[\s\S]*<\/button>\s*<button id="watchToggle" class="primary" type="button"[^>]* hidden/);
   const view=body("show");
-  assert.match(view,/\$\("watchToggle"\)\.hidden=\$\("watchIntervene"\)\.hidden=!watchingPlay \|\| intervening;/);
+  assert.match(view,/\$\("watchToggle"\)\.hidden=\$\("watchIntervene"\)\.hidden=\$\("watchSpeedStep"\)\.hidden=!watchingPlay \|\| intervening;/);
   assert.match(view,/if\(watchingPlay && !intervening\)for\(const id of \["cancel","confirm"\]\)\$\(id\)\.hidden=true;/);
 });
 
@@ -83,19 +84,22 @@ test("each COM of a watched game plays with its own character",()=>{
   assert.match(body("finishAiMove"),/const com=comToMove\(\);/);
   assert.match(body("finishAiMove"),/choosePolicyMove\(game,result\.policy,result\.passLogit,\{\s*\.\.\.com,/);
   // In 観戦 the COMのキャラ tab holds one card per COM in place of the character list:
-  // a character, and カスタム's strength, three style rows and 投了.
-  const advanced=between('id="watchAiOptions"','id="aiStrengthRow"');
+  // its strength, a character, and カスタム's three style rows and 投了.
+  const advanced=between('id="watchAiOptions"','id="aiOneCom"');
   const cards=[...advanced.matchAll(/<fieldset class="com-card">([\s\S]*?)<\/fieldset>/g)].map(m=>m[1]);
   assert.equal(cards.length,2);
   for(const [card,side] of [[cards[0],"Black"],[cards[1],"White"]]){
     assert.match(card,new RegExp('<select id="com'+side+'Character"'));
+    // The strength is chosen apart from the character, so it stays outside カスタム's rows.
+    assert.ok(card.indexOf('id="com'+side+'Strength" type="range"')<card.indexOf('id="com'+side+'Custom"'));
     assert.deepEqual([...card.matchAll(/name="(com[A-Za-z]+)"/g)].map(m=>m[1]).filter((v,i,a)=>a.indexOf(v)===i),
-      ["Strength","Stance","Height","Tenuki","Resign"].map(field=>"com"+side+field));
+      ["Stance","Height","Tenuki","Resign"].map(field=>"com"+side+field));
   }
-  assert.deepEqual(choices("comBlackStrength"),["beginner","easy","normal","strong","strongest"]);
+  assert.deepEqual([...between('id="comBlackStrengthRow"','</div>').matchAll(/<small>([^<]+)<\/small>/g)].map(m=>m[1]),
+    ["beginner","easy","normal","strong","strongest"].map(key=>TEXT.ai.strengths[key]));
   assert.deepEqual([...cards[0].matchAll(/<option value="([a-z]+)"/g)].map(m=>m[1]),
-    ["chick","steady","raider","brawler","wide","serious","master","custom"]);
-  assert.match(body("syncWatchSliderRows"),/\$\("watchAiOptions"\)\.hidden=!two;\s*\$\("aiStrengthRow"\)\.hidden=two;/);
+    ["plain","thick","raider","brawler","wide","custom"]);
+  assert.match(body("syncWatchSliderRows"),/\$\("watchAiOptions"\)\.hidden=!two;\s*\$\("aiOneCom"\)\.hidden=two;/);
   // The COM left playing after a take-over keeps its own settings.
   assert.match(body("takeOverWatchedGame"),/=watchAi\[color===BLACK\?"white":"black"\]/);
 });
@@ -120,4 +124,17 @@ test("a COM that sees its game lost offers to end, a watched one plays on, and a
   assert.match(body("applySeats"),/game=\{\.\.\.game,endProposal:null\};/);
   assert.match(body("finishAiMove"),/else if\(!comOfferDeclined && game\.passes===0 && comEnds\(game\.next\)\)\{/);
   assert.match(body("requestAnalysis"),/if\(showsEndedTerritory\(game\)\)requestOwnership\(\);/);
+});
+
+test("while watching, 速さ changes only the pace: the next one on each tap, saved with the sheet's choice",()=>{
+  const row=between('id="actionRow"','id="illegalPromptFallbackPanel"');
+  assert.match(row,/id="watchIntervene"[\s\S]*id="watchSpeedStep"[\s\S]*id="watchToggle"/);
+  assert.match(body("show"),/\$\("watchSpeedLabel"\)\.textContent=TEXT\.newGame\.watchSpeeds\[watchSpeed\];/);
+  assert.match(app,/const WATCH_SPEED_ORDER = \["slow","normal","fast"\];/);
+  const step=app.slice(app.indexOf('$("watchSpeedStep").onclick'),app.indexOf("function syncHandicapUi"));
+  // It leaves the COMs, the pause and the game alone.
+  assert.doesNotMatch(step,/stopAiTurn|watchPaused=|watchAi=|setWatching|newGame/);
+  assert.match(step,/rememberSettings\(\);/);
+  assert.match(step,/input\[name="watchSpeed"\]/);
+  assert.equal(TEXT.game.watchSpeedAria("はやい"),"観戦の速さ：はやい（押すと次の速さ）");
 });

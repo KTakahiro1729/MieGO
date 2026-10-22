@@ -3,7 +3,8 @@ import {clamp} from "./ai-policy-sampling.mjs";
 
 // The style axes a COM carries, each 0..100 with 50 neutral.
 // height: 0 low, 100 high. stance: 0 defends, 100 attacks and invades.
-// tenuki: 0 answers close by, 100 plays elsewhere.
+// tenuki: 0 plays close to the opponent's stones, 100 away from them, as the
+// 棋風診断 reads 律儀/自由 (public/play-style.mjs).
 export const STYLE_AXES = Object.freeze([
   "height",
   "stance",
@@ -15,7 +16,7 @@ export const STYLE_AXES = Object.freeze([
 export const styleSignal = Object.freeze({
   height: f => f.height,
   stance: f => (f.attack + f.invasion)/2 - f.reinforcement,
-  tenuki: f => f.tenuki,
+  tenuki: f => f.apart,
 });
 // Saved settings from before 攻守 took in 侵入度 and 補強度: 攻守 is the mean of
 // what is there, with 侵入 重視 and 補強 控える both reading as 攻める.
@@ -34,6 +35,9 @@ export function stanceOf(com) {
  * - height -1..1: -1 on the 2nd and 3rd lines, +1 on the 4th line and above,
  *   0 on the 1st line; it fades out as the board fills, since it is an opening taste.
  * - tenuki -1..1: -1 next to the opponent's last move, +1 five or more lines away.
+ * - apart -1..1: for a move that attacks nothing while 60% or more of the board
+ *   is empty, -1 one line from the nearest opponent stone, 0 two lines, +1
+ *   three or more; 0 for any other move.
  */
 export function personalityFeatures(state, point, ownership) {
   if (!Number.isInteger(point) || point<0 || point>=state.board.length || state.board[point])
@@ -44,7 +48,8 @@ export function personalityFeatures(state, point, ownership) {
   const opponent=adjacent.filter(n=>state.board[n]===-side);
   const after=play(state,point);
   const afterLib=group(after.board,point).liberties.size;
-  const shape={attack:attackFeature(state,after,opponent,afterLib),
+  const attack=attackFeature(state,after,opponent,afterLib);
+  const shape={apart:apartFeature(state,point,attack),attack,
     height:heightFeature(state.board,point),tenuki:tenukiFeature(state,point)};
   if (!ownership || ownership.length!==state.board.length) return {invasion:0,reinforcement:0,...shape};
   const control=clamp(side * (Number(ownership[point]) || 0),-1,1);
@@ -104,4 +109,19 @@ function tenukiFeature(state, point) {
   const d=Math.max(Math.abs(point%size-last.position%size),
     Math.abs(Math.floor(point/size)-Math.floor(last.position/size)));
   return clamp((d-3)/2,-1,1);
+}
+
+// 自由/律儀 as the 棋風診断 reads it: how far a quiet early move stays from the
+// opponent's stones. Answering the last move nearby (tenuki) was mostly a
+// measure of strength among people, so the style axis reads this instead.
+const QUIET_ATTACK = 0.3, QUIET_EMPTY = 0.6;
+function apartFeature(state, point, attack) {
+  const board=state.board;
+  if(attack>=QUIET_ATTACK || board.filter(v=>v===0).length<QUIET_EMPTY*board.length)return 0;
+  const size=sizeOf(board),x=point%size,y=Math.floor(point/size);
+  let near=3;
+  board.forEach((stone,at)=>{
+    if(stone===-state.next)near=Math.min(near,Math.max(Math.abs(at%size-x),Math.abs(Math.floor(at/size)-y)));
+  });
+  return clamp(near-2,-1,1);
 }
