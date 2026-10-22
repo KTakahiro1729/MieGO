@@ -32,11 +32,11 @@ test("観戦 is a mode beside 対COM; its first tab is the speed of the moves",(
   assert.match(app,/watchChoice=settings\.watch===true \|\| settings\.aiSide==="watch";/);
 });
 
-test("while watching, the row holds 介入する and 一時停止; stepping in brings back × and ここに打つ",()=>{
+test("while watching, the row holds 介入する, 速さ and 一時停止; stepping in brings back × and ここに打つ",()=>{
   const row=between('id="actionRow"','id="illegalPromptFallbackPanel"');
-  assert.match(row,/id="watchIntervene" class="secondary" type="button" hidden>介入する<\/button>\s*<button id="watchToggle" class="primary" type="button"[^>]* hidden/);
+  assert.match(row,/id="watchIntervene" class="secondary" type="button" hidden>介入する<\/button>[\s\S]*<button id="watchSpeedStep"[^>]* hidden>[\s\S]*<\/button>\s*<button id="watchToggle" class="primary" type="button"[^>]* hidden/);
   const view=body("show");
-  assert.match(view,/\$\("watchToggle"\)\.hidden=\$\("watchIntervene"\)\.hidden=!watchingPlay \|\| intervening;/);
+  assert.match(view,/\$\("watchToggle"\)\.hidden=\$\("watchIntervene"\)\.hidden=\$\("watchSpeedStep"\)\.hidden=!watchingPlay \|\| intervening;/);
   assert.match(view,/if\(watchingPlay && !intervening\)for\(const id of \["cancel","confirm"\]\)\$\(id\)\.hidden=true;/);
 });
 
@@ -124,4 +124,17 @@ test("a COM that sees its game lost offers to end, a watched one plays on, and a
   assert.match(body("applySeats"),/game=\{\.\.\.game,endProposal:null\};/);
   assert.match(body("finishAiMove"),/else if\(!comOfferDeclined && game\.passes===0 && comEnds\(game\.next\)\)\{/);
   assert.match(body("requestAnalysis"),/if\(showsEndedTerritory\(game\)\)requestOwnership\(\);/);
+});
+
+test("while watching, 速さ changes only the pace: the next one on each tap, saved with the sheet's choice",()=>{
+  const row=between('id="actionRow"','id="illegalPromptFallbackPanel"');
+  assert.match(row,/id="watchIntervene"[\s\S]*id="watchSpeedStep"[\s\S]*id="watchToggle"/);
+  assert.match(body("show"),/\$\("watchSpeedLabel"\)\.textContent=TEXT\.newGame\.watchSpeeds\[watchSpeed\];/);
+  assert.match(app,/const WATCH_SPEED_ORDER = \["slow","normal","fast"\];/);
+  const step=app.slice(app.indexOf('$("watchSpeedStep").onclick'),app.indexOf("function syncHandicapUi"));
+  // It leaves the COMs, the pause and the game alone.
+  assert.doesNotMatch(step,/stopAiTurn|watchPaused=|watchAi=|setWatching|newGame/);
+  assert.match(step,/rememberSettings\(\);/);
+  assert.match(step,/input\[name="watchSpeed"\]/);
+  assert.equal(TEXT.game.watchSpeedAria("はやい"),"観戦の速さ：はやい（押すと次の速さ）");
 });

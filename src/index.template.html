@@ -144,6 +144,8 @@
           <button id="scoreStyle" class="secondary score-style" type="button" aria-label="{{playStyle.fromResultAria}}" title="{{playStyle.fromResultAria}}" hidden><span>{{playStyle.fromResult}}</span><small aria-hidden="true">{{playStyle.fromResultNote}}</small></button>
           <button id="openShare" class="secondary share-game" type="button" aria-label="{{share.thisGame}}" title="{{share.thisGame}}" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M8 10.5H6a1.5 1.5 0 0 0-1.5 1.5v7.5A1.5 1.5 0 0 0 6 21h12a1.5 1.5 0 0 0 1.5-1.5V12a1.5 1.5 0 0 0-1.5-1.5h-2"/></svg></button>
           <button id="watchIntervene" class="secondary" type="button" hidden>{{game.watchIntervene}}</button>
+          <!-- The watching pace, one tap to the next, without opening the new-game sheet. -->
+          <button id="watchSpeedStep" class="secondary watch-speed" type="button" hidden><span id="watchSpeedLabel">{{newGame.watchSpeeds.normal}}</span><small aria-hidden="true">{{game.watchSpeedNote}}</small></button>
           <button id="watchToggle" class="primary" type="button" aria-pressed="false" hidden>{{game.watchPause}}</button>
         </div>
         <div id="illegalPromptFallbackPanel" class="illegal-prompt-fallback" hidden>

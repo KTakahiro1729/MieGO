@@ -964,6 +964,9 @@ body{overflow:hidden}
 .score-table{grid-template-columns:1fr;row-gap:2px;width:100%;max-width:200px;margin:0 auto;padding-top:0;border-top:0}
 /* After a game whose style can be read, 棋風診断 sits after the result. */
 .game-panel.is-finished .action-row .score-style{flex:0 0 48px;width:48px;min-width:48px;padding:5px 0;display:grid;place-content:center;gap:1px;line-height:1.15}
+/* While watching, 速さ sits between 介入する and 一時停止, as wide as its longest pace (ゆっくり), so a tap never moves the row. */
+.action-row .watch-speed{flex:0 0 76px;width:76px;min-width:76px;padding:5px 8px;display:grid;place-content:center;gap:1px;line-height:1.15}
+.action-row .watch-speed small{font-size:var(--font-caption);font-weight:var(--weight-medium);opacity:.75}
 .action-row .score-style small{font-size:var(--font-caption);font-weight:var(--weight-medium);opacity:.75}
 /* With 棋風 in the row, a 320px screen tightens the row so 新規対戦 and もう一局 keep their room. */
 @media(max-width:359px){
