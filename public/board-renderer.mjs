@@ -34,11 +34,12 @@ export const CAPTURE_FADE_MS=200;
 // closes in on it, faster and denser as it goes, over BREATH_GATHER_MS; then
 // a stretch of line leaves the liberties, speeding up over its first line
 // to one line each BREATH_LINE_MS, and runs on into the group at that speed,
-// trailing what it covered in the last BREATH_TRAIL_MS, until it has passed
+// trailing what it covered in the last BREATH_TRAIL_MS (less than a line, so
+// it is never seen on both sides of a stone at once), until it has passed
 // the deepest stone. A deeper group takes longer, never faster. Each group
 // starts its breath up to BREATH_STAGGER_MS late, so the groups of a side
 // breathe apart.
-export const BREATH_GATHER_MS=900, BREATH_LINE_MS=200, BREATH_TRAIL_MS=250, BREATH_STAGGER_MS=1100, BREATH_REST_MS=200;
+export const BREATH_GATHER_MS=900, BREATH_LINE_MS=200, BREATH_TRAIL_MS=150, BREATH_STAGGER_MS=1100, BREATH_REST_MS=200;
 // How far a breath has run, in lines, BREATH_GATHER_MS after it started.
 export const breathReached=t=>t<=0?0:t<BREATH_LINE_MS?t*t/(2*BREATH_LINE_MS**2):.5+(t-BREATH_LINE_MS)/BREATH_LINE_MS;
 // How long, after it starts, a breath takes to run d lines with its trail.
@@ -56,7 +57,7 @@ export const breathDelay=first=>(first*.6180339887%1)*BREATH_STAGGER_MS;
 // PREVIEW_CAPTURED_ALPHA; once played they fade out from there as any
 // capture does. A move played without being placed first dims as it is played.
 export const CAPTURE_STEP_MS=320, CAPTURE_DIM_MS=480, PREVIEW_CAPTURED_ALPHA=.4;
-const DEAD_AIR="rgb(128,124,118)";
+const DEAD_RGB="128,124,118", DEAD_AIR=`rgb(${DEAD_RGB})`;
 const reducedMotion=()=>!!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 // ドパガキモード: sparks fly from each taken stone, and a "+N" rises over them, for this long.
 export const BURST_MS=900;
@@ -303,8 +304,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
   }
 
   // 盤の線: a line runs through each group, along the board's
-  // lines from stone to stone and out toward every empty point next to it,
-  // narrowing to a point on it, so a group shows what holds it
+  // lines from stone to stone and out to every empty point next to it, one
+  // width throughout, so a group shows what holds it
   // together and the points it needs. Standing still these lines are dashes.
   // While playing there are no dashes: each breath starts as a circle closing
   // in on every liberty, and is drawn into the group as a stretch
@@ -314,7 +315,7 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     const palette=countingPalette(view.palette);
     const rgb={[BLACK]:paletteAt(1,palette).join(","),[WHITE]:paletteAt(-1,palette).join(",")};
     const tone={[BLACK]:`rgb(${rgb[BLACK]})`,[WHITE]:`rgb(${rgb[WHITE]})`};
-    const width=Math.max(2,gap*.08), dash=gap*.09, edge=1-.44, flare=gap*.14;
+    const width=Math.max(2,gap*.08), dash=gap*.09;
     const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
     const dots=new Map(), seen=new Set(), groups=[];
     for(let i=0;i<board.length;i++){
@@ -337,9 +338,10 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         if(!board[n]){
           lines.push({a:n,b:s,from:0,to:depth.get(s),liberty:true});
           const key=n*3+color;
-          if(!dots.has(key))dots.set(key,{point:n,color,first:delay,last:delay});
+          if(!dots.has(key))dots.set(key,{point:n,color,first:delay,last:delay,atari:true});
           const dot=dots.get(key);
           dot.first=Math.min(dot.first,delay);dot.last=Math.max(dot.last,delay);
+          dot.atari&&=g.liberties.size===1;
         }else if(g.stones.has(n) && n>s)lines.push({a:s,b:n,from:depth.get(s),to:depth.get(n),liberty:false});
       }
       // Its breath is through once its tail has passed the deepest stone,
@@ -372,18 +374,8 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         const [ax,ay]=xy(line.a),[bx,by]=xy(line.b);
         const along=(u,v)=>{if(v>u){ctx.moveTo(ax+(bx-ax)*u,ay+(by-ay)*u);ctx.lineTo(ax+(bx-ax)*v,ay+(by-ay)*v);}};
         ctx.save();
-        if(line.liberty){
-          // Toward a liberty the line flares out of the stone's edge and
-          // narrows to its own width on the liberty, as wide as the circle
-          // that closes in there; over the stone it keeps its width.
-          const at=(u,side)=>[ax+(bx-ax)*u+(ay-by)/gap*side,ay+(by-ay)*u+(bx-ax)/gap*side];
-          const outline=[[0,width/2],[edge,flare/2],[edge,width/2],[1,width/2],[1,-width/2],[edge,-width/2],[edge,-flare/2],[0,-width/2]];
-          ctx.beginPath();
-          outline.forEach(([u,side],k)=>ctx[k?"lineTo":"moveTo"](...at(u,side)));
-          ctx.closePath();ctx.clip();
-          ctx.lineWidth=flare;
-        }
-        ctx.strokeStyle=tone[color];
+        // A group in atari breathes grey, as a group a move takes dies.
+        ctx.strokeStyle=g.liberties.size===1?DEAD_AIR:tone[color];
         // Standing still the line shows as dashes; they start at the stone
         // so they line up through the group.
         if(!moving){
@@ -408,8 +400,9 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     // circle from each in turn. Groups of one side that share a liberty
     // share its circle: it closes in with the first group's breath and stays
     // a dot until the last has drawn its own in.
-    if(moving)for(const {point,color,first,last} of dots.values()){
-      const [x,y]=xy(point), held=after(color,first);
+    // A liberty only groups in atari need closes in grey.
+    if(moving)for(const {point,color,first,last,atari} of dots.values()){
+      const [x,y]=xy(point), held=after(color,first), air=atari?DEAD_RGB:rgb[color];
       if(held<0 || held>=last-first+BREATH_GATHER_MS)continue;
       const gather=Math.min(1,held/BREATH_GATHER_MS);
       // It fades in from nothing over the first third, then darkens.
@@ -417,10 +410,10 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
       ctx.globalAlpha=(.4+.5*gather)*rise*rise*(3-2*rise);
       const radius=gap*(.04+.22*(1-gather**2)), core=gap*.04/radius;
       const soft=ctx.createRadialGradient(x,y,0,x,y,radius);
-      soft.addColorStop(0,`rgba(${rgb[color]},1)`);
-      soft.addColorStop(core,`rgba(${rgb[color]},1)`);
-      soft.addColorStop(1,`rgba(${rgb[color]},0)`);
-      ctx.fillStyle=core<1?soft:tone[color];ctx.beginPath();
+      soft.addColorStop(0,`rgba(${air},1)`);
+      soft.addColorStop(core,`rgba(${air},1)`);
+      soft.addColorStop(1,`rgba(${air},0)`);
+      ctx.fillStyle=core<1?soft:`rgb(${air})`;ctx.beginPath();
       ctx.arc(x,y,radius,0,Math.PI*2);ctx.fill();
     }
     ctx.restore();
@@ -563,12 +556,11 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
     cuts.push({lines,start,step,grey:(Math.max(...depth.values())+.5)*step,preview});
     return i=>depth.get(i)*step;
   }
-  // A taken group's line keeps its side's colour where the grey has not
-  // reached, the stretch to its last liberty flared like any line to a liberty.
+  // A taken group's line keeps its side's colour where the grey has not reached.
   function paintCuts(view,gap,pad) {
     const time=now(), palette=countingPalette(view.palette);
     cuts=cuts.filter(c=>time-c.start<c.grey+CAPTURE_DIM_MS);
-    const width=Math.max(2,gap*.08), flare=gap*.14, edge=1-.44;
+    const width=Math.max(2,gap*.08);
     const xy=i=>[pad+(i%SIZE)*gap,pad+Math.floor(i/SIZE)*gap];
     ctx.save();
     ctx.lineCap="round";
@@ -581,14 +573,6 @@ export function createBoardRenderer({canvas,getView,createOverlayCanvas=()=>docu
         ctx.save();
         const air=`rgb(${paletteAt(line.color===BLACK?1:-1,palette).join(",")})`;
         ctx.lineWidth=width;
-        if(line.liberty){
-          const at=(u,side)=>[ax+(bx-ax)*u+(ay-by)/gap*side,ay+(by-ay)*u+(bx-ax)/gap*side];
-          const outline=[[0,width/2],[edge,flare/2],[edge,width/2],[1,width/2],[1,-width/2],[edge,-width/2],[edge,-flare/2],[0,-width/2]];
-          ctx.beginPath();
-          outline.forEach(([u,side],k)=>ctx[k?"lineTo":"moveTo"](...at(u,side)));
-          ctx.closePath();ctx.clip();
-          ctx.lineWidth=flare;ctx.lineCap="butt";
-        }
         // A point u along the line is min(from+u, to+1-u) lines from the
         // placed stone; what the grey has reached is grey, and the placed
         // stone itself is never drawn over.
