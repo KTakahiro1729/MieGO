@@ -93,20 +93,37 @@ test("対局を再開: the opponent of the side that resumes moves first", () =>
   assert.equal(parseSGF(exportSGF(resumed)).snapshot.board[0], BLACK);
 });
 
-test("対局を再開 after a count opened without passes still replays", () => {
-  // Black to move: a COM game's 終局, or White's 終局の提案 accepted by Black,
-  // then Black resumes, so White (the COM or the friend) moves first.
+test("対局を再開 after a count opened without passes keeps the turn", () => {
+  // Black to move: Black's 終局の提案 accepted by the COM or the friend, or
+  // White's accepted by Black. Nobody passed, so whoever resumes, Black still
+  // moves next, as after 対局を続ける; the resumer does not lose a move.
   const g = play(play(newGame(), 40), 41);
-  const offered = answerEndProposal(proposeEnd(g, WHITE), BLACK, true);
-  for (const counted of [beginSoloScoring(g), offered]) {
+  const offers = [answerEndProposal(proposeEnd(g, BLACK), WHITE, true),
+    answerEndProposal(proposeEnd(g, WHITE), BLACK, true), beginSoloScoring(g)];
+  for (const counted of offers) {
+    assert.equal(counted.next, BLACK);
+    assert.equal(resume(counted, BLACK).next, BLACK);
+    assert.equal(resume(counted, WHITE).next, BLACK);
     const resumed = play(resume(counted, BLACK), 0);
-    assert.equal(resumed.moves.at(-1).color, WHITE);
+    assert.equal(resumed.moves.at(-1).color, BLACK);
     const replayed = replaySteps(resumed);
     assert.deepEqual(replayed.board, resumed.board);
-    assert.equal(replayed.next, BLACK);
-    // 待った gives the turn back to the side whose move was taken back.
-    assert.equal(takeBack(resumed, { color: WHITE }).game.next, WHITE);
+    assert.equal(replayed.next, WHITE);
+    assert.equal(takeBack(resumed, { color: BLACK }).game.next, BLACK);
   }
+});
+
+test("a game resumed out of turn by an older version still replays", () => {
+  // Saves made before the turn was kept have White moving first after Black resumed.
+  const g = play(play(newGame(), 40), 41);
+  const counted = answerEndProposal(proposeEnd(g, WHITE), BLACK, true);
+  const resumed = play({ ...resume(counted, BLACK), next: WHITE }, 0);
+  assert.equal(resumed.moves.at(-1).color, WHITE);
+  const replayed = replaySteps(resumed);
+  assert.deepEqual(replayed.board, resumed.board);
+  assert.equal(replayed.next, BLACK);
+  // 待った gives the turn back to the side whose move was taken back.
+  assert.equal(takeBack(resumed, { color: WHITE }).game.next, WHITE);
 });
 
 test("groups yields every group of stones once, with its colour and liberties", () => {
