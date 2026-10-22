@@ -1,19 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync,readdirSync} from "node:fs";
+import {renderStylePage} from "../scripts/build-html.mjs";
 const dir=new URL("../public/",import.meta.url);
 const html=readFileSync(new URL("index.html",dir),"utf8");
 const app=readFileSync(new URL("app.mjs",dir),"utf8");
 const css=readFileSync(new URL("style.css",dir),"utf8");
 const idsIn=page=>new Set([...page.matchAll(/\sid="([^"]+)"/g)].map(m=>m[1]));
 const ids=idsIn(html);
-// Modules of a page of their own, checked against that page.
-const PAGE_OF={"play-style-page.mjs":"style.html"};
-test("every $(id) lookup in UI modules names an element in index.html",()=>{
+// Modules of a page of their own, checked against that page, rendered here since
+// release builds leave public/style.html out.
+const PAGE_OF={"play-style-page.mjs":renderStylePage};
+test("every $(id) lookup in UI modules names an element in index.html",async()=>{
   // A removed element left behind as $("x").prop=... throws and aborts the handler.
   for(const file of readdirSync(dir).filter(f=>f.endsWith(".mjs") && !f.includes("bundle"))){
     const source=readFileSync(new URL(file,dir),"utf8");
-    const known=PAGE_OF[file] ? idsIn(readFileSync(new URL(PAGE_OF[file],dir),"utf8")) : ids;
+    const known=PAGE_OF[file] ? idsIn(await PAGE_OF[file]()) : ids;
     for(const [,id] of source.matchAll(/\$\("([^"]+)"\)/g))
       assert.ok(known.has(id),file+" references missing #"+id);
   }
