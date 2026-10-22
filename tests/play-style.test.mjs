@@ -25,7 +25,7 @@ import {
 } from "../public/play-style.mjs";
 import {createHistoryStyle} from "../public/history-style.mjs";
 import {installDom} from "./helpers/fake-dom.mjs";
-import {renderStylePage} from "../scripts/build-html.mjs";
+import {releaseBuild,renderStylePage} from "../scripts/build-html.mjs";
 import {makeReviewUrl,makeStyleMovesPrompt} from "../public/sgf-link.mjs";
 import {exportSGF} from "../public/sgf.mjs";
 import {readFileSync} from "node:fs";
@@ -120,7 +120,8 @@ test("a player's /style link carries the type, colour and how far each axis lean
 
 test("the /style page is rendered from its template and texts.mjs",async()=>{
   const html=await renderStylePage();
-  assert.equal(readFileSync(new URL("../public/style.html",import.meta.url),"utf8"),html,"run: node scripts/build-html.mjs");
+  // Release builds leave public/style.html out (scripts/build-html.mjs).
+  if(!releaseBuild())assert.equal(readFileSync(new URL("../public/style.html",import.meta.url),"utf8"),html,"run: node scripts/build-html.mjs");
   assert.match(html,/<title>MieGO 棋風診断<\/title>/);
   assert.match(html,/src="\/play-style-page\.mjs"/);
   assert.ok(!/\{\{/.test(html));

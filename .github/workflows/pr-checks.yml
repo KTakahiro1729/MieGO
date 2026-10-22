@@ -20,6 +20,11 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Test and build browser KataGo bundle
         run: npm test
+      # Production builds from the release branch leave pages out (scripts/build-html.mjs).
+      - name: Test the release build
+        env:
+          WORKERS_CI_BRANCH: release
+        run: node scripts/build-html.mjs && node --test
       - name: Check client JavaScript syntax
         run: |
           node --check src/worker.mjs
