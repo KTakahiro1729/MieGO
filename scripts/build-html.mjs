@@ -4,7 +4,8 @@ import { pathToFileURL } from "node:url";
 import { textAt } from "../public/texts.mjs";
 
 // public/index.html is generated: edit wording in public/texts.mjs and markup
-// in src/index.template.html, then run `node scripts/build-html.mjs`.
+// in src/index.template.html, then run `node scripts/build-html.mjs`. public/ai.md
+// is generated from src/ai.template.md the same way.
 //   {{help.title}}            a string
 //   {{game.moveLabel(0)}}     a function, called with numbers or other keys
 //   {{help.local.items}}      an array, rendered as <li> lines
@@ -17,6 +18,11 @@ const NOTICE = "<!-- Generated from src/index.template.html and public/texts.mjs
 // The site serves MieGO's license and the third-party notices as one file,
 // since the MIT and Apache licenses ask for them in every copy.
 const LICENSES = resolve("public/licenses.txt");
+// The guide for AIs at /ai.md. Lines ending in <!-- not in release --> are left
+// out of production and lines ending in <!-- release only --> are kept only there,
+// so it describes the features that build shows.
+const AI_GUIDE_TEMPLATE = resolve("src/ai.template.md");
+const AI_GUIDE = resolve("public/ai.md");
 
 // Production, built from the release branch on Workers Builds, leaves 棋風診断 and
 // new 対友人 games out for now: index.html is marked so the page hides their entries,
@@ -65,6 +71,14 @@ export async function renderLicenses() {
   return "# MieGO\n\n" + own.trim() + "\n\n" + others;
 }
 
+export async function renderAiGuide(release = releaseBuild()) {
+  const lines = (await readFile(AI_GUIDE_TEMPLATE, "utf8")).split("\n");
+  return lines.flatMap(line => {
+    const [, text, tag] = line.match(/^(.*?)(?: <!-- (not in release|release only) -->)?$/);
+    return !tag || (tag === "release only") === release ? [text] : [];
+  }).join("\n");
+}
+
 export async function renderIndex(release = releaseBuild()) {
   let html = renderTemplate(await readFile(TEMPLATE, "utf8"));
   if (release) html = html.replace('<html lang="ja">', '<html lang="ja" data-no-p2p data-no-play-style>');
@@ -91,6 +105,8 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     await writeFile(STYLE_OUTPUT, await renderStylePage());
     console.log("style.html: rendered from texts.mjs");
   }
+  await writeFile(AI_GUIDE, await renderAiGuide());
+  console.log("ai.md: rendered from src/ai.template.md" + (releaseBuild() ? " without new 対友人 games" : ""));
   await writeFile(LICENSES, await renderLicenses());
   console.log("licenses.txt: LICENSE and THIRD_PARTY_NOTICES.md");
 }
