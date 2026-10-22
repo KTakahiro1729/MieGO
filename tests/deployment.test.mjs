@@ -132,7 +132,7 @@ test("Workers Builds removes untracked public/ files a cached build added, and k
   }
 });
 test("production, built from the release branch, leaves 棋風診断 and new 対友人 games out", async () => {
-  const { releaseBuild, renderIndex } = await import("../scripts/build-html.mjs");
+  const { releaseBuild, renderAiGuide, renderIndex } = await import("../scripts/build-html.mjs");
   assert.equal(releaseBuild({ WORKERS_CI_BRANCH: "release" }), true);
   assert.equal(releaseBuild({ WORKERS_CI_BRANCH: "main" }), false);
   assert.equal(releaseBuild({}), false);
@@ -141,6 +141,15 @@ test("production, built from the release branch, leaves 棋風診断 and new 対
   try {
     assert.match(await renderIndex(true), /<html lang="ja" data-no-p2p data-no-play-style>/);
     assert.doesNotMatch(await renderIndex(false), /data-no-(p2p|play-style)/);
+    // The guide for AIs at /ai.md follows: production's leaves 友人対局 and 棋風診断 out.
+    const [release, preview] = [await renderAiGuide(true), await renderAiGuide(false)];
+    assert.doesNotMatch(release, /友人|招待|room|棋風/);
+    assert.match(preview, /友人対局/);
+    assert.match(preview, /`\?room=`は友人との対戦招待専用/);
+    for (const guide of [release, preview]) {
+      assert.doesNotMatch(guide, /<!--/);
+      assert.match(guide, /他の進行中の対局/);
+    }
   } finally { process.chdir(cwd); }
   const css = readFileSync(resolve(root, "public/style.css"), "utf8");
   for (const id of ["scoreStyle", "sharePlayStyles", "historyStyle", "historyStyleBar"])

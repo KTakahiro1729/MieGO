@@ -265,7 +265,7 @@ SGF入力は**9路・13路・19路盤（`SZ`必須）・SGF FF[4]・交互着手
 
 **「この局面のURLをコピー」**で棋譜全体（SGF）と選択した手数（`move`）を含むリンクを作成します。`/?sgf=<URLエンコードしたSGF>&move=42`を開くと、42手目直後の局面で再生モードが開きます。`move`省略で最終局面、`move=0`で初期局面です。
 
-**「AI向けにコピー」**では、そのURLとURLの読み方・生成方法を簡潔に説明する文章、選択手数の●○・による座標ラベルなし文字図（盤の大きさと同じ行数・列数）、公開仕様書`/ai.md`へのリンクをコピーします。SGF本文の別貼り付けは不要です。ユーザーが自分の好きな生成AIに貼り付け、自由に質問し、別タブのMieGOでAIの説明に沿って局面を行き来できます。AIも同形式のURLを生成できます。サイトに`/ai.md`への目次`/llms.txt`も公開します。
+**「AI向けにコピー」**では、そのURLとURLの読み方・生成方法を簡潔に説明する文章、選択手数の●○・による座標ラベルなし文字図（盤の大きさと同じ行数・列数）、公開仕様書`/ai.md`へのリンクをコピーします。SGF本文の別貼り付けは不要です。ユーザーが自分の好きな生成AIに貼り付け、自由に質問し、別タブのMieGOでAIの説明に沿って局面を行き来できます。AIも同形式のURLを生成できます。サイトに`/ai.md`への目次`/llms.txt`も公開します。`/ai.md`は`src/ai.template.md`から`scripts/build-html.mjs`が生成します（Gitでは管理しません）。
 
 見出しの「?」から開くヘルプシートの「初心者の方へ」では、**ルールの質問**と**今の局面の質問**（進行中の対局の棋譜URL・手番・同じ文字図）をコピーできます。AIには場所を「上から○行目・左から○列目」で答えるよう頼みます。禁止手の質問・AI向けコピーと同じく、棋譜URLの検査（`sgf-link.mjs`の`shareableReviewUrl`）、文字図の並び（`board-text.mjs`の`formatBoardSection`）、クリップボードと手動コピーの処理（`clipboard.mjs`の`copyWithFallback`）を共有します。
 
@@ -307,7 +307,7 @@ npm run dev
 2. **Create a merge commit** でマージします（Squash・Rebaseは使いません。使うと `release` と `main` の履歴が分かれ、次のリリースでコンフリクトします）。
 3. Cloudflareの **Builds / Deployments** で `release` のビルドが成功し、miego.fun に出たことを確認します。
 
-棋風診断と、新しい対友人の対局は、`release` から作る本番では出しません。Workers Buildsのビルドで `WORKERS_CI_BRANCH` が `release` のとき、`scripts/build-html.mjs` が `index.html` に `data-no-play-style` と `data-no-p2p` を付けます。前者は結果・共有・履歴の棋風診断の入口を隠し、`/style` のページを作りません（`/style` へのリンクはトップへ転送）。後者は新規対戦の「対友人」とヘルプの対友人の項を隠します。届いた招待URLと、終わっていない友人対局の再開は本番でも使えます（本番の`GameRoom`は残します）。手元で本番と同じ表示を見るには `MIEGO_RELEASE=1 npm run dev` を使います。出すと決めたら、その切り替えを外すPRを `main` に出してリリースします。
+棋風診断と、新しい対友人の対局は、`release` から作る本番では出しません。Workers Buildsのビルドで `WORKERS_CI_BRANCH` が `release` のとき、`scripts/build-html.mjs` が `index.html` に `data-no-play-style` と `data-no-p2p` を付けます。前者は結果・共有・履歴の棋風診断の入口を隠し、`/style` のページを作りません（`/style` へのリンクはトップへ転送）。後者は新規対戦の「対友人」とヘルプの対友人の項を隠します。AI向けの`/ai.md`も、`src/ai.template.md`の行末に`<!-- not in release -->`がある行（友人対局と招待URLの記述）を外し、`<!-- release only -->`の行を入れて作ります。届いた招待URLと、終わっていない友人対局の再開は本番でも使えます（本番の`GameRoom`は残します）。手元で本番と同じ表示を見るには `MIEGO_RELEASE=1 npm run dev` を使います。出すと決めたら、その切り替えを外すPRを `main` に出してリリースします。
 
 本番だけの急ぎの修正は、`main` への修正PRをマージしてから上の手順でリリースします。`release` に直接コミットした場合は、すぐに `release` を `main` へマージして戻してください。
 
